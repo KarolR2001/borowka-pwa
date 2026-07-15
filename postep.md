@@ -58,6 +58,7 @@
 - Firebase CLI nie jest `devDependency`, bo aktualne `firebase-tools@15.23.0` wnosi umiarkowane podatnosci w zaleznosciach posrednich. Wersja jest przypieta w `scripts/firebase-cli.mjs`.
 - Rekomendowana lokalizacja Firestore do zatwierdzenia: `europe-central2` Warsaw.
 - Do wykonania recznie: utworzenie projektow `borowka-pwa-dev` i `borowka-pwa-prod`, wlaczenie Authentication e-mail/haslo, Firestore i Hosting.
+- Lokalnie przygotowano osobne pliki `.env.development.local` i `.env.production.local`; realne wartosci Firebase pozostaja poza repozytorium.
 
 ### Testy
 
@@ -66,6 +67,7 @@
 - `npm audit --audit-level=moderate` - zaliczone, `0 vulnerabilities`.
 - Po diagnostyce PWA: `npm run verify` - zaliczone, 4 pliki testowe, 10 testow.
 - Po konfiguracji runtime Firebase: `npm run verify` - zaliczone, 5 plikow testowych, 13 testow.
+- Po dokumentacji konfiguracji env: `npm run verify` - zaliczone.
 
 ### GitHub
 

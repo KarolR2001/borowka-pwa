@@ -12,7 +12,7 @@ Repozytorium jest tworzone zgodnie z dokumentami z katalogu nadrzednego:
 
 ## Status
 
-Aktualny zakres repozytorium: Etap 1, czyli warsztat inzynierski i pusty szkielet aplikacji. Model kont, sesji, stawek, wyplat i sprzedazy bedzie dodawany etapami po zatwierdzeniu decyzji z Etapu 0.
+Aktualny zakres repozytorium: Etap 2, czyli emulatory Firebase, podstawowa diagnostyka PWA i konfiguracja srodowisk. Model kont, sesji, stawek, wyplat i sprzedazy bedzie dodawany etapami po zatwierdzeniu decyzji z Etapu 0.
 
 ## Wymagane narzedzia
 
@@ -53,7 +53,12 @@ Projekt ma docelowo dwa osobne srodowiska Firebase:
 - development
 - production
 
-Lokalna konfiguracja klienta Firebase jest publiczna, ale nie moze zawierac sekretow administracyjnych. Skopiuj `.env.example` do lokalnego pliku `.env.local` i wpisz wartosci dla projektu development. Pliki `.env*` poza przykladami sa ignorowane przez Git.
+Lokalna konfiguracja klienta Firebase jest publiczna, ale nie moze zawierac sekretow administracyjnych. Dla rozdzielenia srodowisk uzywamy osobnych plikow lokalnych:
+
+- `.env.development.local` dla projektu Firebase development;
+- `.env.production.local` dla projektu Firebase production.
+
+Pliki `.env*` poza przykladami sa ignorowane przez Git. Do repo trafiaja tylko pliki `.env.example` oraz `.env.*.example` z pustymi lub przykladowymi wartosciami.
 
 ## Firebase
 

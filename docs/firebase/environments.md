@@ -53,3 +53,16 @@ For production:
 - Enable Hosting in both projects.
 - Add authorized domains for local/development/production as needed.
 - Record owner and production deploy approvers.
+
+## Local environment files
+
+Runtime client configuration is split by Vite mode:
+
+| Environment | Local file               | Example file               | Local file status |
+| ----------- | ------------------------ | -------------------------- | ----------------- |
+| Development | `.env.development.local` | `.env.development.example` | Ignored           |
+| Production  | `.env.production.local`  | `.env.production.example`  | Ignored           |
+
+Only example files may be committed. The `.env.*.local` files contain machine-local Firebase Web App configuration and must stay outside Git history.
+
+The Firebase Web App keys used by the browser client are not administrator secrets, but production values should still be handled as environment configuration and managed separately from development.
