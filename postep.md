@@ -66,3 +66,9 @@
 - `npm audit --audit-level=moderate` - zaliczone, `0 vulnerabilities`.
 - Po diagnostyce PWA: `npm run verify` - zaliczone, 4 pliki testowe, 10 testow.
 - Po konfiguracji runtime Firebase: `npm run verify` - zaliczone, 5 plikow testowych, 13 testow.
+
+### GitHub
+
+- Utworzono prywatne repozytorium: `https://github.com/KarolR2001/borowka-pwa`.
+- Wypchnieto galezie `main` i `chore/etap-2-firebase-pwa`.
+- Utworzono pull request Etapu 2: `https://github.com/KarolR2001/borowka-pwa/pull/1`.
