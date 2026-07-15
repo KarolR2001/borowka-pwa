@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "borowka-pwa-dev",
+    "development": "borowka-pwa-dev",
+    "production": "borowka-pwa-prod"
+  }
+}

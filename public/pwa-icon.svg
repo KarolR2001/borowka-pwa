@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Borowka PWA">
+  <rect width="512" height="512" rx="96" fill="#f7faf7"/>
+  <circle cx="214" cy="250" r="112" fill="#315fbb"/>
+  <circle cx="300" cy="286" r="118" fill="#284f9d"/>
+  <path d="M250 122c28-42 67-59 120-52-11 48-43 80-97 96-6-17-14-31-23-44Z" fill="#2f8f5b"/>
+  <path d="M170 204c20-25 46-40 78-45 13 5 24 14 33 26-42-8-79-1-111 19Z" fill="#6f8fd8" opacity=".52"/>
+  <circle cx="178" cy="214" r="20" fill="#e9f1ff" opacity=".5"/>
+</svg>
