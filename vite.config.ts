@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["pwa-icon.svg"],
+      includeAssets: ["pwa-icon.svg", "offline.html"],
       manifest: {
         name: "Borowka PWA",
         short_name: "Borowka",

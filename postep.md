@@ -49,6 +49,8 @@
 - Rozdzielono testy aplikacji (`npm test`) od testow Rules (`npm run test:rules`).
 - Dodano dokumentacje planowanych projektow Firebase, emulatorow, development deployment, production deployment i rollbacku Hostingu.
 - Rozszerzono CI o Java 21 i testy Firestore Rules.
+- Dodano diagnostyke PWA: status online/offline, status service workera, identyfikator urzadzenia i ostatnie uruchomienie.
+- Dodano podstawowa strone `offline.html` do cache PWA.
 
 ### Decyzje i blokery
 
@@ -61,3 +63,4 @@
 - `npm run verify` - zaliczone.
 - `npm run test:rules` - zaliczone, Firestore emulator, 1 plik testowy, 2 testy.
 - `npm audit --audit-level=moderate` - zaliczone, `0 vulnerabilities`.
+- Po diagnostyce PWA: `npm run verify` - zaliczone, 4 pliki testowe, 10 testow.
