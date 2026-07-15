@@ -37,3 +37,27 @@
 - Typecheck: zaliczone.
 - Testy automatyczne: 3 pliki testowe, 8 testow, wszystkie zaliczone.
 - Build PWA: zaliczony, wygenerowano `dist/sw.js` i `dist/manifest.webmanifest`.
+
+## 2026-07-15 - Etap 2, emulatory i srodowiska
+
+### Zakres
+
+- Rozpoczeto galaz `chore/etap-2-firebase-pwa`.
+- Dodano wrapper Firebase CLI dla przypietego `firebase-tools@15.23.0`.
+- Dodano lokalna JRE Temurin `21.0.11+10` w ignorowanym katalogu `.tools`.
+- Dodano testy Firestore Security Rules dla poczatkowego `deny by default`.
+- Rozdzielono testy aplikacji (`npm test`) od testow Rules (`npm run test:rules`).
+- Dodano dokumentacje planowanych projektow Firebase, emulatorow, development deployment, production deployment i rollbacku Hostingu.
+- Rozszerzono CI o Java 21 i testy Firestore Rules.
+
+### Decyzje i blokery
+
+- Firebase CLI nie jest `devDependency`, bo aktualne `firebase-tools@15.23.0` wnosi umiarkowane podatnosci w zaleznosciach posrednich. Wersja jest przypieta w `scripts/firebase-cli.mjs`.
+- Rekomendowana lokalizacja Firestore do zatwierdzenia: `europe-central2` Warsaw.
+- Do wykonania recznie: utworzenie projektow `borowka-pwa-dev` i `borowka-pwa-prod`, wlaczenie Authentication e-mail/haslo, Firestore i Hosting.
+
+### Testy
+
+- `npm run verify` - zaliczone.
+- `npm run test:rules` - zaliczone, Firestore emulator, 1 plik testowy, 2 testy.
+- `npm audit --audit-level=moderate` - zaliczone, `0 vulnerabilities`.

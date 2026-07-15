@@ -3,12 +3,15 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const firebaseToolsVersion = "15.23.0";
-const javaHome = resolve(".tools/jdk-21.0.11+10-jre");
+const localJavaHome = resolve(".tools/jdk-21.0.11+10-jre");
 const nodeHome = resolve(".tools/node-v24.14.0-linux-x64");
+const javaHome = existsSync(resolve(localJavaHome, "bin/java"))
+  ? localJavaHome
+  : process.env.JAVA_HOME;
 
-if (!existsSync(resolve(javaHome, "bin/java"))) {
+if (!javaHome) {
   throw new Error(
-    `Local JRE not found at ${javaHome}. Install Temurin JRE 21 before running Firebase emulators.`
+    `Java runtime not found. Install Temurin JRE 21 locally at ${localJavaHome} or provide JAVA_HOME.`
   );
 }
 

@@ -57,3 +57,20 @@
 - Status: do recznego rozstrzygniecia przed migracja produkcyjna
 - Problem: jeden wpis sprzedazy ma brakujaca date oraz ujemna cene i przychod.
 - Wymagane od uzytkownika: potwierdzenie, czy to korekta, jaka ma date i jak wplywa na stan.
+
+## DEC-0009 - Firebase CLI w projekcie
+
+- Status: zaakceptowana technicznie
+- Data: 2026-07-15
+- Decyzja: Firebase CLI jest uruchamiany jako przypiete `firebase-tools@15.23.0` przez `npx`, a nie jako `devDependency`.
+- Uzasadnienie: `firebase-tools@15.23.0` wnosi podatnosci umiarkowane w zaleznosciach posrednich, mimo ze sa poza kodem aplikacji. Trzymanie CLI poza `package-lock.json` pozwala utrzymac czysty audit aplikacji, a wersja nadal jest jawnie przypieta w `scripts/firebase-cli.mjs`.
+- Skutki: pierwszy lokalny albo CI run moze pobrac CLI do cache npm; skrypty nie uzywaja niekontrolowanego `latest`.
+
+## DEC-0010 - Rekomendowana lokalizacja Firestore
+
+- Status: do zatwierdzenia przed utworzeniem baz
+- Data: 2026-07-15
+- Rekomendacja: `europe-central2` Warsaw dla development i production.
+- Uzasadnienie: glowni uzytkownicy sa w Polsce, a MVP nie wymaga multi-region kosztem wiekszego dystansu sieciowego.
+- Alternatywa: `eur3` Europe multi-region, jesli priorytetem bedzie regionalna redundancja.
+- Wymagane od uzytkownika: zatwierdzenie lokalizacji przed utworzeniem Firestore.
