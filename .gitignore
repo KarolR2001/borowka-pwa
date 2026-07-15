@@ -26,6 +26,12 @@ ui-debug.log
 playwright-report/
 test-results/
 
+# local project notes
+postep.md
+notes/
+*.local.md
+*.notes.md
+
 # OS/editor
 .DS_Store
 Thumbs.db
