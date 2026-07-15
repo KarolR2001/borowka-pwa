@@ -21,7 +21,11 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["eslint.config.js", "scripts/*.mjs"]
+          allowDefaultProject: [
+            "eslint.config.js",
+            "scripts/*.mjs",
+            "tests/scripts/*.mjs"
+          ]
         },
         tsconfigRootDir: import.meta.dirname
       },
@@ -37,7 +41,12 @@ export default tseslint.config(
     }
   },
   {
-    files: ["**/*.test.ts", "**/*.test.tsx", "src/testing/**/*.ts"],
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "tests/scripts/*.test.mjs",
+      "src/testing/**/*.ts"
+    ],
     languageOptions: {
       globals: {
         ...globals.vitest
@@ -53,7 +62,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["scripts/*.mjs"],
+    files: ["scripts/*.mjs", "tests/scripts/*.mjs"],
     languageOptions: {
       globals: {
         ...globals.node

@@ -66,3 +66,13 @@ Runtime client configuration is split by Vite mode:
 Only example files may be committed. The `.env.*.local` files contain machine-local Firebase Web App configuration and must stay outside Git history.
 
 The Firebase Web App keys used by the browser client are not administrator secrets, but production values should still be handled as environment configuration and managed separately from development.
+
+## CI deployment configuration
+
+GitHub Actions receives Firebase Web App values from GitHub variables and deploy
+credentials from GitHub secrets. The deploy workflow maps them to `VITE_*`
+variables at build time and validates them with
+`scripts/validate-deploy-env.mjs`.
+
+Do not add service account JSON, Firebase Admin SDK credentials, refresh tokens
+or production exports to repository files.

@@ -15,7 +15,7 @@
     "build:pwa": "node scripts/ensure-temp-dir.mjs && cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vite build",
     "preview": "vite preview --host 0.0.0.0",
     "pretest": "node scripts/ensure-temp-dir.mjs",
-    "test": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run src",
+    "test": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run src tests/scripts",
     "test:rules": "node scripts/firebase-cli.mjs emulators:exec --project demo-borowka-pwa-dev --only firestore \"npm run test:rules:unit\"",
     "test:rules:unit": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run tests/rules",
     "test:watch": "node scripts/ensure-temp-dir.mjs && cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest src",

@@ -1,0 +1,78 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: Confirm that this deploy is approved for production.
+        required: true
+        type: boolean
+        default: false
+      release_notes:
+        description: Short release note or approved release identifier.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CONFIRM_PRODUCTION_DEPLOY: ${{ inputs.confirm_production }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROD_PROJECT_ID }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_PROD_SERVICE_ACCOUNT_JSON }}
+      VITE_APP_ENV: production
+      VITE_USE_FIREBASE_EMULATORS: "false"
+      VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_PROD_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_PROD_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROD_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_PROD_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_PROD_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_PROD_APP_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+
+      - name: Setup Java for Firebase CLI
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate deploy environment
+        run: node scripts/validate-deploy-env.mjs production
+
+      - name: Prepare Firebase credentials
+        shell: bash
+        run: |
+          credentials_file="${RUNNER_TEMP}/firebase-service-account.json"
+          printf '%s' "${FIREBASE_SERVICE_ACCOUNT_JSON}" > "${credentials_file}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${credentials_file}" >> "${GITHUB_ENV}"
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Verify Firestore rules
+        run: npm run verify:rules
+
+      - name: Deploy Firestore rules and indexes
+        run: npm run firebase -- deploy --project "${FIREBASE_PROJECT_ID}" --only firestore:rules,firestore:indexes --non-interactive
+
+      - name: Deploy Hosting
+        run: npm run firebase -- deploy --project "${FIREBASE_PROJECT_ID}" --only hosting --non-interactive

@@ -52,6 +52,9 @@
 - Dodano diagnostyke PWA: status online/offline, status service workera, identyfikator urzadzenia i ostatnie uruchomienie.
 - Dodano podstawowa strone `offline.html` do cache PWA.
 - Dodano konfiguracje runtime Firebase: tryb local/development/production, flage emulatorow, porty emulatorow i ostrzezenia konfiguracji.
+- Dodano walidator konfiguracji deploy, ktory sprawdza projekt Firebase, konfiguracje klienta, brak emulatorow i konto serwisowe przed wdrozeniem.
+- Dodano workflow GitHub Actions dla wdrozenia development i manualnego wdrozenia production.
+- Uzupelniono instrukcje recznej konfiguracji zmiennych, sekretow i ochrony srodowiska `production` w GitHubie.
 
 ### Decyzje i blokery
 
@@ -59,6 +62,7 @@
 - Rekomendowana lokalizacja Firestore do zatwierdzenia: `europe-central2` Warsaw.
 - Do wykonania recznie: utworzenie projektow `borowka-pwa-dev` i `borowka-pwa-prod`, wlaczenie Authentication e-mail/haslo, Firestore i Hosting.
 - Lokalnie przygotowano osobne pliki `.env.development.local` i `.env.production.local`; realne wartosci Firebase pozostaja poza repozytorium.
+- Do wykonania recznie w GitHubie: ustawienie zmiennych Firebase Web App, sekretow kont serwisowych oraz wymaganych reviewerow dla srodowiska `production`.
 
 ### Testy
 
@@ -68,6 +72,8 @@
 - Po diagnostyce PWA: `npm run verify` - zaliczone, 4 pliki testowe, 10 testow.
 - Po konfiguracji runtime Firebase: `npm run verify` - zaliczone, 5 plikow testowych, 13 testow.
 - Po dokumentacji konfiguracji env: `npm run verify` - zaliczone.
+- Po workflow deploy: `npm run verify` - zaliczone.
+- Po workflow deploy: `npm run verify:rules` - zaliczone, Firestore emulator, 1 plik testowy, 2 testy.
 
 ### GitHub
 
