@@ -18,6 +18,7 @@ coverage/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+*.log
 
 # local toolchains and reports
 .tools/
