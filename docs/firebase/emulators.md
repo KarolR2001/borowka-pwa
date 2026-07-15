@@ -24,6 +24,20 @@ PATH=.tools/node-v24.14.0-linux-x64/bin:$PATH npm run test:rules
 
 The demo project ID prevents accidental contact with real Firebase services during emulator tests.
 
+## Environment flags
+
+Local `.env.local` should keep:
+
+```bash
+VITE_APP_ENV=local
+VITE_USE_FIREBASE_EMULATORS=true
+VITE_FIREBASE_EMULATOR_HOST=127.0.0.1
+VITE_FIREBASE_AUTH_EMULATOR_PORT=9099
+VITE_FIRESTORE_EMULATOR_PORT=8080
+```
+
+Production must keep `VITE_USE_FIREBASE_EMULATORS=false`.
+
 ## Current rules coverage
 
 - Anonymous users cannot read Firestore.

@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 
 import { APP_META } from "../config/appMeta";
 import { getFirebaseClientConfigStatus } from "../config/firebaseClientConfig";
+import { getFirebaseRuntimeStatus } from "../config/firebaseRuntime";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { navigationItems, type NavigationKey } from "./navigation";
@@ -67,6 +68,7 @@ export function App() {
   const isOnline = useOnlineStatus();
   const serviceWorkerStatus = useServiceWorkerStatus();
   const firebaseStatus = getFirebaseClientConfigStatus(import.meta.env);
+  const firebaseRuntimeStatus = getFirebaseRuntimeStatus(import.meta.env);
   const panel = panelByNavigation[activeView];
 
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
@@ -167,6 +169,15 @@ export function App() {
             <DiagnosticRow
               label="Service worker"
               value={serviceWorkerStatusLabel[serviceWorkerStatus]}
+            />
+            <DiagnosticRow label="Tryb Firebase" value={firebaseRuntimeStatus.label} />
+            <DiagnosticRow
+              label="Ostrzezenia konfiguracji"
+              value={
+                firebaseRuntimeStatus.warnings.length > 0
+                  ? firebaseRuntimeStatus.warnings.join("; ")
+                  : "brak"
+              }
             />
             <DiagnosticRow
               label="Firebase"

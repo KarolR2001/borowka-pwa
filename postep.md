@@ -51,6 +51,7 @@
 - Rozszerzono CI o Java 21 i testy Firestore Rules.
 - Dodano diagnostyke PWA: status online/offline, status service workera, identyfikator urzadzenia i ostatnie uruchomienie.
 - Dodano podstawowa strone `offline.html` do cache PWA.
+- Dodano konfiguracje runtime Firebase: tryb local/development/production, flage emulatorow, porty emulatorow i ostrzezenia konfiguracji.
 
 ### Decyzje i blokery
 
@@ -64,3 +65,4 @@
 - `npm run test:rules` - zaliczone, Firestore emulator, 1 plik testowy, 2 testy.
 - `npm audit --audit-level=moderate` - zaliczone, `0 vulnerabilities`.
 - Po diagnostyce PWA: `npm run verify` - zaliczone, 4 pliki testowe, 10 testow.
+- Po konfiguracji runtime Firebase: `npm run verify` - zaliczone, 5 plikow testowych, 13 testow.
