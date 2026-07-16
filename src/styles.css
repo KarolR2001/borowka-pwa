@@ -397,6 +397,27 @@ h2 {
   background: #ffffff;
 }
 
+.invitation-form {
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 1.1fr) minmax(180px, 1fr) minmax(150px, 0.7fr)
+    minmax(140px, 0.7fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.invitation-form__submit {
+  min-width: 118px;
+}
+
+.invitation-filters {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(150px, 0.6fr));
+}
+
 .search-field {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
@@ -541,6 +562,7 @@ h2 {
   }
 
   .directory-filters,
+  .invitation-form,
   .directory-summary {
     grid-template-columns: 1fr;
   }

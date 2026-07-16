@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
+import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
 import { App, type AuthSessionApi } from "./App";
 
@@ -146,11 +147,22 @@ describe("App shell", () => {
       ],
       invalidProfiles: []
     });
+    const listInvitations = vi
+      .fn<RegistrationInvitationsApi["list"]>()
+      .mockResolvedValue({
+        invitations: [],
+        invalidInvitations: []
+      });
 
     render(
       <App
         authSessionApi={createAuthSessionApi(activeAdminState)}
         userDirectoryApi={{ list }}
+        registrationInvitationsApi={{
+          list: listInvitations,
+          create: vi.fn<RegistrationInvitationsApi["create"]>(),
+          cancel: vi.fn<RegistrationInvitationsApi["cancel"]>()
+        }}
       />
     );
 
@@ -158,8 +170,12 @@ describe("App shell", () => {
 
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
+      expect(listInvitations).toHaveBeenCalled();
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Prerejestracja kont" })
+    ).toBeInTheDocument();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 });

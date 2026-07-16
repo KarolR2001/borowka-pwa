@@ -40,6 +40,11 @@ import {
   defaultUserDirectoryApi,
   type UserDirectoryApi
 } from "../users/AdminUserDirectoryPanel";
+import {
+  AdminRegistrationInvitationsPanel,
+  defaultRegistrationInvitationsApi,
+  type RegistrationInvitationsApi
+} from "../invitations/AdminRegistrationInvitationsPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -88,7 +93,7 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
   admin: {
     title: "Pulpit administratora",
     status: "Konta i role",
-    detail: "Administrator widzi profile aplikacyjne z kolekcji users."
+    detail: "Administrator widzi profile aplikacyjne i zaproszenia prerejestracji."
   },
   operator: {
     title: "Pulpit operatora",
@@ -114,10 +119,12 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
 
 export function App({
   authSessionApi = defaultAuthSessionApi,
-  userDirectoryApi = defaultUserDirectoryApi
+  userDirectoryApi = defaultUserDirectoryApi,
+  registrationInvitationsApi = defaultRegistrationInvitationsApi
 }: {
   authSessionApi?: AuthSessionApi;
   userDirectoryApi?: UserDirectoryApi;
+  registrationInvitationsApi?: RegistrationInvitationsApi;
 } = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
@@ -343,11 +350,18 @@ export function App({
         ) : null}
 
         {activeView === "admin" ? (
-          <AdminUserDirectoryPanel
-            authState={authState}
-            env={env}
-            userDirectoryApi={userDirectoryApi}
-          />
+          <>
+            <AdminUserDirectoryPanel
+              authState={authState}
+              env={env}
+              userDirectoryApi={userDirectoryApi}
+            />
+            <AdminRegistrationInvitationsPanel
+              authState={authState}
+              env={env}
+              registrationInvitationsApi={registrationInvitationsApi}
+            />
+          </>
         ) : null}
       </main>
     </div>
