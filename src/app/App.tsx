@@ -2,11 +2,30 @@ import {
   AlertTriangle,
   CheckCircle2,
   CloudOff,
+  Eye,
+  EyeOff,
+  LogIn,
+  LogOut,
+  RotateCcw,
+  UserRound,
   Wifi,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
+import {
+  PASSWORD_RESET_CONFIRMATION,
+  getInitialAuthSessionState,
+  getLoginErrorMessage,
+  getPasswordResetErrorMessage,
+  requestPasswordResetEmail,
+  signInWithEmailPassword,
+  signOutCurrentUser,
+  subscribeToAuthSession,
+  type AuthenticatedUser,
+  type AuthSessionListener,
+  type AuthSessionState
+} from "../auth/authSession";
 import { APP_META } from "../config/appMeta";
 import { getFirebaseClientConfigStatus } from "../config/firebaseClientConfig";
 import { getFirebaseRuntimeStatus } from "../config/firebaseRuntime";
@@ -23,10 +42,31 @@ import {
   useServiceWorkerStatus
 } from "./useServiceWorkerStatus";
 
+type FirebaseEnv = Record<string, string | boolean | undefined>;
+
+export type AuthSessionApi = {
+  getInitialState: (env: FirebaseEnv) => AuthSessionState;
+  subscribe: (env: FirebaseEnv, listener: AuthSessionListener) => Promise<() => void>;
+  signIn: (
+    env: FirebaseEnv,
+    credentials: { email: string; password: string }
+  ) => Promise<void>;
+  requestPasswordReset: (env: FirebaseEnv, email: string) => Promise<void>;
+  signOut: (env: FirebaseEnv) => Promise<void>;
+};
+
 type PanelState = {
   title: string;
   status: string;
   detail: string;
+};
+
+const defaultAuthSessionApi: AuthSessionApi = {
+  getInitialState: getInitialAuthSessionState,
+  subscribe: subscribeToAuthSession,
+  signIn: signInWithEmailPassword,
+  requestPasswordReset: requestPasswordResetEmail,
+  signOut: signOutCurrentUser
 };
 
 const panelByNavigation: Record<NavigationKey, PanelState> = {
@@ -37,8 +77,8 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
   },
   login: {
     title: "Logowanie",
-    status: "Firebase niepodłączony",
-    detail: "Formularz zostanie aktywowany po konfiguracji Authentication."
+    status: "Sesja Firebase",
+    detail: "Pierwsze logowanie wymaga internetu i aktywnego profilu aplikacji."
   },
   admin: {
     title: "Pulpit administratora",
@@ -67,16 +107,19 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
   }
 };
 
-export function App() {
+export function App({
+  authSessionApi = defaultAuthSessionApi
+}: { authSessionApi?: AuthSessionApi } = {}) {
+  const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
+  const [authState, setAuthState] = useState<AuthSessionState>(() =>
+    authSessionApi.getInitialState(env)
+  );
   const isOnline = useOnlineStatus();
   const serviceWorkerStatus = useServiceWorkerStatus();
-  const firebaseStatus = getFirebaseClientConfigStatus(import.meta.env);
-  const firebaseRuntimeStatus = getFirebaseRuntimeStatus(import.meta.env);
-  const initialFirebaseServicesStatus = useMemo(
-    () => getFirebaseServicesStatus(import.meta.env),
-    []
-  );
+  const firebaseStatus = getFirebaseClientConfigStatus(env);
+  const firebaseRuntimeStatus = getFirebaseRuntimeStatus(env);
+  const initialFirebaseServicesStatus = useMemo(() => getFirebaseServicesStatus(env), []);
   const [firebaseServicesStatus, setFirebaseServicesStatus] = useState(
     initialFirebaseServicesStatus
   );
@@ -89,7 +132,7 @@ export function App() {
       return undefined;
     }
 
-    void initializeFirebaseServicesIfReady(import.meta.env)
+    void initializeFirebaseServicesIfReady(env)
       .then((status) => {
         if (isMounted) {
           setFirebaseServicesStatus(status);
@@ -110,6 +153,39 @@ export function App() {
       isMounted = false;
     };
   }, [initialFirebaseServicesStatus]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
+
+    void authSessionApi
+      .subscribe(env, (nextState) => {
+        if (isMounted) {
+          setAuthState(nextState);
+        }
+      })
+      .then((unsubscribeFromSession) => {
+        if (isMounted) {
+          unsubscribe = unsubscribeFromSession;
+          return;
+        }
+
+        unsubscribeFromSession();
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAuthState({
+            status: "ERROR",
+            message: "Nie udalo sie uruchomic sesji logowania."
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      unsubscribe?.();
+    };
+  }, [authSessionApi]);
 
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
   const diagnostics = useMemo(
@@ -188,6 +264,11 @@ export function App() {
             }
             tone={firebaseServicesStatus.initialized ? "ok" : "warn"}
           />
+          <StatusItem
+            icon={authState.status === "READY" ? UserRound : AlertTriangle}
+            label={authStatusLabel(authState)}
+            tone={authStatusTone(authState)}
+          />
         </section>
 
         <section className="primary-panel" aria-labelledby="active-panel-title">
@@ -232,6 +313,7 @@ export function App() {
                   : "niezainicjalizowane"
               }
             />
+            <DiagnosticRow label="Sesja logowania" value={authState.message} />
             <DiagnosticRow
               label="Ostrzezenia konfiguracji"
               value={
@@ -245,6 +327,10 @@ export function App() {
               value={firebaseStatus.ready ? "skonfigurowany" : firebaseStatus.message}
             />
           </section>
+        ) : null}
+
+        {activeView === "login" ? (
+          <AuthPanel authSessionApi={authSessionApi} authState={authState} env={env} />
         ) : null}
       </main>
     </div>
@@ -284,4 +370,336 @@ function DiagnosticRow({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function AuthPanel({
+  authSessionApi,
+  authState,
+  env
+}: {
+  authSessionApi: AuthSessionApi;
+  authState: AuthSessionState;
+  env: FirebaseEnv;
+}) {
+  const [mode, setMode] = useState<"login" | "reset">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isUnavailable =
+    authState.status === "CONFIGURATION_REQUIRED" ||
+    authState.status === "ERROR" ||
+    authState.status === "LOADING";
+
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFeedback(null);
+    setError(null);
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail.includes("@")) {
+      setError("Podaj poprawny e-mail.");
+      return;
+    }
+
+    if (mode === "login" && password.length === 0) {
+      setError("Podaj haslo.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      if (mode === "login") {
+        await authSessionApi.signIn(env, {
+          email: trimmedEmail,
+          password
+        });
+        setFeedback("Logowanie przyjete. Pobieram profil.");
+        setPassword("");
+      } else {
+        await authSessionApi.requestPasswordReset(env, trimmedEmail);
+        setFeedback(PASSWORD_RESET_CONFIRMATION);
+      }
+    } catch (submitError: unknown) {
+      setError(
+        mode === "login"
+          ? getLoginErrorMessage(submitError)
+          : getPasswordResetErrorMessage(submitError)
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await authSessionApi.signOut(env);
+      setFeedback("Wylogowano z aplikacji.");
+    } catch {
+      setError("Nie udalo sie wylogowac. Sprobuj ponownie.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (hasAuthenticatedUser(authState)) {
+    return (
+      <section className="auth-panel" aria-label="Sesja logowania">
+        <div className="auth-card">
+          <div>
+            <p className="eyebrow">{profileStateTitle(authState)}</p>
+            <h2>{displaySessionName(authState)}</h2>
+            <p className="panel-detail">{authState.message}</p>
+          </div>
+
+          <dl className="auth-summary" aria-label="Profil aplikacji">
+            <AuthSummaryRow label="E-mail" value={authState.user.email ?? "brak"} />
+            {"profile" in authState ? (
+              <>
+                <AuthSummaryRow label="Rola" value={roleLabel(authState.profile.role)} />
+                <AuthSummaryRow
+                  label="Status"
+                  value={authState.profile.registrationStatus}
+                />
+                <AuthSummaryRow
+                  label="workerId"
+                  value={authState.profile.workerId ?? "brak"}
+                />
+              </>
+            ) : null}
+          </dl>
+
+          {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+          {error ? <p className="form-message form-message--error">{error}</p> : null}
+
+          <button
+            className="primary-action"
+            disabled={isSubmitting}
+            onClick={() => {
+              void handleSignOut();
+            }}
+            type="button"
+          >
+            <LogOut aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>Wyloguj</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="auth-panel" aria-label="Logowanie">
+      <form
+        className="auth-card"
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+      >
+        <div>
+          <p className="eyebrow">
+            {mode === "login" ? "Dostep do aplikacji" : "Reset hasla"}
+          </p>
+          <h2>{mode === "login" ? "Zaloguj sie" : "Nie pamietam hasla"}</h2>
+          <p className="panel-detail">{authState.message}</p>
+        </div>
+
+        <label className="field">
+          <span>E-mail</span>
+          <input
+            autoComplete="email"
+            disabled={isUnavailable || isSubmitting}
+            inputMode="email"
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+            type="email"
+            value={email}
+          />
+        </label>
+
+        {mode === "login" ? (
+          <label className="field">
+            <span>Haslo</span>
+            <span className="password-field">
+              <input
+                autoComplete="current-password"
+                disabled={isUnavailable || isSubmitting}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                }}
+                type={showPassword ? "text" : "password"}
+                value={password}
+              />
+              <button
+                aria-label={showPassword ? "Ukryj haslo" : "Pokaz haslo"}
+                className="icon-button"
+                disabled={isUnavailable || isSubmitting}
+                onClick={() => {
+                  setShowPassword((current) => !current);
+                }}
+                title={showPassword ? "Ukryj haslo" : "Pokaz haslo"}
+                type="button"
+              >
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" size={18} strokeWidth={2.2} />
+                ) : (
+                  <Eye aria-hidden="true" size={18} strokeWidth={2.2} />
+                )}
+              </button>
+            </span>
+          </label>
+        ) : null}
+
+        {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+        {error ? <p className="form-message form-message--error">{error}</p> : null}
+
+        <div className="auth-actions">
+          <button
+            className="primary-action"
+            disabled={isUnavailable || isSubmitting}
+            type="submit"
+          >
+            {mode === "login" ? (
+              <LogIn aria-hidden="true" size={18} strokeWidth={2.2} />
+            ) : (
+              <RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />
+            )}
+            <span>{mode === "login" ? "Zaloguj" : "Wyslij reset"}</span>
+          </button>
+
+          <button
+            className="secondary-action"
+            disabled={isSubmitting}
+            onClick={() => {
+              setMode((current) => (current === "login" ? "reset" : "login"));
+              setFeedback(null);
+              setError(null);
+            }}
+            type="button"
+          >
+            {mode === "login" ? "Nie pamietam hasla" : "Wroc do logowania"}
+          </button>
+
+          <button
+            className="secondary-action"
+            disabled={isSubmitting}
+            onClick={() => {
+              setFeedback("Konto przygotowuje administrator przez prerejestracje.");
+              setError(null);
+            }}
+            type="button"
+          >
+            Zaloz konto
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function AuthSummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="auth-summary__row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function hasAuthenticatedUser(
+  state: AuthSessionState
+): state is AuthSessionState & { user: AuthenticatedUser } {
+  return "user" in state;
+}
+
+function authStatusLabel(state: AuthSessionState): string {
+  switch (state.status) {
+    case "READY":
+      return `Konto: ${roleLabel(state.profile.role)}`;
+    case "SIGNED_OUT":
+      return "Konto: niezalogowany";
+    case "LOADING":
+      return "Konto: sprawdzanie";
+    case "PROFILE_LOADING":
+      return "Konto: profil";
+    case "CONFIGURATION_REQUIRED":
+      return "Konto: brak konfiguracji";
+    case "ERROR":
+      return "Konto: blad sesji";
+    case "MISSING_PROFILE":
+      return "Konto: brak profilu";
+    case "BLOCKED":
+      return "Konto: zablokowane";
+    case "PENDING_APPROVAL":
+      return "Konto: niezatwierdzone";
+    case "INVALID_PICKER_PROFILE":
+      return "Konto: blad pickera";
+    case "INVALID_PROFILE":
+      return "Konto: profil bledny";
+    case "PROFILE_UNAVAILABLE":
+      return "Konto: profil niedostepny";
+  }
+}
+
+function authStatusTone(state: AuthSessionState): "ok" | "warn" | "neutral" {
+  if (state.status === "READY") {
+    return "ok";
+  }
+
+  if (state.status === "SIGNED_OUT" || state.status === "LOADING") {
+    return "neutral";
+  }
+
+  return "warn";
+}
+
+function profileStateTitle(state: AuthSessionState & { user: AuthenticatedUser }) {
+  switch (state.status) {
+    case "READY":
+      return "Profil aktywny";
+    case "PROFILE_LOADING":
+      return "Pobieranie profilu";
+    case "MISSING_PROFILE":
+      return "Brak profilu";
+    case "BLOCKED":
+      return "Konto zablokowane";
+    case "PENDING_APPROVAL":
+      return "Konto niezatwierdzone";
+    case "INVALID_PICKER_PROFILE":
+      return "Profil pickera";
+    case "INVALID_PROFILE":
+      return "Profil bledny";
+    case "PROFILE_UNAVAILABLE":
+      return "Profil niedostepny";
+  }
+}
+
+function displaySessionName(state: AuthSessionState & { user: AuthenticatedUser }) {
+  if ("profile" in state) {
+    return state.profile.displayName;
+  }
+
+  return state.user.displayName ?? state.user.email ?? state.user.uid;
+}
+
+function roleLabel(role: string): string {
+  switch (role) {
+    case "ADMIN":
+      return "Administrator";
+    case "OPERATOR":
+      return "Operator";
+    case "PICKER":
+      return "Zbieracz";
+    default:
+      return role;
+  }
 }
