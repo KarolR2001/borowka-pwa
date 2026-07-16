@@ -11,7 +11,7 @@ import {
   Wifi,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 
 import {
   PASSWORD_RESET_CONFIRMATION,
@@ -159,6 +159,8 @@ export function App({
   const [firebaseServicesStatus, setFirebaseServicesStatus] = useState(
     initialFirebaseServicesStatus
   );
+  const latestAuthStateRef = useRef(authState);
+  const refreshInFlightRef = useRef(false);
   const panel = panelByNavigation[activeView];
 
   useEffect(() => {
@@ -222,6 +224,59 @@ export function App({
       unsubscribe?.();
     };
   }, [authSessionApi]);
+
+  useEffect(() => {
+    latestAuthStateRef.current = authState;
+  }, [authState]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshActiveSession = () => {
+      const currentState = latestAuthStateRef.current;
+
+      if (
+        !isOnline ||
+        !hasAuthenticatedUser(currentState) ||
+        currentState.status === "PROFILE_LOADING" ||
+        refreshInFlightRef.current ||
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+
+      refreshInFlightRef.current = true;
+
+      void authSessionApi
+        .refresh(env)
+        .then((nextState) => {
+          if (isMounted) {
+            setAuthState(nextState);
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          refreshInFlightRef.current = false;
+        });
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshActiveSession();
+      }
+    };
+
+    globalThis.addEventListener("focus", refreshActiveSession);
+    globalThis.addEventListener("online", refreshActiveSession);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      isMounted = false;
+      globalThis.removeEventListener("focus", refreshActiveSession);
+      globalThis.removeEventListener("online", refreshActiveSession);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [authSessionApi, env, isOnline]);
 
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
   const diagnostics = useMemo(

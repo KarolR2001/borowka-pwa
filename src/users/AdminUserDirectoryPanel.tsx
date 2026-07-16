@@ -1,12 +1,15 @@
-import { RefreshCw, Search, ShieldAlert, UsersRound } from "lucide-react";
+import { RefreshCw, Search, ShieldAlert, UserCog, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { getOrCreateDeviceId } from "../domain/device";
 import {
   REGISTRATION_STATUSES,
   USER_ROLES,
   registrationStatusLabel,
-  userRoleLabel
+  userRoleLabel,
+  type UserProfile,
+  type UserRole
 } from "../domain/identity";
 import {
   defaultUserDirectoryFilters,
@@ -18,15 +21,24 @@ import {
   type UserDirectoryFilters,
   type UserDirectoryResult
 } from "./userDirectory";
+import {
+  updateUserRoleAndWorker,
+  type UserRoleAndWorkerUpdateInput
+} from "./userProfileUpdates";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export type UserDirectoryApi = {
   list: (env: FirebaseEnv) => Promise<UserDirectoryResult>;
+  updateRoleAndWorker?: (
+    env: FirebaseEnv,
+    input: UserRoleAndWorkerUpdateInput
+  ) => Promise<unknown>;
 };
 
 export const defaultUserDirectoryApi: UserDirectoryApi = {
-  list: listUserDirectory
+  list: listUserDirectory,
+  updateRoleAndWorker: updateUserRoleAndWorker
 };
 
 type DirectoryState =
@@ -46,10 +58,26 @@ type DirectoryState =
       message: string;
     };
 
+type RoleChangeDraft = {
+  targetUid: string;
+  targetRole: UserRole;
+  targetWorkerId: string;
+  reason: string;
+  confirmed: boolean;
+};
+
 const initialDirectoryState: DirectoryState = {
   status: "IDLE",
   result: null,
   message: "Lista nie zostala jeszcze pobrana."
+};
+
+const initialRoleChangeDraft: RoleChangeDraft = {
+  targetUid: "",
+  targetRole: "OPERATOR",
+  targetWorkerId: "",
+  reason: "",
+  confirmed: false
 };
 
 export function AdminUserDirectoryPanel({
@@ -66,7 +94,13 @@ export function AdminUserDirectoryPanel({
   );
   const [directoryState, setDirectoryState] =
     useState<DirectoryState>(initialDirectoryState);
+  const [roleChangeDraft, setRoleChangeDraft] =
+    useState<RoleChangeDraft>(initialRoleChangeDraft);
+  const [roleChangeFeedback, setRoleChangeFeedback] = useState<string | null>(null);
+  const [roleChangeError, setRoleChangeError] = useState<string | null>(null);
+  const [isRoleChangeSubmitting, setIsRoleChangeSubmitting] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
+  const currentUserUid = authState.status === "READY" ? authState.user.uid : null;
 
   useEffect(() => {
     let isMounted = true;
@@ -115,6 +149,119 @@ export function AdminUserDirectoryPanel({
         : [],
     [directoryState.result, filters]
   );
+  const editableRoleChangeProfiles = useMemo(
+    () =>
+      directoryState.result
+        ? directoryState.result.profiles.filter(
+            (profile) => profile.uid !== currentUserUid
+          )
+        : [],
+    [currentUserUid, directoryState.result]
+  );
+  const selectedRoleChangeProfile = useMemo(
+    () =>
+      editableRoleChangeProfiles.find(
+        (profile) => profile.uid === roleChangeDraft.targetUid
+      ) ?? null,
+    [editableRoleChangeProfiles, roleChangeDraft.targetUid]
+  );
+
+  useEffect(() => {
+    if (!directoryState.result) {
+      return;
+    }
+
+    const currentSelection = editableRoleChangeProfiles.find(
+      (profile) => profile.uid === roleChangeDraft.targetUid
+    );
+
+    if (currentSelection) {
+      return;
+    }
+
+    if (editableRoleChangeProfiles.length === 0) {
+      setRoleChangeDraft((current) =>
+        current.targetUid === ""
+          ? current
+          : {
+              ...initialRoleChangeDraft
+            }
+      );
+      return;
+    }
+
+    const firstEditableProfile = editableRoleChangeProfiles[0];
+
+    setRoleChangeDraft((current) => ({
+      ...current,
+      targetUid: firstEditableProfile.uid,
+      targetRole: firstEditableProfile.role,
+      targetWorkerId: firstEditableProfile.workerId ?? ""
+    }));
+  }, [directoryState.result, editableRoleChangeProfiles, roleChangeDraft.targetUid]);
+
+  const handleRoleChangeSubmit = async () => {
+    if (authState.status !== "READY") {
+      return;
+    }
+
+    setRoleChangeFeedback(null);
+    setRoleChangeError(null);
+
+    if (!selectedRoleChangeProfile) {
+      setRoleChangeError("Wybierz profil do zmiany.");
+      return;
+    }
+
+    if (!roleChangeDraft.confirmed) {
+      setRoleChangeError("Potwierdz zmiane roli i powiazania.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setRoleChangeError("Zmiana roli wymaga polaczenia online.");
+      return;
+    }
+
+    const updateRoleAndWorker =
+      userDirectoryApi.updateRoleAndWorker ?? defaultUserDirectoryApi.updateRoleAndWorker;
+
+    if (!updateRoleAndWorker) {
+      setRoleChangeError("Operacja zmiany profilu nie jest dostepna.");
+      return;
+    }
+
+    setIsRoleChangeSubmitting(true);
+
+    try {
+      await updateRoleAndWorker(env, {
+        actorProfile: authState.profile,
+        targetUid: selectedRoleChangeProfile.uid,
+        targetRole: roleChangeDraft.targetRole,
+        targetWorkerId: roleChangeDraft.targetWorkerId,
+        reason: roleChangeDraft.reason,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      const result = await userDirectoryApi.list(env);
+
+      setDirectoryState({
+        status: "READY",
+        result,
+        message: "Lista uzytkownikow jest aktualna."
+      });
+      setRoleChangeFeedback("Zmieniono role lub powiazanie profilu.");
+      setRoleChangeDraft((current) => ({
+        ...current,
+        reason: "",
+        confirmed: false
+      }));
+    } catch (error: unknown) {
+      setRoleChangeError(getRoleChangeErrorMessage(error));
+    } finally {
+      setIsRoleChangeSubmitting(false);
+    }
+  };
 
   if (authState.status !== "READY") {
     return (
@@ -181,6 +328,20 @@ export function AdminUserDirectoryPanel({
       </div>
 
       <DirectoryFilters filters={filters} onChange={setFilters} />
+
+      {directoryState.result ? (
+        <RoleChangeForm
+          draft={roleChangeDraft}
+          error={roleChangeError}
+          feedback={roleChangeFeedback}
+          isSubmitting={isRoleChangeSubmitting}
+          onChange={setRoleChangeDraft}
+          onSubmit={() => {
+            void handleRoleChangeSubmit();
+          }}
+          profiles={editableRoleChangeProfiles}
+        />
+      ) : null}
 
       <div className="directory-summary" aria-label="Podsumowanie uzytkownikow">
         <DirectoryStat
@@ -354,6 +515,148 @@ function DirectoryFilters({
   );
 }
 
+function RoleChangeForm({
+  draft,
+  error,
+  feedback,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  profiles
+}: {
+  draft: RoleChangeDraft;
+  error: string | null;
+  feedback: string | null;
+  isSubmitting: boolean;
+  onChange: (draft: RoleChangeDraft) => void;
+  onSubmit: () => void;
+  profiles: UserProfile[];
+}) {
+  return (
+    <form
+      aria-label="Zmiana roli i powiazania"
+      className="role-change-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Profil</span>
+        <select
+          disabled={isSubmitting || profiles.length === 0}
+          onChange={(event) => {
+            const nextProfile = profiles.find(
+              (profile) => profile.uid === event.target.value
+            );
+
+            onChange({
+              ...draft,
+              targetUid: event.target.value,
+              targetRole: nextProfile?.role ?? draft.targetRole,
+              targetWorkerId: nextProfile?.workerId ?? "",
+              confirmed: false
+            });
+          }}
+          value={draft.targetUid}
+        >
+          {profiles.map((profile) => (
+            <option key={profile.uid} value={profile.uid}>
+              {profile.displayName} ({profile.email})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Nowa rola</span>
+        <select
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const nextRole = event.target.value;
+
+            if (!USER_ROLES.includes(nextRole as UserRole)) {
+              return;
+            }
+
+            onChange({
+              ...draft,
+              targetRole: nextRole as UserRole,
+              confirmed: false
+            });
+          }}
+          value={draft.targetRole}
+        >
+          {USER_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {userRoleLabel(role)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>workerId</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              targetWorkerId: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.targetWorkerId}
+        />
+      </label>
+
+      <label className="field">
+        <span>Powod</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <label className="checkbox-field role-change-form__confirmation">
+        <input
+          checked={draft.confirmed}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmed: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam zmiane roli i powiazania</span>
+      </label>
+
+      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {error ? <p className="form-message form-message--error">{error}</p> : null}
+
+      <button
+        className="primary-action role-change-form__submit"
+        disabled={isSubmitting || profiles.length === 0}
+        type="submit"
+      >
+        <UserCog aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Zapisz zmiane</span>
+      </button>
+    </form>
+  );
+}
+
 function DirectoryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="directory-stat">
@@ -361,6 +664,14 @@ function DirectoryStat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function getRoleChangeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Nie udalo sie zmienic roli lub powiazania profilu.";
 }
 
 function AccessNotice({ title, message }: { title: string; message: string }) {

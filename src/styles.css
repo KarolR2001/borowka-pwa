@@ -428,6 +428,28 @@ h2 {
   min-width: 118px;
 }
 
+.role-change-form {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.2fr) minmax(150px, 0.7fr) minmax(140px, 0.7fr)
+    minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.role-change-form__confirmation,
+.role-change-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.role-change-form__submit {
+  min-width: 146px;
+}
+
 .invitation-filters {
   grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(150px, 0.6fr));
 }
@@ -617,6 +639,10 @@ h2 {
   .primary-action,
   .secondary-action {
     width: 100%;
+  }
+
+  .role-change-form {
+    grid-template-columns: 1fr;
   }
 
   .auth-summary__row {

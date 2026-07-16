@@ -153,4 +153,123 @@ describe("AdminUserDirectoryPanel", () => {
     expect(screen.queryByText("Admin Test")).not.toBeInTheDocument();
     expect(screen.getByText("Anna Zbieracz")).toBeInTheDocument();
   });
+
+  it("does not offer the current admin as a role change target", async () => {
+    const list = vi.fn<UserDirectoryApi["list"]>().mockResolvedValue({
+      profiles: [
+        profile({
+          uid: "admin-1",
+          displayName: "Admin Test",
+          role: "ADMIN",
+          workerId: null
+        }),
+        profile({
+          uid: "operator-1",
+          displayName: "Operator Test",
+          role: "OPERATOR",
+          workerId: null
+        })
+      ],
+      invalidProfiles: []
+    });
+
+    render(
+      <AdminUserDirectoryPanel
+        authState={adminState}
+        env={env}
+        userDirectoryApi={{ list }}
+      />
+    );
+
+    await screen.findByText("Operator Test");
+
+    const profileSelect = screen.getByLabelText("Profil");
+    expect(profileSelect).toBeInstanceOf(HTMLSelectElement);
+
+    if (!(profileSelect instanceof HTMLSelectElement)) {
+      throw new Error("Pole profilu powinno byc lista wyboru.");
+    }
+
+    expect(Array.from(profileSelect.options).map((option) => option.value)).toEqual([
+      "operator-1"
+    ]);
+  });
+
+  it("submits role and worker link changes with confirmation", async () => {
+    const user = userEvent.setup();
+    const operatorProfile = profile({
+      uid: "operator-1",
+      displayName: "Operator Test",
+      role: "OPERATOR",
+      workerId: null
+    });
+    const list = vi
+      .fn<UserDirectoryApi["list"]>()
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          operatorProfile
+        ],
+        invalidProfiles: []
+      })
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          {
+            ...operatorProfile,
+            role: "PICKER",
+            workerId: "worker-operator"
+          }
+        ],
+        invalidProfiles: []
+      });
+    const updateRoleAndWorker = vi
+      .fn<NonNullable<UserDirectoryApi["updateRoleAndWorker"]>>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <AdminUserDirectoryPanel
+        authState={adminState}
+        env={env}
+        userDirectoryApi={{ list, updateRoleAndWorker }}
+      />
+    );
+
+    await screen.findByText("Operator Test");
+    await user.selectOptions(screen.getByLabelText("Nowa rola"), "PICKER");
+    await user.type(screen.getByLabelText("workerId"), "worker-operator");
+    await user.type(screen.getByLabelText("Powod"), "Przypisanie zbieracza");
+    await user.click(screen.getByLabelText("Potwierdzam zmiane roli i powiazania"));
+    await user.click(screen.getByRole("button", { name: "Zapisz zmiane" }));
+
+    await waitFor(() => {
+      expect(updateRoleAndWorker).toHaveBeenCalled();
+    });
+    const [, input] = updateRoleAndWorker.mock.calls[0];
+
+    expect(input).toMatchObject({
+      actorProfile: adminState.profile,
+      targetUid: "operator-1",
+      targetRole: "PICKER",
+      targetWorkerId: "worker-operator",
+      reason: "Przypisanie zbieracza"
+    });
+    expect(input.deviceId).toEqual(expect.any(String));
+    await waitFor(() => {
+      expect(list).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.getByText("Zmieniono role lub powiazanie profilu.")
+    ).toBeInTheDocument();
+  });
 });
