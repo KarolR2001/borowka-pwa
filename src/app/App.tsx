@@ -19,6 +19,7 @@ import {
   getLoginErrorMessage,
   getOfflineConsentUpdateErrorMessage,
   getPasswordResetErrorMessage,
+  refreshCurrentAuthSession,
   requestPasswordResetEmail,
   signInWithEmailPassword,
   signOutCurrentUser,
@@ -72,6 +73,7 @@ export type AuthSessionApi = {
   ) => Promise<void>;
   requestPasswordReset: (env: FirebaseEnv, email: string) => Promise<void>;
   register: (env: FirebaseEnv, input: InvitedRegistrationInput) => Promise<void>;
+  refresh: (env: FirebaseEnv) => Promise<AuthSessionState>;
   updateOfflineConsent: (
     env: FirebaseEnv,
     uid: string,
@@ -92,6 +94,7 @@ const defaultAuthSessionApi: AuthSessionApi = {
   signIn: signInWithEmailPassword,
   requestPasswordReset: requestPasswordResetEmail,
   register: registerInvitedUser,
+  refresh: refreshCurrentAuthSession,
   updateOfflineConsent: updateOwnOfflineConsent,
   signOut: signOutCurrentUser
 };
@@ -381,6 +384,7 @@ export function App({
             authState={authState}
             deviceId={diagnostics.deviceId}
             env={env}
+            onAuthStateUpdated={setAuthState}
             onProfileUpdated={handleProfileUpdated}
           />
         ) : null}
@@ -443,6 +447,7 @@ function AuthPanel({
   authSessionApi,
   authState,
   deviceId,
+  onAuthStateUpdated,
   onProfileUpdated,
   env
 }: {
@@ -450,6 +455,7 @@ function AuthPanel({
   authState: AuthSessionState;
   deviceId: string;
   env: FirebaseEnv;
+  onAuthStateUpdated: (state: AuthSessionState) => void;
   onProfileUpdated: (profile: UserProfile) => void;
 }) {
   const [mode, setMode] = useState<"login" | "reset" | "register">("login");
@@ -520,7 +526,13 @@ function AuthPanel({
           passwordConfirmation,
           acceptsPrerelease
         });
-        setFeedback("Konto zostalo utworzone. Pobieram profil.");
+        const nextAuthState = await authSessionApi.refresh(env);
+        onAuthStateUpdated(nextAuthState);
+        setFeedback(
+          nextAuthState.status === "READY"
+            ? "Konto zostalo utworzone i profil jest aktywny."
+            : "Konto zostalo utworzone. Pobieram profil."
+        );
         setDisplayName("");
         setPassword("");
         setPasswordConfirmation("");
