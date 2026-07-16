@@ -300,7 +300,7 @@ function invalidAuditEvent(reason: string): AuditEventDecodeResult {
   };
 }
 
-function createAuditEventId(): string {
+export function createAuditEventId(): string {
   if ("randomUUID" in globalThis.crypto) {
     return globalThis.crypto.randomUUID();
   }
