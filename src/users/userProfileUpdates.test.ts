@@ -1,6 +1,7 @@
 import type { UserProfile } from "../domain/identity";
 import {
   findActiveWorkerLinkConflict,
+  prepareUserActivationUpdate,
   prepareUserRoleAndWorkerUpdate
 } from "./userProfileUpdates";
 
@@ -173,5 +174,147 @@ describe("user profile updates", () => {
         "worker-1"
       )
     ).toBeNull();
+  });
+
+  it("prepares account block with audit summaries", () => {
+    const targetProfile = profile({
+      uid: "operator-1",
+      role: "OPERATOR",
+      workerId: null
+    });
+
+    expect(
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile,
+        action: "BLOCK",
+        reason: " Naruszenie zasad dostepu ",
+        deviceId: "device-1",
+        knownProfiles: [adminProfile, targetProfile]
+      })
+    ).toMatchObject({
+      updatedProfile: {
+        active: false,
+        registrationStatus: "BLOCKED"
+      },
+      auditAction: "USER_BLOCKED",
+      beforeSummary: {
+        active: true,
+        registrationStatus: "APPROVED"
+      },
+      afterSummary: {
+        active: false,
+        registrationStatus: "BLOCKED"
+      },
+      reason: "Naruszenie zasad dostepu"
+    });
+  });
+
+  it("prepares account reactivation with refreshed role and worker link", () => {
+    const targetProfile = profile({
+      uid: "blocked-1",
+      role: "OPERATOR",
+      workerId: null,
+      active: false,
+      registrationStatus: "BLOCKED"
+    });
+
+    expect(
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile,
+        action: "REACTIVATE",
+        targetRole: "PICKER",
+        targetWorkerId: " worker-2 ",
+        reason: "Ponowna aktywacja po wyjasnieniu",
+        deviceId: "device-1",
+        knownProfiles: [adminProfile, targetProfile]
+      })
+    ).toMatchObject({
+      updatedProfile: {
+        role: "PICKER",
+        workerId: "worker-2",
+        active: true,
+        registrationStatus: "APPROVED"
+      },
+      auditAction: "USER_REACTIVATED",
+      afterSummary: {
+        role: "PICKER",
+        workerId: "worker-2",
+        active: true,
+        registrationStatus: "APPROVED"
+      }
+    });
+  });
+
+  it("rejects unsafe account block operations", () => {
+    expect(() =>
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile: adminProfile,
+        action: "BLOCK",
+        reason: "Samodzielna blokada",
+        deviceId: "device-1",
+        knownProfiles: [adminProfile]
+      })
+    ).toThrow("Administrator nie moze zmienic aktywnosci wlasnego konta.");
+
+    expect(() =>
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile: profile({
+          uid: "blocked-1",
+          active: false,
+          registrationStatus: "BLOCKED"
+        }),
+        action: "BLOCK",
+        reason: "Ponowna blokada",
+        deviceId: "device-1",
+        knownProfiles: [adminProfile]
+      })
+    ).toThrow("Konto jest juz zablokowane.");
+  });
+
+  it("rejects reactivation without valid picker worker link or with duplicate worker", () => {
+    const targetProfile = profile({
+      uid: "blocked-1",
+      role: "PICKER",
+      workerId: null,
+      active: false,
+      registrationStatus: "BLOCKED"
+    });
+
+    expect(() =>
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile,
+        action: "REACTIVATE",
+        targetRole: "PICKER",
+        targetWorkerId: null,
+        reason: "Reaktywacja",
+        deviceId: "device-1",
+        knownProfiles: [adminProfile, targetProfile]
+      })
+    ).toThrow("Rola Zbieracz wymaga workerId.");
+
+    expect(() =>
+      prepareUserActivationUpdate({
+        actorProfile: adminProfile,
+        targetProfile,
+        action: "REACTIVATE",
+        targetRole: "PICKER",
+        targetWorkerId: "worker-1",
+        reason: "Reaktywacja",
+        deviceId: "device-1",
+        knownProfiles: [
+          adminProfile,
+          targetProfile,
+          profile({
+            uid: "picker-2",
+            workerId: "worker-1"
+          })
+        ]
+      })
+    ).toThrow("Ten workerId jest juz przypisany do aktywnego konta.");
   });
 });
