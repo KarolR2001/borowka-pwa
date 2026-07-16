@@ -43,7 +43,7 @@ describe("Firestore deny-by-default rules", () => {
     await assertFails(setDoc(smokeDoc, { value: "blocked" }));
   });
 
-  it("reject authenticated reads and writes before profile rules exist", async () => {
+  it("reject authenticated reads and writes outside account collections", async () => {
     expect(testEnv).toBeDefined();
     if (!testEnv) {
       return;

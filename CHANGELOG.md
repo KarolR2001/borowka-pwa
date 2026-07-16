@@ -2,6 +2,18 @@
 
 Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 
+## Unreleased
+
+### Dodano
+
+- Dodano poczatkowy model domenowy tozsamosci: role, profile, statusy rejestracji i zaproszen.
+- Rozszerzono Firestore Security Rules o odczyt wlasnego aktywnego profilu i listowanie profili przez administratora.
+- Dodano testy Rules dla profili uzytkownikow.
+
+### Znane ograniczenia
+
+- Zapisy profili i zaproszen pozostaja zablokowane do czasu implementacji przeplywu prerejestracji administratora.
+
 ## 0.1.0 - 2026-07-15
 
 ### Dodano
