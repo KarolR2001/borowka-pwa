@@ -384,7 +384,8 @@ h2 {
   font-weight: 800;
 }
 
-.user-directory {
+.user-directory,
+.device-directory {
   display: grid;
   gap: 18px;
   margin-top: 20px;

@@ -42,6 +42,17 @@ import {
   getFirebaseServicesStatus,
   initializeFirebaseServicesIfReady
 } from "../config/firebaseServices";
+import {
+  createDefaultDeviceName,
+  readDevicePlatform,
+  registerCurrentDevice,
+  type RegisterCurrentDeviceInput
+} from "../devices/deviceRegistry";
+import {
+  AdminDeviceDirectoryPanel,
+  defaultDeviceDirectoryApi,
+  type DeviceDirectoryApi
+} from "../devices/AdminDeviceDirectoryPanel";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
@@ -82,6 +93,10 @@ export type AuthSessionApi = {
   signOut: (env: FirebaseEnv) => Promise<void>;
 };
 
+export type DeviceRegistryApi = {
+  register: (env: FirebaseEnv, input: RegisterCurrentDeviceInput) => Promise<void>;
+};
+
 type PanelState = {
   title: string;
   status: string;
@@ -97,6 +112,10 @@ const defaultAuthSessionApi: AuthSessionApi = {
   refresh: refreshCurrentAuthSession,
   updateOfflineConsent: updateOwnOfflineConsent,
   signOut: signOutCurrentUser
+};
+
+const defaultDeviceRegistryApi: DeviceRegistryApi = {
+  register: registerCurrentDevice
 };
 
 const panelByNavigation: Record<NavigationKey, PanelState> = {
@@ -139,10 +158,14 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
 
 export function App({
   authSessionApi = defaultAuthSessionApi,
+  deviceRegistryApi = defaultDeviceRegistryApi,
+  deviceDirectoryApi = defaultDeviceDirectoryApi,
   userDirectoryApi = defaultUserDirectoryApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi
 }: {
   authSessionApi?: AuthSessionApi;
+  deviceRegistryApi?: DeviceRegistryApi;
+  deviceDirectoryApi?: DeviceDirectoryApi;
   userDirectoryApi?: UserDirectoryApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
 } = {}) {
@@ -161,6 +184,7 @@ export function App({
   );
   const latestAuthStateRef = useRef(authState);
   const refreshInFlightRef = useRef(false);
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
   const panel = panelByNavigation[activeView];
 
   useEffect(() => {
@@ -278,17 +302,44 @@ export function App({
     };
   }, [authSessionApi, env, isOnline]);
 
+  useEffect(() => {
+    if (
+      !initialFirebaseServicesStatus.ready ||
+      !isOnline ||
+      authState.status !== "READY"
+    ) {
+      return;
+    }
+
+    void deviceRegistryApi
+      .register(env, {
+        deviceId,
+        userUid: authState.profile.uid,
+        deviceName: createDefaultDeviceName(),
+        platform: readDevicePlatform(),
+        trustedOfflineStorage: authState.profile.offlineConsent
+      })
+      .catch(() => undefined);
+  }, [
+    authState,
+    deviceId,
+    deviceRegistryApi,
+    env,
+    initialFirebaseServicesStatus.ready,
+    isOnline
+  ]);
+
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
   const diagnostics = useMemo(
     () => ({
-      deviceId: getOrCreateDeviceId(),
+      deviceId,
       launchedAt: new Intl.DateTimeFormat("pl-PL", {
         dateStyle: "medium",
         timeStyle: "medium",
         timeZone: "Europe/Warsaw"
       }).format(new Date())
     }),
-    []
+    [deviceId]
   );
 
   const handleProfileUpdated = (profile: UserProfile) => {
@@ -455,6 +506,11 @@ export function App({
               authState={authState}
               env={env}
               registrationInvitationsApi={registrationInvitationsApi}
+            />
+            <AdminDeviceDirectoryPanel
+              authState={authState}
+              env={env}
+              deviceDirectoryApi={deviceDirectoryApi}
             />
           </>
         ) : null}
