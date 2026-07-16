@@ -17,11 +17,13 @@ import {
   PASSWORD_RESET_CONFIRMATION,
   getInitialAuthSessionState,
   getLoginErrorMessage,
+  getOfflineConsentUpdateErrorMessage,
   getPasswordResetErrorMessage,
   requestPasswordResetEmail,
   signInWithEmailPassword,
   signOutCurrentUser,
   subscribeToAuthSession,
+  updateOwnOfflineConsent,
   type AuthenticatedUser,
   type AuthSessionListener,
   type AuthSessionState
@@ -41,6 +43,7 @@ import {
 } from "../config/firebaseServices";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
+import type { UserProfile } from "../domain/identity";
 import {
   AdminUserDirectoryPanel,
   defaultUserDirectoryApi,
@@ -69,6 +72,11 @@ export type AuthSessionApi = {
   ) => Promise<void>;
   requestPasswordReset: (env: FirebaseEnv, email: string) => Promise<void>;
   register: (env: FirebaseEnv, input: InvitedRegistrationInput) => Promise<void>;
+  updateOfflineConsent: (
+    env: FirebaseEnv,
+    uid: string,
+    offlineConsent: boolean
+  ) => Promise<void>;
   signOut: (env: FirebaseEnv) => Promise<void>;
 };
 
@@ -84,6 +92,7 @@ const defaultAuthSessionApi: AuthSessionApi = {
   signIn: signInWithEmailPassword,
   requestPasswordReset: requestPasswordResetEmail,
   register: registerInvitedUser,
+  updateOfflineConsent: updateOwnOfflineConsent,
   signOut: signOutCurrentUser
 };
 
@@ -224,6 +233,19 @@ export function App({
     []
   );
 
+  const handleProfileUpdated = (profile: UserProfile) => {
+    setAuthState((currentState) => {
+      if ("profile" in currentState && currentState.profile.uid === profile.uid) {
+        return {
+          ...currentState,
+          profile
+        };
+      }
+
+      return currentState;
+    });
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -354,7 +376,13 @@ export function App({
         ) : null}
 
         {activeView === "login" ? (
-          <AuthPanel authSessionApi={authSessionApi} authState={authState} env={env} />
+          <AuthPanel
+            authSessionApi={authSessionApi}
+            authState={authState}
+            deviceId={diagnostics.deviceId}
+            env={env}
+            onProfileUpdated={handleProfileUpdated}
+          />
         ) : null}
 
         {activeView === "admin" ? (
@@ -414,11 +442,15 @@ function DiagnosticRow({ label, value }: { label: string; value: string }) {
 function AuthPanel({
   authSessionApi,
   authState,
+  deviceId,
+  onProfileUpdated,
   env
 }: {
   authSessionApi: AuthSessionApi;
   authState: AuthSessionState;
+  deviceId: string;
   env: FirebaseEnv;
+  onProfileUpdated: (profile: UserProfile) => void;
 }) {
   const [mode, setMode] = useState<"login" | "reset" | "register">("login");
   const [email, setEmail] = useState("");
@@ -522,6 +554,37 @@ function AuthPanel({
     }
   };
 
+  const handleOfflineConsentChange = async (offlineConsent: boolean) => {
+    if (!("profile" in authState)) {
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    const nextProfile = {
+      ...authState.profile,
+      offlineConsent
+    };
+
+    try {
+      await authSessionApi.updateOfflineConsent(
+        env,
+        authState.profile.uid,
+        offlineConsent
+      );
+      onProfileUpdated(nextProfile);
+      setFeedback(
+        offlineConsent ? "Zgoda offline wlaczona." : "Zgoda offline wylaczona."
+      );
+    } catch (updateError: unknown) {
+      setError(getOfflineConsentUpdateErrorMessage(updateError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (hasAuthenticatedUser(authState)) {
     return (
       <section className="auth-panel" aria-label="Sesja logowania">
@@ -533,21 +596,42 @@ function AuthPanel({
           </div>
 
           <dl className="auth-summary" aria-label="Profil aplikacji">
+            <AuthSummaryRow label="Nazwa" value={displaySessionName(authState)} />
             <AuthSummaryRow label="E-mail" value={authState.user.email ?? "brak"} />
             {"profile" in authState ? (
               <>
                 <AuthSummaryRow label="Rola" value={roleLabel(authState.profile.role)} />
                 <AuthSummaryRow
-                  label="Status"
-                  value={authState.profile.registrationStatus}
+                  label="Status konta"
+                  value={accountStatusLabel(authState.profile)}
                 />
                 <AuthSummaryRow
-                  label="workerId"
+                  label="Powiazany zbieracz"
                   value={authState.profile.workerId ?? "brak"}
+                />
+                <AuthSummaryRow
+                  label="Zgoda offline"
+                  value={offlineConsentLabel(authState.profile.offlineConsent)}
                 />
               </>
             ) : null}
+            <AuthSummaryRow label="Identyfikator urzadzenia" value={deviceId} />
+            <AuthSummaryRow label="Wersja aplikacji" value={`v${APP_META.version}`} />
           </dl>
+
+          {"profile" in authState ? (
+            <label className="checkbox-field">
+              <input
+                checked={authState.profile.offlineConsent}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  void handleOfflineConsentChange(event.target.checked);
+                }}
+                type="checkbox"
+              />
+              <span>Zgoda na trwale dane offline</span>
+            </label>
+          ) : null}
 
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
           {error ? <p className="form-message form-message--error">{error}</p> : null}
@@ -839,6 +923,29 @@ function displaySessionName(state: AuthSessionState & { user: AuthenticatedUser 
   }
 
   return state.user.displayName ?? state.user.email ?? state.user.uid;
+}
+
+function accountStatusLabel(profile: UserProfile): string {
+  if (!profile.active || profile.registrationStatus === "BLOCKED") {
+    return "zablokowane";
+  }
+
+  return registrationStatusLabel(profile.registrationStatus);
+}
+
+function registrationStatusLabel(status: UserProfile["registrationStatus"]): string {
+  switch (status) {
+    case "APPROVED":
+      return "zatwierdzone";
+    case "REJECTED":
+      return "odrzucone";
+    case "BLOCKED":
+      return "zablokowane";
+  }
+}
+
+function offlineConsentLabel(offlineConsent: boolean): string {
+  return offlineConsent ? "zgoda aktywna" : "brak zgody";
 }
 
 function roleLabel(role: string): string {
