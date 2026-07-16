@@ -9,6 +9,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 - Dodano poczatkowy model domenowy tozsamosci: role, profile, statusy rejestracji i zaproszen.
 - Rozszerzono Firestore Security Rules o odczyt wlasnego aktywnego profilu i listowanie profili przez administratora.
 - Dodano testy Rules dla profili uzytkownikow.
+- Skorygowano naglowki cache Firebase Hosting dla tras SPA, manifestu i plikow HTML, aby aktualizacje PWA nie byly blokowane przez domyslne cache.
 
 ### Znane ograniczenia
 
