@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
+import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
 import { App, type AuthSessionApi } from "./App";
 
 const signedOutState: AuthSessionState = {
@@ -126,5 +127,39 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(signOut).toHaveBeenCalled();
     });
+  });
+
+  it("renders administrator user directory from the admin tab", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<UserDirectoryApi["list"]>().mockResolvedValue({
+      profiles: [
+        {
+          uid: "admin-1",
+          email: "admin@example.test",
+          displayName: "Admin Test",
+          role: "ADMIN",
+          workerId: null,
+          active: true,
+          registrationStatus: "APPROVED",
+          offlineConsent: false
+        }
+      ],
+      invalidProfiles: []
+    });
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState)}
+        userDirectoryApi={{ list }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /^administrator$/i }));
+
+    await waitFor(() => {
+      expect(list).toHaveBeenCalled();
+    });
+    expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 });

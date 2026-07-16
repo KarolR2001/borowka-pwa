@@ -18,6 +18,16 @@ export type UserProfile = {
   offlineConsent: boolean;
 };
 
+export type UserProfileDecodeResult =
+  | {
+      status: "FOUND";
+      profile: UserProfile;
+    }
+  | {
+      status: "INVALID";
+      reason: string;
+    };
+
 export type RegistrationInvitation = {
   id: string;
   emailNormalized: string;
@@ -63,6 +73,66 @@ export function roleRequiresWorkerId(role: UserRole): boolean {
   return role === "PICKER";
 }
 
+export function decodeUserProfile(
+  expectedUid: string,
+  data: unknown
+): UserProfileDecodeResult {
+  if (!isRecord(data)) {
+    return invalidProfile("Profil uzytkownika ma nieprawidlowy format.");
+  }
+
+  const uid = readRequiredString(data, "uid");
+  const email = readRequiredString(data, "email");
+  const displayName = readRequiredString(data, "displayName");
+  const role = data.role;
+  const registrationStatus = data.registrationStatus;
+  const active = data.active;
+  const offlineConsent = data.offlineConsent;
+  const workerId = data.workerId;
+
+  if (!uid || uid !== expectedUid) {
+    return invalidProfile("Profil uzytkownika ma niezgodny identyfikator.");
+  }
+
+  if (!email || !displayName) {
+    return invalidProfile("Profil uzytkownika nie ma wymaganych danych.");
+  }
+
+  if (!isUserRole(role)) {
+    return invalidProfile("Profil uzytkownika ma nieznana role.");
+  }
+
+  if (!isRegistrationStatus(registrationStatus)) {
+    return invalidProfile("Profil uzytkownika ma nieznany status rejestracji.");
+  }
+
+  if (typeof active !== "boolean") {
+    return invalidProfile("Profil uzytkownika ma nieprawidlowy status aktywnosci.");
+  }
+
+  if (typeof offlineConsent !== "boolean") {
+    return invalidProfile("Profil uzytkownika ma nieprawidlowa zgode offline.");
+  }
+
+  if (workerId !== undefined && workerId !== null && typeof workerId !== "string") {
+    return invalidProfile("Profil uzytkownika ma nieprawidlowe powiazanie workerId.");
+  }
+
+  return {
+    status: "FOUND",
+    profile: {
+      uid,
+      email,
+      displayName,
+      role,
+      workerId: workerId ?? null,
+      active,
+      registrationStatus,
+      offlineConsent
+    }
+  };
+}
+
 export function getIdentityAccessState(
   profile: UserProfile | null | undefined
 ): IdentityAccessState {
@@ -98,4 +168,49 @@ export function getIdentityAccessState(
     status: "READY",
     role: profile.role
   };
+}
+
+export function userRoleLabel(role: UserRole): string {
+  switch (role) {
+    case "ADMIN":
+      return "Administrator";
+    case "OPERATOR":
+      return "Operator";
+    case "PICKER":
+      return "Zbieracz";
+  }
+}
+
+export function registrationStatusLabel(status: RegistrationStatus): string {
+  switch (status) {
+    case "APPROVED":
+      return "Zatwierdzone";
+    case "REJECTED":
+      return "Odrzucone";
+    case "BLOCKED":
+      return "Zablokowane";
+  }
+}
+
+function invalidProfile(reason: string): UserProfileDecodeResult {
+  return {
+    status: "INVALID",
+    reason
+  };
+}
+
+function readRequiredString(data: Record<string, unknown>, key: string): string | null {
+  const value = data[key];
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
