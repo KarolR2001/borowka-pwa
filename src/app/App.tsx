@@ -35,6 +35,11 @@ import {
 } from "../config/firebaseServices";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
+import {
+  AdminUserDirectoryPanel,
+  defaultUserDirectoryApi,
+  type UserDirectoryApi
+} from "../users/AdminUserDirectoryPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -82,8 +87,8 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
   },
   admin: {
     title: "Pulpit administratora",
-    status: "Brak danych",
-    detail: "Widok czeka na etap kont, sezonów i sesji."
+    status: "Konta i role",
+    detail: "Administrator widzi profile aplikacyjne z kolekcji users."
   },
   operator: {
     title: "Pulpit operatora",
@@ -108,8 +113,12 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
 };
 
 export function App({
-  authSessionApi = defaultAuthSessionApi
-}: { authSessionApi?: AuthSessionApi } = {}) {
+  authSessionApi = defaultAuthSessionApi,
+  userDirectoryApi = defaultUserDirectoryApi
+}: {
+  authSessionApi?: AuthSessionApi;
+  userDirectoryApi?: UserDirectoryApi;
+} = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
   const [authState, setAuthState] = useState<AuthSessionState>(() =>
@@ -331,6 +340,14 @@ export function App({
 
         {activeView === "login" ? (
           <AuthPanel authSessionApi={authSessionApi} authState={authState} env={env} />
+        ) : null}
+
+        {activeView === "admin" ? (
+          <AdminUserDirectoryPanel
+            authState={authState}
+            env={env}
+            userDirectoryApi={userDirectoryApi}
+          />
         ) : null}
       </main>
     </div>

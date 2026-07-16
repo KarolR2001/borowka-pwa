@@ -14,6 +14,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 - Dodano warstwe sesji logowania Firebase Auth z odczytem profilu `users/{uid}`, walidacja roli/statusu i bezpiecznymi komunikatami bledow.
 - Dodano formularz logowania, resetu hasla i wylogowania oraz widok stanu profilu aplikacyjnego.
 - Dodano instrukcje recznego testu logowania na projekcie development.
+- Dodano odczytowa liste profili uzytkownikow dla administratora z filtrowaniem po roli, statusie, aktywnosci i tekście.
 
 ### Zmieniono
 
@@ -23,6 +24,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 
 - Zapisy profili i zaproszen pozostaja zablokowane do czasu implementacji przeplywu prerejestracji administratora.
 - Link "Zaloz konto" pokazuje informacyjny stan prerejestracji; wlasciwy przeplyw zaproszen administratora bedzie osobnym przyrostem.
+- Lista administratora pokazuje profile z kolekcji `users`; nie wykrywa jeszcze kont Authentication bez profilu.
 
 ## 0.1.0 - 2026-07-15
 
