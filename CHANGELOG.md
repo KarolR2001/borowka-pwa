@@ -10,6 +10,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 - Rozszerzono Firestore Security Rules o odczyt wlasnego aktywnego profilu i listowanie profili przez administratora.
 - Dodano testy Rules dla profili uzytkownikow.
 - Skorygowano naglowki cache Firebase Hosting dla tras SPA, manifestu i plikow HTML, aby aktualizacje PWA nie byly blokowane przez domyslne cache.
+- Dodano inicjalizacje Firebase App, Authentication i Firestore w aplikacji oraz status uslug w diagnostyce.
 
 ### Znane ograniczenia
 

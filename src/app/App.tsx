@@ -5,11 +5,15 @@ import {
   Wifi,
   type LucideIcon
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { APP_META } from "../config/appMeta";
 import { getFirebaseClientConfigStatus } from "../config/firebaseClientConfig";
 import { getFirebaseRuntimeStatus } from "../config/firebaseRuntime";
+import {
+  getFirebaseServicesStatus,
+  initializeFirebaseServicesIfReady
+} from "../config/firebaseServices";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { navigationItems, type NavigationKey } from "./navigation";
@@ -69,7 +73,43 @@ export function App() {
   const serviceWorkerStatus = useServiceWorkerStatus();
   const firebaseStatus = getFirebaseClientConfigStatus(import.meta.env);
   const firebaseRuntimeStatus = getFirebaseRuntimeStatus(import.meta.env);
+  const initialFirebaseServicesStatus = useMemo(
+    () => getFirebaseServicesStatus(import.meta.env),
+    []
+  );
+  const [firebaseServicesStatus, setFirebaseServicesStatus] = useState(
+    initialFirebaseServicesStatus
+  );
   const panel = panelByNavigation[activeView];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!initialFirebaseServicesStatus.ready) {
+      return undefined;
+    }
+
+    void initializeFirebaseServicesIfReady(import.meta.env)
+      .then((status) => {
+        if (isMounted) {
+          setFirebaseServicesStatus(status);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFirebaseServicesStatus({
+            ...initialFirebaseServicesStatus,
+            ready: false,
+            initialized: false,
+            message: "Nie udalo sie uruchomic uslug Firebase."
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialFirebaseServicesStatus]);
 
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
   const diagnostics = useMemo(
@@ -139,6 +179,15 @@ export function App() {
             label={`Kalkulacje ${APP_META.calculationVersion}`}
             tone="neutral"
           />
+          <StatusItem
+            icon={firebaseServicesStatus.initialized ? CheckCircle2 : AlertTriangle}
+            label={
+              firebaseServicesStatus.initialized
+                ? "Uslugi Firebase gotowe"
+                : "Uslugi Firebase nieaktywne"
+            }
+            tone={firebaseServicesStatus.initialized ? "ok" : "warn"}
+          />
         </section>
 
         <section className="primary-panel" aria-labelledby="active-panel-title">
@@ -171,6 +220,18 @@ export function App() {
               value={serviceWorkerStatusLabel[serviceWorkerStatus]}
             />
             <DiagnosticRow label="Tryb Firebase" value={firebaseRuntimeStatus.label} />
+            <DiagnosticRow
+              label="Uslugi Firebase"
+              value={firebaseServicesStatus.message}
+            />
+            <DiagnosticRow
+              label="Auth i Firestore"
+              value={
+                firebaseServicesStatus.initialized
+                  ? "zainicjalizowane"
+                  : "niezainicjalizowane"
+              }
+            />
             <DiagnosticRow
               label="Ostrzezenia konfiguracji"
               value={
