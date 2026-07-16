@@ -6,13 +6,14 @@ import {
   getFirebaseServicesStatus
 } from "../config/firebaseServices";
 import {
+  decodeUserProfile,
   getIdentityAccessState,
-  isRegistrationStatus,
-  isUserRole,
   normalizeEmail,
   type IdentityAccessState,
   type UserProfile
 } from "../domain/identity";
+
+export { decodeUserProfile } from "../domain/identity";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -237,66 +238,6 @@ export async function readUserProfile(
   return decodeUserProfile(uid, snapshot.data());
 }
 
-export function decodeUserProfile(
-  expectedUid: string,
-  data: unknown
-): UserProfileReadResult {
-  if (!isRecord(data)) {
-    return invalidProfile("Profil uzytkownika ma nieprawidlowy format.");
-  }
-
-  const uid = readRequiredString(data, "uid");
-  const email = readRequiredString(data, "email");
-  const displayName = readRequiredString(data, "displayName");
-  const role = data.role;
-  const registrationStatus = data.registrationStatus;
-  const active = data.active;
-  const offlineConsent = data.offlineConsent;
-  const workerId = data.workerId;
-
-  if (!uid || uid !== expectedUid) {
-    return invalidProfile("Profil uzytkownika ma niezgodny identyfikator.");
-  }
-
-  if (!email || !displayName) {
-    return invalidProfile("Profil uzytkownika nie ma wymaganych danych.");
-  }
-
-  if (!isUserRole(role)) {
-    return invalidProfile("Profil uzytkownika ma nieznana role.");
-  }
-
-  if (!isRegistrationStatus(registrationStatus)) {
-    return invalidProfile("Profil uzytkownika ma nieznany status rejestracji.");
-  }
-
-  if (typeof active !== "boolean") {
-    return invalidProfile("Profil uzytkownika ma nieprawidlowy status aktywnosci.");
-  }
-
-  if (typeof offlineConsent !== "boolean") {
-    return invalidProfile("Profil uzytkownika ma nieprawidlowa zgode offline.");
-  }
-
-  if (workerId !== undefined && workerId !== null && typeof workerId !== "string") {
-    return invalidProfile("Profil uzytkownika ma nieprawidlowe powiazanie workerId.");
-  }
-
-  return {
-    status: "FOUND",
-    profile: {
-      uid,
-      email,
-      displayName,
-      role,
-      workerId: workerId ?? null,
-      active,
-      registrationStatus,
-      offlineConsent
-    }
-  };
-}
-
 export async function resolveAuthenticatedSession(
   firestore: Firestore,
   user: AuthenticatedUser
@@ -407,25 +348,6 @@ function toAuthenticatedUser(user: FirebaseAuthUser): AuthenticatedUser {
     email: user.email,
     displayName: user.displayName
   };
-}
-
-function invalidProfile(reason: string): UserProfileReadResult {
-  return {
-    status: "INVALID",
-    reason
-  };
-}
-
-function readRequiredString(data: Record<string, unknown>, key: string): string | null {
-  const value = data[key];
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
