@@ -138,6 +138,27 @@ service cloud.firestore {
         data.offlineConsent is bool;
     }
 
+    function hasValidUserRoleWorkerPair(data) {
+      return isUserRole(data.role) &&
+        ((
+          data.role == 'PICKER' &&
+          data.workerId is string &&
+          data.workerId.size() > 0
+        ) || (
+          data.role != 'PICKER' &&
+          (data.workerId == null || data.workerId is string)
+        ));
+    }
+
+    function isValidAdminRoleOrWorkerUpdate(data, previous, userId) {
+      return isAdmin() &&
+        request.auth.uid != userId &&
+        previous.active == true &&
+        previous.registrationStatus == 'APPROVED' &&
+        data.diff(previous).affectedKeys().hasOnly(['role', 'workerId']) &&
+        hasValidUserRoleWorkerPair(data);
+    }
+
     function hasInvitationFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -422,6 +443,10 @@ service cloud.firestore {
         userId
       );
       allow update: if isOwnOfflineConsentUpdate(
+        request.resource.data,
+        resource.data,
+        userId
+      ) || isValidAdminRoleOrWorkerUpdate(
         request.resource.data,
         resource.data,
         userId
