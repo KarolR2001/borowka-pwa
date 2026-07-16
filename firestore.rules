@@ -33,10 +33,118 @@ service cloud.firestore {
       return hasRole('ADMIN');
     }
 
+    function isUserRole(role) {
+      return role == 'ADMIN' || role == 'OPERATOR' || role == 'PICKER';
+    }
+
+    function isInvitationStatus(status) {
+      return status == 'PENDING' ||
+        status == 'USED' ||
+        status == 'CANCELLED' ||
+        status == 'EXPIRED';
+    }
+
+    function hasInvitationFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'emailNormalized',
+        'displayName',
+        'targetRole',
+        'workerId',
+        'status',
+        'createdBy',
+        'createdAt',
+        'usedBy',
+        'usedAt',
+        'expiresAt'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'emailNormalized',
+          'displayName',
+          'targetRole',
+          'workerId',
+          'status',
+          'createdBy',
+          'createdAt',
+          'usedBy',
+          'usedAt',
+          'expiresAt'
+        ]);
+    }
+
+    function hasValidInvitationWorker(data) {
+      return (
+        data.targetRole == 'PICKER' &&
+        data.workerId is string &&
+        data.workerId.size() > 0
+      ) || (
+        data.targetRole != 'PICKER' &&
+        (data.workerId == null || data.workerId is string)
+      );
+    }
+
+    function hasValidInvitationBase(data, invitationId) {
+      return hasInvitationFields(data) &&
+        data.id == invitationId &&
+        data.id is string &&
+        data.emailNormalized is string &&
+        data.emailNormalized.size() > 0 &&
+        data.displayName is string &&
+        data.displayName.size() > 0 &&
+        isUserRole(data.targetRole) &&
+        isInvitationStatus(data.status) &&
+        hasValidInvitationWorker(data) &&
+        data.createdBy is string &&
+        data.createdAt is timestamp &&
+        (data.expiresAt == null || data.expiresAt is timestamp);
+    }
+
+    function isValidInvitationCreate(data, invitationId) {
+      return hasValidInvitationBase(data, invitationId) &&
+        data.status == 'PENDING' &&
+        data.createdBy == request.auth.uid &&
+        data.usedBy == null &&
+        data.usedAt == null;
+    }
+
+    function keepsInvitationAssignment(data, previous) {
+      return data.id == previous.id &&
+        data.emailNormalized == previous.emailNormalized &&
+        data.displayName == previous.displayName &&
+        data.targetRole == previous.targetRole &&
+        data.workerId == previous.workerId &&
+        data.createdBy == previous.createdBy &&
+        data.createdAt == previous.createdAt &&
+        data.usedBy == previous.usedBy &&
+        data.usedAt == previous.usedAt &&
+        data.expiresAt == previous.expiresAt;
+    }
+
+    function isValidInvitationCancelOrExpire(data, previous, invitationId) {
+      return hasValidInvitationBase(data, invitationId) &&
+        previous.status == 'PENDING' &&
+        (data.status == 'CANCELLED' || data.status == 'EXPIRED') &&
+        keepsInvitationAssignment(data, previous);
+    }
+
     match /users/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
       allow create, update, delete: if false;
+    }
+
+    match /registrationInvitations/{invitationId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidInvitationCreate(request.resource.data, invitationId);
+      allow update: if isAdmin() &&
+        isValidInvitationCancelOrExpire(
+          request.resource.data,
+          resource.data,
+          invitationId
+        );
+      allow delete: if false;
     }
 
     match /{document=**} {
