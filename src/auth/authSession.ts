@@ -20,6 +20,9 @@ type FirebaseEnv = Record<string, string | boolean | undefined>;
 export const PASSWORD_RESET_CONFIRMATION =
   "Jesli konto istnieje, wyslalismy link resetujacy haslo. Sprawdz skrzynke i spam.";
 
+const PROFILE_READ_MISSING_RETRIES = 4;
+const PROFILE_READ_RETRY_DELAY_MS = 250;
+
 export type AuthenticatedUser = {
   uid: string;
   email: string | null;
@@ -94,6 +97,11 @@ export type AuthSessionState =
 
 export type AuthSessionListener = (state: AuthSessionState) => void;
 
+type ResolveAuthenticatedSessionOptions = {
+  missingProfileRetries?: number;
+  retryDelayMs?: number;
+};
+
 export function getInitialAuthSessionState(env: FirebaseEnv): AuthSessionState {
   const servicesStatus = getFirebaseServicesStatus(env);
 
@@ -149,7 +157,10 @@ export async function subscribeToAuthSession(
         user
       });
 
-      void resolveAuthenticatedSession(firestore, user)
+      void resolveAuthenticatedSession(firestore, user, {
+        missingProfileRetries: PROFILE_READ_MISSING_RETRIES,
+        retryDelayMs: PROFILE_READ_RETRY_DELAY_MS
+      })
         .then((state) => {
           if (currentRevision === revision) {
             listener(state);
@@ -222,6 +233,24 @@ export async function signOutCurrentUser(env: FirebaseEnv): Promise<void> {
   await signOut(auth);
 }
 
+export async function refreshCurrentAuthSession(
+  env: FirebaseEnv
+): Promise<AuthSessionState> {
+  const { auth, firestore } = await getReadyFirebaseServices(env);
+
+  if (!auth.currentUser) {
+    return {
+      status: "SIGNED_OUT",
+      message: "Uzytkownik nie jest zalogowany."
+    };
+  }
+
+  return resolveAuthenticatedSession(firestore, toAuthenticatedUser(auth.currentUser), {
+    missingProfileRetries: PROFILE_READ_MISSING_RETRIES,
+    retryDelayMs: PROFILE_READ_RETRY_DELAY_MS
+  });
+}
+
 export async function updateOwnOfflineConsent(
   env: FirebaseEnv,
   uid: string,
@@ -253,9 +282,10 @@ export async function readUserProfile(
 
 export async function resolveAuthenticatedSession(
   firestore: Firestore,
-  user: AuthenticatedUser
+  user: AuthenticatedUser,
+  options: ResolveAuthenticatedSessionOptions = {}
 ): Promise<AuthSessionState> {
-  const readResult = await readUserProfile(firestore, user.uid);
+  const readResult = await readUserProfileWithMissingRetry(firestore, user.uid, options);
 
   if (readResult.status === "MISSING") {
     const access = {
@@ -307,6 +337,23 @@ export async function resolveAuthenticatedSession(
     profile: readResult.profile,
     access
   };
+}
+
+async function readUserProfileWithMissingRetry(
+  firestore: Firestore,
+  uid: string,
+  options: ResolveAuthenticatedSessionOptions
+): Promise<UserProfileReadResult> {
+  const retries = options.missingProfileRetries ?? 0;
+  const retryDelayMs = options.retryDelayMs ?? 0;
+  let result = await readUserProfile(firestore, uid);
+
+  for (let attempt = 0; attempt < retries && result.status === "MISSING"; attempt += 1) {
+    await delay(retryDelayMs);
+    result = await readUserProfile(firestore, uid);
+  }
+
+  return result;
 }
 
 export function getLoginErrorMessage(error: unknown): string {
@@ -383,6 +430,16 @@ function isNetworkError(error: unknown): boolean {
   const code = getFirebaseErrorCode(error);
 
   return code === "auth/network-request-failed" || code === "unavailable";
+}
+
+function delay(delayMs: number): Promise<void> {
+  if (delayMs <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, delayMs);
+  });
 }
 
 function getFirebaseErrorCode(error: unknown): string | null {

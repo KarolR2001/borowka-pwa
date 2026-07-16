@@ -35,6 +35,30 @@ const activeAdminState: AuthSessionState = {
   }
 };
 
+const activePickerState: AuthSessionState = {
+  status: "READY",
+  message: "Profil aplikacji jest aktywny.",
+  user: {
+    uid: "picker-1",
+    email: "picker@example.test",
+    displayName: "Picker Test"
+  },
+  profile: {
+    uid: "picker-1",
+    email: "picker@example.test",
+    displayName: "Picker Test",
+    role: "PICKER",
+    workerId: "worker-1",
+    active: true,
+    registrationStatus: "APPROVED",
+    offlineConsent: false
+  },
+  access: {
+    status: "READY",
+    role: "PICKER"
+  }
+};
+
 const createAuthSessionApi = (
   initialState: AuthSessionState,
   overrides: Partial<AuthSessionApi> = {}
@@ -47,6 +71,7 @@ const createAuthSessionApi = (
   signIn: () => Promise.resolve(),
   requestPasswordReset: () => Promise.resolve(),
   register: () => Promise.resolve(),
+  refresh: () => Promise.resolve(initialState),
   updateOfflineConsent: () => Promise.resolve(),
   signOut: () => Promise.resolve(),
   ...overrides
@@ -159,6 +184,42 @@ describe("App shell", () => {
     });
     expect(
       screen.getByText("Konto zostalo utworzone. Pobieram profil.")
+    ).toBeInTheDocument();
+  });
+
+  it("refreshes the active profile immediately after invited picker registration", async () => {
+    const user = userEvent.setup();
+    const register = vi.fn<AuthSessionApi["register"]>().mockResolvedValue(undefined);
+    const refresh = vi
+      .fn<AuthSessionApi["refresh"]>()
+      .mockResolvedValue(activePickerState);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(signedOutState, {
+          register,
+          refresh
+        })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("E-mail"), "picker@example.test");
+    await user.type(screen.getByLabelText("Imie i nazwisko"), "Picker Test");
+    await user.type(screen.getByLabelText("Haslo"), "secret-password");
+    await user.type(screen.getByLabelText("Powtorz haslo"), "secret-password");
+    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith(expect.anything());
+    });
+    expect(screen.getByRole("heading", { name: "Picker Test" })).toBeInTheDocument();
+    expect(screen.getAllByText("Zbieracz").length).toBeGreaterThan(0);
+    expect(screen.getByText("worker-1")).toBeInTheDocument();
+    expect(
+      screen.getByText("Konto zostalo utworzone i profil jest aktywny.")
     ).toBeInTheDocument();
   });
 
