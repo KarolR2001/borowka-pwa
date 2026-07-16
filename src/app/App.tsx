@@ -9,8 +9,15 @@ import { useMemo, useState } from "react";
 
 import { APP_META } from "../config/appMeta";
 import { getFirebaseClientConfigStatus } from "../config/firebaseClientConfig";
+import { getFirebaseRuntimeStatus } from "../config/firebaseRuntime";
+import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { navigationItems, type NavigationKey } from "./navigation";
+import { useOnlineStatus } from "./useOnlineStatus";
+import {
+  serviceWorkerStatusLabel,
+  useServiceWorkerStatus
+} from "./useServiceWorkerStatus";
 
 type PanelState = {
   title: string;
@@ -58,10 +65,24 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
 
 export function App() {
   const [activeView, setActiveView] = useState<NavigationKey>("start");
+  const isOnline = useOnlineStatus();
+  const serviceWorkerStatus = useServiceWorkerStatus();
   const firebaseStatus = getFirebaseClientConfigStatus(import.meta.env);
+  const firebaseRuntimeStatus = getFirebaseRuntimeStatus(import.meta.env);
   const panel = panelByNavigation[activeView];
 
   const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
+  const diagnostics = useMemo(
+    () => ({
+      deviceId: getOrCreateDeviceId(),
+      launchedAt: new Intl.DateTimeFormat("pl-PL", {
+        dateStyle: "medium",
+        timeStyle: "medium",
+        timeZone: "Europe/Warsaw"
+      }).format(new Date())
+    }),
+    []
+  );
 
   return (
     <div className="app-shell">
@@ -102,9 +123,9 @@ export function App() {
       <main className="workspace">
         <section className="status-band" aria-label="Status aplikacji">
           <StatusItem
-            icon={navigator.onLine ? Wifi : CloudOff}
-            label={navigator.onLine ? "Online" : "Offline"}
-            tone={navigator.onLine ? "ok" : "warn"}
+            icon={isOnline ? Wifi : CloudOff}
+            label={isOnline ? "Online" : "Offline"}
+            tone={isOnline ? "ok" : "warn"}
           />
           <StatusItem
             icon={firebaseStatus.ready ? CheckCircle2 : AlertTriangle}
@@ -140,6 +161,24 @@ export function App() {
             <DiagnosticRow label="Wersja aplikacji" value={APP_META.version} />
             <DiagnosticRow label="Wersja schematu" value={APP_META.schemaVersion} />
             <DiagnosticRow label="Regula obliczen" value={APP_META.calculationVersion} />
+            <DiagnosticRow label="Ostatnie uruchomienie" value={diagnostics.launchedAt} />
+            <DiagnosticRow
+              label="Identyfikator urzadzenia"
+              value={diagnostics.deviceId}
+            />
+            <DiagnosticRow
+              label="Service worker"
+              value={serviceWorkerStatusLabel[serviceWorkerStatus]}
+            />
+            <DiagnosticRow label="Tryb Firebase" value={firebaseRuntimeStatus.label} />
+            <DiagnosticRow
+              label="Ostrzezenia konfiguracji"
+              value={
+                firebaseRuntimeStatus.warnings.length > 0
+                  ? firebaseRuntimeStatus.warnings.join("; ")
+                  : "brak"
+              }
+            />
             <DiagnosticRow
               label="Firebase"
               value={firebaseStatus.ready ? "skonfigurowany" : firebaseStatus.message}

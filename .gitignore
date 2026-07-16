@@ -18,12 +18,19 @@ coverage/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+*.log
 
 # local toolchains and reports
 .tools/
 .tmp/
 playwright-report/
 test-results/
+
+# local project notes
+postep.md
+notes/
+*.local.md
+*.notes.md
 
 # OS/editor
 .DS_Store
