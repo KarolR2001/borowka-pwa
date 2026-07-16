@@ -47,6 +47,7 @@ const createAuthSessionApi = (
   signIn: () => Promise.resolve(),
   requestPasswordReset: () => Promise.resolve(),
   register: () => Promise.resolve(),
+  updateOfflineConsent: () => Promise.resolve(),
   signOut: () => Promise.resolve(),
   ...overrides
 });
@@ -171,12 +172,47 @@ describe("App shell", () => {
 
     expect(screen.getByRole("heading", { name: "Admin Test" })).toBeInTheDocument();
     expect(screen.getAllByText("Administrator").length).toBeGreaterThan(0);
+    expect(screen.getByText("Status konta")).toBeInTheDocument();
+    expect(screen.getByText("zatwierdzone")).toBeInTheDocument();
+    expect(screen.getByText("Powiazany zbieracz")).toBeInTheDocument();
+    expect(screen.getByText("Zgoda offline")).toBeInTheDocument();
+    expect(screen.getByText("brak zgody")).toBeInTheDocument();
+    expect(screen.getByText("Identyfikator urzadzenia")).toBeInTheDocument();
+    expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
 
     await waitFor(() => {
       expect(signOut).toHaveBeenCalled();
     });
+  });
+
+  it("updates offline consent from the user profile panel", async () => {
+    const user = userEvent.setup();
+    const updateOfflineConsent = vi
+      .fn<AuthSessionApi["updateOfflineConsent"]>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState, {
+          updateOfflineConsent
+        })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByLabelText("Zgoda na trwale dane offline"));
+
+    await waitFor(() => {
+      expect(updateOfflineConsent).toHaveBeenCalledWith(
+        expect.anything(),
+        "admin-1",
+        true
+      );
+    });
+    expect(screen.getByText("Zgoda offline wlaczona.")).toBeInTheDocument();
+    expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
   });
 
   it("renders administrator user directory from the admin tab", async () => {
