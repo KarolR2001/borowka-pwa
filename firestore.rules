@@ -134,6 +134,7 @@ service cloud.firestore {
     function isOwnOfflineConsentUpdate(data, previous, userId) {
       return isSignedIn() &&
         request.auth.uid == userId &&
+        hasApprovedActiveProfile(userId) &&
         data.diff(previous).affectedKeys().hasOnly(['offlineConsent']) &&
         data.offlineConsent is bool;
     }

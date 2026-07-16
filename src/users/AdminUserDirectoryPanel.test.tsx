@@ -195,6 +195,41 @@ describe("AdminUserDirectoryPanel", () => {
     ]);
   });
 
+  it("explains last admin protection and blocks self-targeted account actions", async () => {
+    const list = vi.fn<UserDirectoryApi["list"]>().mockResolvedValue({
+      profiles: [
+        profile({
+          uid: "admin-1",
+          displayName: "Admin Test",
+          role: "ADMIN",
+          workerId: null
+        })
+      ],
+      invalidProfiles: []
+    });
+
+    render(
+      <AdminUserDirectoryPanel
+        authState={adminState}
+        env={env}
+        userDirectoryApi={{ list }}
+      />
+    );
+
+    await screen.findByLabelText("Ochrona ostatniego administratora");
+    expect(
+      screen.getByText(/To jest jedyne aktywne konto administratora/i)
+    ).toBeInTheDocument();
+
+    const roleProfileSelect = screen.getByLabelText("Profil roli");
+    const statusProfileSelect = screen.getByLabelText("Profil statusu");
+
+    expect(roleProfileSelect).toBeDisabled();
+    expect(statusProfileSelect).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zapisz zmiane" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zablokuj konto" })).toBeDisabled();
+  });
+
   it("submits role and worker link changes with confirmation", async () => {
     const user = userEvent.setup();
     const operatorProfile = profile({

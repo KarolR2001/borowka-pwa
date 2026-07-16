@@ -76,3 +76,9 @@ variables at build time and validates them with
 
 Do not add service account JSON, Firebase Admin SDK credentials, refresh tokens
 or production exports to repository files.
+
+## Operational recovery
+
+Emergency recovery of administrator access is described in
+[last-admin-recovery.md](last-admin-recovery.md). The procedure must be tested
+on development before production launch.
