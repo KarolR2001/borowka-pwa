@@ -343,4 +343,136 @@ describe("Firestore user profile rules", () => {
       })
     );
   });
+
+  it("allows admin to block another active user profile", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN",
+        workerId: null
+      }),
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(db, "users", "operator-1"), {
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "operator-1")));
+    expect(snapshot.data()?.active).toBe(false);
+    expect(snapshot.data()?.registrationStatus).toBe("BLOCKED");
+  });
+
+  it("allows admin to reactivate blocked profile with valid role and worker link", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN",
+        workerId: null
+      }),
+      profile({
+        uid: "blocked-1",
+        role: "OPERATOR",
+        workerId: null,
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(db, "users", "blocked-1"), {
+        active: true,
+        registrationStatus: "APPROVED",
+        role: "PICKER",
+        workerId: "worker-2"
+      })
+    );
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "blocked-1")));
+    expect(snapshot.data()?.active).toBe(true);
+    expect(snapshot.data()?.registrationStatus).toBe("APPROVED");
+    expect(snapshot.data()?.role).toBe("PICKER");
+    expect(snapshot.data()?.workerId).toBe("worker-2");
+  });
+
+  it("rejects unsafe admin activation updates", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN",
+        workerId: null
+      }),
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      }),
+      profile({
+        uid: "blocked-1",
+        role: "PICKER",
+        workerId: null,
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(db, "users", "admin-1"), {
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "users", "operator-1"), {
+        active: false,
+        registrationStatus: "APPROVED"
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "users", "operator-1"), {
+        active: false,
+        registrationStatus: "BLOCKED",
+        role: "ADMIN"
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "users", "blocked-1"), {
+        active: true,
+        registrationStatus: "APPROVED",
+        role: "PICKER",
+        workerId: null
+      })
+    );
+  });
 });

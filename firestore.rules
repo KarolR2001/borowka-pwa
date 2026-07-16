@@ -159,6 +159,35 @@ service cloud.firestore {
         hasValidUserRoleWorkerPair(data);
     }
 
+    function isValidAdminActivationUpdate(data, previous, userId) {
+      return isAdmin() &&
+        request.auth.uid != userId &&
+        (
+          (
+            previous.active == true &&
+            previous.registrationStatus == 'APPROVED' &&
+            data.active == false &&
+            data.registrationStatus == 'BLOCKED' &&
+            data.diff(previous).affectedKeys().hasOnly([
+              'active',
+              'registrationStatus'
+            ])
+          ) || (
+            previous.active == false &&
+            previous.registrationStatus == 'BLOCKED' &&
+            data.active == true &&
+            data.registrationStatus == 'APPROVED' &&
+            data.diff(previous).affectedKeys().hasOnly([
+              'active',
+              'registrationStatus',
+              'role',
+              'workerId'
+            ]) &&
+            hasValidUserRoleWorkerPair(data)
+          )
+        );
+    }
+
     function hasInvitationFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -447,6 +476,10 @@ service cloud.firestore {
         resource.data,
         userId
       ) || isValidAdminRoleOrWorkerUpdate(
+        request.resource.data,
+        resource.data,
+        userId
+      ) || isValidAdminActivationUpdate(
         request.resource.data,
         resource.data,
         userId
