@@ -213,7 +213,66 @@ describe("Firestore user profile rules", () => {
     await assertFails(getDocs(collection(db, "users")));
   });
 
-  it("keeps profile writes closed until admin workflow exists", async () => {
+  it("allows signed-in user to update own offline consent", async () => {
+    await seedProfiles(profile({ uid: "picker-1" }));
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("picker-1", { email: "picker-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(db, "users", "picker-1"), {
+        offlineConsent: true
+      })
+    );
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "picker-1")));
+    expect(snapshot.data()?.offlineConsent).toBe(true);
+  });
+
+  it("rejects protected self profile updates", async () => {
+    await seedProfiles(profile({ uid: "picker-1" }));
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("picker-1", { email: "picker-1@example.test" })
+      .firestore();
+
+    await assertFails(updateDoc(doc(db, "users", "picker-1"), { role: "ADMIN" }));
+    await assertFails(updateDoc(doc(db, "users", "picker-1"), { active: false }));
+    await assertFails(
+      updateDoc(doc(db, "users", "picker-1"), {
+        workerId: "worker-2"
+      })
+    );
+  });
+
+  it("rejects updating another user's offline consent", async () => {
+    await seedProfiles(profile({ uid: "picker-1" }), profile({ uid: "picker-2" }));
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("picker-1", { email: "picker-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(db, "users", "picker-2"), {
+        offlineConsent: true
+      })
+    );
+  });
+
+  it("keeps protected admin profile writes closed until admin workflow exists", async () => {
     await seedProfiles(
       profile({
         uid: "admin-1",

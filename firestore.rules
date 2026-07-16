@@ -116,6 +116,13 @@ service cloud.firestore {
         hasPendingInvitationForProfile(data);
     }
 
+    function isOwnOfflineConsentUpdate(data, previous, userId) {
+      return isSignedIn() &&
+        request.auth.uid == userId &&
+        data.diff(previous).affectedKeys().hasOnly(['offlineConsent']) &&
+        data.offlineConsent is bool;
+    }
+
     function hasInvitationFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -267,7 +274,12 @@ service cloud.firestore {
         request.resource.data,
         userId
       );
-      allow update, delete: if false;
+      allow update: if isOwnOfflineConsentUpdate(
+        request.resource.data,
+        resource.data,
+        userId
+      );
+      allow delete: if false;
     }
 
     match /registrationInvitations/{invitationId} {

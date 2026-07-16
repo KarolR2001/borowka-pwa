@@ -222,6 +222,19 @@ export async function signOutCurrentUser(env: FirebaseEnv): Promise<void> {
   await signOut(auth);
 }
 
+export async function updateOwnOfflineConsent(
+  env: FirebaseEnv,
+  uid: string,
+  offlineConsent: boolean
+): Promise<void> {
+  const { firestore } = await getReadyFirebaseServices(env);
+  const { doc, updateDoc } = await import("firebase/firestore/lite");
+
+  await updateDoc(doc(firestore, "users", uid), {
+    offlineConsent
+  });
+}
+
 export async function readUserProfile(
   firestore: Firestore,
   uid: string
@@ -310,6 +323,18 @@ export function getPasswordResetErrorMessage(error: unknown): string {
   }
 
   return "Nie udalo sie wyslac resetu hasla. Sprobuj ponownie pozniej.";
+}
+
+export function getOfflineConsentUpdateErrorMessage(error: unknown): string {
+  if (isNetworkError(error)) {
+    return "Zgoda offline wymaga polaczenia z Firebase.";
+  }
+
+  if (getFirebaseErrorCode(error) === "permission-denied") {
+    return "Brak uprawnien do zmiany zgody offline.";
+  }
+
+  return "Nie udalo sie zapisac zgody offline. Sprobuj ponownie.";
 }
 
 export function getProfileReadErrorMessage(error: unknown): string {
