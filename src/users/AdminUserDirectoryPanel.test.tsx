@@ -183,7 +183,7 @@ describe("AdminUserDirectoryPanel", () => {
 
     await screen.findByText("Operator Test");
 
-    const profileSelect = screen.getByLabelText("Profil");
+    const profileSelect = screen.getByLabelText("Profil roli");
     expect(profileSelect).toBeInstanceOf(HTMLSelectElement);
 
     if (!(profileSelect instanceof HTMLSelectElement)) {
@@ -248,7 +248,7 @@ describe("AdminUserDirectoryPanel", () => {
     await screen.findByText("Operator Test");
     await user.selectOptions(screen.getByLabelText("Nowa rola"), "PICKER");
     await user.type(screen.getByLabelText("workerId"), "worker-operator");
-    await user.type(screen.getByLabelText("Powod"), "Przypisanie zbieracza");
+    await user.type(screen.getByLabelText("Powod zmiany roli"), "Przypisanie zbieracza");
     await user.click(screen.getByLabelText("Potwierdzam zmiane roli i powiazania"));
     await user.click(screen.getByRole("button", { name: "Zapisz zmiane" }));
 
@@ -271,5 +271,167 @@ describe("AdminUserDirectoryPanel", () => {
     expect(
       screen.getByText("Zmieniono role lub powiazanie profilu.")
     ).toBeInTheDocument();
+  });
+
+  it("submits account block with confirmation", async () => {
+    const user = userEvent.setup();
+    const operatorProfile = profile({
+      uid: "operator-1",
+      displayName: "Operator Test",
+      role: "OPERATOR",
+      workerId: null
+    });
+    const list = vi
+      .fn<UserDirectoryApi["list"]>()
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          operatorProfile
+        ],
+        invalidProfiles: []
+      })
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          {
+            ...operatorProfile,
+            active: false,
+            registrationStatus: "BLOCKED"
+          }
+        ],
+        invalidProfiles: []
+      });
+    const updateActivation = vi
+      .fn<NonNullable<UserDirectoryApi["updateActivation"]>>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <AdminUserDirectoryPanel
+        authState={adminState}
+        env={env}
+        userDirectoryApi={{ list, updateActivation }}
+      />
+    );
+
+    await screen.findByText("Operator Test");
+    await user.type(screen.getByLabelText("Powod zmiany statusu"), "Tymczasowa blokada");
+    await user.click(screen.getByLabelText("Potwierdzam zmiane statusu konta"));
+    await user.click(screen.getByRole("button", { name: "Zablokuj konto" }));
+
+    await waitFor(() => {
+      expect(updateActivation).toHaveBeenCalled();
+    });
+    const [, input] = updateActivation.mock.calls[0];
+
+    expect(input).toMatchObject({
+      actorProfile: adminState.profile,
+      targetUid: "operator-1",
+      action: "BLOCK",
+      targetRole: "OPERATOR",
+      targetWorkerId: "",
+      reason: "Tymczasowa blokada"
+    });
+    expect(input.deviceId).toEqual(expect.any(String));
+    await waitFor(() => {
+      expect(list).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText("Zablokowano konto uzytkownika.")).toBeInTheDocument();
+  });
+
+  it("submits account reactivation with role and worker link", async () => {
+    const user = userEvent.setup();
+    const blockedProfile = profile({
+      uid: "blocked-1",
+      displayName: "Zablokowany Test",
+      role: "OPERATOR",
+      workerId: null,
+      active: false,
+      registrationStatus: "BLOCKED"
+    });
+    const list = vi
+      .fn<UserDirectoryApi["list"]>()
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          blockedProfile
+        ],
+        invalidProfiles: []
+      })
+      .mockResolvedValueOnce({
+        profiles: [
+          profile({
+            uid: "admin-1",
+            displayName: "Admin Test",
+            role: "ADMIN",
+            workerId: null
+          }),
+          {
+            ...blockedProfile,
+            role: "PICKER",
+            workerId: "worker-reactivated",
+            active: true,
+            registrationStatus: "APPROVED"
+          }
+        ],
+        invalidProfiles: []
+      });
+    const updateActivation = vi
+      .fn<NonNullable<UserDirectoryApi["updateActivation"]>>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <AdminUserDirectoryPanel
+        authState={adminState}
+        env={env}
+        userDirectoryApi={{ list, updateActivation }}
+      />
+    );
+
+    await screen.findByText("Zablokowany Test");
+    await screen.findByRole("button", { name: "Reaktywuj konto" });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Rola po reaktywacji")).not.toBeDisabled();
+    });
+    await user.selectOptions(screen.getByLabelText("Rola po reaktywacji"), "PICKER");
+    await user.type(
+      screen.getByLabelText("workerId po reaktywacji"),
+      "worker-reactivated"
+    );
+    await user.type(screen.getByLabelText("Powod zmiany statusu"), "Wyjasniono blokade");
+    await user.click(screen.getByLabelText("Potwierdzam zmiane statusu konta"));
+    await user.click(screen.getByRole("button", { name: "Reaktywuj konto" }));
+
+    await waitFor(() => {
+      expect(updateActivation).toHaveBeenCalled();
+    });
+    const [, input] = updateActivation.mock.calls[0];
+
+    expect(input).toMatchObject({
+      actorProfile: adminState.profile,
+      targetUid: "blocked-1",
+      action: "REACTIVATE",
+      targetRole: "PICKER",
+      targetWorkerId: "worker-reactivated",
+      reason: "Wyjasniono blokade"
+    });
+    await waitFor(() => {
+      expect(list).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText("Reaktywowano konto uzytkownika.")).toBeInTheDocument();
   });
 });

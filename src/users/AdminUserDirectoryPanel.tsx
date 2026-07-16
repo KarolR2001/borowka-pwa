@@ -1,4 +1,12 @@
-import { RefreshCw, Search, ShieldAlert, UserCog, UsersRound } from "lucide-react";
+import {
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  UserCheck,
+  UserCog,
+  UsersRound,
+  UserX
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -22,7 +30,10 @@ import {
   type UserDirectoryResult
 } from "./userDirectory";
 import {
+  updateUserActivation,
   updateUserRoleAndWorker,
+  type UserActivationAction,
+  type UserActivationUpdateInput,
   type UserRoleAndWorkerUpdateInput
 } from "./userProfileUpdates";
 
@@ -34,10 +45,15 @@ export type UserDirectoryApi = {
     env: FirebaseEnv,
     input: UserRoleAndWorkerUpdateInput
   ) => Promise<unknown>;
+  updateActivation?: (
+    env: FirebaseEnv,
+    input: UserActivationUpdateInput
+  ) => Promise<unknown>;
 };
 
 export const defaultUserDirectoryApi: UserDirectoryApi = {
   list: listUserDirectory,
+  updateActivation: updateUserActivation,
   updateRoleAndWorker: updateUserRoleAndWorker
 };
 
@@ -66,6 +82,15 @@ type RoleChangeDraft = {
   confirmed: boolean;
 };
 
+type AccountStatusDraft = {
+  targetUid: string;
+  action: UserActivationAction;
+  targetRole: UserRole;
+  targetWorkerId: string;
+  reason: string;
+  confirmed: boolean;
+};
+
 const initialDirectoryState: DirectoryState = {
   status: "IDLE",
   result: null,
@@ -74,6 +99,15 @@ const initialDirectoryState: DirectoryState = {
 
 const initialRoleChangeDraft: RoleChangeDraft = {
   targetUid: "",
+  targetRole: "OPERATOR",
+  targetWorkerId: "",
+  reason: "",
+  confirmed: false
+};
+
+const initialAccountStatusDraft: AccountStatusDraft = {
+  targetUid: "",
+  action: "BLOCK",
   targetRole: "OPERATOR",
   targetWorkerId: "",
   reason: "",
@@ -96,9 +130,15 @@ export function AdminUserDirectoryPanel({
     useState<DirectoryState>(initialDirectoryState);
   const [roleChangeDraft, setRoleChangeDraft] =
     useState<RoleChangeDraft>(initialRoleChangeDraft);
+  const [accountStatusDraft, setAccountStatusDraft] = useState<AccountStatusDraft>(
+    initialAccountStatusDraft
+  );
   const [roleChangeFeedback, setRoleChangeFeedback] = useState<string | null>(null);
   const [roleChangeError, setRoleChangeError] = useState<string | null>(null);
   const [isRoleChangeSubmitting, setIsRoleChangeSubmitting] = useState(false);
+  const [accountStatusFeedback, setAccountStatusFeedback] = useState<string | null>(null);
+  const [accountStatusError, setAccountStatusError] = useState<string | null>(null);
+  const [isAccountStatusSubmitting, setIsAccountStatusSubmitting] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
   const currentUserUid = authState.status === "READY" ? authState.user.uid : null;
 
@@ -153,6 +193,18 @@ export function AdminUserDirectoryPanel({
     () =>
       directoryState.result
         ? directoryState.result.profiles.filter(
+            (profile) =>
+              profile.uid !== currentUserUid &&
+              profile.active &&
+              profile.registrationStatus === "APPROVED"
+          )
+        : [],
+    [currentUserUid, directoryState.result]
+  );
+  const editableAccountStatusProfiles = useMemo(
+    () =>
+      directoryState.result
+        ? directoryState.result.profiles.filter(
             (profile) => profile.uid !== currentUserUid
           )
         : [],
@@ -164,6 +216,13 @@ export function AdminUserDirectoryPanel({
         (profile) => profile.uid === roleChangeDraft.targetUid
       ) ?? null,
     [editableRoleChangeProfiles, roleChangeDraft.targetUid]
+  );
+  const selectedAccountStatusProfile = useMemo(
+    () =>
+      editableAccountStatusProfiles.find(
+        (profile) => profile.uid === accountStatusDraft.targetUid
+      ) ?? null,
+    [accountStatusDraft.targetUid, editableAccountStatusProfiles]
   );
 
   useEffect(() => {
@@ -199,6 +258,45 @@ export function AdminUserDirectoryPanel({
       targetWorkerId: firstEditableProfile.workerId ?? ""
     }));
   }, [directoryState.result, editableRoleChangeProfiles, roleChangeDraft.targetUid]);
+
+  useEffect(() => {
+    if (!directoryState.result) {
+      return;
+    }
+
+    const currentSelection = editableAccountStatusProfiles.find(
+      (profile) => profile.uid === accountStatusDraft.targetUid
+    );
+
+    if (currentSelection) {
+      return;
+    }
+
+    if (editableAccountStatusProfiles.length === 0) {
+      setAccountStatusDraft((current) =>
+        current.targetUid === ""
+          ? current
+          : {
+              ...initialAccountStatusDraft
+            }
+      );
+      return;
+    }
+
+    const firstEditableProfile = editableAccountStatusProfiles[0];
+
+    setAccountStatusDraft((current) => ({
+      ...current,
+      targetUid: firstEditableProfile.uid,
+      action: getDefaultActivationAction(firstEditableProfile),
+      targetRole: firstEditableProfile.role,
+      targetWorkerId: firstEditableProfile.workerId ?? ""
+    }));
+  }, [
+    accountStatusDraft.targetUid,
+    directoryState.result,
+    editableAccountStatusProfiles
+  ]);
 
   const handleRoleChangeSubmit = async () => {
     if (authState.status !== "READY") {
@@ -260,6 +358,75 @@ export function AdminUserDirectoryPanel({
       setRoleChangeError(getRoleChangeErrorMessage(error));
     } finally {
       setIsRoleChangeSubmitting(false);
+    }
+  };
+
+  const handleAccountStatusSubmit = async () => {
+    if (authState.status !== "READY") {
+      return;
+    }
+
+    setAccountStatusFeedback(null);
+    setAccountStatusError(null);
+
+    if (!selectedAccountStatusProfile) {
+      setAccountStatusError("Wybierz profil do zmiany statusu.");
+      return;
+    }
+
+    if (!accountStatusDraft.confirmed) {
+      setAccountStatusError("Potwierdz zmiane statusu konta.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setAccountStatusError("Zmiana statusu wymaga polaczenia online.");
+      return;
+    }
+
+    const updateActivation =
+      userDirectoryApi.updateActivation ?? defaultUserDirectoryApi.updateActivation;
+
+    if (!updateActivation) {
+      setAccountStatusError("Operacja zmiany statusu nie jest dostepna.");
+      return;
+    }
+
+    setIsAccountStatusSubmitting(true);
+
+    try {
+      await updateActivation(env, {
+        actorProfile: authState.profile,
+        targetUid: selectedAccountStatusProfile.uid,
+        action: accountStatusDraft.action,
+        targetRole: accountStatusDraft.targetRole,
+        targetWorkerId: accountStatusDraft.targetWorkerId,
+        reason: accountStatusDraft.reason,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      const result = await userDirectoryApi.list(env);
+
+      setDirectoryState({
+        status: "READY",
+        result,
+        message: "Lista uzytkownikow jest aktualna."
+      });
+      setAccountStatusFeedback(
+        accountStatusDraft.action === "BLOCK"
+          ? "Zablokowano konto uzytkownika."
+          : "Reaktywowano konto uzytkownika."
+      );
+      setAccountStatusDraft((current) => ({
+        ...current,
+        action: current.action === "BLOCK" ? "REACTIVATE" : "BLOCK",
+        reason: "",
+        confirmed: false
+      }));
+    } catch (error: unknown) {
+      setAccountStatusError(getProfileUpdateErrorMessage(error));
+    } finally {
+      setIsAccountStatusSubmitting(false);
     }
   };
 
@@ -330,17 +497,30 @@ export function AdminUserDirectoryPanel({
       <DirectoryFilters filters={filters} onChange={setFilters} />
 
       {directoryState.result ? (
-        <RoleChangeForm
-          draft={roleChangeDraft}
-          error={roleChangeError}
-          feedback={roleChangeFeedback}
-          isSubmitting={isRoleChangeSubmitting}
-          onChange={setRoleChangeDraft}
-          onSubmit={() => {
-            void handleRoleChangeSubmit();
-          }}
-          profiles={editableRoleChangeProfiles}
-        />
+        <>
+          <RoleChangeForm
+            draft={roleChangeDraft}
+            error={roleChangeError}
+            feedback={roleChangeFeedback}
+            isSubmitting={isRoleChangeSubmitting}
+            onChange={setRoleChangeDraft}
+            onSubmit={() => {
+              void handleRoleChangeSubmit();
+            }}
+            profiles={editableRoleChangeProfiles}
+          />
+          <AccountStatusForm
+            draft={accountStatusDraft}
+            error={accountStatusError}
+            feedback={accountStatusFeedback}
+            isSubmitting={isAccountStatusSubmitting}
+            onChange={setAccountStatusDraft}
+            onSubmit={() => {
+              void handleAccountStatusSubmit();
+            }}
+            profiles={editableAccountStatusProfiles}
+          />
+        </>
       ) : null}
 
       <div className="directory-summary" aria-label="Podsumowanie uzytkownikow">
@@ -415,6 +595,12 @@ export function AdminUserDirectoryPanel({
       ) : null}
     </section>
   );
+}
+
+function getDefaultActivationAction(profile: UserProfile): UserActivationAction {
+  return profile.active && profile.registrationStatus === "APPROVED"
+    ? "BLOCK"
+    : "REACTIVATE";
 }
 
 function DirectoryFilters({
@@ -542,7 +728,7 @@ function RoleChangeForm({
       }}
     >
       <label className="field">
-        <span>Profil</span>
+        <span>Profil roli</span>
         <select
           disabled={isSubmitting || profiles.length === 0}
           onChange={(event) => {
@@ -612,7 +798,7 @@ function RoleChangeForm({
       </label>
 
       <label className="field">
-        <span>Powod</span>
+        <span>Powod zmiany roli</span>
         <input
           disabled={isSubmitting}
           onChange={(event) => {
@@ -657,6 +843,183 @@ function RoleChangeForm({
   );
 }
 
+function AccountStatusForm({
+  draft,
+  error,
+  feedback,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  profiles
+}: {
+  draft: AccountStatusDraft;
+  error: string | null;
+  feedback: string | null;
+  isSubmitting: boolean;
+  onChange: (draft: AccountStatusDraft) => void;
+  onSubmit: () => void;
+  profiles: UserProfile[];
+}) {
+  const isReactivation = draft.action === "REACTIVATE";
+  const SubmitIcon = isReactivation ? UserCheck : UserX;
+
+  return (
+    <form
+      aria-label="Blokada i reaktywacja konta"
+      className="account-status-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Profil statusu</span>
+        <select
+          disabled={isSubmitting || profiles.length === 0}
+          onChange={(event) => {
+            const nextProfile = profiles.find(
+              (profile) => profile.uid === event.target.value
+            );
+
+            onChange({
+              ...draft,
+              targetUid: event.target.value,
+              action: nextProfile
+                ? getDefaultActivationAction(nextProfile)
+                : draft.action,
+              targetRole: nextProfile?.role ?? draft.targetRole,
+              targetWorkerId: nextProfile?.workerId ?? "",
+              confirmed: false
+            });
+          }}
+          value={draft.targetUid}
+        >
+          {profiles.map((profile) => (
+            <option key={profile.uid} value={profile.uid}>
+              {profile.displayName} ({profile.email})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Operacja</span>
+        <select
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const nextAction = event.target.value;
+
+            if (nextAction !== "BLOCK" && nextAction !== "REACTIVATE") {
+              return;
+            }
+
+            onChange({
+              ...draft,
+              action: nextAction,
+              confirmed: false
+            });
+          }}
+          value={draft.action}
+        >
+          <option value="BLOCK">Blokada</option>
+          <option value="REACTIVATE">Reaktywacja</option>
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Rola po reaktywacji</span>
+        <select
+          disabled={isSubmitting || !isReactivation}
+          onChange={(event) => {
+            const nextRole = event.target.value;
+
+            if (!USER_ROLES.includes(nextRole as UserRole)) {
+              return;
+            }
+
+            onChange({
+              ...draft,
+              targetRole: nextRole as UserRole,
+              confirmed: false
+            });
+          }}
+          value={draft.targetRole}
+        >
+          {USER_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {userRoleLabel(role)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>workerId po reaktywacji</span>
+        <input
+          disabled={isSubmitting || !isReactivation}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              targetWorkerId: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.targetWorkerId}
+        />
+      </label>
+
+      <label className="field">
+        <span>Powod zmiany statusu</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <p className="account-status-form__warning">
+        Blokada nie usuwa konta Authentication ani lokalnych oczekujacych danych na
+        urzadzeniach.
+      </p>
+
+      <label className="checkbox-field account-status-form__confirmation">
+        <input
+          checked={draft.confirmed}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmed: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam zmiane statusu konta</span>
+      </label>
+
+      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {error ? <p className="form-message form-message--error">{error}</p> : null}
+
+      <button
+        className="primary-action account-status-form__submit"
+        disabled={isSubmitting || profiles.length === 0}
+        type="submit"
+      >
+        <SubmitIcon aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>{isReactivation ? "Reaktywuj konto" : "Zablokuj konto"}</span>
+      </button>
+    </form>
+  );
+}
+
 function DirectoryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="directory-stat">
@@ -667,11 +1030,15 @@ function DirectoryStat({ label, value }: { label: string; value: string }) {
 }
 
 function getRoleChangeErrorMessage(error: unknown): string {
+  return getProfileUpdateErrorMessage(error);
+}
+
+function getProfileUpdateErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
 
-  return "Nie udalo sie zmienic roli lub powiazania profilu.";
+  return "Nie udalo sie zapisac zmiany profilu.";
 }
 
 function AccessNotice({ title, message }: { title: string; message: string }) {
