@@ -192,6 +192,19 @@ export function registrationStatusLabel(status: RegistrationStatus): string {
   }
 }
 
+export function invitationStatusLabel(status: InvitationStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "Oczekuje";
+    case "USED":
+      return "Wykorzystane";
+    case "CANCELLED":
+      return "Anulowane";
+    case "EXPIRED":
+      return "Wygasle";
+  }
+}
+
 function invalidProfile(reason: string): UserProfileDecodeResult {
   return {
     status: "INVALID",

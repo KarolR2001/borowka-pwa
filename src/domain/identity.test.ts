@@ -1,5 +1,6 @@
 import {
   getIdentityAccessState,
+  invitationStatusLabel,
   isInvitationStatus,
   isRegistrationStatus,
   isUserRole,
@@ -31,6 +32,7 @@ describe("identity domain", () => {
     expect(isRegistrationStatus("PENDING")).toBe(false);
     expect(isInvitationStatus("PENDING")).toBe(true);
     expect(isInvitationStatus("APPROVED")).toBe(false);
+    expect(invitationStatusLabel("CANCELLED")).toBe("Anulowane");
   });
 
   it("requires workerId for picker profiles only", () => {
