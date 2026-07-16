@@ -1,0 +1,37 @@
+# Domain schema v1
+
+Schema version `1` starts the configurable domain for seasons, settlement
+plans, workers and individual rates.
+
+## Collections
+
+| Collection           | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `appSettings/domain` | Project schema and calculation rule version. |
+| `seasons`            | Business seasons.                            |
+| `settlementPlans`    | Settlement plan definitions.                 |
+| `workers`            | People being settled for picking work.       |
+| `workerRateVersions` | Individual worker rate history.              |
+
+## Initial seed
+
+The initial seed is deterministic and uses stable document IDs, so rerunning the
+same seed writes the same document targets instead of creating duplicates.
+
+Initial data:
+
+- default open test season `season-2026-test`;
+- system plan `plan-weight-kg` for `WEIGHT` settlement;
+- system plan `plan-quantity-ubianka` for `QUANTITY` settlement;
+- three synthetic development workers;
+- one active rate version per test worker.
+
+The `plan-quantity-ubianka` seed has `weightRequired = false`. A quantity entry
+without weight does not increase kilogram stock; later session validation must
+apply that rule when entries are implemented.
+
+## Control rule
+
+Seed documents are development/test bootstrap data. Production data must be
+created through administrator workflows after UAT, not by importing synthetic
+development workers.
