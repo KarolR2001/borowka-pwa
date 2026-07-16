@@ -44,6 +44,21 @@ service cloud.firestore {
         status == 'EXPIRED';
     }
 
+    function isAuditAction(action) {
+      return action == 'USER_ROLE_CHANGED' ||
+        action == 'USER_WORKER_LINK_CHANGED' ||
+        action == 'USER_BLOCKED' ||
+        action == 'USER_REACTIVATED' ||
+        action == 'REGISTRATION_INVITATION_CREATED' ||
+        action == 'REGISTRATION_INVITATION_CANCELLED' ||
+        action == 'REGISTRATION_INVITATION_EXPIRED';
+    }
+
+    function isAuditEntityType(entityType) {
+      return entityType == 'USER_PROFILE' ||
+        entityType == 'REGISTRATION_INVITATION';
+    }
+
     function hasInvitedUserProfileFields(data) {
       return data.keys().hasOnly([
         'uid',
@@ -267,6 +282,138 @@ service cloud.firestore {
         profileAfterMatchesInvitation(previous, invitationId);
     }
 
+    function hasAuditEventFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'actorUid',
+        'actorRoleSnapshot',
+        'action',
+        'entityType',
+        'entityId',
+        'businessDate',
+        'beforeSummary',
+        'afterSummary',
+        'reason',
+        'createdAtDevice',
+        'createdAtServer',
+        'deviceId'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'actorUid',
+          'actorRoleSnapshot',
+          'action',
+          'entityType',
+          'entityId',
+          'businessDate',
+          'beforeSummary',
+          'afterSummary',
+          'reason',
+          'createdAtDevice',
+          'createdAtServer',
+          'deviceId'
+        ]);
+    }
+
+    function hasValidAuditSummary(summary) {
+      return summary == null || (
+        summary is map &&
+        summary.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'role',
+          'targetRole',
+          'workerId',
+          'active',
+          'registrationStatus',
+          'offlineConsent',
+          'status',
+          'invitationId'
+        ]) &&
+        (
+          !summary.keys().hasAny(['uid']) ||
+          summary.uid == null ||
+          summary.uid is string
+        ) &&
+        (
+          !summary.keys().hasAny(['email']) ||
+          summary.email == null ||
+          summary.email is string
+        ) &&
+        (
+          !summary.keys().hasAny(['displayName']) ||
+          summary.displayName == null ||
+          summary.displayName is string
+        ) &&
+        (
+          !summary.keys().hasAny(['role']) ||
+          summary.role == null ||
+          isUserRole(summary.role)
+        ) &&
+        (
+          !summary.keys().hasAny(['targetRole']) ||
+          summary.targetRole == null ||
+          isUserRole(summary.targetRole)
+        ) &&
+        (
+          !summary.keys().hasAny(['workerId']) ||
+          summary.workerId == null ||
+          summary.workerId is string
+        ) &&
+        (
+          !summary.keys().hasAny(['active']) ||
+          summary.active == null ||
+          summary.active is bool
+        ) &&
+        (
+          !summary.keys().hasAny(['registrationStatus']) ||
+          summary.registrationStatus == null ||
+          summary.registrationStatus == 'APPROVED' ||
+          summary.registrationStatus == 'REJECTED' ||
+          summary.registrationStatus == 'BLOCKED'
+        ) &&
+        (
+          !summary.keys().hasAny(['offlineConsent']) ||
+          summary.offlineConsent == null ||
+          summary.offlineConsent is bool
+        ) &&
+        (
+          !summary.keys().hasAny(['status']) ||
+          summary.status == null ||
+          isInvitationStatus(summary.status) ||
+          summary.status == 'APPROVED' ||
+          summary.status == 'REJECTED' ||
+          summary.status == 'BLOCKED'
+        ) &&
+        (
+          !summary.keys().hasAny(['invitationId']) ||
+          summary.invitationId == null ||
+          summary.invitationId is string
+        )
+      );
+    }
+
+    function isValidAuditEventCreate(data, auditEventId) {
+      return hasAuditEventFields(data) &&
+        data.id == auditEventId &&
+        data.id is string &&
+        data.actorUid == request.auth.uid &&
+        data.actorRoleSnapshot == profile(request.auth.uid).role &&
+        isAuditAction(data.action) &&
+        isAuditEntityType(data.entityType) &&
+        data.entityId is string &&
+        data.entityId.size() > 0 &&
+        (data.businessDate == null || data.businessDate is string) &&
+        hasValidAuditSummary(data.beforeSummary) &&
+        hasValidAuditSummary(data.afterSummary) &&
+        (data.reason == null || data.reason is string) &&
+        data.createdAtDevice is timestamp &&
+        data.createdAtServer == request.time &&
+        data.deviceId is string &&
+        data.deviceId.size() > 0;
+    }
+
     match /users/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
@@ -300,6 +447,13 @@ service cloud.firestore {
         invitationId
       );
       allow delete: if false;
+    }
+
+    match /auditEvents/{auditEventId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidAuditEventCreate(request.resource.data, auditEventId);
+      allow update, delete: if false;
     }
 
     match /{document=**} {
