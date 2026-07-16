@@ -44,6 +44,78 @@ service cloud.firestore {
         status == 'EXPIRED';
     }
 
+    function hasInvitedUserProfileFields(data) {
+      return data.keys().hasOnly([
+        'uid',
+        'email',
+        'displayName',
+        'role',
+        'workerId',
+        'active',
+        'registrationStatus',
+        'offlineConsent',
+        'registrationInvitationId'
+      ]) &&
+        data.keys().hasAll([
+          'uid',
+          'email',
+          'displayName',
+          'role',
+          'workerId',
+          'active',
+          'registrationStatus',
+          'offlineConsent',
+          'registrationInvitationId'
+        ]);
+    }
+
+    function hasValidInvitedUserProfileBase(data, userId) {
+      return hasInvitedUserProfileFields(data) &&
+        data.uid == userId &&
+        data.uid is string &&
+        data.email is string &&
+        data.email.size() > 0 &&
+        data.displayName is string &&
+        data.displayName.size() > 0 &&
+        isUserRole(data.role) &&
+        (data.workerId == null || data.workerId is string) &&
+        data.active == true &&
+        data.registrationStatus == 'APPROVED' &&
+        data.offlineConsent == false &&
+        data.registrationInvitationId is string &&
+        data.registrationInvitationId.size() > 0;
+    }
+
+    function hasPendingInvitationForProfile(data) {
+      return exists(
+        /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+      ) &&
+        get(
+          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+        ).data.status == 'PENDING' &&
+        get(
+          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+        ).data.emailNormalized == data.email &&
+        get(
+          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+        ).data.displayName == data.displayName &&
+        get(
+          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+        ).data.targetRole == data.role &&
+        get(
+          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
+        ).data.workerId == data.workerId;
+    }
+
+    function isValidInvitedUserProfileCreate(data, userId) {
+      return isSignedIn() &&
+        request.auth.uid == userId &&
+        request.auth.token.email is string &&
+        data.email == request.auth.token.email &&
+        hasValidInvitedUserProfileBase(data, userId) &&
+        hasPendingInvitationForProfile(data);
+    }
+
     function hasInvitationFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -97,6 +169,8 @@ service cloud.firestore {
         hasValidInvitationWorker(data) &&
         data.createdBy is string &&
         data.createdAt is timestamp &&
+        (data.usedBy == null || data.usedBy is string) &&
+        (data.usedAt == null || data.usedAt is timestamp) &&
         (data.expiresAt == null || data.expiresAt is timestamp);
     }
 
@@ -121,6 +195,17 @@ service cloud.firestore {
         data.expiresAt == previous.expiresAt;
     }
 
+    function keepsInvitationClaimAssignment(data, previous) {
+      return data.id == previous.id &&
+        data.emailNormalized == previous.emailNormalized &&
+        data.displayName == previous.displayName &&
+        data.targetRole == previous.targetRole &&
+        data.workerId == previous.workerId &&
+        data.createdBy == previous.createdBy &&
+        data.createdAt == previous.createdAt &&
+        data.expiresAt == previous.expiresAt;
+    }
+
     function isValidInvitationCancelOrExpire(data, previous, invitationId) {
       return hasValidInvitationBase(data, invitationId) &&
         previous.status == 'PENDING' &&
@@ -128,22 +213,80 @@ service cloud.firestore {
         keepsInvitationAssignment(data, previous);
     }
 
+    function isOwnInvitation(data) {
+      return isSignedIn() &&
+        request.auth.token.email is string &&
+        data.emailNormalized == request.auth.token.email;
+    }
+
+    function profileAfterMatchesInvitation(previous, invitationId) {
+      return existsAfter(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ) &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.uid == request.auth.uid &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.email == previous.emailNormalized &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.displayName == previous.displayName &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == previous.targetRole &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.workerId == previous.workerId &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.active == true &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.registrationStatus == 'APPROVED' &&
+        getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.registrationInvitationId == invitationId;
+    }
+
+    function isValidInvitationUse(data, previous, invitationId) {
+      return isOwnInvitation(previous) &&
+        hasValidInvitationBase(data, invitationId) &&
+        previous.status == 'PENDING' &&
+        data.status == 'USED' &&
+        data.usedBy == request.auth.uid &&
+        data.usedAt is timestamp &&
+        keepsInvitationClaimAssignment(data, previous) &&
+        profileAfterMatchesInvitation(previous, invitationId);
+    }
+
     match /users/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
-      allow create, update, delete: if false;
+      allow create: if isValidInvitedUserProfileCreate(
+        request.resource.data,
+        userId
+      );
+      allow update, delete: if false;
     }
 
     match /registrationInvitations/{invitationId} {
-      allow get, list: if isAdmin();
+      allow get: if isAdmin() || isOwnInvitation(resource.data);
+      allow list: if isAdmin() || isOwnInvitation(resource.data);
       allow create: if isAdmin() &&
         isValidInvitationCreate(request.resource.data, invitationId);
-      allow update: if isAdmin() &&
-        isValidInvitationCancelOrExpire(
-          request.resource.data,
-          resource.data,
-          invitationId
-        );
+      allow update: if (
+        isAdmin() &&
+          isValidInvitationCancelOrExpire(
+            request.resource.data,
+            resource.data,
+            invitationId
+          )
+      ) || isValidInvitationUse(
+        request.resource.data,
+        resource.data,
+        invitationId
+      );
       allow delete: if false;
     }
 

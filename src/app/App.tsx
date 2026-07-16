@@ -26,6 +26,12 @@ import {
   type AuthSessionListener,
   type AuthSessionState
 } from "../auth/authSession";
+import {
+  getInvitedRegistrationErrorMessage,
+  registerInvitedUser,
+  validateInvitedRegistrationInput,
+  type InvitedRegistrationInput
+} from "../auth/invitedRegistration";
 import { APP_META } from "../config/appMeta";
 import { getFirebaseClientConfigStatus } from "../config/firebaseClientConfig";
 import { getFirebaseRuntimeStatus } from "../config/firebaseRuntime";
@@ -62,6 +68,7 @@ export type AuthSessionApi = {
     credentials: { email: string; password: string }
   ) => Promise<void>;
   requestPasswordReset: (env: FirebaseEnv, email: string) => Promise<void>;
+  register: (env: FirebaseEnv, input: InvitedRegistrationInput) => Promise<void>;
   signOut: (env: FirebaseEnv) => Promise<void>;
 };
 
@@ -76,6 +83,7 @@ const defaultAuthSessionApi: AuthSessionApi = {
   subscribe: subscribeToAuthSession,
   signIn: signInWithEmailPassword,
   requestPasswordReset: requestPasswordResetEmail,
+  register: registerInvitedUser,
   signOut: signOutCurrentUser
 };
 
@@ -412,9 +420,12 @@ function AuthPanel({
   authState: AuthSessionState;
   env: FirebaseEnv;
 }) {
-  const [mode, setMode] = useState<"login" | "reset">("login");
+  const [mode, setMode] = useState<"login" | "reset" | "register">("login");
   const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [acceptsPrerelease, setAcceptsPrerelease] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -441,6 +452,21 @@ function AuthPanel({
       return;
     }
 
+    if (mode === "register") {
+      const validationError = validateInvitedRegistrationInput({
+        email: trimmedEmail,
+        displayName,
+        password,
+        passwordConfirmation,
+        acceptsPrerelease
+      });
+
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -451,15 +477,30 @@ function AuthPanel({
         });
         setFeedback("Logowanie przyjete. Pobieram profil.");
         setPassword("");
-      } else {
+      } else if (mode === "reset") {
         await authSessionApi.requestPasswordReset(env, trimmedEmail);
         setFeedback(PASSWORD_RESET_CONFIRMATION);
+      } else {
+        await authSessionApi.register(env, {
+          email: trimmedEmail,
+          displayName,
+          password,
+          passwordConfirmation,
+          acceptsPrerelease
+        });
+        setFeedback("Konto zostalo utworzone. Pobieram profil.");
+        setDisplayName("");
+        setPassword("");
+        setPasswordConfirmation("");
+        setAcceptsPrerelease(false);
       }
     } catch (submitError: unknown) {
       setError(
         mode === "login"
           ? getLoginErrorMessage(submitError)
-          : getPasswordResetErrorMessage(submitError)
+          : mode === "reset"
+            ? getPasswordResetErrorMessage(submitError)
+            : getInvitedRegistrationErrorMessage(submitError)
       );
     } finally {
       setIsSubmitting(false);
@@ -536,10 +577,8 @@ function AuthPanel({
         }}
       >
         <div>
-          <p className="eyebrow">
-            {mode === "login" ? "Dostep do aplikacji" : "Reset hasla"}
-          </p>
-          <h2>{mode === "login" ? "Zaloguj sie" : "Nie pamietam hasla"}</h2>
+          <p className="eyebrow">{authModeEyebrow(mode)}</p>
+          <h2>{authModeTitle(mode)}</h2>
           <p className="panel-detail">{authState.message}</p>
         </div>
 
@@ -557,12 +596,27 @@ function AuthPanel({
           />
         </label>
 
-        {mode === "login" ? (
+        {mode === "register" ? (
+          <label className="field">
+            <span>Imie i nazwisko</span>
+            <input
+              autoComplete="name"
+              disabled={isUnavailable || isSubmitting}
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+              }}
+              type="text"
+              value={displayName}
+            />
+          </label>
+        ) : null}
+
+        {mode === "login" || mode === "register" ? (
           <label className="field">
             <span>Haslo</span>
             <span className="password-field">
               <input
-                autoComplete="current-password"
+                autoComplete={mode === "register" ? "new-password" : "current-password"}
                 disabled={isUnavailable || isSubmitting}
                 onChange={(event) => {
                   setPassword(event.target.value);
@@ -590,6 +644,35 @@ function AuthPanel({
           </label>
         ) : null}
 
+        {mode === "register" ? (
+          <>
+            <label className="field">
+              <span>Powtorz haslo</span>
+              <input
+                autoComplete="new-password"
+                disabled={isUnavailable || isSubmitting}
+                onChange={(event) => {
+                  setPasswordConfirmation(event.target.value);
+                }}
+                type={showPassword ? "text" : "password"}
+                value={passwordConfirmation}
+              />
+            </label>
+
+            <label className="checkbox-field">
+              <input
+                checked={acceptsPrerelease}
+                disabled={isUnavailable || isSubmitting}
+                onChange={(event) => {
+                  setAcceptsPrerelease(event.target.checked);
+                }}
+                type="checkbox"
+              />
+              <span>Akceptuje prerejestracje administratora</span>
+            </label>
+          </>
+        ) : null}
+
         {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
         {error ? <p className="form-message form-message--error">{error}</p> : null}
 
@@ -601,40 +684,76 @@ function AuthPanel({
           >
             {mode === "login" ? (
               <LogIn aria-hidden="true" size={18} strokeWidth={2.2} />
-            ) : (
+            ) : mode === "reset" ? (
               <RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />
+            ) : (
+              <UserRound aria-hidden="true" size={18} strokeWidth={2.2} />
             )}
-            <span>{mode === "login" ? "Zaloguj" : "Wyslij reset"}</span>
+            <span>{authPrimaryActionLabel(mode)}</span>
           </button>
 
           <button
             className="secondary-action"
             disabled={isSubmitting}
             onClick={() => {
-              setMode((current) => (current === "login" ? "reset" : "login"));
+              setMode((current) => (current === "reset" ? "login" : "reset"));
               setFeedback(null);
               setError(null);
             }}
             type="button"
           >
-            {mode === "login" ? "Nie pamietam hasla" : "Wroc do logowania"}
+            {mode === "reset" ? "Wroc do logowania" : "Nie pamietam hasla"}
           </button>
 
           <button
             className="secondary-action"
             disabled={isSubmitting}
             onClick={() => {
-              setFeedback("Konto przygotowuje administrator przez prerejestracje.");
+              setMode((current) => (current === "register" ? "login" : "register"));
+              setFeedback(null);
               setError(null);
             }}
             type="button"
           >
-            Zaloz konto
+            {mode === "register" ? "Wroc do logowania" : "Zaloz konto"}
           </button>
         </div>
       </form>
     </section>
   );
+}
+
+function authModeEyebrow(mode: "login" | "reset" | "register"): string {
+  switch (mode) {
+    case "login":
+      return "Dostep do aplikacji";
+    case "reset":
+      return "Reset hasla";
+    case "register":
+      return "Zaproszenie";
+  }
+}
+
+function authModeTitle(mode: "login" | "reset" | "register"): string {
+  switch (mode) {
+    case "login":
+      return "Zaloguj sie";
+    case "reset":
+      return "Nie pamietam hasla";
+    case "register":
+      return "Zaloz konto";
+  }
+}
+
+function authPrimaryActionLabel(mode: "login" | "reset" | "register"): string {
+  switch (mode) {
+    case "login":
+      return "Zaloguj";
+    case "reset":
+      return "Wyslij reset";
+    case "register":
+      return "Zaloz konto";
+  }
 }
 
 function AuthSummaryRow({ label, value }: { label: string; value: string }) {

@@ -8,10 +8,15 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
+  limit,
+  query,
   setDoc,
   Timestamp,
-  updateDoc
+  updateDoc,
+  where,
+  writeBatch
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
@@ -40,6 +45,10 @@ type InvitationSeed = {
   usedBy: string | null;
   usedAt: Timestamp | null;
   expiresAt: Timestamp | null;
+};
+
+type InvitedProfileSeed = ProfileSeed & {
+  registrationInvitationId: string;
 };
 
 let testEnv: RulesTestEnvironment | undefined;
@@ -93,6 +102,26 @@ const invitation = ({
   usedBy: null,
   usedAt: null,
   expiresAt: null,
+  ...overrides
+});
+
+const invitedProfile = ({
+  uid,
+  registrationInvitationId,
+  ...overrides
+}: Partial<InvitedProfileSeed> & {
+  uid: string;
+  registrationInvitationId: string;
+}): InvitedProfileSeed => ({
+  uid,
+  email: `${uid}@example.test`,
+  displayName: uid,
+  role: "OPERATOR",
+  workerId: null,
+  active: true,
+  registrationStatus: "APPROVED",
+  offlineConsent: false,
+  registrationInvitationId,
   ...overrides
 });
 
@@ -193,6 +222,163 @@ describe("Firestore registration invitation rules", () => {
         })
       )
     );
+  });
+
+  it("allows signed-in user to query only own invitation", async () => {
+    await seedInvitations(
+      invitation({
+        id: "invite-operator",
+        emailNormalized: "operator@example.test"
+      }),
+      invitation({
+        id: "invite-other",
+        emailNormalized: "other@example.test"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-uid", { email: "operator@example.test" })
+      .firestore();
+
+    await assertFails(getDocs(collection(db, "registrationInvitations")));
+
+    const ownSnapshot = await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, "registrationInvitations"),
+          where("emailNormalized", "==", "operator@example.test"),
+          limit(1)
+        )
+      )
+    );
+    expect(ownSnapshot.size).toBe(1);
+
+    await assertFails(
+      getDocs(
+        query(
+          collection(db, "registrationInvitations"),
+          where("emailNormalized", "==", "other@example.test"),
+          limit(1)
+        )
+      )
+    );
+  });
+
+  it("allows invited user to create own profile and use invitation atomically", async () => {
+    await seedInvitations(
+      invitation({
+        id: "invite-operator",
+        emailNormalized: "operator@example.test",
+        displayName: "Operator Test",
+        targetRole: "OPERATOR",
+        workerId: null
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-uid", { email: "operator@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "users", "operator-uid"),
+      invitedProfile({
+        uid: "operator-uid",
+        email: "operator@example.test",
+        displayName: "Operator Test",
+        registrationInvitationId: "invite-operator"
+      })
+    );
+    batch.update(doc(db, "registrationInvitations", "invite-operator"), {
+      status: "USED",
+      usedBy: "operator-uid",
+      usedAt: Timestamp.fromDate(new Date("2026-07-16T09:00:00.000Z"))
+    });
+
+    await assertSucceeds(batch.commit());
+    const profileSnapshot = await assertSucceeds(
+      getDoc(doc(db, "users", "operator-uid"))
+    );
+    expect(profileSnapshot.data()?.role).toBe("OPERATOR");
+  });
+
+  it("rejects invited profile creation with changed role", async () => {
+    await seedInvitations(
+      invitation({
+        id: "invite-operator",
+        emailNormalized: "operator@example.test",
+        displayName: "Operator Test",
+        targetRole: "OPERATOR",
+        workerId: null
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-uid", { email: "operator@example.test" })
+      .firestore();
+
+    await assertFails(
+      setDoc(
+        doc(db, "users", "operator-uid"),
+        invitedProfile({
+          uid: "operator-uid",
+          email: "operator@example.test",
+          displayName: "Operator Test",
+          role: "ADMIN",
+          registrationInvitationId: "invite-operator"
+        })
+      )
+    );
+  });
+
+  it("rejects using invitation assigned to another email", async () => {
+    await seedInvitations(
+      invitation({
+        id: "invite-other",
+        emailNormalized: "other@example.test",
+        displayName: "Other Test",
+        targetRole: "OPERATOR",
+        workerId: null
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-uid", { email: "operator@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "users", "operator-uid"),
+      invitedProfile({
+        uid: "operator-uid",
+        email: "operator@example.test",
+        displayName: "Other Test",
+        registrationInvitationId: "invite-other"
+      })
+    );
+    batch.update(doc(db, "registrationInvitations", "invite-other"), {
+      status: "USED",
+      usedBy: "operator-uid",
+      usedAt: Timestamp.fromDate(new Date("2026-07-16T09:00:00.000Z"))
+    });
+
+    await assertFails(batch.commit());
   });
 
   it("rejects malformed picker invitations", async () => {

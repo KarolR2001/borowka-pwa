@@ -46,6 +46,7 @@ const createAuthSessionApi = (
   },
   signIn: () => Promise.resolve(),
   requestPasswordReset: () => Promise.resolve(),
+  register: () => Promise.resolve(),
   signOut: () => Promise.resolve(),
   ...overrides
 });
@@ -110,6 +111,54 @@ describe("App shell", () => {
       );
     });
     expect(screen.getByText(PASSWORD_RESET_CONFIRMATION)).toBeInTheDocument();
+  });
+
+  it("validates invited registration passwords", async () => {
+    const user = userEvent.setup();
+    const register = vi.fn<AuthSessionApi["register"]>().mockResolvedValue(undefined);
+
+    render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("E-mail"), "operator@example.test");
+    await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
+    await user.type(screen.getByLabelText("Haslo"), "secret-password");
+    await user.type(screen.getByLabelText("Powtorz haslo"), "different-password");
+    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+
+    expect(register).not.toHaveBeenCalled();
+    expect(screen.getByText("Hasla musza byc takie same.")).toBeInTheDocument();
+  });
+
+  it("submits invited registration through the auth session API", async () => {
+    const user = userEvent.setup();
+    const register = vi.fn<AuthSessionApi["register"]>().mockResolvedValue(undefined);
+
+    render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("E-mail"), "Operator@Example.TEST");
+    await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
+    await user.type(screen.getByLabelText("Haslo"), "secret-password");
+    await user.type(screen.getByLabelText("Powtorz haslo"), "secret-password");
+    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+
+    await waitFor(() => {
+      expect(register).toHaveBeenCalledWith(expect.anything(), {
+        email: "Operator@Example.TEST",
+        displayName: "Operator Test",
+        password: "secret-password",
+        passwordConfirmation: "secret-password",
+        acceptsPrerelease: true
+      });
+    });
+    expect(
+      screen.getByText("Konto zostalo utworzone. Pobieram profil.")
+    ).toBeInTheDocument();
   });
 
   it("shows active profile state and sign out action", async () => {
