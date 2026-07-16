@@ -15,6 +15,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 - Dodano formularz logowania, resetu hasla i wylogowania oraz widok stanu profilu aplikacyjnego.
 - Dodano instrukcje recznego testu logowania na projekcie development.
 - Dodano odczytowa liste profili uzytkownikow dla administratora z filtrowaniem po roli, statusie, aktywnosci i tekście.
+- Dodano model prerejestracji `registrationInvitations` oraz Firestore Rules dla tworzenia, listowania i anulowania zaproszen przez administratora.
 
 ### Zmieniono
 
@@ -25,6 +26,7 @@ Format oparty o jawny opis zmian, modelu danych, Security Rules i migracji.
 - Zapisy profili i zaproszen pozostaja zablokowane do czasu implementacji przeplywu prerejestracji administratora.
 - Link "Zaloz konto" pokazuje informacyjny stan prerejestracji; wlasciwy przeplyw zaproszen administratora bedzie osobnym przyrostem.
 - Lista administratora pokazuje profile z kolekcji `users`; nie wykrywa jeszcze kont Authentication bez profilu.
+- Zaproszenia nie maja jeszcze interfejsu tworzenia ani przeplywu samodzielnego wykorzystania przez uzytkownika.
 
 ## 0.1.0 - 2026-07-15
 
