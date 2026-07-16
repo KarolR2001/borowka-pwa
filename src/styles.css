@@ -272,6 +272,20 @@ h2 {
   border-radius: 8px 0 0 8px;
 }
 
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #314a3e;
+  font-weight: 800;
+}
+
+.checkbox-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0d4c2f;
+}
+
 .icon-button {
   min-height: 46px;
   border: 1px solid #cbd8d0;
