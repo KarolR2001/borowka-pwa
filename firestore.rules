@@ -464,6 +464,88 @@ service cloud.firestore {
         data.deviceId.size() > 0;
     }
 
+    function hasDeviceFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'userUid',
+        'deviceName',
+        'platform',
+        'trustedOfflineStorage',
+        'firstSeenAt',
+        'lastSeenAt',
+        'lastSuccessfulSyncAt',
+        'active'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'userUid',
+          'deviceName',
+          'platform',
+          'trustedOfflineStorage',
+          'firstSeenAt',
+          'lastSeenAt',
+          'lastSuccessfulSyncAt',
+          'active'
+        ]);
+    }
+
+    function hasValidDeviceBase(data, deviceId) {
+      return hasDeviceFields(data) &&
+        data.id == deviceId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.userUid is string &&
+        data.userUid.size() > 0 &&
+        data.deviceName is string &&
+        data.deviceName.size() > 0 &&
+        (data.platform == null || data.platform is string) &&
+        data.trustedOfflineStorage is bool &&
+        data.firstSeenAt is timestamp &&
+        data.lastSeenAt is timestamp &&
+        (data.lastSuccessfulSyncAt == null || data.lastSuccessfulSyncAt is timestamp) &&
+        data.active is bool;
+    }
+
+    function isOwnExistingDevice(deviceId) {
+      return exists(/databases/$(database)/documents/devices/$(deviceId)) &&
+        resource.data.userUid == request.auth.uid;
+    }
+
+    function isValidOwnDeviceCreate(data, deviceId) {
+      return isSignedIn() &&
+        hasApprovedActiveProfile(request.auth.uid) &&
+        data.userUid == request.auth.uid &&
+        hasValidDeviceBase(data, deviceId) &&
+        data.active == true &&
+        data.firstSeenAt == request.time &&
+        data.lastSeenAt == request.time &&
+        data.lastSuccessfulSyncAt == null;
+    }
+
+    function keepsDeviceIdentity(data, previous) {
+      return data.id == previous.id &&
+        data.userUid == previous.userUid &&
+        data.firstSeenAt == previous.firstSeenAt &&
+        data.active == previous.active;
+    }
+
+    function isValidOwnDeviceUpdate(data, previous, deviceId) {
+      return isSignedIn() &&
+        hasApprovedActiveProfile(request.auth.uid) &&
+        previous.userUid == request.auth.uid &&
+        previous.active == true &&
+        hasValidDeviceBase(data, deviceId) &&
+        keepsDeviceIdentity(data, previous) &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'deviceName',
+          'platform',
+          'trustedOfflineStorage',
+          'lastSeenAt',
+          'lastSuccessfulSyncAt'
+        ]) &&
+        data.lastSeenAt == request.time;
+    }
+
     match /users/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
@@ -512,6 +594,26 @@ service cloud.firestore {
       allow create: if isAdmin() &&
         isValidAuditEventCreate(request.resource.data, auditEventId);
       allow update, delete: if false;
+    }
+
+    match /devices/{deviceId} {
+      allow get: if isAdmin() ||
+        (
+          isSignedIn() &&
+          hasApprovedActiveProfile(request.auth.uid) &&
+          (
+            !exists(/databases/$(database)/documents/devices/$(deviceId)) ||
+            isOwnExistingDevice(deviceId)
+          )
+        );
+      allow list: if isAdmin();
+      allow create: if isValidOwnDeviceCreate(request.resource.data, deviceId);
+      allow update: if isValidOwnDeviceUpdate(
+        request.resource.data,
+        resource.data,
+        deviceId
+      );
+      allow delete: if false;
     }
 
     match /{document=**} {

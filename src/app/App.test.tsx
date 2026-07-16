@@ -2,9 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
+import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
-import { App, type AuthSessionApi } from "./App";
+import { App, type AuthSessionApi, type DeviceRegistryApi } from "./App";
 
 const signedOutState: AuthSessionState = {
   status: "SIGNED_OUT",
@@ -86,6 +87,17 @@ const blockedPickerState: AuthSessionState = {
   }
 };
 
+const completeFirebaseEnv = {
+  VITE_APP_ENV: "development",
+  VITE_USE_FIREBASE_EMULATORS: "false",
+  VITE_FIREBASE_API_KEY: "dev-api-key",
+  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.firebaseapp.com",
+  VITE_FIREBASE_PROJECT_ID: "borowka-pwa-dev",
+  VITE_FIREBASE_STORAGE_BUCKET: "borowka-pwa-dev.appspot.com",
+  VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789",
+  VITE_FIREBASE_APP_ID: "1:123456789:web:dev"
+};
+
 const createAuthSessionApi = (
   initialState: AuthSessionState,
   overrides: Partial<AuthSessionApi> = {}
@@ -102,6 +114,10 @@ const createAuthSessionApi = (
   updateOfflineConsent: () => Promise.resolve(),
   signOut: () => Promise.resolve(),
   ...overrides
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("App shell", () => {
@@ -321,6 +337,33 @@ describe("App shell", () => {
     expect(screen.getByText("Konto: zablokowane")).toBeInTheDocument();
   });
 
+  it("registers the current device for an active profile", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const register = vi.fn<DeviceRegistryApi["register"]>().mockResolvedValue(undefined);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activePickerState)}
+        deviceRegistryApi={{ register }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(register).toHaveBeenCalled();
+    });
+    const [, input] = register.mock.calls[0];
+
+    expect(input).toMatchObject({
+      userUid: "picker-1",
+      trustedOfflineStorage: false
+    });
+    expect(input.deviceId).toEqual(expect.any(String));
+    expect(input.deviceName).toEqual(expect.any(String));
+  });
+
   it("updates offline consent from the user profile panel", async () => {
     const user = userEvent.setup();
     const updateOfflineConsent = vi
@@ -372,10 +415,15 @@ describe("App shell", () => {
         invitations: [],
         invalidInvitations: []
       });
+    const listDevices = vi.fn<DeviceDirectoryApi["list"]>().mockResolvedValue({
+      devices: [],
+      invalidDevices: []
+    });
 
     render(
       <App
         authSessionApi={createAuthSessionApi(activeAdminState)}
+        deviceDirectoryApi={{ list: listDevices }}
         userDirectoryApi={{ list }}
         registrationInvitationsApi={{
           list: listInvitations,
@@ -390,11 +438,13 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
       expect(listInvitations).toHaveBeenCalled();
+      expect(listDevices).toHaveBeenCalled();
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Prerejestracja kont" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lista urzadzen" })).toBeInTheDocument();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 });
