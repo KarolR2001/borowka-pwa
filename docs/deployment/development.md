@@ -8,9 +8,13 @@ project and GitHub configuration exist.
 
 1. Pull request runs `npm run verify`.
 2. Pull request runs `npm run verify:rules`.
-3. After merge to `main`, CI deploys Rules, indexes and Hosting only when
+3. After merge to `main`, local or CI verification confirms that the branch did
+   not regress `npm run verify` and, when Rules changed, `npm run verify:rules`.
+4. Development deploy is run after a coherent block of work, at the end of a
+   stage or on explicit request. It is not required after every package merge.
+5. CI deploys Rules, indexes and Hosting only when
    `FIREBASE_DEV_DEPLOY_ENABLED=true`.
-4. A smoke test confirms that the app loads, SPA fallback works and Firestore
+6. A smoke test confirms that the app loads, SPA fallback works and Firestore
    still denies anonymous access.
 
 ## GitHub repository variables

@@ -29,3 +29,8 @@ npm run verify
 ```
 
 Zmiany w Security Rules, offline i obliczeniach wymagaja dodatkowych testow z macierzy.
+Zmiany w Security Rules wymagaja dodatkowo `npm run verify:rules`.
+
+Deploy na development nie jest wymagany po kazdym PR. Wykonujemy go po spojnym
+bloku prac, zamknieciu etapu albo gdy srodowisko dev wymaga recznej walidacji
+nowej funkcjonalnosci.

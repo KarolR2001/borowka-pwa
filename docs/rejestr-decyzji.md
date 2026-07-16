@@ -74,3 +74,11 @@
 - Uzasadnienie: glowni uzytkownicy sa w Polsce, a MVP nie wymaga multi-region kosztem wiekszego dystansu sieciowego.
 - Alternatywa: `eur3` Europe multi-region, jesli priorytetem bedzie regionalna redundancja.
 - Wymagane od uzytkownika: zatwierdzenie lokalizacji przed utworzeniem Firestore.
+
+## DEC-0011 - Rytm deployow development
+
+- Status: zaakceptowana
+- Data: 2026-07-16
+- Decyzja: po kazdym pakiecie powstaje testowana galaz, commit i PR, ale deploy na development wykonujemy po spojnym bloku prac, zamknieciu etapu albo na jawna prosbe.
+- Uzasadnienie: czestsze PR-y utrzymuja maly zakres zmian, a rzadszy deploy ogranicza koszt recznego smoke testu i ryzyko czastkowej walidacji srodowiska.
+- Skutki: merge do `main` wymaga lokalnej weryfikacji `npm run verify` i, dla Rules, `npm run verify:rules`; sam deploy dev nie jest obowiazkowy po kazdym merge.
