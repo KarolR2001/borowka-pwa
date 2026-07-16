@@ -114,6 +114,36 @@ describe("Firestore user profile rules", () => {
     expect(snapshot.exists()).toBe(false);
   });
 
+  it("rejects direct admin profile creation without a matching invitation", async () => {
+    await seedProfiles(
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+    const newUserDb = testEnv
+      .authenticatedContext("new-admin", { email: "new-admin@example.test" })
+      .firestore();
+    const adminProfile = profile({
+      uid: "new-admin",
+      email: "new-admin@example.test",
+      role: "ADMIN",
+      workerId: null
+    });
+
+    await assertFails(setDoc(doc(operatorDb, "users", "new-admin"), adminProfile));
+    await assertFails(setDoc(doc(newUserDb, "users", "new-admin"), adminProfile));
+  });
+
   it("rejects reading another non-admin profile", async () => {
     await seedProfiles(profile({ uid: "picker-1" }), profile({ uid: "picker-2" }));
     expect(testEnv).toBeDefined();
@@ -254,6 +284,36 @@ describe("Firestore user profile rules", () => {
     );
   });
 
+  it("rejects self activation and blocked own offline consent update", async () => {
+    await seedProfiles(
+      profile({
+        uid: "blocked-1",
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("blocked-1", { email: "blocked-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(db, "users", "blocked-1"), {
+        active: true,
+        registrationStatus: "APPROVED"
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "users", "blocked-1"), {
+        offlineConsent: true
+      })
+    );
+  });
+
   it("rejects updating another user's offline consent", async () => {
     await seedProfiles(profile({ uid: "picker-1" }), profile({ uid: "picker-2" }));
     expect(testEnv).toBeDefined();
@@ -335,6 +395,12 @@ describe("Firestore user profile rules", () => {
 
     await assertFails(updateDoc(doc(db, "users", "admin-1"), { role: "OPERATOR" }));
     await assertFails(updateDoc(doc(db, "users", "operator-1"), { role: "PICKER" }));
+    await assertFails(
+      updateDoc(doc(db, "users", "operator-1"), {
+        role: "OWNER",
+        workerId: null
+      })
+    );
     await assertFails(updateDoc(doc(db, "users", "blocked-1"), { role: "ADMIN" }));
     await assertFails(
       updateDoc(doc(db, "users", "operator-1"), {

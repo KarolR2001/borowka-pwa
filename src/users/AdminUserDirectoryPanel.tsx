@@ -224,6 +224,24 @@ export function AdminUserDirectoryPanel({
       ) ?? null,
     [accountStatusDraft.targetUid, editableAccountStatusProfiles]
   );
+  const activeApprovedAdminCount = useMemo(
+    () =>
+      directoryState.result
+        ? directoryState.result.profiles.filter(
+            (profile) =>
+              profile.role === "ADMIN" &&
+              profile.active &&
+              profile.registrationStatus === "APPROVED"
+          ).length
+        : 0,
+    [directoryState.result]
+  );
+  const isLastActiveAdmin =
+    authState.status === "READY" &&
+    authState.profile.role === "ADMIN" &&
+    authState.profile.active &&
+    authState.profile.registrationStatus === "APPROVED" &&
+    activeApprovedAdminCount === 1;
 
   useEffect(() => {
     if (!directoryState.result) {
@@ -498,6 +516,7 @@ export function AdminUserDirectoryPanel({
 
       {directoryState.result ? (
         <>
+          {isLastActiveAdmin ? <LastAdminProtectionNotice /> : null}
           <RoleChangeForm
             draft={roleChangeDraft}
             error={roleChangeError}
@@ -1050,6 +1069,24 @@ function AccessNotice({ title, message }: { title: string; message: string }) {
       <div>
         <p className="eyebrow">{title}</p>
         <p className="panel-detail">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function LastAdminProtectionNotice() {
+  return (
+    <div className="access-notice" aria-label="Ochrona ostatniego administratora">
+      <div className="access-notice__icon">
+        <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
+      </div>
+      <div>
+        <p className="eyebrow">Ochrona administratora</p>
+        <p className="panel-detail">
+          To jest jedyne aktywne konto administratora. Wlasne konto nie jest dostepne do
+          zmiany roli ani blokady; przed pracami administracyjnymi dodaj drugiego
+          administratora.
+        </p>
       </div>
     </div>
   );
