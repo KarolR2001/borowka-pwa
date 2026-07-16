@@ -272,14 +272,18 @@ describe("Firestore user profile rules", () => {
     );
   });
 
-  it("keeps protected admin profile writes closed until admin workflow exists", async () => {
+  it("allows admin to update another active user's role and worker link", async () => {
     await seedProfiles(
       profile({
         uid: "admin-1",
         role: "ADMIN",
         workerId: null
       }),
-      profile({ uid: "picker-1" })
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      })
     );
     expect(testEnv).toBeDefined();
     if (!testEnv) {
@@ -290,6 +294,53 @@ describe("Firestore user profile rules", () => {
       .authenticatedContext("admin-1", { email: "admin-1@example.test" })
       .firestore();
 
-    await assertFails(updateDoc(doc(db, "users", "picker-1"), { role: "ADMIN" }));
+    await assertSucceeds(
+      updateDoc(doc(db, "users", "operator-1"), {
+        role: "PICKER",
+        workerId: "worker-2"
+      })
+    );
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "operator-1")));
+    expect(snapshot.data()?.role).toBe("PICKER");
+    expect(snapshot.data()?.workerId).toBe("worker-2");
+  });
+
+  it("rejects unsafe admin role and worker updates", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN",
+        workerId: null
+      }),
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      }),
+      profile({
+        uid: "blocked-1",
+        active: false,
+        registrationStatus: "BLOCKED"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertFails(updateDoc(doc(db, "users", "admin-1"), { role: "OPERATOR" }));
+    await assertFails(updateDoc(doc(db, "users", "operator-1"), { role: "PICKER" }));
+    await assertFails(updateDoc(doc(db, "users", "blocked-1"), { role: "ADMIN" }));
+    await assertFails(
+      updateDoc(doc(db, "users", "operator-1"), {
+        role: "ADMIN",
+        active: false
+      })
+    );
   });
 });

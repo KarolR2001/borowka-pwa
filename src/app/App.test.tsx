@@ -59,6 +59,18 @@ const activePickerState: AuthSessionState = {
   }
 };
 
+const activeOperatorState: AuthSessionState = {
+  ...activeAdminState,
+  profile: {
+    ...activeAdminState.profile,
+    role: "OPERATOR"
+  },
+  access: {
+    status: "READY",
+    role: "OPERATOR"
+  }
+};
+
 const createAuthSessionApi = (
   initialState: AuthSessionState,
   overrides: Partial<AuthSessionApi> = {}
@@ -246,6 +258,29 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(signOut).toHaveBeenCalled();
     });
+  });
+
+  it("refreshes the active profile on window focus to detect role changes", async () => {
+    const refresh = vi
+      .fn<AuthSessionApi["refresh"]>()
+      .mockResolvedValue(activeOperatorState);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState, {
+          refresh
+        })}
+      />
+    );
+
+    await screen.findByText("Konto: Administrator");
+
+    globalThis.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith(expect.anything());
+    });
+    expect(screen.getByText("Konto: Operator")).toBeInTheDocument();
   });
 
   it("updates offline consent from the user profile panel", async () => {
