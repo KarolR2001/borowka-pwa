@@ -24,6 +24,18 @@ export type UserRoleAndWorkerUpdateInput = {
   deviceId: string;
 };
 
+export type UserActivationAction = "BLOCK" | "REACTIVATE";
+
+export type UserActivationUpdateInput = {
+  actorProfile: UserProfile;
+  targetUid: string;
+  action: UserActivationAction;
+  targetRole?: UserRole;
+  targetWorkerId?: string | null;
+  reason: string;
+  deviceId: string;
+};
+
 export type PrepareUserRoleAndWorkerUpdateInput = {
   actorProfile: UserProfile;
   targetProfile: UserProfile;
@@ -34,7 +46,27 @@ export type PrepareUserRoleAndWorkerUpdateInput = {
   activeProfilesWithRequestedWorker?: UserProfile[];
 };
 
+export type PrepareUserActivationUpdateInput = {
+  actorProfile: UserProfile;
+  targetProfile: UserProfile;
+  action: UserActivationAction;
+  targetRole?: UserRole;
+  targetWorkerId?: string | null;
+  reason: string;
+  deviceId: string;
+  knownProfiles?: UserProfile[];
+};
+
 export type PreparedUserRoleAndWorkerUpdate = {
+  updatedProfile: UserProfile;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string;
+  deviceId: string;
+};
+
+export type PreparedUserActivationUpdate = {
   updatedProfile: UserProfile;
   auditAction: AuditAction;
   beforeSummary: AuditSummary;
@@ -110,6 +142,77 @@ export async function updateUserRoleAndWorker(
   const batch = writeBatch(firestore);
 
   batch.update(userRef, {
+    role: prepared.updatedProfile.role,
+    workerId: prepared.updatedProfile.workerId
+  });
+  batch.set(auditRef, auditEvent);
+  await batch.commit();
+
+  return prepared;
+}
+
+export async function updateUserActivation(
+  env: FirebaseEnv,
+  input: UserActivationUpdateInput
+): Promise<PreparedUserActivationUpdate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const userRef = doc(firestore, "users", input.targetUid);
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Profil uzytkownika nie istnieje.");
+  }
+
+  const decoded = decodeUserProfile(input.targetUid, snapshot.data());
+
+  if (decoded.status === "INVALID") {
+    throw new Error(decoded.reason);
+  }
+
+  const usersSnapshot = await getDocs(collection(firestore, "users"));
+  const knownProfiles: UserProfile[] = [];
+
+  for (const userDocument of usersSnapshot.docs) {
+    const decodedUser = decodeUserProfile(userDocument.id, userDocument.data());
+
+    if (decodedUser.status === "FOUND") {
+      knownProfiles.push(decodedUser.profile);
+    }
+  }
+
+  const prepared = prepareUserActivationUpdate({
+    actorProfile: input.actorProfile,
+    targetProfile: decoded.profile,
+    action: input.action,
+    targetRole: input.targetRole,
+    targetWorkerId: input.targetWorkerId,
+    reason: input.reason,
+    deviceId: input.deviceId,
+    knownProfiles
+  });
+  const auditId = createAuditEventId();
+  const auditRef = doc(firestore, "auditEvents", auditId);
+  const auditEvent = createAuditEventDraft({
+    id: auditId,
+    actorUid: input.actorProfile.uid,
+    actorRoleSnapshot: input.actorProfile.role,
+    action: prepared.auditAction,
+    entityType: "USER_PROFILE",
+    entityId: input.targetUid,
+    beforeSummary: prepared.beforeSummary,
+    afterSummary: prepared.afterSummary,
+    reason: prepared.reason,
+    createdAtDevice: Timestamp.now(),
+    createdAtServer: serverTimestamp(),
+    deviceId: prepared.deviceId
+  });
+  const batch = writeBatch(firestore);
+
+  batch.update(userRef, {
+    active: prepared.updatedProfile.active,
+    registrationStatus: prepared.updatedProfile.registrationStatus,
     role: prepared.updatedProfile.role,
     workerId: prepared.updatedProfile.workerId
   });
@@ -198,6 +301,39 @@ export function prepareUserRoleAndWorkerUpdate(
   };
 }
 
+export function prepareUserActivationUpdate(
+  input: PrepareUserActivationUpdateInput
+): PreparedUserActivationUpdate {
+  const reason = normalizeRequiredText(input.reason, "Podaj powod zmiany statusu.");
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+
+  if (!canAdministerUsers(input.actorProfile)) {
+    throw new Error("Zmiana statusu profilu wymaga aktywnego administratora.");
+  }
+
+  if (input.actorProfile.uid === input.targetProfile.uid) {
+    throw new Error("Administrator nie moze zmienic aktywnosci wlasnego konta.");
+  }
+
+  switch (input.action) {
+    case "BLOCK":
+      return prepareUserBlock({
+        ...input,
+        reason,
+        deviceId
+      });
+    case "REACTIVATE":
+      return prepareUserReactivation({
+        ...input,
+        reason,
+        deviceId
+      });
+  }
+}
+
 export function findActiveWorkerLinkConflict(
   profiles: UserProfile[],
   targetUid: string,
@@ -213,6 +349,110 @@ export function findActiveWorkerLinkConflict(
         profile.uid !== targetUid && profile.active && profile.workerId === workerId
     ) ?? null
   );
+}
+
+function prepareUserBlock(
+  input: PrepareUserActivationUpdateInput & { reason: string; deviceId: string }
+): PreparedUserActivationUpdate {
+  if (
+    !input.targetProfile.active ||
+    input.targetProfile.registrationStatus === "BLOCKED"
+  ) {
+    throw new Error("Konto jest juz zablokowane.");
+  }
+
+  if (input.targetProfile.registrationStatus !== "APPROVED") {
+    throw new Error("Blokada wymaga aktywnego zatwierdzonego profilu.");
+  }
+
+  if (
+    input.targetProfile.role === "ADMIN" &&
+    countActiveApprovedAdmins(input.knownProfiles ?? [input.targetProfile]) <= 1
+  ) {
+    throw new Error("Nie mozna zablokowac ostatniego aktywnego administratora.");
+  }
+
+  const updatedProfile = {
+    ...input.targetProfile,
+    active: false,
+    registrationStatus: "BLOCKED" as const
+  };
+
+  return {
+    updatedProfile,
+    auditAction: "USER_BLOCKED",
+    beforeSummary: userProfileAuditSummary(input.targetProfile),
+    afterSummary: userProfileAuditSummary(updatedProfile),
+    reason: input.reason,
+    deviceId: input.deviceId
+  };
+}
+
+function prepareUserReactivation(
+  input: PrepareUserActivationUpdateInput & { reason: string; deviceId: string }
+): PreparedUserActivationUpdate {
+  if (
+    input.targetProfile.active &&
+    input.targetProfile.registrationStatus === "APPROVED"
+  ) {
+    throw new Error("Konto jest juz aktywne.");
+  }
+
+  if (input.targetProfile.registrationStatus !== "BLOCKED") {
+    throw new Error("Reaktywacja wymaga zablokowanego profilu.");
+  }
+
+  const targetRole = input.targetRole ?? input.targetProfile.role;
+
+  if (!isUserRole(targetRole)) {
+    throw new Error("Nieznana rola uzytkownika.");
+  }
+
+  const targetWorkerId = normalizeOptionalId(
+    input.targetWorkerId === undefined
+      ? input.targetProfile.workerId
+      : input.targetWorkerId
+  );
+
+  if (roleRequiresWorkerId(targetRole) && !targetWorkerId) {
+    throw new Error("Rola Zbieracz wymaga workerId.");
+  }
+
+  const workerConflict = findActiveWorkerLinkConflict(
+    input.knownProfiles ?? [],
+    input.targetProfile.uid,
+    targetWorkerId
+  );
+
+  if (workerConflict) {
+    throw new Error("Ten workerId jest juz przypisany do aktywnego konta.");
+  }
+
+  const updatedProfile = {
+    ...input.targetProfile,
+    role: targetRole,
+    workerId: targetWorkerId,
+    active: true,
+    registrationStatus: "APPROVED" as const
+  };
+
+  return {
+    updatedProfile,
+    auditAction: "USER_REACTIVATED",
+    beforeSummary: userProfileAuditSummary(input.targetProfile),
+    afterSummary: userProfileAuditSummary(updatedProfile),
+    reason: input.reason,
+    deviceId: input.deviceId
+  };
+}
+
+function countActiveApprovedAdmins(profiles: UserProfile[]): number {
+  return profiles.filter(
+    (profile) =>
+      profile.role === "ADMIN" &&
+      profile.active &&
+      profile.registrationStatus === "APPROVED"
+  ).length;
 }
 
 function canAdministerUsers(profile: UserProfile): boolean {

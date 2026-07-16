@@ -71,6 +71,21 @@ const activeOperatorState: AuthSessionState = {
   }
 };
 
+const blockedPickerState: AuthSessionState = {
+  status: "BLOCKED",
+  message: "Konto jest zablokowane.",
+  user: activePickerState.user,
+  profile: {
+    ...activePickerState.profile,
+    active: false,
+    registrationStatus: "BLOCKED"
+  },
+  access: {
+    status: "BLOCKED",
+    reason: "Konto jest zablokowane."
+  }
+};
+
 const createAuthSessionApi = (
   initialState: AuthSessionState,
   overrides: Partial<AuthSessionApi> = {}
@@ -281,6 +296,29 @@ describe("App shell", () => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
     expect(screen.getByText("Konto: Operator")).toBeInTheDocument();
+  });
+
+  it("refreshes the active profile on online event to detect account blocks", async () => {
+    const refresh = vi
+      .fn<AuthSessionApi["refresh"]>()
+      .mockResolvedValue(blockedPickerState);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activePickerState, {
+          refresh
+        })}
+      />
+    );
+
+    await screen.findByText("Konto: Zbieracz");
+
+    globalThis.dispatchEvent(new Event("online"));
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith(expect.anything());
+    });
+    expect(screen.getByText("Konto: zablokowane")).toBeInTheDocument();
   });
 
   it("updates offline consent from the user profile panel", async () => {
