@@ -100,6 +100,20 @@ describe("Firestore user profile rules", () => {
     expect(snapshot.data()?.role).toBe("PICKER");
   });
 
+  it("allows signed-in user to detect missing own profile", async () => {
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("new-user", { email: "new-user@example.test" })
+      .firestore();
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "new-user")));
+    expect(snapshot.exists()).toBe(false);
+  });
+
   it("rejects reading another non-admin profile", async () => {
     await seedProfiles(profile({ uid: "picker-1" }), profile({ uid: "picker-2" }));
     expect(testEnv).toBeDefined();
@@ -114,7 +128,7 @@ describe("Firestore user profile rules", () => {
     await assertFails(getDoc(doc(db, "users", "picker-2")));
   });
 
-  it("rejects blocked profile reads", async () => {
+  it("allows blocked user to read own profile status only", async () => {
     await seedProfiles(
       profile({
         uid: "blocked-1",
@@ -131,7 +145,8 @@ describe("Firestore user profile rules", () => {
       .authenticatedContext("blocked-1", { email: "blocked-1@example.test" })
       .firestore();
 
-    await assertFails(getDoc(doc(db, "users", "blocked-1")));
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users", "blocked-1")));
+    expect(snapshot.data()?.registrationStatus).toBe("BLOCKED");
   });
 
   it("allows admin to list user profiles", async () => {
@@ -172,6 +187,27 @@ describe("Firestore user profile rules", () => {
 
     const db = testEnv
       .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(getDocs(collection(db, "users")));
+  });
+
+  it("rejects user profile listing for blocked account", async () => {
+    await seedProfiles(
+      profile({
+        uid: "blocked-1",
+        active: false,
+        registrationStatus: "BLOCKED"
+      }),
+      profile({ uid: "picker-1" })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("blocked-1", { email: "blocked-1@example.test" })
       .firestore();
 
     await assertFails(getDocs(collection(db, "users")));
