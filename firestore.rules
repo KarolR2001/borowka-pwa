@@ -706,6 +706,14 @@ service cloud.firestore {
         );
     }
 
+    function canReadSeasonConfiguration(data) {
+      return isAdmin() ||
+        (
+          isOperator() &&
+          data.status == 'OPEN'
+        );
+    }
+
     function canReadActiveConfiguration(data) {
       return isAdmin() ||
         (
@@ -1298,8 +1306,7 @@ service cloud.firestore {
     }
 
     match /seasons/{seasonId} {
-      allow get, list: if isSignedIn() &&
-        hasApprovedActiveProfile(request.auth.uid);
+      allow get, list: if canReadSeasonConfiguration(resource.data);
       allow create: if isValidSeasonCreate(request.resource.data, seasonId);
       allow update: if isValidSeasonDefaultUpdate(
         request.resource.data,

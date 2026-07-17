@@ -181,6 +181,8 @@ describe("Firestore settlement plan rules", () => {
     await assertFails(getDoc(doc(anonymousDb, "settlementPlans", "plan-weight-kg")));
     await assertFails(getDoc(doc(blockedDb, "settlementPlans", "plan-weight-kg")));
     await assertFails(getDoc(doc(pickerDb, "settlementPlans", "plan-weight-kg")));
+    await assertFails(getDocs(collection(pickerDb, "settlementPlans")));
+    await assertFails(getDocs(collection(pickerDb, "workerRateVersions")));
   });
 
   it("allows admin to read all plans and rate versions", async () => {

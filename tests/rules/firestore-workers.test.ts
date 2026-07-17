@@ -256,6 +256,7 @@ describe("Firestore worker rules", () => {
     await assertFails(getDoc(doc(anonymousDb, "workers", "worker-1")));
     await assertFails(getDoc(doc(blockedDb, "workers", "worker-1")));
     await assertFails(getDoc(doc(pickerDb, "workers", "worker-1")));
+    await assertFails(getDocs(collection(pickerDb, "workers")));
   });
 
   it("allows admin to read all workers", async () => {
