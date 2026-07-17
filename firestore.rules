@@ -950,6 +950,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /workers/{workerId} {
+      allow get, list: if canReadActiveConfiguration(resource.data);
+      allow create, update, delete: if false;
+    }
+
     match /workerRateVersions/{rateVersionId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
       allow create, update, delete: if false;
