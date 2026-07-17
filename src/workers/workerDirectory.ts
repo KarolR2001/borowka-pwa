@@ -45,6 +45,7 @@ export type CreateWorkerInput = {
 export type CreateWorkerRateVersionInput = {
   actorProfile: UserProfile;
   workerId: string;
+  expectedCurrentRateVersionId?: string | null;
   planId: string;
   rateGroszPerUnit: number;
   validFrom: string;
@@ -141,6 +142,21 @@ export type WorkerRateHistoryItem = {
   rateVersion: WorkerRateVersionDocument;
   status: WorkerRateHistoryStatus;
   warnings: string[];
+};
+
+export type WorkerRateConsistencyLevel = "OK" | "WARNING" | "ERROR";
+
+export type WorkerRateConsistencyCheck = {
+  id: string;
+  level: WorkerRateConsistencyLevel;
+  label: string;
+  detail: string;
+};
+
+export type WorkerRateConsistencyReport = {
+  level: WorkerRateConsistencyLevel;
+  checks: WorkerRateConsistencyCheck[];
+  limitations: string[];
 };
 
 export type WorkerDirectoryFilters = {
@@ -289,57 +305,196 @@ export async function createWorkerRateVersion(
   input: CreateWorkerRateVersionInput
 ): Promise<PreparedWorkerRateVersionCreate> {
   const { firestore } = await getFirebaseServices(env);
-  const { Timestamp, doc, serverTimestamp, writeBatch } =
+  const { Timestamp, doc, runTransaction, serverTimestamp } =
     await import("firebase/firestore/lite");
   const directory = await listWorkerDirectory(env, {
     viewerRole: "ADMIN"
   });
-  const currentWorker = findWorkerOrThrow(directory.workers, input.workerId);
-  const timestamp = serverTimestamp();
-  const prepared = prepareWorkerRateVersionCreate(
-    currentWorker,
-    directory.plans,
-    currentWorker.rateVersions,
-    {
-      ...input,
-      businessDate: input.businessDate ?? currentBusinessDate(),
-      createdAt: timestamp,
-      updatedAt: timestamp
+  const prefetchedWorker = findWorkerOrThrow(directory.workers, input.workerId);
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const planId = normalizeRequiredText(input.planId, "Wybierz plan rozliczenia.");
+  const validFrom = normalizeBusinessDate(input.validFrom);
+  const newRateVersionId = createWorkerRateVersionId(workerId, validFrom);
+  const workerRef = doc(firestore, WORKERS_COLLECTION, workerId);
+  const planRef = doc(firestore, SETTLEMENT_PLANS_COLLECTION, planId);
+  const newRateVersionRef = doc(
+    firestore,
+    WORKER_RATE_VERSIONS_COLLECTION,
+    newRateVersionId
+  );
+  const businessDate = input.businessDate ?? currentBusinessDate();
+
+  return runTransaction(firestore, async (transaction) => {
+    const [workerSnapshot, planSnapshot, newRateVersionSnapshot] = await Promise.all([
+      transaction.get(workerRef),
+      transaction.get(planRef),
+      transaction.get(newRateVersionRef)
+    ]);
+
+    if (!workerSnapshot.exists()) {
+      throw new Error("Wybrany zbieracz nie istnieje.");
     }
-  );
-  const auditId = createAuditEventId();
-  const batch = writeBatch(firestore);
 
-  batch.set(doc(firestore, WORKERS_COLLECTION, prepared.worker.id), prepared.worker);
-  batch.set(
-    doc(firestore, WORKER_RATE_VERSIONS_COLLECTION, prepared.previousRateVersion.id),
-    prepared.previousRateVersion
-  );
-  batch.set(
-    doc(firestore, WORKER_RATE_VERSIONS_COLLECTION, prepared.rateVersion.id),
-    prepared.rateVersion
-  );
-  batch.set(
-    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
-    createAuditEventDraft({
-      id: auditId,
-      actorUid: input.actorProfile.uid,
-      actorRoleSnapshot: input.actorProfile.role,
-      action: prepared.auditAction,
-      entityType: "WORKER",
-      entityId: prepared.worker.id,
-      beforeSummary: prepared.beforeSummary,
-      afterSummary: prepared.afterSummary,
-      reason: prepared.reason,
-      createdAtDevice: Timestamp.now(),
-      createdAtServer: timestamp,
-      deviceId: prepared.deviceId
-    })
+    if (!planSnapshot.exists()) {
+      throw new Error("Wybrany plan nie istnieje.");
+    }
+
+    const currentWorkerDocument = decodeWorkerSnapshotOrThrow(
+      workerSnapshot.id,
+      workerSnapshot.data()
+    );
+    const selectedPlan = decodeSettlementPlanSnapshotOrThrow(
+      planSnapshot.id,
+      planSnapshot.data()
+    );
+    const previousRateVersionRef = doc(
+      firestore,
+      WORKER_RATE_VERSIONS_COLLECTION,
+      currentWorkerDocument.currentRateVersionId
+    );
+    const previousRateVersionSnapshot = await transaction.get(previousRateVersionRef);
+
+    if (!previousRateVersionSnapshot.exists()) {
+      throw new Error("Brak aktualnej stawki zbieracza do zamkniecia.");
+    }
+
+    const previousRateVersion = decodeWorkerRateVersionSnapshotOrThrow(
+      previousRateVersionSnapshot.id,
+      previousRateVersionSnapshot.data()
+    );
+    const existingNewRateVersion = newRateVersionSnapshot.exists()
+      ? decodeWorkerRateVersionSnapshotOrThrow(
+          newRateVersionSnapshot.id,
+          newRateVersionSnapshot.data()
+        )
+      : null;
+    const transactionRateVersions = mergeTransactionRateVersions(
+      prefetchedWorker.rateVersions,
+      previousRateVersion,
+      existingNewRateVersion
+    );
+    const transactionWorker = createTransactionWorkerListItem(
+      prefetchedWorker,
+      currentWorkerDocument,
+      previousRateVersion,
+      transactionRateVersions
+    );
+    const timestamp = serverTimestamp();
+    const prepared = prepareWorkerRateVersionCreate(
+      transactionWorker,
+      mergeTransactionPlans(directory.plans, selectedPlan),
+      transactionRateVersions,
+      {
+        ...input,
+        businessDate,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }
+    );
+    const auditId = createAuditEventId();
+
+    transaction.set(workerRef, prepared.worker);
+    transaction.set(previousRateVersionRef, prepared.previousRateVersion);
+    transaction.set(newRateVersionRef, prepared.rateVersion);
+    transaction.set(
+      doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+      createAuditEventDraft({
+        id: auditId,
+        actorUid: input.actorProfile.uid,
+        actorRoleSnapshot: input.actorProfile.role,
+        action: prepared.auditAction,
+        entityType: "WORKER",
+        entityId: prepared.worker.id,
+        beforeSummary: prepared.beforeSummary,
+        afterSummary: prepared.afterSummary,
+        reason: prepared.reason,
+        createdAtDevice: Timestamp.now(),
+        createdAtServer: timestamp,
+        deviceId: prepared.deviceId
+      })
+    );
+
+    return prepared;
+  });
+}
+
+function decodeWorkerSnapshotOrThrow(id: string, data: unknown): WorkerDocument {
+  const decoded = decodeWorker(id, data);
+
+  if (decoded.status === "INVALID") {
+    throw new Error(decoded.reason);
+  }
+
+  return decoded.worker;
+}
+
+function decodeSettlementPlanSnapshotOrThrow(
+  id: string,
+  data: unknown
+): SettlementPlanDocument {
+  const decoded = decodeSettlementPlan(id, data);
+
+  if (decoded.status === "INVALID") {
+    throw new Error(decoded.reason);
+  }
+
+  return decoded.plan;
+}
+
+function decodeWorkerRateVersionSnapshotOrThrow(
+  id: string,
+  data: unknown
+): WorkerRateVersionDocument {
+  const decoded = decodeWorkerRateVersion(id, data);
+
+  if (decoded.status === "INVALID") {
+    throw new Error(decoded.reason);
+  }
+
+  return decoded.rateVersion;
+}
+
+function mergeTransactionRateVersions(
+  prefetchedRateVersions: WorkerRateVersionDocument[],
+  previousRateVersion: WorkerRateVersionDocument,
+  existingNewRateVersion: WorkerRateVersionDocument | null
+): WorkerRateVersionDocument[] {
+  const merged = new Map(
+    prefetchedRateVersions.map((rateVersion) => [rateVersion.id, rateVersion])
   );
 
-  await batch.commit();
+  merged.set(previousRateVersion.id, previousRateVersion);
 
-  return prepared;
+  if (existingNewRateVersion) {
+    merged.set(existingNewRateVersion.id, existingNewRateVersion);
+  }
+
+  return Array.from(merged.values());
+}
+
+function mergeTransactionPlans(
+  prefetchedPlans: SettlementPlanDocument[],
+  selectedPlan: SettlementPlanDocument
+): SettlementPlanDocument[] {
+  const merged = new Map(prefetchedPlans.map((plan) => [plan.id, plan]));
+
+  merged.set(selectedPlan.id, selectedPlan);
+
+  return Array.from(merged.values());
+}
+
+function createTransactionWorkerListItem(
+  prefetchedWorker: WorkerDirectoryListItem,
+  currentWorkerDocument: WorkerDocument,
+  previousRateVersion: WorkerRateVersionDocument,
+  rateVersions: WorkerRateVersionDocument[]
+): WorkerDirectoryListItem {
+  return {
+    ...prefetchedWorker,
+    ...currentWorkerDocument,
+    currentRateVersion: previousRateVersion,
+    rateVersions
+  };
 }
 
 export function buildWorkerDirectory({
@@ -566,6 +721,9 @@ export function prepareWorkerRateVersionCreate(
   const validFrom = normalizeBusinessDate(input.validFrom);
   const businessDate = normalizeBusinessDate(input.businessDate ?? currentBusinessDate());
   const rateGroszPerUnit = normalizeRateGrosz(input.rateGroszPerUnit);
+  const expectedCurrentRateVersionId = normalizeOptionalText(
+    input.expectedCurrentRateVersionId
+  );
   const deviceId = normalizeRequiredText(
     input.deviceId,
     "Brak identyfikatora urzadzenia dla audytu."
@@ -605,6 +763,13 @@ export function prepareWorkerRateVersionCreate(
 
   if (!previousRateVersion) {
     throw new Error("Brak aktualnej stawki zbieracza do zamkniecia.");
+  }
+
+  if (
+    expectedCurrentRateVersionId &&
+    previousRateVersion.id !== expectedCurrentRateVersionId
+  ) {
+    throw new Error("Stawka zostala zmieniona w innym oknie. Odswiez profil zbieracza.");
   }
 
   if (!previousRateVersion.active || previousRateVersion.validTo !== null) {
@@ -917,6 +1082,87 @@ export function analyzeWorkerRateHistory(
     status: workerRateHistoryStatus(rateVersion, businessDate),
     warnings: warningsById.get(rateVersion.id) ?? []
   }));
+}
+
+export function buildWorkerRateConsistencyReport(
+  worker: WorkerDirectoryListItem,
+  businessDate: string
+): WorkerRateConsistencyReport {
+  const historyItems = analyzeWorkerRateHistory(worker.rateVersions, businessDate);
+  const periodWarnings = Array.from(
+    new Set(historyItems.flatMap((historyItem) => historyItem.warnings))
+  );
+  const openRates = worker.rateVersions.filter(
+    (rateVersion) => rateVersion.active && rateVersion.validTo === null
+  );
+  const currentHistoryItem = historyItems.find(
+    (historyItem) => historyItem.rateVersion.id === worker.currentRateVersionId
+  );
+  const hasCurrentRateReference = Boolean(
+    worker.currentRateVersion && currentHistoryItem
+  );
+  const checks: WorkerRateConsistencyCheck[] = [
+    {
+      id: "current-rate-reference",
+      level: hasCurrentRateReference ? "OK" : "ERROR",
+      label: "Aktualna referencja",
+      detail:
+        hasCurrentRateReference && worker.currentRateVersion
+          ? `Profil wskazuje wersje ${worker.currentRateVersion.id}.`
+          : "Nie znaleziono wersji stawki wskazanej przez profil."
+    },
+    {
+      id: "open-rate-period",
+      level: openRates.length === 1 ? "OK" : "ERROR",
+      label: "Otwarty okres",
+      detail:
+        openRates.length === 1
+          ? `Jedna otwarta wersja: ${openRates[0].id}.`
+          : `Liczba otwartych wersji: ${String(openRates.length)}.`
+    },
+    {
+      id: "rate-periods",
+      level: periodWarnings.length === 0 ? "OK" : "WARNING",
+      label: "Okresy stawek",
+      detail:
+        periodWarnings.length === 0
+          ? "Nie wykryto przerw ani nakladania okresow."
+          : periodWarnings.join("; ")
+    }
+  ];
+
+  if (currentHistoryItem?.status === "FUTURE") {
+    checks.push({
+      id: "future-current-rate",
+      level: "WARNING",
+      label: "Przyszla referencja",
+      detail: "Profil wskazuje stawke przyszla; sesje musza wybierac wersje wedlug daty."
+    });
+  }
+
+  return {
+    level: highestConsistencyLevel(checks),
+    checks,
+    limitations: [
+      "Bez funkcji serwerowej nie ma pelnej gwarancji serializacji dwoch rownoleglych zmian.",
+      "Zmiana stawki jest ograniczona do administratora, trybu online i transakcji klienta.",
+      "Reguly Firestore i audyt pozostaja warstwa kontroli po stronie zapisu."
+    ]
+  };
+}
+
+function highestConsistencyLevel(
+  checks: WorkerRateConsistencyCheck[]
+): WorkerRateConsistencyLevel {
+  if (checks.some((check) => check.level === "ERROR")) {
+    return "ERROR";
+  }
+
+  if (checks.some((check) => check.level === "WARNING")) {
+    return "WARNING";
+  }
+
+  return "OK";
 }
 
 export function workerRateHistoryStatusLabel(status: WorkerRateHistoryStatus): string {

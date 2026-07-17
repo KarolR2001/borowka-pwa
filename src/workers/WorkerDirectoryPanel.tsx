@@ -18,6 +18,7 @@ import {
   createWorkerWithInitialRate,
   defaultWorkerDirectoryFilters,
   analyzeWorkerRateHistory,
+  buildWorkerRateConsistencyReport,
   findSimilarWorkerNames,
   filterWorkerDirectory,
   isWorkerActivityFilter,
@@ -31,6 +32,7 @@ import {
   workerUnitLabel,
   type CreateWorkerInput,
   type CreateWorkerRateVersionInput,
+  type WorkerRateConsistencyLevel,
   type WorkerDirectoryFilters,
   type WorkerDirectoryListItem,
   type WorkerDirectoryListInput,
@@ -367,6 +369,7 @@ export function WorkerDirectoryPanel({
       const result = await createRate(env, {
         actorProfile: authState.profile,
         workerId: worker.id,
+        expectedCurrentRateVersionId: worker.currentRateVersionId,
         planId: rateDraft.planId,
         rateGroszPerUnit: parseWorkerRate(rateDraft.rate),
         validFrom: rateDraft.validFrom,
@@ -748,6 +751,8 @@ function WorkerProfilePanel({
         )}
       </WorkerProfileSection>
 
+      <WorkerRateConsistencyPanel worker={worker} />
+
       <CreateWorkerRateForm
         activePlans={activePlans}
         draft={rateDraft}
@@ -802,6 +807,42 @@ function WorkerProfileFact({ label, value }: { label: string; value: ReactNode }
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
+  );
+}
+
+function WorkerRateConsistencyPanel({ worker }: { worker: WorkerDirectoryListItem }) {
+  const report = buildWorkerRateConsistencyReport(worker, currentBusinessDate());
+
+  return (
+    <WorkerProfileSection title="Kontrola spojnosci stawek">
+      <div className="worker-rate-consistency">
+        <p
+          className={`worker-rate-consistency__status worker-rate-consistency__status--${report.level.toLocaleLowerCase("en-US")}`}
+        >
+          {rateConsistencyLevelLabel(report.level)}
+        </p>
+
+        <ul className="worker-rate-consistency__checks">
+          {report.checks.map((check) => (
+            <li key={check.id}>
+              <span
+                className={`worker-rate-consistency__badge worker-rate-consistency__badge--${check.level.toLocaleLowerCase("en-US")}`}
+              >
+                {rateConsistencyLevelLabel(check.level)}
+              </span>
+              <strong>{check.label}</strong>
+              <span>{check.detail}</span>
+            </li>
+          ))}
+        </ul>
+
+        <ul className="worker-profile__list">
+          {report.limitations.map((limitation) => (
+            <li key={limitation}>{limitation}</li>
+          ))}
+        </ul>
+      </div>
+    </WorkerProfileSection>
   );
 }
 
@@ -1408,6 +1449,17 @@ function rateWarningsLabel(warnings: string[]): string {
   return warnings.length > 0 ? warnings.join("; ") : "brak";
 }
 
+function rateConsistencyLevelLabel(level: WorkerRateConsistencyLevel): string {
+  switch (level) {
+    case "OK":
+      return "OK";
+    case "WARNING":
+      return "Ostrzezenie";
+    case "ERROR":
+      return "Blad";
+  }
+}
+
 function currentBusinessDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -1418,6 +1470,8 @@ function auditActionLabel(
   switch (action) {
     case "WORKER_CREATED":
       return "Utworzenie zbieracza";
+    case "WORKER_RATE_CHANGED":
+      return "Zmiana stawki";
     case "USER_WORKER_LINK_CHANGED":
       return "Zmiana powiazania konta";
     case "USER_ROLE_CHANGED":

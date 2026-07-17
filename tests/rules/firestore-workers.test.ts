@@ -489,6 +489,116 @@ describe("Firestore worker rules", () => {
     await assertSucceeds(batch.commit());
   });
 
+  it("rejects stale parallel worker rate changes", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    await seedPlans();
+    await seedWorkerRateChangeState();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const firstBatch = writeBatch(db);
+
+    firstBatch.set(
+      doc(db, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        displayName: "Anna Test",
+        normalizedName: "anna test",
+        currentPlanId: "plan-weight-kg",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+        updatedAt: serverTimestamp()
+      })
+    );
+    firstBatch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-01"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-01",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1000,
+        validFrom: "2026-07-01",
+        validTo: "2026-07-14",
+        active: false,
+        note: "Aktualna stawka.",
+        createdAt: Timestamp.fromDate(new Date("2026-07-01T08:00:00.000Z")),
+        createdBy: "admin-1",
+        supersedesRateId: null
+      })
+    );
+    firstBatch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-15",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1400,
+        validFrom: "2026-07-15",
+        validTo: null,
+        active: true,
+        createdAt: serverTimestamp(),
+        createdBy: "admin-1",
+        supersedesRateId: "rate-worker-anna-test-2026-07-01"
+      })
+    );
+    await assertSucceeds(firstBatch.commit());
+
+    const staleBatch = writeBatch(db);
+    staleBatch.set(
+      doc(db, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        displayName: "Anna Test",
+        normalizedName: "anna test",
+        currentPlanId: "plan-weight-kg",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-16",
+        updatedAt: serverTimestamp()
+      })
+    );
+    staleBatch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-01"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-01",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1000,
+        validFrom: "2026-07-01",
+        validTo: "2026-07-15",
+        active: false,
+        note: "Aktualna stawka.",
+        createdAt: Timestamp.fromDate(new Date("2026-07-01T08:00:00.000Z")),
+        createdBy: "admin-1",
+        supersedesRateId: null
+      })
+    );
+    staleBatch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-16"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-16",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1600,
+        validFrom: "2026-07-16",
+        validTo: null,
+        active: true,
+        createdAt: serverTimestamp(),
+        createdBy: "admin-1",
+        supersedesRateId: "rate-worker-anna-test-2026-07-01"
+      })
+    );
+
+    await assertFails(staleBatch.commit());
+  });
+
   it("rejects partial or unsafe worker rate changes", async () => {
     await seedProfiles(
       profile({
