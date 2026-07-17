@@ -73,6 +73,7 @@ service cloud.firestore {
         action == 'SETTLEMENT_PLAN_UPDATED' ||
         action == 'SETTLEMENT_PLAN_ARCHIVED' ||
         action == 'WORKER_CREATED' ||
+        action == 'WORKER_ARCHIVED' ||
         action == 'WORKER_RATE_CHANGED';
     }
 
@@ -1018,17 +1019,21 @@ service cloud.firestore {
         data.legacyName == previous.legacyName;
     }
 
+    function isWorkerCurrentRateWrite(data, previous) {
+      return data.diff(previous).affectedKeys().hasOnly([
+        'currentPlanId',
+        'currentRateVersionId',
+        'updatedAt'
+      ]);
+    }
+
     function isValidWorkerCurrentRateUpdate(data, previous, workerId) {
       return isAdmin() &&
         hasValidWorkerBase(data, workerId) &&
         previous.active == true &&
         previous.archivedAt == null &&
         keepsWorkerLockedForRateChange(data, previous, workerId) &&
-        data.diff(previous).affectedKeys().hasOnly([
-          'currentPlanId',
-          'currentRateVersionId',
-          'updatedAt'
-        ]) &&
+        isWorkerCurrentRateWrite(data, previous) &&
         data.currentRateVersionId != previous.currentRateVersionId &&
         data.updatedAt == request.time &&
         existsAfter(workerRateVersionPath(data.currentRateVersionId)) &&
@@ -1055,15 +1060,19 @@ service cloud.firestore {
         data.legacyName == previous.legacyName;
     }
 
+    function isWorkerAccountLinkWrite(data, previous) {
+      return data.diff(previous).affectedKeys().hasOnly([
+        'linkedUserUid',
+        'updatedAt'
+      ]);
+    }
+
     function isValidWorkerAccountLinkUpdate(data, previous, workerId) {
       return isAdmin() &&
         hasValidWorkerBase(data, workerId) &&
         previous.active == true &&
         keepsWorkerLockedForAccountLink(data, previous, workerId) &&
-        data.diff(previous).affectedKeys().hasOnly([
-          'linkedUserUid',
-          'updatedAt'
-        ]) &&
+        isWorkerAccountLinkWrite(data, previous) &&
         data.linkedUserUid != previous.linkedUserUid &&
         data.updatedAt == request.time &&
         (
@@ -1072,6 +1081,42 @@ service cloud.firestore {
           data.linkedUserUid == null ||
           data.linkedUserUid is string
         );
+    }
+
+    function keepsWorkerLockedForArchive(data, previous, workerId) {
+      return data.id == workerId &&
+        data.id == previous.id &&
+        data.displayName == previous.displayName &&
+        data.normalizedName == previous.normalizedName &&
+        data.currentPlanId == previous.currentPlanId &&
+        data.currentRateVersionId == previous.currentRateVersionId &&
+        data.linkedUserUid == previous.linkedUserUid &&
+        data.phone == previous.phone &&
+        data.emailContact == previous.emailContact &&
+        data.notes == previous.notes &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy &&
+        data.legacyName == previous.legacyName;
+    }
+
+    function isWorkerArchiveWrite(data, previous) {
+      return data.diff(previous).affectedKeys().hasOnly([
+        'active',
+        'updatedAt',
+        'archivedAt'
+      ]);
+    }
+
+    function isValidWorkerArchiveUpdate(data, previous, workerId) {
+      return isAdmin() &&
+        hasValidWorkerBase(data, workerId) &&
+        keepsWorkerLockedForArchive(data, previous, workerId) &&
+        previous.active == true &&
+        previous.archivedAt == null &&
+        data.active == false &&
+        data.updatedAt == request.time &&
+        data.archivedAt == request.time &&
+        isWorkerArchiveWrite(data, previous);
     }
 
     function isValidSubsequentWorkerRateVersionCreate(data, rateVersionId) {
@@ -1286,14 +1331,15 @@ service cloud.firestore {
     match /workers/{workerId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
       allow create: if isValidWorkerCreate(request.resource.data, workerId);
-      allow update: if isValidWorkerCurrentRateUpdate(
-        request.resource.data,
-        resource.data,
-        workerId
-      ) || isValidWorkerAccountLinkUpdate(
-        request.resource.data,
-        resource.data,
-        workerId
+      allow update: if (
+        isWorkerArchiveWrite(request.resource.data, resource.data) &&
+          isValidWorkerArchiveUpdate(request.resource.data, resource.data, workerId)
+      ) || (
+        isWorkerAccountLinkWrite(request.resource.data, resource.data) &&
+          isValidWorkerAccountLinkUpdate(request.resource.data, resource.data, workerId)
+      ) || (
+        isWorkerCurrentRateWrite(request.resource.data, resource.data) &&
+          isValidWorkerCurrentRateUpdate(request.resource.data, resource.data, workerId)
       );
       allow delete: if false;
     }
