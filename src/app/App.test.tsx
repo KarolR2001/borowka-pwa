@@ -434,6 +434,7 @@ describe("App shell", () => {
     const listWorkers = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
       workers: [],
       plans: [],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -489,6 +490,7 @@ describe("App shell", () => {
     const listWorkers = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
       workers: [],
       plans: [],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],

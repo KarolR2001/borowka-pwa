@@ -1,4 +1,5 @@
 import {
+  Link2,
   Plus,
   RefreshCw,
   Scale,
@@ -13,6 +14,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
+import { userRoleLabel, type UserProfile } from "../domain/identity";
 import {
   createWorkerRateVersion,
   createWorkerWithInitialRate,
@@ -32,11 +34,13 @@ import {
   workerUnitLabel,
   type CreateWorkerInput,
   type CreateWorkerRateVersionInput,
+  type UpdateWorkerAccountLinkInput,
   type WorkerRateConsistencyLevel,
   type WorkerDirectoryFilters,
   type WorkerDirectoryListItem,
   type WorkerDirectoryListInput,
-  type WorkerDirectoryResult
+  type WorkerDirectoryResult,
+  updateWorkerAccountLink
 } from "./workerDirectory";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -51,12 +55,17 @@ export type WorkerDirectoryApi = {
     env: FirebaseEnv,
     input: CreateWorkerRateVersionInput
   ) => Promise<unknown>;
+  updateAccountLink?: (
+    env: FirebaseEnv,
+    input: UpdateWorkerAccountLinkInput
+  ) => Promise<unknown>;
 };
 
 export const defaultWorkerDirectoryApi: WorkerDirectoryApi = {
   list: listWorkerDirectory,
   create: createWorkerWithInitialRate,
-  createRate: createWorkerRateVersion
+  createRate: createWorkerRateVersion,
+  updateAccountLink: updateWorkerAccountLink
 };
 
 type DirectoryState =
@@ -97,6 +106,12 @@ type CreateWorkerRateDraft = {
   confirmPeriodWarning: boolean;
 };
 
+type AccountLinkDraft = {
+  targetUid: string;
+  reason: string;
+  confirmedPrivacy: boolean;
+};
+
 const initialState: DirectoryState = {
   status: "IDLE",
   result: null,
@@ -122,13 +137,19 @@ export function WorkerDirectoryPanel({
   const [rateDraft, setRateDraft] = useState<CreateWorkerRateDraft>(() =>
     createInitialWorkerRateDraft()
   );
+  const [accountLinkDraft, setAccountLinkDraft] = useState<AccountLinkDraft>(() =>
+    createInitialAccountLinkDraft()
+  );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rateFeedback, setRateFeedback] = useState<string | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
+  const [accountLinkFeedback, setAccountLinkFeedback] = useState<string | null>(null);
+  const [accountLinkError, setAccountLinkError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRateSubmitting, setIsRateSubmitting] = useState(false);
+  const [isAccountLinkSubmitting, setIsAccountLinkSubmitting] = useState(false);
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -231,8 +252,14 @@ export function WorkerDirectoryPanel({
         ? selectedWorker.currentPlanId
         : (activePlans[0]?.id ?? "")
     });
+    setAccountLinkDraft({
+      ...createInitialAccountLinkDraft(),
+      targetUid: selectedWorker.linkedUserUid ?? ""
+    });
     setRateFeedback(null);
     setRateError(null);
+    setAccountLinkFeedback(null);
+    setAccountLinkError(null);
   }, [activePlans, selectedWorker]);
 
   useEffect(() => {
@@ -390,6 +417,53 @@ export function WorkerDirectoryPanel({
     }
   };
 
+  const handleUpdateAccountLink = async (worker: WorkerDirectoryListItem) => {
+    if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
+      return;
+    }
+
+    setAccountLinkFeedback(null);
+    setAccountLinkError(null);
+
+    if (!accountLinkDraft.confirmedPrivacy) {
+      setAccountLinkError("Potwierdz konsekwencje prywatnosci powiazania konta.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setAccountLinkError("Zmiana powiazania konta wymaga polaczenia online.");
+      return;
+    }
+
+    const updateAccountLink =
+      workerDirectoryApi.updateAccountLink ?? defaultWorkerDirectoryApi.updateAccountLink;
+
+    if (!updateAccountLink) {
+      setAccountLinkError("Operacja powiazania konta nie jest dostepna.");
+      return;
+    }
+
+    setIsAccountLinkSubmitting(true);
+
+    try {
+      const result = await updateAccountLink(env, {
+        actorProfile: authState.profile,
+        workerId: worker.id,
+        targetUid: accountLinkDraft.targetUid || null,
+        reason: accountLinkDraft.reason,
+        confirmPrivacyNotice: accountLinkDraft.confirmedPrivacy,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit(authState.profile.role);
+      setAccountLinkFeedback(createAccountLinkFeedback(result));
+      setAccountLinkDraft(createInitialAccountLinkDraft());
+    } catch (linkError: unknown) {
+      setAccountLinkError(getWorkerDirectoryErrorMessage(linkError));
+    } finally {
+      setIsAccountLinkSubmitting(false);
+    }
+  };
+
   const reloadAfterSubmit = async (role: "ADMIN" | "OPERATOR") => {
     const result = await workerDirectoryApi.list(env, {
       viewerRole: role
@@ -478,16 +552,25 @@ export function WorkerDirectoryPanel({
 
       {isAdmin && selectedWorker && state.result ? (
         <WorkerProfilePanel
+          accountLinkDraft={accountLinkDraft}
+          accountLinkError={accountLinkError}
+          accountLinkFeedback={accountLinkFeedback}
           activePlans={activePlans}
+          isAccountLinkSubmitting={isAccountLinkSubmitting}
           isRateSubmitting={isRateSubmitting}
           onClose={() => {
             setSelectedWorkerId(null);
+          }}
+          onAccountLinkChange={setAccountLinkDraft}
+          onAccountLinkSubmit={() => {
+            void handleUpdateAccountLink(selectedWorker);
           }}
           onRateChange={setRateDraft}
           onRateSubmit={() => {
             void handleCreateRate(selectedWorker);
           }}
           plans={state.result.plans}
+          profiles={state.result.profiles}
           rateDraft={rateDraft}
           rateError={rateError}
           rateFeedback={rateFeedback}
@@ -621,23 +704,37 @@ export function WorkerDirectoryPanel({
 }
 
 function WorkerProfilePanel({
+  accountLinkDraft,
+  accountLinkError,
+  accountLinkFeedback,
   activePlans,
+  isAccountLinkSubmitting,
   isRateSubmitting,
   onClose,
+  onAccountLinkChange,
+  onAccountLinkSubmit,
   onRateChange,
   onRateSubmit,
   plans,
+  profiles,
   rateDraft,
   rateError,
   rateFeedback,
   worker
 }: {
+  accountLinkDraft: AccountLinkDraft;
+  accountLinkError: string | null;
+  accountLinkFeedback: string | null;
   activePlans: WorkerDirectoryResult["plans"];
+  isAccountLinkSubmitting: boolean;
   isRateSubmitting: boolean;
   onClose: () => void;
+  onAccountLinkChange: (draft: AccountLinkDraft) => void;
+  onAccountLinkSubmit: () => void;
   onRateChange: (draft: CreateWorkerRateDraft) => void;
   onRateSubmit: () => void;
   plans: WorkerDirectoryResult["plans"];
+  profiles: WorkerDirectoryResult["profiles"];
   rateDraft: CreateWorkerRateDraft;
   rateError: string | null;
   rateFeedback: string | null;
@@ -739,6 +836,22 @@ function WorkerProfilePanel({
         </WorkerProfileSection>
       </div>
 
+      <WorkerAccountLinkForm
+        draft={accountLinkDraft}
+        isSubmitting={isAccountLinkSubmitting}
+        onChange={onAccountLinkChange}
+        onSubmit={onAccountLinkSubmit}
+        profiles={profiles}
+        worker={worker}
+      />
+
+      {accountLinkFeedback ? (
+        <p className="form-message form-message--ok">{accountLinkFeedback}</p>
+      ) : null}
+      {accountLinkError ? (
+        <p className="form-message form-message--error">{accountLinkError}</p>
+      ) : null}
+
       <WorkerProfileSection title="Ostrzezenia">
         {worker.warnings.length > 0 ? (
           <ul className="worker-profile__list">
@@ -807,6 +920,100 @@ function WorkerProfileFact({ label, value }: { label: string; value: ReactNode }
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
+  );
+}
+
+function WorkerAccountLinkForm({
+  draft,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  profiles,
+  worker
+}: {
+  draft: AccountLinkDraft;
+  isSubmitting: boolean;
+  onChange: (draft: AccountLinkDraft) => void;
+  onSubmit: () => void;
+  profiles: UserProfile[];
+  worker: WorkerDirectoryListItem;
+}) {
+  const eligibleProfiles = getEligibleAccountLinkProfiles(profiles, worker);
+
+  return (
+    <form
+      aria-label="Powiazanie konta zbieracza"
+      className="worker-account-link-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="worker-rate-form__heading">
+        <Link2 aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h4>Powiazanie konta</h4>
+      </div>
+
+      <label>
+        <span>Konto do powiazania</span>
+        <select
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              targetUid: event.target.value
+            });
+          }}
+          value={draft.targetUid}
+        >
+          <option value="">Brak konta</option>
+          {eligibleProfiles.map((profile) => (
+            <option key={profile.uid} value={profile.uid}>
+              {accountLinkProfileLabel(profile, worker.id)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        <span>Powod zmiany powiazania</span>
+        <input
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          placeholder="np. konto nalezy do tej osoby"
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <label className="worker-rate-form__confirmation">
+        <input
+          checked={draft.confirmedPrivacy}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmedPrivacy: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>
+          Potwierdzam, ze konto zobaczy dane tego zbieracza po ponownym pobraniu profilu
+        </span>
+      </label>
+
+      <button
+        className="primary-action worker-rate-form__submit"
+        disabled={isSubmitting}
+        type="submit"
+      >
+        <Link2 aria-hidden="true" size={17} strokeWidth={2.2} />
+        <span>{isSubmitting ? "Zapisywanie..." : "Zapisz powiazanie"}</span>
+      </button>
+    </form>
   );
 }
 
@@ -1445,6 +1652,31 @@ function ratePlanLabel(planId: string, plans: WorkerDirectoryResult["plans"]): s
   return plans.find((plan) => plan.id === planId)?.name ?? planId;
 }
 
+function getEligibleAccountLinkProfiles(
+  profiles: UserProfile[],
+  worker: WorkerDirectoryListItem
+): UserProfile[] {
+  return profiles.filter(
+    (profile) =>
+      profile.active &&
+      profile.registrationStatus === "APPROVED" &&
+      (profile.uid === worker.linkedUserUid ||
+        profile.workerId === null ||
+        profile.workerId === worker.id)
+  );
+}
+
+function accountLinkProfileLabel(profile: UserProfile, workerId: string): string {
+  const linkLabel =
+    profile.workerId === workerId
+      ? "powiazane z tym zbieraczem"
+      : profile.workerId
+        ? `powiazane z ${profile.workerId}`
+        : "bez powiazania";
+
+  return `${profile.displayName} (${profile.email}) - ${userRoleLabel(profile.role)}, ${linkLabel}`;
+}
+
 function rateWarningsLabel(warnings: string[]): string {
   return warnings.length > 0 ? warnings.join("; ") : "brak";
 }
@@ -1510,6 +1742,14 @@ function createInitialWorkerRateDraft(): CreateWorkerRateDraft {
   };
 }
 
+function createInitialAccountLinkDraft(): AccountLinkDraft {
+  return {
+    targetUid: "",
+    reason: "",
+    confirmedPrivacy: false
+  };
+}
+
 function parseWorkerRate(value: string): number {
   try {
     const parsed = parseDecimalToScaledInteger(value, 2);
@@ -1548,6 +1788,19 @@ function createWorkerRateFeedback(result: unknown): string {
   }
 
   return "Dodano stawke.";
+}
+
+function createAccountLinkFeedback(result: unknown): string {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "privacyWarning" in result &&
+    typeof result.privacyWarning === "string"
+  ) {
+    return `Zapisano powiazanie konta. ${result.privacyWarning}`;
+  }
+
+  return "Zapisano powiazanie konta.";
 }
 
 function getWorkerDirectoryErrorMessage(error: unknown): string {

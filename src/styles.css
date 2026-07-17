@@ -534,17 +534,25 @@ h2 {
     auto;
 }
 
-.worker-rate-form {
+.worker-rate-form,
+.worker-account-link-form {
   display: grid;
-  grid-template-columns:
-    minmax(180px, 0.9fr) minmax(130px, 0.55fr) minmax(145px, 0.6fr)
-    minmax(220px, 1fr) auto;
   align-items: end;
   gap: 12px;
   border: 1px solid #dce6df;
   border-radius: 8px;
   padding: 16px;
   background: #ffffff;
+}
+
+.worker-rate-form {
+  grid-template-columns:
+    minmax(180px, 0.9fr) minmax(130px, 0.55fr) minmax(145px, 0.6fr)
+    minmax(220px, 1fr) auto;
+}
+
+.worker-account-link-form {
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) auto;
 }
 
 .season-form__confirmation,
@@ -556,6 +564,7 @@ h2 {
 .worker-form__notes,
 .worker-form__warning,
 .worker-rate-form__confirmation,
+.worker-account-link-form .worker-rate-form__confirmation,
 .worker-rate-form__heading {
   grid-column: 1 / -1;
 }
@@ -997,6 +1006,7 @@ h2 {
   .settlement-plan-form,
   .worker-form,
   .worker-rate-form,
+  .worker-account-link-form,
   .worker-rate-consistency__checks li,
   .worker-profile__grid,
   .directory-summary {
@@ -1047,7 +1057,8 @@ h2 {
   .season-action-form,
   .settlement-plan-form,
   .worker-form,
-  .worker-rate-form {
+  .worker-rate-form,
+  .worker-account-link-form {
     grid-template-columns: 1fr;
   }
 

@@ -186,7 +186,17 @@ service cloud.firestore {
         request.auth.uid != userId &&
         previous.active == true &&
         previous.registrationStatus == 'APPROVED' &&
+        data.role != previous.role &&
         data.diff(previous).affectedKeys().hasOnly(['role', 'workerId']) &&
+        hasValidUserRoleWorkerPair(data);
+    }
+
+    function isValidAdminWorkerAccountLinkUserUpdate(data, previous, userId) {
+      return isAdmin() &&
+        request.auth.uid != userId &&
+        previous.active == true &&
+        previous.registrationStatus == 'APPROVED' &&
+        data.diff(previous).affectedKeys().hasOnly(['workerId']) &&
         hasValidUserRoleWorkerPair(data);
     }
 
@@ -1028,6 +1038,42 @@ service cloud.firestore {
         getAfter(workerRateVersionPath(data.currentRateVersionId)).data.supersedesRateId == previous.currentRateVersionId;
     }
 
+    function keepsWorkerLockedForAccountLink(data, previous, workerId) {
+      return data.id == workerId &&
+        data.id == previous.id &&
+        data.displayName == previous.displayName &&
+        data.normalizedName == previous.normalizedName &&
+        data.active == previous.active &&
+        data.currentPlanId == previous.currentPlanId &&
+        data.currentRateVersionId == previous.currentRateVersionId &&
+        data.phone == previous.phone &&
+        data.emailContact == previous.emailContact &&
+        data.notes == previous.notes &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy &&
+        data.archivedAt == previous.archivedAt &&
+        data.legacyName == previous.legacyName;
+    }
+
+    function isValidWorkerAccountLinkUpdate(data, previous, workerId) {
+      return isAdmin() &&
+        hasValidWorkerBase(data, workerId) &&
+        previous.active == true &&
+        keepsWorkerLockedForAccountLink(data, previous, workerId) &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'linkedUserUid',
+          'updatedAt'
+        ]) &&
+        data.linkedUserUid != previous.linkedUserUid &&
+        data.updatedAt == request.time &&
+        (
+          previous.linkedUserUid == null ||
+          previous.linkedUserUid == data.linkedUserUid ||
+          data.linkedUserUid == null ||
+          data.linkedUserUid is string
+        );
+    }
+
     function isValidSubsequentWorkerRateVersionCreate(data, rateVersionId) {
       return isAdmin() &&
         hasValidWorkerRateVersionBase(data, rateVersionId) &&
@@ -1143,6 +1189,10 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         userId
+      ) || isValidAdminWorkerAccountLinkUserUpdate(
+        request.resource.data,
+        resource.data,
+        userId
       ) || isValidAdminRoleOrWorkerUpdate(
         request.resource.data,
         resource.data,
@@ -1237,6 +1287,10 @@ service cloud.firestore {
       allow get, list: if canReadActiveConfiguration(resource.data);
       allow create: if isValidWorkerCreate(request.resource.data, workerId);
       allow update: if isValidWorkerCurrentRateUpdate(
+        request.resource.data,
+        resource.data,
+        workerId
+      ) || isValidWorkerAccountLinkUpdate(
         request.resource.data,
         resource.data,
         workerId
