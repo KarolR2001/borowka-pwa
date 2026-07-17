@@ -3,6 +3,7 @@ import type {
   WorkerDocument,
   WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
+import type { AuditEventDocument } from "../audit/auditEvents";
 import type { UserProfile } from "../domain/identity";
 import {
   buildWorkerDirectory,
@@ -101,6 +102,28 @@ const rateVersion = ({
   createdAt,
   createdBy: "admin-1",
   supersedesRateId: null,
+  ...overrides
+});
+
+const auditEvent = ({
+  id,
+  ...overrides
+}: Partial<AuditEventDocument> & { id: string }): AuditEventDocument => ({
+  id,
+  actorUid: "admin-1",
+  actorRoleSnapshot: "ADMIN",
+  action: "WORKER_CREATED",
+  entityType: "WORKER",
+  entityId: "worker-anna",
+  businessDate: null,
+  beforeSummary: null,
+  afterSummary: {
+    workerId: "worker-anna"
+  },
+  reason: null,
+  createdAtDevice: "device-time",
+  createdAtServer: "server-time",
+  deviceId: "device-1",
   ...overrides
 });
 
@@ -307,6 +330,34 @@ describe("workerDirectory", () => {
             planId: "plan-weight",
             rateGroszPerUnit: 1000
           })
+        },
+        {
+          id: "rate-worker-anna-old",
+          data: rateVersion({
+            id: "rate-worker-anna-old",
+            workerId: "worker-anna",
+            planId: "plan-weight",
+            rateGroszPerUnit: 900,
+            validFrom: "2026-06-01",
+            active: false
+          })
+        }
+      ],
+      auditEventDocuments: [
+        {
+          id: "audit-worker-created",
+          data: auditEvent({
+            id: "audit-worker-created"
+          })
+        },
+        {
+          id: "audit-user-changed",
+          data: auditEvent({
+            id: "audit-user-changed",
+            action: "USER_WORKER_LINK_CHANGED",
+            entityType: "USER_PROFILE",
+            entityId: "picker-anna"
+          })
         }
       ],
       userDocuments: [
@@ -331,6 +382,19 @@ describe("workerDirectory", () => {
       currentRateVersion: {
         rateGroszPerUnit: 1000
       },
+      rateVersions: [
+        {
+          id: "rate-worker-anna"
+        },
+        {
+          id: "rate-worker-anna-old"
+        }
+      ],
+      auditEvents: [
+        {
+          id: "audit-worker-created"
+        }
+      ],
       linkedUser: {
         email: "anna@example.test"
       },
@@ -511,6 +575,15 @@ describe("workerDirectory", () => {
             role: "UNKNOWN" as unknown as UserProfile["role"]
           })
         }
+      ],
+      auditEventDocuments: [
+        {
+          id: "audit-invalid",
+          data: auditEvent({
+            id: "audit-invalid",
+            beforeSummary: ["bad"] as never
+          })
+        }
       ]
     });
 
@@ -537,6 +610,12 @@ describe("workerDirectory", () => {
       {
         id: "profile-invalid",
         reason: "Profil uzytkownika ma nieznana role."
+      }
+    ]);
+    expect(directory.invalidAuditEvents).toEqual([
+      {
+        id: "audit-invalid",
+        reason: "Podsumowanie audytu ma nieprawidlowy format."
       }
     ]);
   });

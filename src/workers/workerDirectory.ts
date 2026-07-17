@@ -2,7 +2,9 @@ import {
   AUDIT_EVENTS_COLLECTION,
   createAuditEventDraft,
   createAuditEventId,
+  decodeAuditEvent,
   type AuditAction,
+  type AuditEventDocument,
   type AuditSummary
 } from "../audit/auditEvents";
 import { getFirebaseServices } from "../config/firebaseServices";
@@ -61,6 +63,11 @@ export type WorkerDirectoryUserSnapshot = {
   data: unknown;
 };
 
+export type WorkerDirectoryAuditEventSnapshot = {
+  id: string;
+  data: unknown;
+};
+
 export type InvalidWorker = {
   id: string;
   reason: string;
@@ -76,7 +83,9 @@ export type WorkerSeasonSummary = {
 export type WorkerDirectoryListItem = WorkerDocument & {
   currentPlan: SettlementPlanDocument | null;
   currentRateVersion: WorkerRateVersionDocument | null;
+  rateVersions: WorkerRateVersionDocument[];
   linkedUser: UserProfile | null;
+  auditEvents: AuditEventDocument[];
   warnings: string[];
   seasonSummary: WorkerSeasonSummary;
 };
@@ -93,6 +102,7 @@ export type WorkerDirectoryResult = {
   invalidPlans: InvalidWorkerDirectoryDocument[];
   invalidRateVersions: InvalidWorkerDirectoryDocument[];
   invalidProfiles: InvalidWorkerDirectoryDocument[];
+  invalidAuditEvents: InvalidWorkerDirectoryDocument[];
 };
 
 export type WorkerActivityFilter = "ACTIVE" | "ARCHIVED" | "ALL";
@@ -148,15 +158,23 @@ export async function listWorkerDirectory(
           where("active", "==", true)
         );
 
-  const [workersSnapshot, plansSnapshot, rateVersionsSnapshot, usersSnapshot] =
-    await Promise.all([
-      getDocs(workersQuery),
-      getDocs(plansQuery),
-      getDocs(ratesQuery),
-      input.viewerRole === "ADMIN"
-        ? getDocs(collection(firestore, "users"))
-        : Promise.resolve(null)
-    ]);
+  const [
+    workersSnapshot,
+    plansSnapshot,
+    rateVersionsSnapshot,
+    usersSnapshot,
+    auditEventsSnapshot
+  ] = await Promise.all([
+    getDocs(workersQuery),
+    getDocs(plansQuery),
+    getDocs(ratesQuery),
+    input.viewerRole === "ADMIN"
+      ? getDocs(collection(firestore, "users"))
+      : Promise.resolve(null),
+    input.viewerRole === "ADMIN"
+      ? getDocs(collection(firestore, AUDIT_EVENTS_COLLECTION))
+      : Promise.resolve(null)
+  ]);
 
   return buildWorkerDirectory({
     workerDocuments: workersSnapshot.docs.map((documentSnapshot) => ({
@@ -173,6 +191,11 @@ export async function listWorkerDirectory(
     })),
     userDocuments:
       usersSnapshot?.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        data: documentSnapshot.data()
+      })) ?? [],
+    auditEventDocuments:
+      auditEventsSnapshot?.docs.map((documentSnapshot) => ({
         id: documentSnapshot.id,
         data: documentSnapshot.data()
       })) ?? []
@@ -230,12 +253,14 @@ export function buildWorkerDirectory({
   workerDocuments,
   planDocuments,
   rateVersionDocuments,
-  userDocuments
+  userDocuments,
+  auditEventDocuments = []
 }: {
   workerDocuments: WorkerDocumentSnapshot[];
   planDocuments: WorkerDocumentSnapshot[];
   rateVersionDocuments: WorkerDocumentSnapshot[];
   userDocuments: WorkerDirectoryUserSnapshot[];
+  auditEventDocuments?: WorkerDirectoryAuditEventSnapshot[];
 }): WorkerDirectoryResult {
   const workers: WorkerDocument[] = [];
   const invalidWorkers: InvalidWorkerDirectoryDocument[] = [];
@@ -245,6 +270,8 @@ export function buildWorkerDirectory({
   const invalidRateVersions: InvalidWorkerDirectoryDocument[] = [];
   const profiles: UserProfile[] = [];
   const invalidProfiles: InvalidWorkerDirectoryDocument[] = [];
+  const auditEvents: AuditEventDocument[] = [];
+  const invalidAuditEvents: InvalidWorkerDirectoryDocument[] = [];
 
   for (const document of workerDocuments) {
     const decoded = decodeWorker(document.id, document.data);
@@ -298,11 +325,26 @@ export function buildWorkerDirectory({
     }
   }
 
+  for (const document of auditEventDocuments) {
+    const decoded = decodeAuditEvent(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      auditEvents.push(decoded.event);
+    } else {
+      invalidAuditEvents.push({
+        id: document.id,
+        reason: decoded.reason
+      });
+    }
+  }
+
   const planById = new Map(plans.map((plan) => [plan.id, plan]));
   const rateVersionById = new Map(
     rateVersions.map((rateVersion) => [rateVersion.id, rateVersion])
   );
+  const rateVersionsByWorkerId = groupRateVersionsByWorkerId(rateVersions);
   const profileByUid = new Map(profiles.map((profile) => [profile.uid, profile]));
+  const auditEventsByWorkerId = groupWorkerAuditEvents(auditEvents);
 
   return {
     workers: sortWorkers(
@@ -310,9 +352,11 @@ export function buildWorkerDirectory({
         buildWorkerListItem(worker, {
           currentPlan: planById.get(worker.currentPlanId) ?? null,
           currentRateVersion: rateVersionById.get(worker.currentRateVersionId) ?? null,
+          rateVersions: rateVersionsByWorkerId.get(worker.id) ?? [],
           linkedUser: worker.linkedUserUid
             ? (profileByUid.get(worker.linkedUserUid) ?? null)
-            : null
+            : null,
+          auditEvents: auditEventsByWorkerId.get(worker.id) ?? []
         })
       )
     ),
@@ -320,7 +364,8 @@ export function buildWorkerDirectory({
     invalidWorkers: sortInvalidDocuments(invalidWorkers),
     invalidPlans: sortInvalidDocuments(invalidPlans),
     invalidRateVersions: sortInvalidDocuments(invalidRateVersions),
-    invalidProfiles: sortInvalidDocuments(invalidProfiles)
+    invalidProfiles: sortInvalidDocuments(invalidProfiles),
+    invalidAuditEvents: sortInvalidDocuments(invalidAuditEvents)
   };
 }
 
@@ -588,14 +633,18 @@ function buildWorkerListItem(
   relations: {
     currentPlan: SettlementPlanDocument | null;
     currentRateVersion: WorkerRateVersionDocument | null;
+    rateVersions: WorkerRateVersionDocument[];
     linkedUser: UserProfile | null;
+    auditEvents: AuditEventDocument[];
   }
 ): WorkerDirectoryListItem {
   return {
     ...worker,
     currentPlan: relations.currentPlan,
     currentRateVersion: relations.currentRateVersion,
+    rateVersions: sortWorkerRateVersions(relations.rateVersions),
     linkedUser: relations.linkedUser,
+    auditEvents: sortWorkerAuditEvents(relations.auditEvents),
     warnings: workerWarnings(worker, relations),
     seasonSummary: {
       totalKgGrams: null,
@@ -604,6 +653,40 @@ function buildWorkerListItem(
       dueGrosz: null
     }
   };
+}
+
+function groupRateVersionsByWorkerId(
+  rateVersions: WorkerRateVersionDocument[]
+): Map<string, WorkerRateVersionDocument[]> {
+  const byWorkerId = new Map<string, WorkerRateVersionDocument[]>();
+
+  for (const rateVersion of rateVersions) {
+    const existing = byWorkerId.get(rateVersion.workerId) ?? [];
+
+    existing.push(rateVersion);
+    byWorkerId.set(rateVersion.workerId, existing);
+  }
+
+  return byWorkerId;
+}
+
+function groupWorkerAuditEvents(
+  auditEvents: AuditEventDocument[]
+): Map<string, AuditEventDocument[]> {
+  const byWorkerId = new Map<string, AuditEventDocument[]>();
+
+  for (const auditEvent of auditEvents) {
+    if (auditEvent.entityType !== "WORKER") {
+      continue;
+    }
+
+    const existing = byWorkerId.get(auditEvent.entityId) ?? [];
+
+    existing.push(auditEvent);
+    byWorkerId.set(auditEvent.entityId, existing);
+  }
+
+  return byWorkerId;
 }
 
 function workerWarnings(
@@ -702,6 +785,28 @@ function sortFilteredWorkers(
 
     return left.id.localeCompare(right.id, "pl");
   });
+}
+
+function sortWorkerRateVersions(
+  rateVersions: WorkerRateVersionDocument[]
+): WorkerRateVersionDocument[] {
+  return [...rateVersions].sort((left, right) => {
+    const validFromDiff = right.validFrom.localeCompare(left.validFrom);
+
+    if (validFromDiff !== 0) {
+      return validFromDiff;
+    }
+
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+
+    return left.id.localeCompare(right.id, "pl");
+  });
+}
+
+function sortWorkerAuditEvents(auditEvents: AuditEventDocument[]): AuditEventDocument[] {
+  return [...auditEvents].sort((left, right) => right.id.localeCompare(left.id, "pl"));
 }
 
 function compareNullableDesc(left: number | null, right: number | null): number {

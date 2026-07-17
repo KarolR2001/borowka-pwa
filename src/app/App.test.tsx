@@ -437,7 +437,8 @@ describe("App shell", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
 
     render(
@@ -491,7 +492,8 @@ describe("App shell", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
 
     render(
