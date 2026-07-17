@@ -71,6 +71,23 @@ export type UpdateWorkerAccountLinkInput = {
   deviceId: string;
 };
 
+export type ArchiveWorkerConfirmations = {
+  confirmOpenSessionsReviewed: boolean;
+  confirmDueAmountReviewed: boolean;
+  confirmActiveAccountRemains: boolean;
+  confirmCurrentRateReviewed: boolean;
+  confirmFutureRatesReviewed: boolean;
+};
+
+export type ArchiveWorkerInput = {
+  actorProfile: UserProfile;
+  workerId: string;
+  reason: string;
+  confirmations: ArchiveWorkerConfirmations;
+  deviceId: string;
+  businessDate?: string | null;
+};
+
 export type PreparedWorkerCreate = {
   worker: WorkerDocument;
   rateVersion: WorkerRateVersionDocument;
@@ -105,6 +122,16 @@ export type PreparedWorkerAccountLinkUpdate = {
   reason: string;
   deviceId: string;
   privacyWarning: string;
+};
+
+export type PreparedWorkerArchive = {
+  worker: WorkerDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string;
+  deviceId: string;
+  warnings: string[];
 };
 
 export type WorkerDocumentSnapshot = {
@@ -552,6 +579,68 @@ export async function updateWorkerAccountLink(
   });
 }
 
+export async function archiveWorker(
+  env: FirebaseEnv,
+  input: ArchiveWorkerInput
+): Promise<PreparedWorkerArchive> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, runTransaction, serverTimestamp } =
+    await import("firebase/firestore/lite");
+  const directory = await listWorkerDirectory(env, {
+    viewerRole: "ADMIN"
+  });
+  const prefetchedWorker = findWorkerOrThrow(directory.workers, input.workerId);
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const workerRef = doc(firestore, WORKERS_COLLECTION, workerId);
+  const businessDate = input.businessDate ?? currentBusinessDate();
+
+  return runTransaction(firestore, async (transaction) => {
+    const workerSnapshot = await transaction.get(workerRef);
+
+    if (!workerSnapshot.exists()) {
+      throw new Error("Wybrany zbieracz nie istnieje.");
+    }
+
+    const currentWorkerDocument = decodeWorkerSnapshotOrThrow(
+      workerSnapshot.id,
+      workerSnapshot.data()
+    );
+    const transactionWorker = createTransactionWorkerArchiveListItem(
+      prefetchedWorker,
+      currentWorkerDocument
+    );
+    const timestamp = serverTimestamp();
+    const prepared = prepareWorkerArchive(transactionWorker, {
+      ...input,
+      businessDate,
+      archivedAt: timestamp,
+      updatedAt: timestamp
+    });
+    const auditId = createAuditEventId();
+
+    transaction.set(workerRef, prepared.worker);
+    transaction.set(
+      doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+      createAuditEventDraft({
+        id: auditId,
+        actorUid: input.actorProfile.uid,
+        actorRoleSnapshot: input.actorProfile.role,
+        action: prepared.auditAction,
+        entityType: "WORKER",
+        entityId: prepared.worker.id,
+        beforeSummary: prepared.beforeSummary,
+        afterSummary: prepared.afterSummary,
+        reason: prepared.reason,
+        createdAtDevice: Timestamp.now(),
+        createdAtServer: timestamp,
+        deviceId: prepared.deviceId
+      })
+    );
+
+    return prepared;
+  });
+}
+
 function decodeWorkerSnapshotOrThrow(id: string, data: unknown): WorkerDocument {
   const decoded = decodeWorker(id, data);
 
@@ -650,6 +739,16 @@ function createTransactionWorkerAccountListItem(
     ...prefetchedWorker,
     ...currentWorkerDocument,
     linkedUser
+  };
+}
+
+function createTransactionWorkerArchiveListItem(
+  prefetchedWorker: WorkerDirectoryListItem,
+  currentWorkerDocument: WorkerDocument
+): WorkerDirectoryListItem {
+  return {
+    ...prefetchedWorker,
+    ...currentWorkerDocument
   };
 }
 
@@ -1168,6 +1267,94 @@ export function prepareWorkerAccountLinkUpdate(
     reason: `${reason} ${privacyWarning}`,
     deviceId,
     privacyWarning
+  };
+}
+
+export function prepareWorkerArchive(
+  currentWorker: WorkerDirectoryListItem,
+  input: ArchiveWorkerInput & {
+    archivedAt: unknown;
+    updatedAt: unknown;
+  }
+): PreparedWorkerArchive {
+  assertAdmin(input.actorProfile);
+
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const reason = normalizeRequiredText(input.reason, "Podaj powod archiwizacji.");
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+  const businessDate = normalizeBusinessDate(input.businessDate ?? currentBusinessDate());
+
+  if (currentWorker.id !== workerId) {
+    throw new Error("Wybrany zbieracz ma niezgodny identyfikator.");
+  }
+
+  if (!currentWorker.active || currentWorker.archivedAt !== null) {
+    throw new Error("Zbieracz jest juz archiwalny.");
+  }
+
+  const warnings = buildWorkerArchiveWarnings(currentWorker, businessDate);
+  const dueAmountNeedsConfirmation =
+    currentWorker.seasonSummary.dueGrosz === null ||
+    currentWorker.seasonSummary.dueGrosz > 0;
+  const activeAccountNeedsConfirmation = hasActiveLinkedAccount(currentWorker);
+  const futureRatesNeedConfirmation =
+    findActiveFutureRateVersions(currentWorker, businessDate).length > 0;
+
+  if (!input.confirmations.confirmOpenSessionsReviewed) {
+    throw new Error("Potwierdz sprawdzenie otwartych sesji przed archiwizacja.");
+  }
+
+  if (dueAmountNeedsConfirmation && !input.confirmations.confirmDueAmountReviewed) {
+    throw new Error("Potwierdz sprawdzenie kwoty do wyplaty przed archiwizacja.");
+  }
+
+  if (
+    activeAccountNeedsConfirmation &&
+    !input.confirmations.confirmActiveAccountRemains
+  ) {
+    throw new Error("Potwierdz, ze powiazane konto pozostaje aktywne.");
+  }
+
+  if (!input.confirmations.confirmCurrentRateReviewed) {
+    throw new Error("Potwierdz weryfikacje aktualnej stawki zbieracza.");
+  }
+
+  if (futureRatesNeedConfirmation && !input.confirmations.confirmFutureRatesReviewed) {
+    throw new Error("Potwierdz weryfikacje przyszlych stawek zbieracza.");
+  }
+
+  const nextWorker: WorkerDocument = {
+    id: currentWorker.id,
+    displayName: currentWorker.displayName,
+    normalizedName: currentWorker.normalizedName,
+    active: false,
+    currentPlanId: currentWorker.currentPlanId,
+    currentRateVersionId: currentWorker.currentRateVersionId,
+    linkedUserUid: currentWorker.linkedUserUid,
+    phone: currentWorker.phone,
+    emailContact: currentWorker.emailContact,
+    notes: currentWorker.notes,
+    createdAt: currentWorker.createdAt,
+    createdBy: currentWorker.createdBy,
+    updatedAt: input.updatedAt,
+    archivedAt: input.archivedAt,
+    legacyName: currentWorker.legacyName
+  };
+
+  return {
+    worker: nextWorker,
+    auditAction: "WORKER_ARCHIVED",
+    beforeSummary: workerArchiveAuditSummary(currentWorker),
+    afterSummary: workerArchiveAuditSummary({
+      ...currentWorker,
+      ...nextWorker
+    }),
+    reason: buildWorkerArchiveReason(reason, warnings),
+    deviceId,
+    warnings
   };
 }
 
@@ -1861,6 +2048,19 @@ function workerAccountLinkAuditSummary(
   };
 }
 
+function workerArchiveAuditSummary(worker: WorkerDirectoryListItem): AuditSummary {
+  return {
+    workerId: worker.id,
+    displayName: worker.displayName,
+    active: worker.active,
+    currentPlanId: worker.currentPlanId,
+    currentRateVersionId: worker.currentRateVersionId,
+    uid: worker.linkedUser?.uid ?? worker.linkedUserUid ?? null,
+    email: worker.linkedUser?.email ?? null,
+    role: worker.linkedUser?.role ?? null
+  };
+}
+
 function rateChangeReason(
   backdatedWarning: string | null,
   periodWarning: string | null
@@ -1872,6 +2072,78 @@ function rateChangeReason(
   ]
     .filter((value): value is string => Boolean(value))
     .join(" ");
+}
+
+function buildWorkerArchiveWarnings(
+  worker: WorkerDirectoryListItem,
+  businessDate: string
+): string[] {
+  const warnings = [
+    "Modul sesji nie jest jeszcze podlaczony; sprawdz otwarte sesje poza systemem."
+  ];
+  const dueGrosz = worker.seasonSummary.dueGrosz;
+  const activeFutureRates = findActiveFutureRateVersions(worker, businessDate);
+
+  if (dueGrosz === null) {
+    warnings.push(
+      "Kwota do wyplaty nie jest jeszcze wyliczana w module zbieraczy; sprawdz rozliczenia poza systemem."
+    );
+  } else if (dueGrosz > 0) {
+    warnings.push(`Do wyplaty pozostaje ${formatMoney(dueGrosz)}.`);
+  }
+
+  if (hasActiveLinkedAccount(worker)) {
+    warnings.push(
+      "Powiazane aktywne konto pozostanie aktywne i bedzie moglo czytac historyczne dane."
+    );
+  }
+
+  if (worker.currentRateVersion) {
+    warnings.push(
+      `Aktualna stawka ${formatMoney(worker.currentRateVersion.rateGroszPerUnit)} od ${worker.currentRateVersion.validFrom} pozostanie w historii.`
+    );
+  } else {
+    warnings.push("Brak aktualnej stawki do weryfikacji przed archiwizacja.");
+  }
+
+  if (activeFutureRates.length > 0) {
+    warnings.push(
+      `Aktywne przyszle stawki pozostana w historii: ${activeFutureRates
+        .map((rateVersion) => rateVersion.validFrom)
+        .join(", ")}.`
+    );
+  }
+
+  return warnings;
+}
+
+function hasActiveLinkedAccount(worker: WorkerDirectoryListItem): boolean {
+  return Boolean(
+    worker.linkedUser &&
+    worker.linkedUser.active &&
+    worker.linkedUser.registrationStatus === "APPROVED"
+  );
+}
+
+function findActiveFutureRateVersions(
+  worker: WorkerDirectoryListItem,
+  businessDate: string
+): WorkerRateVersionDocument[] {
+  return worker.rateVersions
+    .filter((rateVersion) => rateVersion.active && rateVersion.validFrom > businessDate)
+    .sort((left, right) => {
+      const validFromDiff = left.validFrom.localeCompare(right.validFrom);
+
+      if (validFromDiff !== 0) {
+        return validFromDiff;
+      }
+
+      return left.id.localeCompare(right.id, "pl");
+    });
+}
+
+function buildWorkerArchiveReason(reason: string, warnings: string[]): string {
+  return [reason, ...warnings.map((warning) => `Kontrola: ${warning}`)].join(" ");
 }
 
 function findWorkerOrThrow(

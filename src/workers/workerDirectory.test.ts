@@ -14,6 +14,7 @@ import {
   decodeWorker,
   findSimilarWorkerNames,
   filterWorkerDirectory,
+  prepareWorkerArchive,
   prepareWorkerCreate,
   prepareWorkerAccountLinkUpdate,
   prepareWorkerRateVersionCreate,
@@ -440,6 +441,147 @@ describe("workerDirectory", () => {
         targetUid: null
       })
     ).toThrow("Konto z rola Zbieracz wymaga powiazania.");
+  });
+
+  it("prepares worker archive with confirmations, warnings and audit", () => {
+    const currentRate = rateVersion({
+      id: "rate-worker-anna-test-2026-07-01",
+      workerId: "worker-anna-test",
+      validFrom: "2026-07-01"
+    });
+    const futureRate = rateVersion({
+      id: "rate-worker-anna-test-2026-08-01",
+      workerId: "worker-anna-test",
+      validFrom: "2026-08-01",
+      active: true
+    });
+    const linkedPicker = profile({
+      uid: "picker-anna",
+      role: "PICKER",
+      workerId: "worker-anna-test"
+    });
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      displayName: "Anna Test",
+      currentRateVersionId: currentRate.id,
+      linkedUserUid: linkedPicker.uid,
+      linkedUser: linkedPicker,
+      currentRateVersion: currentRate,
+      rateVersions: [currentRate, futureRate],
+      seasonSummary: {
+        totalKgGrams: 25000,
+        earnedGrosz: 5000,
+        paidGrosz: 1500,
+        dueGrosz: 3500
+      }
+    });
+    const prepared = prepareWorkerArchive(currentWorker, {
+      actorProfile: adminProfile,
+      workerId: "worker-anna-test",
+      reason: "Koniec wspolpracy.",
+      confirmations: {
+        confirmOpenSessionsReviewed: true,
+        confirmDueAmountReviewed: true,
+        confirmActiveAccountRemains: true,
+        confirmCurrentRateReviewed: true,
+        confirmFutureRatesReviewed: true
+      },
+      businessDate: "2026-07-15",
+      archivedAt: "archived-at",
+      updatedAt: "updated-at",
+      deviceId: "device-1"
+    });
+
+    expect(prepared.worker).toMatchObject({
+      id: "worker-anna-test",
+      active: false,
+      currentPlanId: currentWorker.currentPlanId,
+      currentRateVersionId: currentRate.id,
+      linkedUserUid: linkedPicker.uid,
+      updatedAt: "updated-at",
+      archivedAt: "archived-at"
+    });
+    expect(prepared.auditAction).toBe("WORKER_ARCHIVED");
+    expect(prepared.beforeSummary).toMatchObject({
+      workerId: "worker-anna-test",
+      displayName: "Anna Test",
+      active: true,
+      uid: linkedPicker.uid,
+      role: "PICKER"
+    });
+    expect(prepared.afterSummary).toMatchObject({
+      workerId: "worker-anna-test",
+      active: false,
+      uid: linkedPicker.uid
+    });
+    expect(prepared.reason).toContain("Koniec wspolpracy.");
+    expect(prepared.reason).toContain("Do wyplaty pozostaje 35,00 zł.");
+    expect(prepared.reason).toContain("2026-08-01");
+    expect(prepared.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("otwarte sesje"),
+        expect.stringContaining("Powiazane aktywne konto"),
+        expect.stringContaining("Aktywne przyszle stawki")
+      ])
+    );
+  });
+
+  it("blocks unsafe worker archive operations", () => {
+    const currentRate = rateVersion({
+      id: "rate-worker-anna-test-2026-07-01",
+      workerId: "worker-anna-test",
+      validFrom: "2026-07-01"
+    });
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      currentRateVersionId: currentRate.id,
+      currentRateVersion: currentRate,
+      rateVersions: [currentRate]
+    });
+    const baseInput = {
+      actorProfile: adminProfile,
+      workerId: "worker-anna-test",
+      reason: "Koniec wspolpracy.",
+      confirmations: {
+        confirmOpenSessionsReviewed: true,
+        confirmDueAmountReviewed: true,
+        confirmActiveAccountRemains: true,
+        confirmCurrentRateReviewed: true,
+        confirmFutureRatesReviewed: true
+      },
+      businessDate: "2026-07-15",
+      archivedAt: "archived-at",
+      updatedAt: "updated-at",
+      deviceId: "device-1"
+    };
+
+    expect(() =>
+      prepareWorkerArchive(currentWorker, {
+        ...baseInput,
+        confirmations: {
+          ...baseInput.confirmations,
+          confirmOpenSessionsReviewed: false
+        }
+      })
+    ).toThrow("Potwierdz sprawdzenie otwartych sesji przed archiwizacja.");
+
+    expect(() =>
+      prepareWorkerArchive(
+        {
+          ...currentWorker,
+          active: false,
+          archivedAt: "archived-at"
+        },
+        baseInput
+      )
+    ).toThrow("Zbieracz jest juz archiwalny.");
+
+    expect(() =>
+      prepareWorkerArchive(currentWorker, {
+        ...baseInput,
+        reason: "   "
+      })
+    ).toThrow("Podaj powod archiwizacji.");
   });
 
   it("prepares a new worker rate version and closes previous current rate", () => {
