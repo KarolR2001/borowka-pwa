@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -202,6 +202,80 @@ describe("WorkerDirectoryPanel", () => {
     expect(screen.getByText("Brak aktualnej stawki.")).toBeInTheDocument();
   });
 
+  it("creates a worker with initial rate after confirmation", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [],
+      plans: [
+        {
+          id: "plan-weight",
+          name: "Za kilogram",
+          code: "WEIGHT_KG",
+          calculationBasis: "WEIGHT",
+          unitLabelSingular: "kilogram",
+          unitLabelPlural: "kilogramy",
+          unitSymbol: "kg",
+          quantityPrecision: 3,
+          weightRequired: true,
+          allowBatchQuantity: true,
+          description: null,
+          active: true,
+          systemDefault: true,
+          createdAt: "created-at",
+          createdBy: "admin-1",
+          archivedAt: null
+        }
+      ],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: []
+    });
+    const create = vi
+      .fn<NonNullable<WorkerDirectoryApi["create"]>>()
+      .mockResolvedValue({});
+
+    render(
+      <WorkerDirectoryPanel
+        authState={adminState}
+        env={env}
+        workerDirectoryApi={{ list, create }}
+      />
+    );
+
+    const form = await screen.findByRole("form", { name: "Tworzenie zbieracza" });
+
+    await user.type(screen.getByLabelText("Nazwa zbieracza"), "Anna Nowa");
+    await user.type(screen.getByLabelText("Stawka"), "12,50");
+    await user.clear(screen.getByLabelText("Od dnia"));
+    await user.type(screen.getByLabelText("Od dnia"), "2026-07-15");
+    await user.type(screen.getByLabelText("Telefon"), "500 600 700");
+    await user.type(screen.getByLabelText("E-mail kontaktowy"), "anna@example.test");
+    await user.type(screen.getByLabelText("Notatka"), "Pierwsza osoba.");
+    await user.click(
+      screen.getByLabelText("Potwierdzam utworzenie zbieracza i pierwszej stawki")
+    );
+    await user.click(within(form).getByRole("button", { name: "Dodaj zbieracza" }));
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalled();
+    });
+    const createInput = create.mock.calls[0]?.[1];
+    expect(createInput).toMatchObject({
+      actorProfile: adminState.profile,
+      displayName: "Anna Nowa",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1250,
+      validFrom: "2026-07-15",
+      phone: "500 600 700",
+      emailContact: "anna@example.test",
+      notes: "Pierwsza osoba.",
+      confirmSimilarName: true
+    });
+    expect(createInput.deviceId).toEqual(expect.any(String));
+    expect(screen.getByText("Utworzono zbieracza.")).toBeInTheDocument();
+  });
+
   it("loads simplified active worker directory for operator", async () => {
     const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
       workers: [
@@ -286,8 +360,10 @@ describe("WorkerDirectoryPanel", () => {
     );
 
     await screen.findByText("Aktywna osoba");
+    const filters = screen.getByRole("group", { name: "Filtry zbieraczy" });
+
     await user.selectOptions(screen.getByLabelText("Status"), "ARCHIVED");
-    await user.selectOptions(screen.getByLabelText("Plan"), "plan-weight");
+    await user.selectOptions(within(filters).getByLabelText("Plan"), "plan-weight");
 
     expect(screen.queryByText("Aktywna osoba")).not.toBeInTheDocument();
     expect(screen.getByText("Archiwalna osoba")).toBeInTheDocument();

@@ -1,8 +1,16 @@
+import {
+  AUDIT_EVENTS_COLLECTION,
+  createAuditEventDraft,
+  createAuditEventId,
+  type AuditAction,
+  type AuditSummary
+} from "../audit/auditEvents";
 import { getFirebaseServices } from "../config/firebaseServices";
 import {
   SETTLEMENT_PLANS_COLLECTION,
   WORKERS_COLLECTION,
   WORKER_RATE_VERSIONS_COLLECTION,
+  normalizeWorkerName,
   type SettlementPlanDocument,
   type WorkerDocument,
   type WorkerRateVersionDocument
@@ -17,6 +25,30 @@ export type WorkerDirectoryScope = "ADMIN" | "OPERATOR";
 
 export type WorkerDirectoryListInput = {
   viewerRole: WorkerDirectoryScope;
+};
+
+export type CreateWorkerInput = {
+  actorProfile: UserProfile;
+  displayName: string;
+  planId: string;
+  rateGroszPerUnit: number;
+  validFrom: string;
+  phone?: string | null;
+  emailContact?: string | null;
+  notes?: string | null;
+  confirmSimilarName: boolean;
+  deviceId: string;
+};
+
+export type PreparedWorkerCreate = {
+  worker: WorkerDocument;
+  rateVersion: WorkerRateVersionDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary | null;
+  afterSummary: AuditSummary;
+  reason: string | null;
+  deviceId: string;
+  similarNameWarning: string | null;
 };
 
 export type WorkerDocumentSnapshot = {
@@ -147,6 +179,53 @@ export async function listWorkerDirectory(
   });
 }
 
+export async function createWorkerWithInitialRate(
+  env: FirebaseEnv,
+  input: CreateWorkerInput
+): Promise<PreparedWorkerCreate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const directory = await listWorkerDirectory(env, {
+    viewerRole: "ADMIN"
+  });
+  const workerId = createWorkerId();
+  const prepared = prepareWorkerCreate(directory.workers, directory.plans, {
+    ...input,
+    workerId,
+    createdAt: serverTimestamp()
+  });
+  const auditId = createAuditEventId();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, WORKERS_COLLECTION, prepared.worker.id), prepared.worker);
+  batch.set(
+    doc(firestore, WORKER_RATE_VERSIONS_COLLECTION, prepared.rateVersion.id),
+    prepared.rateVersion
+  );
+  batch.set(
+    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+    createAuditEventDraft({
+      id: auditId,
+      actorUid: input.actorProfile.uid,
+      actorRoleSnapshot: input.actorProfile.role,
+      action: prepared.auditAction,
+      entityType: "WORKER",
+      entityId: prepared.worker.id,
+      beforeSummary: prepared.beforeSummary,
+      afterSummary: prepared.afterSummary,
+      reason: prepared.reason,
+      createdAtDevice: Timestamp.now(),
+      createdAtServer: serverTimestamp(),
+      deviceId: prepared.deviceId
+    })
+  );
+
+  await batch.commit();
+
+  return prepared;
+}
+
 export function buildWorkerDirectory({
   workerDocuments,
   planDocuments,
@@ -243,6 +322,128 @@ export function buildWorkerDirectory({
     invalidRateVersions: sortInvalidDocuments(invalidRateVersions),
     invalidProfiles: sortInvalidDocuments(invalidProfiles)
   };
+}
+
+export function prepareWorkerCreate(
+  existingWorkers: WorkerDocument[],
+  plans: SettlementPlanDocument[],
+  input: CreateWorkerInput & { workerId: string; createdAt: unknown }
+): PreparedWorkerCreate {
+  assertAdmin(input.actorProfile);
+
+  const displayName = normalizeRequiredText(input.displayName, "Podaj nazwe zbieracza.");
+  const workerId = normalizeRequiredText(
+    input.workerId,
+    "Brak identyfikatora zbieracza."
+  );
+  const normalizedName = normalizeWorkerName(displayName);
+  const planId = normalizeRequiredText(input.planId, "Wybierz plan rozliczenia.");
+  const currentPlan = plans.find((plan) => plan.id === planId);
+  const validFrom = normalizeBusinessDate(input.validFrom);
+  const rateGroszPerUnit = normalizeRateGrosz(input.rateGroszPerUnit);
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+  const similarNames = findSimilarWorkerNames(existingWorkers, displayName);
+
+  if (existingWorkers.some((worker) => worker.id === workerId)) {
+    throw new Error("Identyfikator zbieracza musi byc unikalny.");
+  }
+
+  if (!currentPlan) {
+    throw new Error("Wybrany plan nie istnieje.");
+  }
+
+  if (!currentPlan.active) {
+    throw new Error("Nie mozna przypisac archiwalnego planu.");
+  }
+
+  if (similarNames.length > 0 && !input.confirmSimilarName) {
+    throw new Error("Potwierdz, ze to inny zbieracz niz podobna osoba na liscie.");
+  }
+
+  const rateVersionId = createInitialWorkerRateVersionId(workerId, validFrom);
+  const worker: WorkerDocument = {
+    id: workerId,
+    displayName,
+    normalizedName,
+    active: true,
+    currentPlanId: currentPlan.id,
+    currentRateVersionId: rateVersionId,
+    linkedUserUid: null,
+    phone: normalizeOptionalText(input.phone),
+    emailContact: normalizeOptionalEmail(input.emailContact),
+    notes: normalizeOptionalText(input.notes),
+    createdAt: input.createdAt,
+    createdBy: input.actorProfile.uid,
+    updatedAt: input.createdAt,
+    archivedAt: null,
+    legacyName: null
+  };
+  const rateVersion: WorkerRateVersionDocument = {
+    id: rateVersionId,
+    workerId,
+    planId: currentPlan.id,
+    rateGroszPerUnit,
+    validFrom,
+    validTo: null,
+    active: true,
+    note: "Pierwsza stawka zbieracza.",
+    createdAt: input.createdAt,
+    createdBy: input.actorProfile.uid,
+    supersedesRateId: null
+  };
+  const similarNameWarning =
+    similarNames.length > 0
+      ? `Podobna nazwa: ${similarNames.slice(0, 3).join(", ")}.`
+      : null;
+
+  return {
+    worker,
+    rateVersion,
+    auditAction: "WORKER_CREATED",
+    beforeSummary: null,
+    afterSummary: workerAuditSummary(worker, rateVersion, currentPlan),
+    reason: similarNameWarning,
+    deviceId,
+    similarNameWarning
+  };
+}
+
+export function createWorkerId(): string {
+  return `worker-${globalThis.crypto.randomUUID()}`;
+}
+
+export function createInitialWorkerRateVersionId(
+  workerId: string,
+  validFrom: string
+): string {
+  return `rate-${normalizeRequiredText(workerId, "Brak identyfikatora zbieracza.")}-${normalizeBusinessDate(validFrom)}`;
+}
+
+export function findSimilarWorkerNames(
+  workers: WorkerDocument[],
+  displayName: string
+): string[] {
+  const normalizedTarget = compactWorkerName(displayName);
+
+  if (!normalizedTarget) {
+    return [];
+  }
+
+  return workers
+    .filter((worker) => {
+      const normalizedWorker = compactWorkerName(worker.displayName);
+
+      return (
+        normalizedWorker === normalizedTarget ||
+        (normalizedTarget.length >= 6 && normalizedWorker.includes(normalizedTarget)) ||
+        (normalizedWorker.length >= 6 && normalizedTarget.includes(normalizedWorker))
+      );
+    })
+    .map((worker) => worker.displayName)
+    .sort((left, right) => left.localeCompare(right, "pl"));
 }
 
 export function decodeWorker(expectedId: string, data: unknown): WorkerDecodeResult {
@@ -550,6 +751,103 @@ function sortInvalidDocuments(
   documents: InvalidWorkerDirectoryDocument[]
 ): InvalidWorkerDirectoryDocument[] {
   return [...documents].sort((left, right) => left.id.localeCompare(right.id, "pl"));
+}
+
+function workerAuditSummary(
+  worker: WorkerDocument,
+  rateVersion: WorkerRateVersionDocument,
+  plan: SettlementPlanDocument
+): AuditSummary {
+  return {
+    workerId: worker.id,
+    displayName: worker.displayName,
+    active: worker.active,
+    planId: plan.id,
+    currentPlanId: worker.currentPlanId,
+    rateVersionId: rateVersion.id,
+    currentRateVersionId: worker.currentRateVersionId,
+    rateGroszPerUnit: rateVersion.rateGroszPerUnit,
+    validFrom: rateVersion.validFrom
+  };
+}
+
+function assertAdmin(profile: UserProfile): void {
+  if (
+    profile.role !== "ADMIN" ||
+    !profile.active ||
+    profile.registrationStatus !== "APPROVED"
+  ) {
+    throw new Error("Utworzenie zbieracza wymaga aktywnego administratora.");
+  }
+}
+
+function normalizeRequiredText(value: string, message: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+
+  if (!normalized) {
+    throw new Error(message);
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, " ");
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalEmail(value: string | null | undefined): string | null {
+  const normalized = normalizeOptionalText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (!normalized.includes("@")) {
+    throw new Error("Podaj poprawny e-mail kontaktowy albo zostaw pole puste.");
+  }
+
+  return normalized.toLocaleLowerCase("pl-PL");
+}
+
+function normalizeRateGrosz(value: number): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error("Stawka musi byc dodatnia kwota w groszach.");
+  }
+
+  return value;
+}
+
+function normalizeBusinessDate(value: string): string {
+  const normalized = normalizeRequiredText(value, "Podaj date obowiazywania stawki.");
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new Error("Data obowiazywania musi miec format RRRR-MM-DD.");
+  }
+
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== normalized
+  ) {
+    throw new Error("Data obowiazywania jest nieprawidlowa.");
+  }
+
+  return normalized;
+}
+
+function compactWorkerName(value: string): string {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pl-PL")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function invalidWorker(reason: string): WorkerDecodeResult {

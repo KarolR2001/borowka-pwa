@@ -71,14 +71,16 @@ service cloud.firestore {
         action == 'SEASON_DEFAULT_CHANGED' ||
         action == 'SETTLEMENT_PLAN_CREATED' ||
         action == 'SETTLEMENT_PLAN_UPDATED' ||
-        action == 'SETTLEMENT_PLAN_ARCHIVED';
+        action == 'SETTLEMENT_PLAN_ARCHIVED' ||
+        action == 'WORKER_CREATED';
     }
 
     function isAuditEntityType(entityType) {
       return entityType == 'USER_PROFILE' ||
         entityType == 'REGISTRATION_INVITATION' ||
         entityType == 'SEASON' ||
-        entityType == 'SETTLEMENT_PLAN';
+        entityType == 'SETTLEMENT_PLAN' ||
+        entityType == 'WORKER';
     }
 
     function isSettlementCalculationBasis(calculationBasis) {
@@ -412,6 +414,7 @@ service cloud.firestore {
           'planId',
           'name',
           'code',
+          'currentPlanId',
           'calculationBasis',
           'startDate',
           'endDate',
@@ -422,7 +425,11 @@ service cloud.firestore {
           'quantityPrecision',
           'weightRequired',
           'allowBatchQuantity',
-          'description'
+          'description',
+          'rateVersionId',
+          'currentRateVersionId',
+          'rateGroszPerUnit',
+          'validFrom'
         ]) &&
         (
           !summary.keys().hasAny(['role']) ||
@@ -474,6 +481,11 @@ service cloud.firestore {
           !summary.keys().hasAny(['quantityPrecision']) ||
           summary.quantityPrecision == null ||
           summary.quantityPrecision is int
+        ) &&
+        (
+          !summary.keys().hasAny(['rateGroszPerUnit']) ||
+          summary.rateGroszPerUnit == null ||
+          summary.rateGroszPerUnit is int
         ) &&
         (
           !summary.keys().hasAny(['weightRequired']) ||
@@ -809,6 +821,168 @@ service cloud.firestore {
         ]);
     }
 
+    function isBusinessDate(value) {
+      return value is string &&
+        value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function activeSettlementPlanExists(planId) {
+      return planId is string &&
+        exists(/databases/$(database)/documents/settlementPlans/$(planId)) &&
+        get(/databases/$(database)/documents/settlementPlans/$(planId)).data.active == true;
+    }
+
+    function workerRateVersionPath(rateVersionId) {
+      return /databases/$(database)/documents/workerRateVersions/$(rateVersionId);
+    }
+
+    function workerPath(workerId) {
+      return /databases/$(database)/documents/workers/$(workerId);
+    }
+
+    function hasWorkerFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'displayName',
+        'normalizedName',
+        'active',
+        'currentPlanId',
+        'currentRateVersionId',
+        'linkedUserUid',
+        'phone',
+        'emailContact',
+        'notes',
+        'createdAt',
+        'createdBy',
+        'updatedAt',
+        'archivedAt',
+        'legacyName'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'displayName',
+          'normalizedName',
+          'active',
+          'currentPlanId',
+          'currentRateVersionId',
+          'linkedUserUid',
+          'phone',
+          'emailContact',
+          'notes',
+          'createdAt',
+          'createdBy',
+          'updatedAt',
+          'archivedAt',
+          'legacyName'
+        ]);
+    }
+
+    function hasValidWorkerBase(data, workerId) {
+      return hasWorkerFields(data) &&
+        data.id == workerId &&
+        data.id is string &&
+        data.id.matches('^worker-[A-Za-z0-9-]{8,90}$') &&
+        data.displayName is string &&
+        data.displayName.size() > 0 &&
+        data.normalizedName is string &&
+        data.normalizedName.size() > 0 &&
+        data.active is bool &&
+        data.currentPlanId is string &&
+        data.currentPlanId.size() > 0 &&
+        data.currentRateVersionId is string &&
+        data.currentRateVersionId.size() > 0 &&
+        (data.linkedUserUid == null || data.linkedUserUid is string) &&
+        (data.phone == null || data.phone is string) &&
+        (data.emailContact == null || data.emailContact is string) &&
+        (data.notes == null || data.notes is string) &&
+        data.createdAt is timestamp &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        data.updatedAt is timestamp &&
+        (data.archivedAt == null || data.archivedAt is timestamp) &&
+        (data.legacyName == null || data.legacyName is string);
+    }
+
+    function isValidWorkerCreate(data, workerId) {
+      return isAdmin() &&
+        hasValidWorkerBase(data, workerId) &&
+        data.active == true &&
+        activeSettlementPlanExists(data.currentPlanId) &&
+        data.linkedUserUid == null &&
+        data.createdAt == request.time &&
+        data.createdBy == request.auth.uid &&
+        data.updatedAt == request.time &&
+        data.archivedAt == null &&
+        data.legacyName == null &&
+        existsAfter(workerRateVersionPath(data.currentRateVersionId)) &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.workerId == workerId &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.planId == data.currentPlanId &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.active == true;
+    }
+
+    function hasWorkerRateVersionFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'workerId',
+        'planId',
+        'rateGroszPerUnit',
+        'validFrom',
+        'validTo',
+        'active',
+        'note',
+        'createdAt',
+        'createdBy',
+        'supersedesRateId'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'workerId',
+          'planId',
+          'rateGroszPerUnit',
+          'validFrom',
+          'validTo',
+          'active',
+          'note',
+          'createdAt',
+          'createdBy',
+          'supersedesRateId'
+        ]);
+    }
+
+    function hasValidWorkerRateVersionBase(data, rateVersionId) {
+      return hasWorkerRateVersionFields(data) &&
+        data.id == rateVersionId &&
+        data.id is string &&
+        data.id.matches('^rate-worker-[A-Za-z0-9-]{8,90}-\\d{4}-\\d{2}-\\d{2}$') &&
+        data.workerId is string &&
+        data.workerId.size() > 0 &&
+        data.planId is string &&
+        data.planId.size() > 0 &&
+        data.rateGroszPerUnit is int &&
+        data.rateGroszPerUnit > 0 &&
+        isBusinessDate(data.validFrom) &&
+        data.validTo == null &&
+        data.active is bool &&
+        (data.note == null || data.note is string) &&
+        data.createdAt is timestamp &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        data.supersedesRateId == null;
+    }
+
+    function isValidInitialWorkerRateVersionCreate(data, rateVersionId) {
+      return isAdmin() &&
+        hasValidWorkerRateVersionBase(data, rateVersionId) &&
+        data.active == true &&
+        activeSettlementPlanExists(data.planId) &&
+        data.createdAt == request.time &&
+        data.createdBy == request.auth.uid &&
+        existsAfter(workerPath(data.workerId)) &&
+        getAfter(workerPath(data.workerId)).data.currentRateVersionId == rateVersionId &&
+        getAfter(workerPath(data.workerId)).data.currentPlanId == data.planId &&
+        getAfter(workerPath(data.workerId)).data.active == true;
+    }
+
     function isOwnExistingDevice(deviceId) {
       return exists(/databases/$(database)/documents/devices/$(deviceId)) &&
         resource.data.userUid == request.auth.uid;
@@ -952,12 +1126,17 @@ service cloud.firestore {
 
     match /workers/{workerId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
-      allow create, update, delete: if false;
+      allow create: if isValidWorkerCreate(request.resource.data, workerId);
+      allow update, delete: if false;
     }
 
     match /workerRateVersions/{rateVersionId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
-      allow create, update, delete: if false;
+      allow create: if isValidInitialWorkerRateVersionCreate(
+        request.resource.data,
+        rateVersionId
+      );
+      allow update, delete: if false;
     }
 
     match /{document=**} {

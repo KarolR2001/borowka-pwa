@@ -19,14 +19,16 @@ export const AUDIT_ACTIONS = [
   "SEASON_DEFAULT_CHANGED",
   "SETTLEMENT_PLAN_CREATED",
   "SETTLEMENT_PLAN_UPDATED",
-  "SETTLEMENT_PLAN_ARCHIVED"
+  "SETTLEMENT_PLAN_ARCHIVED",
+  "WORKER_CREATED"
 ] as const;
 
 export const AUDIT_ENTITY_TYPES = [
   "USER_PROFILE",
   "REGISTRATION_INVITATION",
   "SEASON",
-  "SETTLEMENT_PLAN"
+  "SETTLEMENT_PLAN",
+  "WORKER"
 ] as const;
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
