@@ -241,6 +241,19 @@ describe("WorkerDirectoryPanel", () => {
               createdAt: "created-at",
               createdBy: "admin-1",
               supersedesRateId: null
+            },
+            {
+              id: "rate-worker-anna-2999-08-01",
+              workerId: "worker-anna",
+              planId: "plan-weight",
+              rateGroszPerUnit: 1100,
+              validFrom: "2999-08-01",
+              validTo: null,
+              active: true,
+              note: "Przyszla stawka.",
+              createdAt: "created-at",
+              createdBy: "admin-1",
+              supersedesRateId: null
             }
           ],
           auditEvents: [
@@ -313,7 +326,12 @@ describe("WorkerDirectoryPanel", () => {
     expect(within(profile).getByText("anna@example.test")).toBeInTheDocument();
     expect(within(profile).getByText("Aktualna stawka.")).toBeInTheDocument();
     expect(within(profile).getByText("Poprzednia stawka.")).toBeInTheDocument();
+    expect(within(profile).getByText("Przyszla stawka.")).toBeInTheDocument();
     expect(within(profile).getByText("9,00 zł")).toBeInTheDocument();
+    expect(within(profile).getByText("Przyszla")).toBeInTheDocument();
+    expect(
+      within(profile).getByText("Naklada sie z wersja od 2026-07-01.")
+    ).toBeInTheDocument();
     expect(within(profile).getByText("Utworzenie zbieracza")).toBeInTheDocument();
     expect(within(profile).getByText("Pierwszy zapis.")).toBeInTheDocument();
   });

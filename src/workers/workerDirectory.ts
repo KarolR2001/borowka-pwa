@@ -108,6 +108,14 @@ export type WorkerDirectoryResult = {
 export type WorkerActivityFilter = "ACTIVE" | "ARCHIVED" | "ALL";
 export type WorkerSortKey = "NAME" | "TOTAL_KG" | "EARNED";
 
+export type WorkerRateHistoryStatus = "CURRENT" | "FUTURE" | "PAST" | "INACTIVE";
+
+export type WorkerRateHistoryItem = {
+  rateVersion: WorkerRateVersionDocument;
+  status: WorkerRateHistoryStatus;
+  warnings: string[];
+};
+
 export type WorkerDirectoryFilters = {
   search: string;
   activity: WorkerActivityFilter;
@@ -606,6 +614,84 @@ export function workerRateLabel(
   return rateVersion ? formatMoney(rateVersion.rateGroszPerUnit) : "brak";
 }
 
+export function analyzeWorkerRateHistory(
+  rateVersions: WorkerRateVersionDocument[],
+  businessDate: string
+): WorkerRateHistoryItem[] {
+  const warningsById = new Map<string, string[]>(
+    rateVersions.map((rateVersion) => [rateVersion.id, []])
+  );
+  const sortedAscending = [...rateVersions].sort((left, right) => {
+    const validFromDiff = left.validFrom.localeCompare(right.validFrom);
+
+    if (validFromDiff !== 0) {
+      return validFromDiff;
+    }
+
+    return left.id.localeCompare(right.id, "pl");
+  });
+
+  for (const rateVersion of sortedAscending) {
+    if (rateVersion.validTo !== null && rateVersion.validTo < rateVersion.validFrom) {
+      pushRateWarning(
+        warningsById,
+        rateVersion.id,
+        "Okres konczy sie przed data poczatkowa."
+      );
+    }
+  }
+
+  for (let index = 0; index < sortedAscending.length - 1; index += 1) {
+    const current = sortedAscending[index];
+    const next = sortedAscending[index + 1];
+
+    if (ratePeriodsOverlap(current, next)) {
+      pushRateWarning(
+        warningsById,
+        current.id,
+        `Naklada sie z wersja od ${next.validFrom}.`
+      );
+      pushRateWarning(
+        warningsById,
+        next.id,
+        `Naklada sie z wersja od ${current.validFrom}.`
+      );
+      continue;
+    }
+
+    if (
+      current.validTo !== null &&
+      addBusinessDays(current.validTo, 1) < next.validFrom
+    ) {
+      pushRateWarning(
+        warningsById,
+        current.id,
+        `Przerwa przed wersja od ${next.validFrom}.`
+      );
+      pushRateWarning(warningsById, next.id, `Przerwa po wersji do ${current.validTo}.`);
+    }
+  }
+
+  return sortWorkerRateVersions(rateVersions).map((rateVersion) => ({
+    rateVersion,
+    status: workerRateHistoryStatus(rateVersion, businessDate),
+    warnings: warningsById.get(rateVersion.id) ?? []
+  }));
+}
+
+export function workerRateHistoryStatusLabel(status: WorkerRateHistoryStatus): string {
+  switch (status) {
+    case "CURRENT":
+      return "Biezaca";
+    case "FUTURE":
+      return "Przyszla";
+    case "PAST":
+      return "Historyczna";
+    case "INACTIVE":
+      return "Nieaktywna";
+  }
+}
+
 export function workerUnitLabel(plan: SettlementPlanDocument | null | undefined): string {
   return plan ? plan.unitSymbol : "brak";
 }
@@ -803,6 +889,55 @@ function sortWorkerRateVersions(
 
     return left.id.localeCompare(right.id, "pl");
   });
+}
+
+function pushRateWarning(
+  warningsById: Map<string, string[]>,
+  rateVersionId: string,
+  warning: string
+): void {
+  const warnings = warningsById.get(rateVersionId);
+
+  if (warnings && !warnings.includes(warning)) {
+    warnings.push(warning);
+  }
+}
+
+function ratePeriodsOverlap(
+  left: WorkerRateVersionDocument,
+  right: WorkerRateVersionDocument
+): boolean {
+  const leftEnd = left.validTo ?? "9999-12-31";
+  const rightEnd = right.validTo ?? "9999-12-31";
+
+  return left.validFrom <= rightEnd && right.validFrom <= leftEnd;
+}
+
+function workerRateHistoryStatus(
+  rateVersion: WorkerRateVersionDocument,
+  businessDate: string
+): WorkerRateHistoryStatus {
+  if (!rateVersion.active) {
+    return "INACTIVE";
+  }
+
+  if (rateVersion.validFrom > businessDate) {
+    return "FUTURE";
+  }
+
+  if (rateVersion.validTo !== null && rateVersion.validTo < businessDate) {
+    return "PAST";
+  }
+
+  return "CURRENT";
+}
+
+function addBusinessDays(value: string, days: number): string {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 function sortWorkerAuditEvents(auditEvents: AuditEventDocument[]): AuditEventDocument[] {
