@@ -289,12 +289,80 @@ describe("Firestore audit event rules", () => {
             name: "Za skrzynke",
             code: "SKRZYNKA",
             calculationBasis: "QUANTITY",
+            unitLabelSingular: "skrzynka",
+            unitLabelPlural: "skrzynki",
             unitSymbol: "skrz.",
             quantityPrecision: 0,
             weightRequired: false,
             allowBatchQuantity: true,
+            description: "Rozliczenie za skrzynke.",
             active: true
           }
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-plan-updated"),
+        auditEvent({
+          id: "audit-plan-updated",
+          action: "SETTLEMENT_PLAN_UPDATED",
+          entityType: "SETTLEMENT_PLAN",
+          entityId: "plan-skrzynka",
+          beforeSummary: {
+            planId: "plan-skrzynka",
+            name: "Za skrzynke",
+            code: "SKRZYNKA",
+            calculationBasis: "QUANTITY",
+            unitLabelSingular: "skrzynka",
+            unitLabelPlural: "skrzynki",
+            unitSymbol: "skrz.",
+            quantityPrecision: 0,
+            weightRequired: false,
+            allowBatchQuantity: true,
+            description: "Rozliczenie za skrzynke.",
+            active: true
+          },
+          afterSummary: {
+            planId: "plan-skrzynka",
+            name: "Za pelna skrzynke",
+            code: "SKRZYNKA",
+            calculationBasis: "QUANTITY",
+            unitLabelSingular: "skrzynka",
+            unitLabelPlural: "pelne skrzynki",
+            unitSymbol: "skrz.",
+            quantityPrecision: 0,
+            weightRequired: false,
+            allowBatchQuantity: true,
+            description: "Opis po zmianie.",
+            active: true
+          }
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-plan-archived"),
+        auditEvent({
+          id: "audit-plan-archived",
+          action: "SETTLEMENT_PLAN_ARCHIVED",
+          entityType: "SETTLEMENT_PLAN",
+          entityId: "plan-skrzynka",
+          beforeSummary: {
+            planId: "plan-skrzynka",
+            name: "Za skrzynke",
+            code: "SKRZYNKA",
+            calculationBasis: "QUANTITY",
+            active: true
+          },
+          afterSummary: {
+            planId: "plan-skrzynka",
+            name: "Za skrzynke",
+            code: "SKRZYNKA",
+            calculationBasis: "QUANTITY",
+            active: false
+          },
+          reason: "Nie uzywamy w tym sezonie."
         })
       )
     );
