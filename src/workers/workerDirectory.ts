@@ -18,7 +18,12 @@ import {
   type WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
 import { formatKilograms, formatMoney } from "../domain/format";
-import { decodeUserProfile, normalizeEmail, type UserProfile } from "../domain/identity";
+import {
+  decodeUserProfile,
+  normalizeEmail,
+  roleRequiresWorkerId,
+  type UserProfile
+} from "../domain/identity";
 import { decodeSettlementPlan, decodeWorkerRateVersion } from "../plans/settlementPlans";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -57,6 +62,15 @@ export type CreateWorkerRateVersionInput = {
   businessDate?: string | null;
 };
 
+export type UpdateWorkerAccountLinkInput = {
+  actorProfile: UserProfile;
+  workerId: string;
+  targetUid?: string | null;
+  reason: string;
+  confirmPrivacyNotice: boolean;
+  deviceId: string;
+};
+
 export type PreparedWorkerCreate = {
   worker: WorkerDocument;
   rateVersion: WorkerRateVersionDocument;
@@ -79,6 +93,18 @@ export type PreparedWorkerRateVersionCreate = {
   deviceId: string;
   backdatedWarning: string | null;
   periodWarning: string | null;
+};
+
+export type PreparedWorkerAccountLinkUpdate = {
+  worker: WorkerDocument;
+  linkedProfile: UserProfile | null;
+  releasedProfile: UserProfile | null;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string;
+  deviceId: string;
+  privacyWarning: string;
 };
 
 export type WorkerDocumentSnapshot = {
@@ -126,6 +152,7 @@ export type InvalidWorkerDirectoryDocument = {
 export type WorkerDirectoryResult = {
   workers: WorkerDirectoryListItem[];
   plans: SettlementPlanDocument[];
+  profiles: UserProfile[];
   invalidWorkers: InvalidWorkerDirectoryDocument[];
   invalidPlans: InvalidWorkerDirectoryDocument[];
   invalidRateVersions: InvalidWorkerDirectoryDocument[];
@@ -418,6 +445,113 @@ export async function createWorkerRateVersion(
   });
 }
 
+export async function updateWorkerAccountLink(
+  env: FirebaseEnv,
+  input: UpdateWorkerAccountLinkInput
+): Promise<PreparedWorkerAccountLinkUpdate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, runTransaction, serverTimestamp } =
+    await import("firebase/firestore/lite");
+  const directory = await listWorkerDirectory(env, {
+    viewerRole: "ADMIN"
+  });
+  const prefetchedWorker = findWorkerOrThrow(directory.workers, input.workerId);
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const targetUid = normalizeOptionalText(input.targetUid);
+  const workerRef = doc(firestore, WORKERS_COLLECTION, workerId);
+
+  return runTransaction(firestore, async (transaction) => {
+    const workerSnapshot = await transaction.get(workerRef);
+
+    if (!workerSnapshot.exists()) {
+      throw new Error("Wybrany zbieracz nie istnieje.");
+    }
+
+    const currentWorkerDocument = decodeWorkerSnapshotOrThrow(
+      workerSnapshot.id,
+      workerSnapshot.data()
+    );
+    const currentLinkedUid = currentWorkerDocument.linkedUserUid;
+    const userRefs = Array.from(
+      new Set([currentLinkedUid, targetUid].filter((uid): uid is string => Boolean(uid)))
+    ).map((uid) => doc(firestore, "users", uid));
+    const userSnapshots = await Promise.all(
+      userRefs.map(async (userRef) => transaction.get(userRef))
+    );
+    const transactionProfiles = new Map<string, UserProfile>();
+
+    for (const userSnapshot of userSnapshots) {
+      if (!userSnapshot.exists()) {
+        throw new Error("Wybrane konto uzytkownika nie istnieje.");
+      }
+
+      const profile = decodeUserProfileSnapshotOrThrow(
+        userSnapshot.id,
+        userSnapshot.data()
+      );
+      transactionProfiles.set(profile.uid, profile);
+    }
+
+    const mergedProfiles = mergeTransactionProfiles(
+      directory.profiles,
+      Array.from(transactionProfiles.values())
+    );
+    const transactionWorker = createTransactionWorkerAccountListItem(
+      prefetchedWorker,
+      currentWorkerDocument,
+      transactionProfiles.get(currentLinkedUid ?? "") ?? null
+    );
+    const timestamp = serverTimestamp();
+    const prepared = prepareWorkerAccountLinkUpdate(
+      transactionWorker,
+      directory.workers,
+      mergedProfiles,
+      {
+        ...input,
+        targetUid,
+        updatedAt: timestamp
+      }
+    );
+    const auditId = createAuditEventId();
+
+    transaction.set(workerRef, prepared.worker);
+
+    if (prepared.releasedProfile) {
+      transaction.set(
+        doc(firestore, "users", prepared.releasedProfile.uid),
+        prepared.releasedProfile
+      );
+    }
+
+    if (prepared.linkedProfile) {
+      transaction.set(
+        doc(firestore, "users", prepared.linkedProfile.uid),
+        prepared.linkedProfile
+      );
+    }
+
+    transaction.set(
+      doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+      createAuditEventDraft({
+        id: auditId,
+        actorUid: input.actorProfile.uid,
+        actorRoleSnapshot: input.actorProfile.role,
+        action: prepared.auditAction,
+        entityType: "WORKER",
+        entityId: prepared.worker.id,
+        beforeSummary: prepared.beforeSummary,
+        afterSummary: prepared.afterSummary,
+        reason: prepared.reason,
+        createdAtDevice: Timestamp.now(),
+        createdAtServer: timestamp,
+        deviceId: prepared.deviceId
+      })
+    );
+
+    return prepared;
+  });
+}
+
 function decodeWorkerSnapshotOrThrow(id: string, data: unknown): WorkerDocument {
   const decoded = decodeWorker(id, data);
 
@@ -426,6 +560,16 @@ function decodeWorkerSnapshotOrThrow(id: string, data: unknown): WorkerDocument 
   }
 
   return decoded.worker;
+}
+
+function decodeUserProfileSnapshotOrThrow(id: string, data: unknown): UserProfile {
+  const decoded = decodeUserProfile(id, data);
+
+  if (decoded.status === "INVALID") {
+    throw new Error(decoded.reason);
+  }
+
+  return decoded.profile;
 }
 
 function decodeSettlementPlanSnapshotOrThrow(
@@ -495,6 +639,31 @@ function createTransactionWorkerListItem(
     currentRateVersion: previousRateVersion,
     rateVersions
   };
+}
+
+function createTransactionWorkerAccountListItem(
+  prefetchedWorker: WorkerDirectoryListItem,
+  currentWorkerDocument: WorkerDocument,
+  linkedUser: UserProfile | null
+): WorkerDirectoryListItem {
+  return {
+    ...prefetchedWorker,
+    ...currentWorkerDocument,
+    linkedUser
+  };
+}
+
+function mergeTransactionProfiles(
+  prefetchedProfiles: UserProfile[],
+  transactionProfiles: UserProfile[]
+): UserProfile[] {
+  const merged = new Map(prefetchedProfiles.map((profile) => [profile.uid, profile]));
+
+  for (const profile of transactionProfiles) {
+    merged.set(profile.uid, profile);
+  }
+
+  return Array.from(merged.values());
 }
 
 export function buildWorkerDirectory({
@@ -609,6 +778,7 @@ export function buildWorkerDirectory({
       )
     ),
     plans: sortPlans(plans),
+    profiles: sortProfiles(profiles),
     invalidWorkers: sortInvalidDocuments(invalidWorkers),
     invalidPlans: sortInvalidDocuments(invalidPlans),
     invalidRateVersions: sortInvalidDocuments(invalidRateVersions),
@@ -862,6 +1032,142 @@ export function prepareWorkerRateVersionCreate(
     deviceId,
     backdatedWarning,
     periodWarning
+  };
+}
+
+export function prepareWorkerAccountLinkUpdate(
+  currentWorker: WorkerDirectoryListItem,
+  workers: WorkerDirectoryListItem[],
+  profiles: UserProfile[],
+  input: UpdateWorkerAccountLinkInput & {
+    updatedAt: unknown;
+  }
+): PreparedWorkerAccountLinkUpdate {
+  assertAdmin(input.actorProfile);
+
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const targetUid = normalizeOptionalText(input.targetUid);
+  const reason = normalizeRequiredText(input.reason, "Podaj powod zmiany powiazania.");
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+
+  if (currentWorker.id !== workerId) {
+    throw new Error("Wybrany zbieracz ma niezgodny identyfikator.");
+  }
+
+  if (!currentWorker.active) {
+    throw new Error("Nie mozna zmienic konta archiwalnego zbieracza.");
+  }
+
+  if (!input.confirmPrivacyNotice) {
+    throw new Error("Potwierdz konsekwencje prywatnosci powiazania konta.");
+  }
+
+  const currentLinkedProfile = currentWorker.linkedUserUid
+    ? findProfileByUid(profiles, currentWorker.linkedUserUid)
+    : null;
+  const targetProfile = targetUid ? findProfileByUid(profiles, targetUid) : null;
+
+  if (targetUid && !targetProfile) {
+    throw new Error("Wybrane konto uzytkownika nie istnieje.");
+  }
+
+  if (
+    targetProfile &&
+    (!targetProfile.active || targetProfile.registrationStatus !== "APPROVED")
+  ) {
+    throw new Error("Wybrane konto musi byc aktywne i zatwierdzone.");
+  }
+
+  if (
+    targetProfile &&
+    targetProfile.workerId !== null &&
+    targetProfile.workerId !== currentWorker.id
+  ) {
+    throw new Error("Wybrane konto jest juz powiazane z innym zbieraczem.");
+  }
+
+  const workerLinkedToTarget = targetUid
+    ? workers.find(
+        (worker) => worker.id !== currentWorker.id && worker.linkedUserUid === targetUid
+      )
+    : null;
+
+  if (workerLinkedToTarget) {
+    throw new Error("Wybrane konto jest juz wskazane przez innego zbieracza.");
+  }
+
+  if (
+    currentLinkedProfile &&
+    currentLinkedProfile.workerId !== null &&
+    currentLinkedProfile.workerId !== currentWorker.id
+  ) {
+    throw new Error("Obecne powiazanie konta jest niespojne z profilem zbieracza.");
+  }
+
+  const releasesCurrentProfile =
+    currentLinkedProfile && currentLinkedProfile.uid !== targetUid;
+
+  if (releasesCurrentProfile && roleRequiresWorkerId(currentLinkedProfile.role)) {
+    throw new Error(
+      "Konto z rola Zbieracz wymaga powiazania. Najpierw zmien role albo przenies konto."
+    );
+  }
+
+  const linkedProfile =
+    targetProfile && targetProfile.workerId !== currentWorker.id
+      ? {
+          ...targetProfile,
+          workerId: currentWorker.id
+        }
+      : targetProfile;
+  const releasedProfile = releasesCurrentProfile
+    ? {
+        ...currentLinkedProfile,
+        workerId: null
+      }
+    : null;
+  const nextWorker: WorkerDocument = {
+    id: currentWorker.id,
+    displayName: currentWorker.displayName,
+    normalizedName: currentWorker.normalizedName,
+    active: currentWorker.active,
+    currentPlanId: currentWorker.currentPlanId,
+    currentRateVersionId: currentWorker.currentRateVersionId,
+    linkedUserUid: linkedProfile?.uid ?? null,
+    phone: currentWorker.phone,
+    emailContact: currentWorker.emailContact,
+    notes: currentWorker.notes,
+    createdAt: currentWorker.createdAt,
+    createdBy: currentWorker.createdBy,
+    updatedAt: input.updatedAt,
+    archivedAt: currentWorker.archivedAt,
+    legacyName: currentWorker.legacyName
+  };
+
+  if (
+    nextWorker.linkedUserUid === currentWorker.linkedUserUid &&
+    linkedProfile?.workerId === targetProfile?.workerId &&
+    releasedProfile === null
+  ) {
+    throw new Error("Nie wybrano zmiany powiazania konta.");
+  }
+
+  const privacyWarning =
+    "Powiazane konto zobaczy dane przypisane do tego zbieracza po ponownym pobraniu profilu.";
+
+  return {
+    worker: nextWorker,
+    linkedProfile,
+    releasedProfile,
+    auditAction: "USER_WORKER_LINK_CHANGED",
+    beforeSummary: workerAccountLinkAuditSummary(currentWorker, currentLinkedProfile),
+    afterSummary: workerAccountLinkAuditSummary(nextWorker, linkedProfile),
+    reason: `${reason} ${privacyWarning}`,
+    deviceId,
+    privacyWarning
   };
 }
 
@@ -1473,6 +1779,32 @@ function sortPlans(plans: SettlementPlanDocument[]): SettlementPlanDocument[] {
   });
 }
 
+function sortProfiles(profiles: UserProfile[]): UserProfile[] {
+  return [...profiles].sort((left, right) => {
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+
+    const roleDiff = left.role.localeCompare(right.role, "pl");
+
+    if (roleDiff !== 0) {
+      return roleDiff;
+    }
+
+    const nameDiff = left.displayName.localeCompare(right.displayName, "pl", {
+      sensitivity: "base"
+    });
+
+    if (nameDiff !== 0) {
+      return nameDiff;
+    }
+
+    return left.email.localeCompare(right.email, "pl", {
+      sensitivity: "base"
+    });
+  });
+}
+
 function sortInvalidDocuments(
   documents: InvalidWorkerDirectoryDocument[]
 ): InvalidWorkerDirectoryDocument[] {
@@ -1516,6 +1848,19 @@ function workerRateAuditSummary(
   };
 }
 
+function workerAccountLinkAuditSummary(
+  worker: Pick<WorkerDocument, "id" | "displayName" | "linkedUserUid">,
+  profile: UserProfile | null
+): AuditSummary {
+  return {
+    workerId: worker.id,
+    displayName: worker.displayName,
+    uid: profile?.uid ?? worker.linkedUserUid ?? null,
+    email: profile?.email ?? null,
+    role: profile?.role ?? null
+  };
+}
+
 function rateChangeReason(
   backdatedWarning: string | null,
   periodWarning: string | null
@@ -1540,6 +1885,10 @@ function findWorkerOrThrow(
   }
 
   return worker;
+}
+
+function findProfileByUid(profiles: UserProfile[], uid: string): UserProfile | null {
+  return profiles.find((profile) => profile.uid === uid) ?? null;
 }
 
 function assertAdmin(profile: UserProfile): void {

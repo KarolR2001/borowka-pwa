@@ -15,6 +15,7 @@ import {
   findSimilarWorkerNames,
   filterWorkerDirectory,
   prepareWorkerCreate,
+  prepareWorkerAccountLinkUpdate,
   prepareWorkerRateVersionCreate,
   workerRateLabel,
   workerRateHistoryStatusLabel,
@@ -323,6 +324,122 @@ describe("workerDirectory", () => {
     expect(() => createInitialWorkerRateVersionId("worker-new", "15.07.2026")).toThrow(
       "Data obowiazywania musi miec format RRRR-MM-DD."
     );
+  });
+
+  it("prepares a worker account link update with privacy audit", () => {
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      displayName: "Anna Test",
+      linkedUserUid: null
+    });
+    const targetProfile = profile({
+      uid: "operator-anna",
+      role: "OPERATOR",
+      workerId: null
+    });
+    const prepared = prepareWorkerAccountLinkUpdate(
+      currentWorker,
+      [currentWorker],
+      [targetProfile],
+      {
+        actorProfile: adminProfile,
+        workerId: currentWorker.id,
+        targetUid: targetProfile.uid,
+        reason: "Konto nalezy do Anny.",
+        confirmPrivacyNotice: true,
+        updatedAt: "updated-at",
+        deviceId: "device-1"
+      }
+    );
+
+    expect(prepared.worker).toMatchObject({
+      id: currentWorker.id,
+      linkedUserUid: targetProfile.uid,
+      updatedAt: "updated-at"
+    });
+    expect(prepared.linkedProfile).toMatchObject({
+      uid: targetProfile.uid,
+      workerId: currentWorker.id
+    });
+    expect(prepared.releasedProfile).toBeNull();
+    expect(prepared.auditAction).toBe("USER_WORKER_LINK_CHANGED");
+    expect(prepared.beforeSummary).toMatchObject({
+      workerId: currentWorker.id,
+      uid: null
+    });
+    expect(prepared.afterSummary).toMatchObject({
+      workerId: currentWorker.id,
+      uid: targetProfile.uid,
+      email: "operator-anna@example.test"
+    });
+    expect(prepared.reason).toContain("Konto nalezy do Anny.");
+    expect(prepared.reason).toContain("Powiazane konto zobaczy dane");
+  });
+
+  it("blocks unsafe worker account link updates", () => {
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      linkedUserUid: null
+    });
+    const linkedPicker = profile({
+      uid: "picker-anna",
+      role: "PICKER",
+      workerId: currentWorker.id
+    });
+    const linkedWorker = workerListItem({
+      id: currentWorker.id,
+      linkedUserUid: linkedPicker.uid,
+      linkedUser: linkedPicker
+    });
+    const baseInput = {
+      actorProfile: adminProfile,
+      workerId: currentWorker.id,
+      targetUid: "operator-anna",
+      reason: "Korekta powiazania.",
+      confirmPrivacyNotice: true,
+      updatedAt: "updated-at",
+      deviceId: "device-1"
+    };
+
+    expect(() =>
+      prepareWorkerAccountLinkUpdate(
+        currentWorker,
+        [currentWorker],
+        [
+          profile({
+            uid: "operator-anna",
+            role: "OPERATOR",
+            workerId: null
+          })
+        ],
+        {
+          ...baseInput,
+          confirmPrivacyNotice: false
+        }
+      )
+    ).toThrow("Potwierdz konsekwencje prywatnosci powiazania konta.");
+
+    expect(() =>
+      prepareWorkerAccountLinkUpdate(
+        currentWorker,
+        [currentWorker],
+        [
+          profile({
+            uid: "operator-anna",
+            role: "OPERATOR",
+            workerId: "worker-other"
+          })
+        ],
+        baseInput
+      )
+    ).toThrow("Wybrane konto jest juz powiazane z innym zbieraczem.");
+
+    expect(() =>
+      prepareWorkerAccountLinkUpdate(linkedWorker, [linkedWorker], [linkedPicker], {
+        ...baseInput,
+        targetUid: null
+      })
+    ).toThrow("Konto z rola Zbieracz wymaga powiazania.");
   });
 
   it("prepares a new worker rate version and closes previous current rate", () => {
