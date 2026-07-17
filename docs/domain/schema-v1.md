@@ -40,3 +40,8 @@ development workers.
 
 Session calculation scenarios for stage 5 are maintained in
 `docs/domain/calculation-scenarios.md`.
+
+## Harvest session state references
+
+Stage 5.1 session status transitions are maintained in
+`docs/domain/harvest-session-state.md`.
