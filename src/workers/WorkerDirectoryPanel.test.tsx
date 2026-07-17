@@ -536,6 +536,153 @@ describe("WorkerDirectoryPanel", () => {
     expect(screen.getByText(/Zapisano powiazanie konta/)).toBeInTheDocument();
   });
 
+  it("archives a worker from administrator profile after confirmations", async () => {
+    const user = userEvent.setup();
+    const currentRate = {
+      id: "rate-worker-anna",
+      workerId: "worker-anna",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1000,
+      validFrom: "2026-07-01",
+      validTo: null,
+      active: true,
+      note: null,
+      createdAt: "created-at",
+      createdBy: "admin-1",
+      supersedesRateId: null
+    };
+    const futureRate = {
+      id: "rate-worker-anna-2999-08-01",
+      workerId: "worker-anna",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1100,
+      validFrom: "2999-08-01",
+      validTo: null,
+      active: true,
+      note: "Przyszla stawka.",
+      createdAt: "created-at",
+      createdBy: "admin-1",
+      supersedesRateId: null
+    };
+    const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [
+        worker({
+          id: "worker-anna",
+          displayName: "Anna Test",
+          linkedUserUid: "picker-anna",
+          linkedUser: {
+            uid: "picker-anna",
+            email: "anna@example.test",
+            displayName: "Anna Picker",
+            role: "PICKER",
+            workerId: "worker-anna",
+            active: true,
+            registrationStatus: "APPROVED",
+            offlineConsent: false
+          },
+          currentRateVersion: currentRate,
+          rateVersions: [currentRate, futureRate],
+          seasonSummary: {
+            totalKgGrams: 10000,
+            earnedGrosz: 2000,
+            paidGrosz: 500,
+            dueGrosz: 1500
+          }
+        })
+      ],
+      plans: [
+        {
+          id: "plan-weight",
+          name: "Za kilogram",
+          code: "WEIGHT_KG",
+          calculationBasis: "WEIGHT",
+          unitLabelSingular: "kilogram",
+          unitLabelPlural: "kilogramy",
+          unitSymbol: "kg",
+          quantityPrecision: 3,
+          weightRequired: true,
+          allowBatchQuantity: true,
+          description: null,
+          active: true,
+          systemDefault: true,
+          createdAt: "created-at",
+          createdBy: "admin-1",
+          archivedAt: null
+        }
+      ],
+      profiles: [],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: [],
+      invalidAuditEvents: []
+    });
+    const archive = vi
+      .fn<NonNullable<WorkerDirectoryApi["archive"]>>()
+      .mockResolvedValue({ warnings: ["Sesje", "Wyplaty"] });
+
+    render(
+      <WorkerDirectoryPanel
+        authState={adminState}
+        env={env}
+        workerDirectoryApi={{ list, archive }}
+      />
+    );
+
+    await screen.findByText("Anna Test");
+    await user.click(screen.getByRole("button", { name: "Profil" }));
+
+    const form = await screen.findByRole("form", {
+      name: "Archiwizacja zbieracza"
+    });
+
+    expect(within(form).getByText(/Do wyplaty: 15,00 zł/)).toBeInTheDocument();
+    expect(within(form).getByText(/2999-08-01/)).toBeInTheDocument();
+
+    await user.type(
+      within(form).getByLabelText("Powod archiwizacji"),
+      "Koniec wspolpracy."
+    );
+    await user.click(
+      within(form).getByLabelText("Potwierdzam sprawdzenie otwartych sesji poza systemem")
+    );
+    await user.click(
+      within(form).getByLabelText("Potwierdzam sprawdzenie kwoty do wyplaty")
+    );
+    await user.click(
+      within(form).getByLabelText(
+        "Potwierdzam, ze powiazane konto pozostaje aktywne do historii"
+      )
+    );
+    await user.click(
+      within(form).getByLabelText("Potwierdzam weryfikacje aktualnej stawki")
+    );
+    await user.click(
+      within(form).getByLabelText("Potwierdzam weryfikacje przyszlych stawek")
+    );
+    await user.click(within(form).getByRole("button", { name: "Archiwizuj zbieracza" }));
+
+    await waitFor(() => {
+      expect(archive).toHaveBeenCalled();
+    });
+    expect(archive.mock.calls[0]?.[1]).toMatchObject({
+      actorProfile: adminState.profile,
+      workerId: "worker-anna",
+      reason: "Koniec wspolpracy.",
+      confirmations: {
+        confirmOpenSessionsReviewed: true,
+        confirmDueAmountReviewed: true,
+        confirmActiveAccountRemains: true,
+        confirmCurrentRateReviewed: true,
+        confirmFutureRatesReviewed: true
+      }
+    });
+    expect(archive.mock.calls[0]?.[1].deviceId).toEqual(expect.any(String));
+    expect(
+      screen.getByText("Zarchiwizowano zbieracza. Kontrole: 2.")
+    ).toBeInTheDocument();
+  });
+
   it("creates a worker with initial rate after confirmation", async () => {
     const user = userEvent.setup();
     const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({

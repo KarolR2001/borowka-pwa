@@ -1,4 +1,5 @@
 import {
+  Archive,
   Link2,
   Plus,
   RefreshCw,
@@ -16,6 +17,7 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import { userRoleLabel, type UserProfile } from "../domain/identity";
 import {
+  archiveWorker,
   createWorkerRateVersion,
   createWorkerWithInitialRate,
   defaultWorkerDirectoryFilters,
@@ -32,6 +34,7 @@ import {
   workerSummaryKgLabel,
   workerSummaryMoneyLabel,
   workerUnitLabel,
+  type ArchiveWorkerInput,
   type CreateWorkerInput,
   type CreateWorkerRateVersionInput,
   type UpdateWorkerAccountLinkInput,
@@ -59,13 +62,15 @@ export type WorkerDirectoryApi = {
     env: FirebaseEnv,
     input: UpdateWorkerAccountLinkInput
   ) => Promise<unknown>;
+  archive?: (env: FirebaseEnv, input: ArchiveWorkerInput) => Promise<unknown>;
 };
 
 export const defaultWorkerDirectoryApi: WorkerDirectoryApi = {
   list: listWorkerDirectory,
   create: createWorkerWithInitialRate,
   createRate: createWorkerRateVersion,
-  updateAccountLink: updateWorkerAccountLink
+  updateAccountLink: updateWorkerAccountLink,
+  archive: archiveWorker
 };
 
 type DirectoryState =
@@ -112,6 +117,15 @@ type AccountLinkDraft = {
   confirmedPrivacy: boolean;
 };
 
+type ArchiveWorkerDraft = {
+  reason: string;
+  confirmOpenSessionsReviewed: boolean;
+  confirmDueAmountReviewed: boolean;
+  confirmActiveAccountRemains: boolean;
+  confirmCurrentRateReviewed: boolean;
+  confirmFutureRatesReviewed: boolean;
+};
+
 const initialState: DirectoryState = {
   status: "IDLE",
   result: null,
@@ -140,6 +154,9 @@ export function WorkerDirectoryPanel({
   const [accountLinkDraft, setAccountLinkDraft] = useState<AccountLinkDraft>(() =>
     createInitialAccountLinkDraft()
   );
+  const [archiveDraft, setArchiveDraft] = useState<ArchiveWorkerDraft>(() =>
+    createInitialArchiveWorkerDraft()
+  );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,9 +164,12 @@ export function WorkerDirectoryPanel({
   const [rateError, setRateError] = useState<string | null>(null);
   const [accountLinkFeedback, setAccountLinkFeedback] = useState<string | null>(null);
   const [accountLinkError, setAccountLinkError] = useState<string | null>(null);
+  const [archiveFeedback, setArchiveFeedback] = useState<string | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRateSubmitting, setIsRateSubmitting] = useState(false);
   const [isAccountLinkSubmitting, setIsAccountLinkSubmitting] = useState(false);
+  const [isArchiveSubmitting, setIsArchiveSubmitting] = useState(false);
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -256,10 +276,13 @@ export function WorkerDirectoryPanel({
       ...createInitialAccountLinkDraft(),
       targetUid: selectedWorker.linkedUserUid ?? ""
     });
+    setArchiveDraft(createInitialArchiveWorkerDraft());
     setRateFeedback(null);
     setRateError(null);
     setAccountLinkFeedback(null);
     setAccountLinkError(null);
+    setArchiveFeedback(null);
+    setArchiveError(null);
   }, [activePlans, selectedWorker]);
 
   useEffect(() => {
@@ -464,6 +487,52 @@ export function WorkerDirectoryPanel({
     }
   };
 
+  const handleArchiveWorker = async (worker: WorkerDirectoryListItem) => {
+    if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
+      return;
+    }
+
+    setArchiveFeedback(null);
+    setArchiveError(null);
+
+    if (!navigator.onLine) {
+      setArchiveError("Archiwizacja zbieracza wymaga polaczenia online.");
+      return;
+    }
+
+    const archive = workerDirectoryApi.archive ?? defaultWorkerDirectoryApi.archive;
+
+    if (!archive) {
+      setArchiveError("Operacja archiwizacji zbieracza nie jest dostepna.");
+      return;
+    }
+
+    setIsArchiveSubmitting(true);
+
+    try {
+      const result = await archive(env, {
+        actorProfile: authState.profile,
+        workerId: worker.id,
+        reason: archiveDraft.reason,
+        confirmations: {
+          confirmOpenSessionsReviewed: archiveDraft.confirmOpenSessionsReviewed,
+          confirmDueAmountReviewed: archiveDraft.confirmDueAmountReviewed,
+          confirmActiveAccountRemains: archiveDraft.confirmActiveAccountRemains,
+          confirmCurrentRateReviewed: archiveDraft.confirmCurrentRateReviewed,
+          confirmFutureRatesReviewed: archiveDraft.confirmFutureRatesReviewed
+        },
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit(authState.profile.role);
+      setArchiveFeedback(createWorkerArchiveFeedback(result));
+      setArchiveDraft(createInitialArchiveWorkerDraft());
+    } catch (archiveError: unknown) {
+      setArchiveError(getWorkerDirectoryErrorMessage(archiveError));
+    } finally {
+      setIsArchiveSubmitting(false);
+    }
+  };
+
   const reloadAfterSubmit = async (role: "ADMIN" | "OPERATOR") => {
     const result = await workerDirectoryApi.list(env, {
       viewerRole: role
@@ -556,7 +625,11 @@ export function WorkerDirectoryPanel({
           accountLinkError={accountLinkError}
           accountLinkFeedback={accountLinkFeedback}
           activePlans={activePlans}
+          archiveDraft={archiveDraft}
+          archiveError={archiveError}
+          archiveFeedback={archiveFeedback}
           isAccountLinkSubmitting={isAccountLinkSubmitting}
+          isArchiveSubmitting={isArchiveSubmitting}
           isRateSubmitting={isRateSubmitting}
           onClose={() => {
             setSelectedWorkerId(null);
@@ -564,6 +637,10 @@ export function WorkerDirectoryPanel({
           onAccountLinkChange={setAccountLinkDraft}
           onAccountLinkSubmit={() => {
             void handleUpdateAccountLink(selectedWorker);
+          }}
+          onArchiveChange={setArchiveDraft}
+          onArchiveSubmit={() => {
+            void handleArchiveWorker(selectedWorker);
           }}
           onRateChange={setRateDraft}
           onRateSubmit={() => {
@@ -708,11 +785,17 @@ function WorkerProfilePanel({
   accountLinkError,
   accountLinkFeedback,
   activePlans,
+  archiveDraft,
+  archiveError,
+  archiveFeedback,
   isAccountLinkSubmitting,
+  isArchiveSubmitting,
   isRateSubmitting,
   onClose,
   onAccountLinkChange,
   onAccountLinkSubmit,
+  onArchiveChange,
+  onArchiveSubmit,
   onRateChange,
   onRateSubmit,
   plans,
@@ -726,11 +809,17 @@ function WorkerProfilePanel({
   accountLinkError: string | null;
   accountLinkFeedback: string | null;
   activePlans: WorkerDirectoryResult["plans"];
+  archiveDraft: ArchiveWorkerDraft;
+  archiveError: string | null;
+  archiveFeedback: string | null;
   isAccountLinkSubmitting: boolean;
+  isArchiveSubmitting: boolean;
   isRateSubmitting: boolean;
   onClose: () => void;
   onAccountLinkChange: (draft: AccountLinkDraft) => void;
   onAccountLinkSubmit: () => void;
+  onArchiveChange: (draft: ArchiveWorkerDraft) => void;
+  onArchiveSubmit: () => void;
   onRateChange: (draft: CreateWorkerRateDraft) => void;
   onRateSubmit: () => void;
   plans: WorkerDirectoryResult["plans"];
@@ -836,14 +925,22 @@ function WorkerProfilePanel({
         </WorkerProfileSection>
       </div>
 
-      <WorkerAccountLinkForm
-        draft={accountLinkDraft}
-        isSubmitting={isAccountLinkSubmitting}
-        onChange={onAccountLinkChange}
-        onSubmit={onAccountLinkSubmit}
-        profiles={profiles}
-        worker={worker}
-      />
+      {worker.active ? (
+        <WorkerAccountLinkForm
+          draft={accountLinkDraft}
+          isSubmitting={isAccountLinkSubmitting}
+          onChange={onAccountLinkChange}
+          onSubmit={onAccountLinkSubmit}
+          profiles={profiles}
+          worker={worker}
+        />
+      ) : (
+        <WorkerProfileSection title="Powiazanie konta">
+          <p className="worker-profile__empty">
+            Zbieracz jest archiwalny; powiazanie konta pozostaje tylko w historii.
+          </p>
+        </WorkerProfileSection>
+      )}
 
       {accountLinkFeedback ? (
         <p className="form-message form-message--ok">{accountLinkFeedback}</p>
@@ -866,13 +963,21 @@ function WorkerProfilePanel({
 
       <WorkerRateConsistencyPanel worker={worker} />
 
-      <CreateWorkerRateForm
-        activePlans={activePlans}
-        draft={rateDraft}
-        isSubmitting={isRateSubmitting}
-        onChange={onRateChange}
-        onSubmit={onRateSubmit}
-      />
+      {worker.active ? (
+        <CreateWorkerRateForm
+          activePlans={activePlans}
+          draft={rateDraft}
+          isSubmitting={isRateSubmitting}
+          onChange={onRateChange}
+          onSubmit={onRateSubmit}
+        />
+      ) : (
+        <WorkerProfileSection title="Nowa stawka">
+          <p className="worker-profile__empty">
+            Nie mozna dodawac stawek archiwalnemu zbieraczowi.
+          </p>
+        </WorkerProfileSection>
+      )}
 
       {rateFeedback ? (
         <p className="form-message form-message--ok">{rateFeedback}</p>
@@ -884,6 +989,21 @@ function WorkerProfilePanel({
         plans={plans}
         rateVersions={worker.rateVersions}
       />
+
+      <ArchiveWorkerForm
+        draft={archiveDraft}
+        isSubmitting={isArchiveSubmitting}
+        onChange={onArchiveChange}
+        onSubmit={onArchiveSubmit}
+        worker={worker}
+      />
+
+      {archiveFeedback ? (
+        <p className="form-message form-message--ok">{archiveFeedback}</p>
+      ) : null}
+      {archiveError ? (
+        <p className="form-message form-message--error">{archiveError}</p>
+      ) : null}
 
       <WorkerAuditEvents auditEvents={worker.auditEvents} />
 
@@ -1012,6 +1132,181 @@ function WorkerAccountLinkForm({
       >
         <Link2 aria-hidden="true" size={17} strokeWidth={2.2} />
         <span>{isSubmitting ? "Zapisywanie..." : "Zapisz powiazanie"}</span>
+      </button>
+    </form>
+  );
+}
+
+function ArchiveWorkerForm({
+  draft,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  worker
+}: {
+  draft: ArchiveWorkerDraft;
+  isSubmitting: boolean;
+  onChange: (draft: ArchiveWorkerDraft) => void;
+  onSubmit: () => void;
+  worker: WorkerDirectoryListItem;
+}) {
+  const futureRates = worker.rateVersions.filter(
+    (rateVersion) => rateVersion.active && rateVersion.validFrom > currentBusinessDate()
+  );
+
+  if (!worker.active) {
+    return (
+      <WorkerProfileSection title="Archiwizacja">
+        <p className="worker-profile__empty">Zbieracz jest juz archiwalny.</p>
+      </WorkerProfileSection>
+    );
+  }
+
+  return (
+    <form
+      aria-label="Archiwizacja zbieracza"
+      className="worker-archive-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="worker-rate-form__heading">
+        <Archive aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h4>Archiwizacja</h4>
+      </div>
+
+      <div className="worker-archive-form__warnings">
+        <p className="worker-form__warning">
+          Archiwizacja nie zamyka sesji, nie usuwa historii i nie blokuje automatycznie
+          powiazanego konta.
+        </p>
+        <ul className="worker-profile__list">
+          <li>Otwarte sesje: wymagane reczne sprawdzenie poza modulem zbieraczy.</li>
+          <li>Do wyplaty: {workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}.</li>
+          <li>
+            Konto:{" "}
+            {worker.linkedUser
+              ? `${worker.linkedUser.email}, ${accountProfileStatus(worker.linkedUser)}`
+              : "brak powiazanego konta"}
+            .
+          </li>
+          <li>
+            Aktualna stawka:{" "}
+            {worker.currentRateVersion
+              ? `${workerRateLabel(worker.currentRateVersion)} od ${worker.currentRateVersion.validFrom}`
+              : "brak"}
+            .
+          </li>
+          <li>
+            Przyszle aktywne stawki:{" "}
+            {futureRates.length > 0
+              ? futureRates.map((rateVersion) => rateVersion.validFrom).join(", ")
+              : "brak"}
+            .
+          </li>
+        </ul>
+      </div>
+
+      <label className="field worker-archive-form__reason">
+        <span>Powod archiwizacji</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <div className="worker-archive-form__confirmations">
+        <label className="checkbox-field worker-rate-form__confirmation">
+          <input
+            checked={draft.confirmOpenSessionsReviewed}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmOpenSessionsReviewed: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam sprawdzenie otwartych sesji poza systemem</span>
+        </label>
+
+        <label className="checkbox-field worker-rate-form__confirmation">
+          <input
+            checked={draft.confirmDueAmountReviewed}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmDueAmountReviewed: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam sprawdzenie kwoty do wyplaty</span>
+        </label>
+
+        <label className="checkbox-field worker-rate-form__confirmation">
+          <input
+            checked={draft.confirmActiveAccountRemains}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmActiveAccountRemains: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam, ze powiazane konto pozostaje aktywne do historii</span>
+        </label>
+
+        <label className="checkbox-field worker-rate-form__confirmation">
+          <input
+            checked={draft.confirmCurrentRateReviewed}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmCurrentRateReviewed: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam weryfikacje aktualnej stawki</span>
+        </label>
+
+        <label className="checkbox-field worker-rate-form__confirmation">
+          <input
+            checked={draft.confirmFutureRatesReviewed}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmFutureRatesReviewed: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam weryfikacje przyszlych stawek</span>
+        </label>
+      </div>
+
+      <button
+        className="primary-action worker-rate-form__submit"
+        disabled={isSubmitting}
+        type="submit"
+      >
+        <Archive aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>{isSubmitting ? "Archiwizowanie..." : "Archiwizuj zbieracza"}</span>
       </button>
     </form>
   );
@@ -1702,6 +1997,8 @@ function auditActionLabel(
   switch (action) {
     case "WORKER_CREATED":
       return "Utworzenie zbieracza";
+    case "WORKER_ARCHIVED":
+      return "Archiwizacja zbieracza";
     case "WORKER_RATE_CHANGED":
       return "Zmiana stawki";
     case "USER_WORKER_LINK_CHANGED":
@@ -1747,6 +2044,17 @@ function createInitialAccountLinkDraft(): AccountLinkDraft {
     targetUid: "",
     reason: "",
     confirmedPrivacy: false
+  };
+}
+
+function createInitialArchiveWorkerDraft(): ArchiveWorkerDraft {
+  return {
+    reason: "",
+    confirmOpenSessionsReviewed: false,
+    confirmDueAmountReviewed: false,
+    confirmActiveAccountRemains: false,
+    confirmCurrentRateReviewed: false,
+    confirmFutureRatesReviewed: false
   };
 }
 
@@ -1801,6 +2109,20 @@ function createAccountLinkFeedback(result: unknown): string {
   }
 
   return "Zapisano powiazanie konta.";
+}
+
+function createWorkerArchiveFeedback(result: unknown): string {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "warnings" in result &&
+    Array.isArray(result.warnings) &&
+    result.warnings.length > 0
+  ) {
+    return `Zarchiwizowano zbieracza. Kontrole: ${String(result.warnings.length)}.`;
+  }
+
+  return "Zarchiwizowano zbieracza.";
 }
 
 function getWorkerDirectoryErrorMessage(error: unknown): string {
