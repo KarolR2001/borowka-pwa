@@ -12,9 +12,11 @@ import {
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
@@ -86,6 +88,41 @@ const worker = (overrides: Record<string, unknown> = {}) => ({
   ...overrides
 });
 
+const settlementPlan = (overrides: Record<string, unknown> = {}) => ({
+  id: "plan-weight-kg",
+  name: "Za kilogram",
+  code: "WEIGHT_KG",
+  calculationBasis: "WEIGHT",
+  unitLabelSingular: "kilogram",
+  unitLabelPlural: "kilogramy",
+  unitSymbol: "kg",
+  quantityPrecision: 3,
+  weightRequired: true,
+  allowBatchQuantity: true,
+  description: "Rozliczenie wedlug kg.",
+  active: true,
+  systemDefault: true,
+  createdAt: Timestamp.fromDate(new Date("2026-07-01T08:00:00.000Z")),
+  createdBy: "admin-1",
+  archivedAt: null,
+  ...overrides
+});
+
+const rateVersion = (overrides: Record<string, unknown> = {}) => ({
+  id: "rate-worker-new-1234-2026-07-15",
+  workerId: "worker-new-1234",
+  planId: "plan-weight-kg",
+  rateGroszPerUnit: 1250,
+  validFrom: "2026-07-15",
+  validTo: null,
+  active: true,
+  note: "Pierwsza stawka zbieracza.",
+  createdAt: serverTimestamp(),
+  createdBy: "admin-1",
+  supersedesRateId: null,
+  ...overrides
+});
+
 const seedProfiles = async (...profiles: ProfileSeed[]) => {
   expect(testEnv).toBeDefined();
   if (!testEnv) {
@@ -118,6 +155,29 @@ const seedWorkers = async () => {
           id: "worker-archived",
           displayName: "Archiwalny",
           normalizedName: "archiwalny",
+          active: false,
+          archivedAt: Timestamp.fromDate(new Date("2026-10-01T08:00:00.000Z"))
+        })
+      )
+    ]);
+  });
+};
+
+const seedPlans = async () => {
+  expect(testEnv).toBeDefined();
+  if (!testEnv) {
+    return;
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await Promise.all([
+      setDoc(doc(db, "settlementPlans", "plan-weight-kg"), settlementPlan()),
+      setDoc(
+        doc(db, "settlementPlans", "plan-archived"),
+        settlementPlan({
+          id: "plan-archived",
+          code: "ARCHIVED",
           active: false,
           archivedAt: Timestamp.fromDate(new Date("2026-10-01T08:00:00.000Z"))
         })
@@ -204,13 +264,134 @@ describe("Firestore worker rules", () => {
     expect(snapshot.size).toBe(1);
   });
 
-  it("rejects worker writes in list package", async () => {
+  it("allows admin to create worker with initial rate in one batch", async () => {
     await seedProfiles(
       profile({
         uid: "admin-1",
         role: "ADMIN"
       })
     );
+    await seedPlans();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "workers", "worker-new-1234"),
+      worker({
+        id: "worker-new-1234",
+        displayName: "Nowy",
+        normalizedName: "nowy",
+        currentRateVersionId: "rate-worker-new-1234-2026-07-15",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: "admin-1"
+      })
+    );
+    batch.set(
+      doc(db, "workerRateVersions", "rate-worker-new-1234-2026-07-15"),
+      rateVersion()
+    );
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it("rejects partial or unsafe worker creates", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({ uid: "operator-1" })
+    );
+    await seedPlans();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const adminDb = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      setDoc(
+        doc(adminDb, "workers", "worker-new-1234"),
+        worker({
+          id: "worker-new-1234",
+          currentRateVersionId: "rate-worker-new-1234-2026-07-15",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: "admin-1"
+        })
+      )
+    );
+
+    const archivedPlanBatch = writeBatch(adminDb);
+    archivedPlanBatch.set(
+      doc(adminDb, "workers", "worker-arch-plan"),
+      worker({
+        id: "worker-arch-plan",
+        displayName: "Archiwalny plan",
+        normalizedName: "archiwalny plan",
+        currentPlanId: "plan-archived",
+        currentRateVersionId: "rate-worker-arch-plan-2026-07-15",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: "admin-1"
+      })
+    );
+    archivedPlanBatch.set(
+      doc(adminDb, "workerRateVersions", "rate-worker-arch-plan-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-arch-plan-2026-07-15",
+        workerId: "worker-arch-plan",
+        planId: "plan-archived"
+      })
+    );
+    await assertFails(archivedPlanBatch.commit());
+
+    const operatorBatch = writeBatch(operatorDb);
+    operatorBatch.set(
+      doc(operatorDb, "workers", "worker-operator"),
+      worker({
+        id: "worker-operator",
+        displayName: "Operator",
+        normalizedName: "operator",
+        currentRateVersionId: "rate-worker-operator-2026-07-15",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: "operator-1"
+      })
+    );
+    operatorBatch.set(
+      doc(operatorDb, "workerRateVersions", "rate-worker-operator-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-operator-2026-07-15",
+        workerId: "worker-operator",
+        createdBy: "operator-1"
+      })
+    );
+    await assertFails(operatorBatch.commit());
+  });
+
+  it("rejects worker updates, deletes and standalone rate creates", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    await seedPlans();
     await seedWorkers();
     expect(testEnv).toBeDefined();
     if (!testEnv) {
@@ -223,10 +404,17 @@ describe("Firestore worker rules", () => {
 
     await assertFails(
       setDoc(
-        doc(db, "workers", "worker-new"),
-        worker({
-          id: "worker-new",
-          displayName: "Nowy"
+        doc(db, "workerRateVersions", "rate-worker-new-1234-2026-07-15"),
+        rateVersion()
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "workerRateVersions", "rate-worker-free-2026-07-15"),
+        rateVersion({
+          id: "rate-worker-free-2026-07-15",
+          workerId: "worker-free",
+          rateGroszPerUnit: 0
         })
       )
     );

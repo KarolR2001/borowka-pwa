@@ -368,6 +368,47 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create worker audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-worker-created"),
+        auditEvent({
+          id: "audit-worker-created",
+          action: "WORKER_CREATED",
+          entityType: "WORKER",
+          entityId: "worker-new-1234",
+          beforeSummary: null,
+          afterSummary: {
+            workerId: "worker-new-1234",
+            displayName: "Anna Nowa",
+            active: true,
+            planId: "plan-weight-kg",
+            currentPlanId: "plan-weight-kg",
+            rateVersionId: "rate-worker-new-1234-2026-07-15",
+            currentRateVersionId: "rate-worker-new-1234-2026-07-15",
+            rateGroszPerUnit: 1250,
+            validFrom: "2026-07-15"
+          }
+        })
+      )
+    );
+  });
+
   it("rejects mutable or malformed audit events", async () => {
     await seedProfiles(
       profile({
