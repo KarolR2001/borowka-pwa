@@ -1054,6 +1054,107 @@ h2 {
   font-weight: 900;
 }
 
+.ubianka-entry-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.45fr) minmax(220px, 0.8fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.ubianka-entry-form__heading,
+.ubianka-entry-form__quick,
+.ubianka-entry-form__notice,
+.ubianka-entry-form__preview,
+.ubianka-entry-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.ubianka-entry-form__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ubianka-entry-form__heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ubianka-entry-form__heading span {
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #29463a;
+  background: #eef4f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.ubianka-entry-form__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ubianka-entry-form__quick button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #cbd8d0;
+  border-radius: 8px;
+  padding: 7px 11px;
+  color: #29463a;
+  background: #f7faf7;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.ubianka-entry-form__quick button[aria-pressed="true"] {
+  border-color: #0d4c2f;
+  color: #ffffff;
+  background: #0d4c2f;
+}
+
+.ubianka-entry-form__quick button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.ubianka-entry-form__notice {
+  margin: 0;
+  border: 1px solid #e4c6b6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #8a3b12;
+  background: #fff3ec;
+  font-weight: 800;
+}
+
+.ubianka-entry-form__preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ubianka-entry-form__preview span {
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #173129;
+  background: #eef4f0;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.ubianka-entry-form__submit {
+  min-width: 132px;
+}
+
 .settlement-plan-form__example {
   display: grid;
   gap: 4px;
@@ -1263,6 +1364,7 @@ h2 {
   .active-session__facts,
   .active-session__entry,
   .active-session__entry dl,
+  .ubianka-entry-form,
   .invitation-form,
   .season-form,
   .season-action-form,
@@ -1347,6 +1449,13 @@ h2 {
   }
 
   .active-session__actions {
+    flex-direction: column;
+  }
+
+  .ubianka-entry-form__heading,
+  .ubianka-entry-form__quick,
+  .ubianka-entry-form__preview {
+    align-items: stretch;
     flex-direction: column;
   }
 
