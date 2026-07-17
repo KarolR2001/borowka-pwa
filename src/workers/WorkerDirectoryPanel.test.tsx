@@ -62,41 +62,8 @@ const signedOutState: AuthSessionState = {
 const worker = ({
   id,
   ...overrides
-}: Partial<WorkerDirectoryListItem> & { id: string }): WorkerDirectoryListItem => ({
-  id,
-  displayName: id,
-  normalizedName: id,
-  active: true,
-  currentPlanId: "plan-weight",
-  currentRateVersionId: `rate-${id}`,
-  linkedUserUid: null,
-  phone: null,
-  emailContact: null,
-  notes: null,
-  createdAt: "created-at",
-  createdBy: "admin-1",
-  updatedAt: "created-at",
-  archivedAt: null,
-  legacyName: null,
-  currentPlan: {
-    id: "plan-weight",
-    name: "Za kilogram",
-    code: "WEIGHT_KG",
-    calculationBasis: "WEIGHT",
-    unitLabelSingular: "kilogram",
-    unitLabelPlural: "kilogramy",
-    unitSymbol: "kg",
-    quantityPrecision: 3,
-    weightRequired: true,
-    allowBatchQuantity: true,
-    description: null,
-    active: true,
-    systemDefault: true,
-    createdAt: "created-at",
-    createdBy: "admin-1",
-    archivedAt: null
-  },
-  currentRateVersion: {
+}: Partial<WorkerDirectoryListItem> & { id: string }): WorkerDirectoryListItem => {
+  const currentRateVersion = {
     id: `rate-${id}`,
     workerId: id,
     planId: "plan-weight",
@@ -108,19 +75,56 @@ const worker = ({
     createdAt: "created-at",
     createdBy: "admin-1",
     supersedesRateId: null
-  },
-  rateVersions: [],
-  linkedUser: null,
-  auditEvents: [],
-  warnings: [],
-  seasonSummary: {
-    totalKgGrams: null,
-    earnedGrosz: null,
-    paidGrosz: null,
-    dueGrosz: null
-  },
-  ...overrides
-});
+  };
+
+  return {
+    id,
+    displayName: id,
+    normalizedName: id,
+    active: true,
+    currentPlanId: "plan-weight",
+    currentRateVersionId: currentRateVersion.id,
+    linkedUserUid: null,
+    phone: null,
+    emailContact: null,
+    notes: null,
+    createdAt: "created-at",
+    createdBy: "admin-1",
+    updatedAt: "created-at",
+    archivedAt: null,
+    legacyName: null,
+    currentPlan: {
+      id: "plan-weight",
+      name: "Za kilogram",
+      code: "WEIGHT_KG",
+      calculationBasis: "WEIGHT",
+      unitLabelSingular: "kilogram",
+      unitLabelPlural: "kilogramy",
+      unitSymbol: "kg",
+      quantityPrecision: 3,
+      weightRequired: true,
+      allowBatchQuantity: true,
+      description: null,
+      active: true,
+      systemDefault: true,
+      createdAt: "created-at",
+      createdBy: "admin-1",
+      archivedAt: null
+    },
+    currentRateVersion,
+    rateVersions: [currentRateVersion],
+    linkedUser: null,
+    auditEvents: [],
+    warnings: [],
+    seasonSummary: {
+      totalKgGrams: null,
+      earnedGrosz: null,
+      paidGrosz: null,
+      dueGrosz: null
+    },
+    ...overrides
+  };
+};
 
 const env = {};
 
@@ -207,6 +211,19 @@ describe("WorkerDirectoryPanel", () => {
 
   it("opens administrator worker profile with rate history and audit events", async () => {
     const user = userEvent.setup();
+    const currentRateVersion = {
+      id: "rate-worker-anna-2026-07-01",
+      workerId: "worker-anna",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1000,
+      validFrom: "2026-07-01",
+      validTo: null,
+      active: true,
+      note: "Aktualna stawka.",
+      createdAt: "created-at",
+      createdBy: "admin-1",
+      supersedesRateId: null
+    };
     const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
       workers: [
         worker({
@@ -215,20 +232,10 @@ describe("WorkerDirectoryPanel", () => {
           phone: "500 600 700",
           emailContact: "anna@example.test",
           notes: "Osoba testowa.",
+          currentRateVersionId: currentRateVersion.id,
+          currentRateVersion,
           rateVersions: [
-            {
-              id: "rate-worker-anna-2026-07-01",
-              workerId: "worker-anna",
-              planId: "plan-weight",
-              rateGroszPerUnit: 1000,
-              validFrom: "2026-07-01",
-              validTo: null,
-              active: true,
-              note: "Aktualna stawka.",
-              createdAt: "created-at",
-              createdBy: "admin-1",
-              supersedesRateId: null
-            },
+            currentRateVersion,
             {
               id: "rate-worker-anna-2026-06-01",
               workerId: "worker-anna",
@@ -330,7 +337,17 @@ describe("WorkerDirectoryPanel", () => {
     expect(within(profile).getByText("9,00 zł")).toBeInTheDocument();
     expect(within(profile).getByText("Przyszla")).toBeInTheDocument();
     expect(
-      within(profile).getByText("Naklada sie z wersja od 2026-07-01.")
+      within(profile).getAllByText("Naklada sie z wersja od 2026-07-01.").length
+    ).toBeGreaterThan(0);
+    expect(
+      within(profile).getByRole("heading", {
+        name: "Kontrola spojnosci stawek"
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(profile).getByText(
+        "Bez funkcji serwerowej nie ma pelnej gwarancji serializacji dwoch rownoleglych zmian."
+      )
     ).toBeInTheDocument();
     expect(within(profile).getByText("Utworzenie zbieracza")).toBeInTheDocument();
     expect(within(profile).getByText("Pierwszy zapis.")).toBeInTheDocument();
@@ -407,6 +424,7 @@ describe("WorkerDirectoryPanel", () => {
     expect(createRate.mock.calls[0]?.[1]).toMatchObject({
       actorProfile: adminState.profile,
       workerId: "worker-anna",
+      expectedCurrentRateVersionId: "rate-worker-anna",
       planId: "plan-weight",
       rateGroszPerUnit: 1400,
       validFrom: "2999-07-15",

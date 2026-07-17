@@ -676,6 +676,67 @@ h2 {
   font-weight: 700;
 }
 
+.worker-rate-consistency {
+  display: grid;
+  gap: 10px;
+}
+
+.worker-rate-consistency__status {
+  width: max-content;
+  margin: 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.worker-rate-consistency__status--ok,
+.worker-rate-consistency__badge--ok {
+  color: #0f5d3d;
+  background: #e8f7ef;
+}
+
+.worker-rate-consistency__status--warning,
+.worker-rate-consistency__badge--warning {
+  color: #8a3b12;
+  background: #fff1df;
+}
+
+.worker-rate-consistency__status--error,
+.worker-rate-consistency__badge--error {
+  color: #9b1c1c;
+  background: #ffe8e8;
+}
+
+.worker-rate-consistency__checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.worker-rate-consistency__checks li {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 0.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.worker-rate-consistency__badge {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.worker-rate-consistency__checks strong,
+.worker-rate-consistency__checks span:last-child {
+  color: #173129;
+}
+
 .worker-profile__table-wrap {
   overflow-x: auto;
 }
@@ -936,6 +997,7 @@ h2 {
   .settlement-plan-form,
   .worker-form,
   .worker-rate-form,
+  .worker-rate-consistency__checks li,
   .worker-profile__grid,
   .directory-summary {
     grid-template-columns: 1fr;
