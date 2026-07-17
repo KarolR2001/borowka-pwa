@@ -81,6 +81,11 @@ import {
   defaultSettlementPlansApi,
   type SettlementPlansApi
 } from "../plans/AdminSettlementPlansPanel";
+import {
+  ConfigurationCachePanel,
+  defaultConfigurationCacheApi,
+  type ConfigurationCacheApi
+} from "../offline/ConfigurationCachePanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -179,7 +184,8 @@ export function App({
   workerDirectoryApi = defaultWorkerDirectoryApi,
   seasonsApi = defaultSeasonsApi,
   settlementPlansApi = defaultSettlementPlansApi,
-  registrationInvitationsApi = defaultRegistrationInvitationsApi
+  registrationInvitationsApi = defaultRegistrationInvitationsApi,
+  configurationCacheApi = defaultConfigurationCacheApi
 }: {
   authSessionApi?: AuthSessionApi;
   deviceRegistryApi?: DeviceRegistryApi;
@@ -189,6 +195,7 @@ export function App({
   seasonsApi?: SeasonsApi;
   settlementPlansApi?: SettlementPlansApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
+  configurationCacheApi?: ConfigurationCacheApi;
 } = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
@@ -552,6 +559,17 @@ export function App({
             authState={authState}
             env={env}
             workerDirectoryApi={workerDirectoryApi}
+          />
+        ) : null}
+
+        {activeView === "settings" ? (
+          <ConfigurationCachePanel
+            authState={authState}
+            configurationCacheApi={configurationCacheApi}
+            deviceId={deviceId}
+            env={env}
+            isOnline={isOnline}
+            serviceWorkerStatus={serviceWorkerStatus}
           />
         ) : null}
       </main>

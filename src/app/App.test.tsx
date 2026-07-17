@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
 import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
+import type { ConfigurationCacheApi } from "../offline/ConfigurationCachePanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -393,6 +394,48 @@ describe("App shell", () => {
     });
     expect(screen.getByText("Zgoda offline wlaczona.")).toBeInTheDocument();
     expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
+  });
+
+  it("renders configuration cache center from settings", async () => {
+    const user = userEvent.setup();
+    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
+      snapshot: null,
+      readiness: {
+        status: "NOT_READY",
+        missingRequirements: [
+          "Pliki PWA nie sa potwierdzone w cache service workera.",
+          "Brak lokalnego snapshotu konfiguracji."
+        ],
+        counts: {
+          workers: 0,
+          plans: 0,
+          rateVersions: 0
+        }
+      }
+    });
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState)}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /ustawienia/i }));
+
+    await waitFor(() => {
+      expect(read).toHaveBeenCalled();
+    });
+    expect(
+      screen.getByRole("heading", { name: "Centrum synchronizacji" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Brak lokalnego snapshotu konfiguracji.")
+    ).toBeInTheDocument();
   });
 
   it("renders administrator user directory from the admin tab", async () => {
