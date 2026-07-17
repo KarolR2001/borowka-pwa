@@ -51,3 +51,6 @@ Stage 5.2/5.3 opening and snapshot rules are maintained in
 
 Stage 5.4 active session screen contract is maintained in
 `docs/domain/active-harvest-session-screen.md`.
+
+Stage 5.5 ubianka entry form contract is maintained in
+`docs/domain/ubianka-entry-form.md`.
