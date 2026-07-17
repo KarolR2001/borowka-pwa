@@ -6,8 +6,11 @@ import type {
 import type { UserProfile } from "../domain/identity";
 import {
   buildWorkerDirectory,
+  createInitialWorkerRateVersionId,
   decodeWorker,
+  findSimilarWorkerNames,
   filterWorkerDirectory,
+  prepareWorkerCreate,
   workerRateLabel,
   workerStatusLabel,
   workerSummaryKgLabel,
@@ -16,6 +19,23 @@ import {
 } from "./workerDirectory";
 
 const createdAt = "created-at";
+
+const adminProfile: UserProfile = {
+  uid: "admin-1",
+  email: "admin@example.test",
+  displayName: "Admin Test",
+  role: "ADMIN",
+  workerId: null,
+  active: true,
+  registrationStatus: "APPROVED",
+  offlineConsent: false
+};
+
+const operatorProfile: UserProfile = {
+  ...adminProfile,
+  uid: "operator-1",
+  role: "OPERATOR"
+};
 
 const plan = ({
   id,
@@ -100,6 +120,153 @@ const profile = ({
 });
 
 describe("workerDirectory", () => {
+  it("prepares active worker with initial rate and audit summary", () => {
+    const prepared = prepareWorkerCreate([], [plan({ id: "plan-weight" })], {
+      actorProfile: adminProfile,
+      workerId: "worker-new",
+      displayName: "  Anna Nowa  ",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1250,
+      validFrom: "2026-07-15",
+      phone: "  500 600 700 ",
+      emailContact: " ANNA@EXAMPLE.TEST ",
+      notes: "  Testowa osoba. ",
+      confirmSimilarName: false,
+      createdAt,
+      deviceId: "device-1"
+    });
+
+    expect(prepared.worker).toMatchObject({
+      id: "worker-new",
+      displayName: "Anna Nowa",
+      normalizedName: "anna nowa",
+      active: true,
+      currentPlanId: "plan-weight",
+      currentRateVersionId: "rate-worker-new-2026-07-15",
+      linkedUserUid: null,
+      phone: "500 600 700",
+      emailContact: "anna@example.test",
+      notes: "Testowa osoba.",
+      createdBy: "admin-1",
+      updatedAt: createdAt,
+      archivedAt: null,
+      legacyName: null
+    });
+    expect(prepared.rateVersion).toMatchObject({
+      id: "rate-worker-new-2026-07-15",
+      workerId: "worker-new",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1250,
+      validFrom: "2026-07-15",
+      validTo: null,
+      active: true,
+      note: "Pierwsza stawka zbieracza.",
+      createdBy: "admin-1",
+      supersedesRateId: null
+    });
+    expect(prepared.auditAction).toBe("WORKER_CREATED");
+    expect(prepared.afterSummary).toMatchObject({
+      workerId: "worker-new",
+      displayName: "Anna Nowa",
+      planId: "plan-weight",
+      rateVersionId: "rate-worker-new-2026-07-15",
+      rateGroszPerUnit: 1250,
+      validFrom: "2026-07-15"
+    });
+    expect(prepared.similarNameWarning).toBeNull();
+  });
+
+  it("requires confirmation for similar worker names", () => {
+    const existingWorkers = [
+      worker({
+        id: "worker-anna",
+        displayName: "Anna Test"
+      })
+    ];
+
+    expect(findSimilarWorkerNames(existingWorkers, " anna test ")).toEqual(["Anna Test"]);
+    expect(() =>
+      prepareWorkerCreate(existingWorkers, [plan({ id: "plan-weight" })], {
+        actorProfile: adminProfile,
+        workerId: "worker-new",
+        displayName: "Anna Test",
+        planId: "plan-weight",
+        rateGroszPerUnit: 1200,
+        validFrom: "2026-07-15",
+        confirmSimilarName: false,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Potwierdz, ze to inny zbieracz niz podobna osoba na liscie.");
+
+    expect(
+      prepareWorkerCreate(existingWorkers, [plan({ id: "plan-weight" })], {
+        actorProfile: adminProfile,
+        workerId: "worker-new",
+        displayName: "Anna Test",
+        planId: "plan-weight",
+        rateGroszPerUnit: 1200,
+        validFrom: "2026-07-15",
+        confirmSimilarName: true,
+        createdAt,
+        deviceId: "device-1"
+      }).similarNameWarning
+    ).toBe("Podobna nazwa: Anna Test.");
+  });
+
+  it("blocks unsafe worker creation input", () => {
+    expect(() =>
+      prepareWorkerCreate([], [plan({ id: "plan-archived", active: false })], {
+        actorProfile: adminProfile,
+        workerId: "worker-new",
+        displayName: "Nowy",
+        planId: "plan-archived",
+        rateGroszPerUnit: 1200,
+        validFrom: "2026-07-15",
+        confirmSimilarName: false,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Nie mozna przypisac archiwalnego planu.");
+
+    expect(() =>
+      prepareWorkerCreate([], [plan({ id: "plan-weight" })], {
+        actorProfile: adminProfile,
+        workerId: "worker-new",
+        displayName: "Nowy",
+        planId: "plan-weight",
+        rateGroszPerUnit: 0,
+        validFrom: "2026-07-15",
+        confirmSimilarName: false,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Stawka musi byc dodatnia kwota w groszach.");
+
+    expect(() =>
+      prepareWorkerCreate([], [plan({ id: "plan-weight" })], {
+        actorProfile: operatorProfile,
+        workerId: "worker-new",
+        displayName: "Nowy",
+        planId: "plan-weight",
+        rateGroszPerUnit: 1200,
+        validFrom: "2026-07-15",
+        confirmSimilarName: false,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Utworzenie zbieracza wymaga aktywnego administratora.");
+  });
+
+  it("creates initial rate ids from worker id and valid from date", () => {
+    expect(createInitialWorkerRateVersionId("worker-new", "2026-07-15")).toBe(
+      "rate-worker-new-2026-07-15"
+    );
+    expect(() => createInitialWorkerRateVersionId("worker-new", "15.07.2026")).toThrow(
+      "Data obowiazywania musi miec format RRRR-MM-DD."
+    );
+  });
+
   it("builds worker list with current plan, rate, linked account and empty summaries", () => {
     const directory = buildWorkerDirectory({
       workerDocuments: [
