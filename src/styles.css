@@ -385,7 +385,8 @@ h2 {
 }
 
 .user-directory,
-.device-directory {
+.device-directory,
+.season-directory {
   display: grid;
   gap: 18px;
   margin-top: 20px;
@@ -477,6 +478,43 @@ h2 {
 
 .invitation-filters {
   grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(150px, 0.6fr));
+}
+
+.season-filters {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.6fr);
+}
+
+.season-form,
+.season-action-form {
+  display: grid;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.season-form {
+  grid-template-columns:
+    minmax(190px, 1.1fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr)
+    minmax(150px, 0.7fr) auto;
+}
+
+.season-action-form {
+  grid-template-columns:
+    minmax(220px, 1.2fr) minmax(150px, 0.7fr) minmax(200px, 1fr)
+    auto;
+}
+
+.season-form__confirmation,
+.season-action-form__confirmation {
+  grid-column: 1 / -1;
+}
+
+.season-form__submit,
+.season-action-form__submit {
+  min-width: 136px;
 }
 
 .search-field {
@@ -624,6 +662,8 @@ h2 {
 
   .directory-filters,
   .invitation-form,
+  .season-form,
+  .season-action-form,
   .directory-summary {
     grid-template-columns: 1fr;
   }
@@ -667,7 +707,9 @@ h2 {
   }
 
   .role-change-form,
-  .account-status-form {
+  .account-status-form,
+  .season-form,
+  .season-action-form {
     grid-template-columns: 1fr;
   }
 

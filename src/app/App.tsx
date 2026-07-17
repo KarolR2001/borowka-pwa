@@ -57,6 +57,11 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import {
+  AdminSeasonsPanel,
+  defaultSeasonsApi,
+  type SeasonsApi
+} from "../seasons/AdminSeasonsPanel";
+import {
   AdminUserDirectoryPanel,
   defaultUserDirectoryApi,
   type UserDirectoryApi
@@ -161,12 +166,14 @@ export function App({
   deviceRegistryApi = defaultDeviceRegistryApi,
   deviceDirectoryApi = defaultDeviceDirectoryApi,
   userDirectoryApi = defaultUserDirectoryApi,
+  seasonsApi = defaultSeasonsApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi
 }: {
   authSessionApi?: AuthSessionApi;
   deviceRegistryApi?: DeviceRegistryApi;
   deviceDirectoryApi?: DeviceDirectoryApi;
   userDirectoryApi?: UserDirectoryApi;
+  seasonsApi?: SeasonsApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
 } = {}) {
   const env = import.meta.env as FirebaseEnv;
@@ -502,6 +509,7 @@ export function App({
               env={env}
               userDirectoryApi={userDirectoryApi}
             />
+            <AdminSeasonsPanel authState={authState} env={env} seasonsApi={seasonsApi} />
             <AdminRegistrationInvitationsPanel
               authState={authState}
               env={env}
