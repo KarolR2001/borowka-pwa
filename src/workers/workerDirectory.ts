@@ -42,6 +42,20 @@ export type CreateWorkerInput = {
   deviceId: string;
 };
 
+export type CreateWorkerRateVersionInput = {
+  actorProfile: UserProfile;
+  workerId: string;
+  planId: string;
+  rateGroszPerUnit: number;
+  validFrom: string;
+  note?: string | null;
+  confirmBackdatedRate: boolean;
+  confirmHistoricalSnapshotsUnchanged: boolean;
+  confirmPeriodWarning: boolean;
+  deviceId: string;
+  businessDate?: string | null;
+};
+
 export type PreparedWorkerCreate = {
   worker: WorkerDocument;
   rateVersion: WorkerRateVersionDocument;
@@ -51,6 +65,19 @@ export type PreparedWorkerCreate = {
   reason: string | null;
   deviceId: string;
   similarNameWarning: string | null;
+};
+
+export type PreparedWorkerRateVersionCreate = {
+  worker: WorkerDocument;
+  rateVersion: WorkerRateVersionDocument;
+  previousRateVersion: WorkerRateVersionDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string | null;
+  deviceId: string;
+  backdatedWarning: string | null;
+  periodWarning: string | null;
 };
 
 export type WorkerDocumentSnapshot = {
@@ -248,6 +275,64 @@ export async function createWorkerWithInitialRate(
       reason: prepared.reason,
       createdAtDevice: Timestamp.now(),
       createdAtServer: serverTimestamp(),
+      deviceId: prepared.deviceId
+    })
+  );
+
+  await batch.commit();
+
+  return prepared;
+}
+
+export async function createWorkerRateVersion(
+  env: FirebaseEnv,
+  input: CreateWorkerRateVersionInput
+): Promise<PreparedWorkerRateVersionCreate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const directory = await listWorkerDirectory(env, {
+    viewerRole: "ADMIN"
+  });
+  const currentWorker = findWorkerOrThrow(directory.workers, input.workerId);
+  const timestamp = serverTimestamp();
+  const prepared = prepareWorkerRateVersionCreate(
+    currentWorker,
+    directory.plans,
+    currentWorker.rateVersions,
+    {
+      ...input,
+      businessDate: input.businessDate ?? currentBusinessDate(),
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }
+  );
+  const auditId = createAuditEventId();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, WORKERS_COLLECTION, prepared.worker.id), prepared.worker);
+  batch.set(
+    doc(firestore, WORKER_RATE_VERSIONS_COLLECTION, prepared.previousRateVersion.id),
+    prepared.previousRateVersion
+  );
+  batch.set(
+    doc(firestore, WORKER_RATE_VERSIONS_COLLECTION, prepared.rateVersion.id),
+    prepared.rateVersion
+  );
+  batch.set(
+    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+    createAuditEventDraft({
+      id: auditId,
+      actorUid: input.actorProfile.uid,
+      actorRoleSnapshot: input.actorProfile.role,
+      action: prepared.auditAction,
+      entityType: "WORKER",
+      entityId: prepared.worker.id,
+      beforeSummary: prepared.beforeSummary,
+      afterSummary: prepared.afterSummary,
+      reason: prepared.reason,
+      createdAtDevice: Timestamp.now(),
+      createdAtServer: timestamp,
       deviceId: prepared.deviceId
     })
   );
@@ -464,6 +549,157 @@ export function prepareWorkerCreate(
   };
 }
 
+export function prepareWorkerRateVersionCreate(
+  currentWorker: WorkerDirectoryListItem,
+  plans: SettlementPlanDocument[],
+  rateVersions: WorkerRateVersionDocument[],
+  input: CreateWorkerRateVersionInput & {
+    createdAt: unknown;
+    updatedAt: unknown;
+  }
+): PreparedWorkerRateVersionCreate {
+  assertAdmin(input.actorProfile);
+
+  const workerId = normalizeRequiredText(input.workerId, "Wybierz zbieracza.");
+  const planId = normalizeRequiredText(input.planId, "Wybierz plan rozliczenia.");
+  const currentPlan = plans.find((plan) => plan.id === planId);
+  const validFrom = normalizeBusinessDate(input.validFrom);
+  const businessDate = normalizeBusinessDate(input.businessDate ?? currentBusinessDate());
+  const rateGroszPerUnit = normalizeRateGrosz(input.rateGroszPerUnit);
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+
+  if (currentWorker.id !== workerId) {
+    throw new Error("Wybrany zbieracz ma niezgodny identyfikator.");
+  }
+
+  if (!currentWorker.active) {
+    throw new Error("Nie mozna dodac stawki archiwalnemu zbieraczowi.");
+  }
+
+  if (!currentPlan) {
+    throw new Error("Wybrany plan nie istnieje.");
+  }
+
+  if (!currentPlan.active) {
+    throw new Error("Nie mozna przypisac archiwalnego planu.");
+  }
+
+  if (!input.confirmHistoricalSnapshotsUnchanged) {
+    throw new Error("Potwierdz, ze historyczne snapshoty nie zostana przeliczone.");
+  }
+
+  if (validFrom < businessDate && !input.confirmBackdatedRate) {
+    throw new Error("Potwierdz zapis stawki z data wsteczna.");
+  }
+
+  if (rateVersions.some((rateVersion) => rateVersion.validFrom === validFrom)) {
+    throw new Error("Zbieracz ma juz stawke od tej daty.");
+  }
+
+  const previousRateVersion = rateVersions.find(
+    (rateVersion) => rateVersion.id === currentWorker.currentRateVersionId
+  );
+
+  if (!previousRateVersion) {
+    throw new Error("Brak aktualnej stawki zbieracza do zamkniecia.");
+  }
+
+  if (!previousRateVersion.active || previousRateVersion.validTo !== null) {
+    throw new Error("Aktualna stawka zbieracza nie jest otwarta.");
+  }
+
+  if (validFrom <= previousRateVersion.validFrom) {
+    throw new Error("Nowa stawka musi zaczynac sie po aktualnej stawce.");
+  }
+
+  const rateVersionId = createWorkerRateVersionId(workerId, validFrom);
+
+  if (rateVersions.some((rateVersion) => rateVersion.id === rateVersionId)) {
+    throw new Error("Identyfikator wersji stawki musi byc unikalny.");
+  }
+
+  const closedPreviousRateVersion: WorkerRateVersionDocument = {
+    ...previousRateVersion,
+    active: false,
+    validTo: addBusinessDays(validFrom, -1)
+  };
+  const nextRateVersion: WorkerRateVersionDocument = {
+    id: rateVersionId,
+    workerId,
+    planId: currentPlan.id,
+    rateGroszPerUnit,
+    validFrom,
+    validTo: null,
+    active: true,
+    note: normalizeOptionalText(input.note),
+    createdAt: input.createdAt,
+    createdBy: input.actorProfile.uid,
+    supersedesRateId: previousRateVersion.id
+  };
+  const nextWorker: WorkerDocument = {
+    id: currentWorker.id,
+    displayName: currentWorker.displayName,
+    normalizedName: currentWorker.normalizedName,
+    active: currentWorker.active,
+    currentPlanId: currentPlan.id,
+    currentRateVersionId: nextRateVersion.id,
+    linkedUserUid: currentWorker.linkedUserUid,
+    phone: currentWorker.phone,
+    emailContact: currentWorker.emailContact,
+    notes: currentWorker.notes,
+    createdAt: currentWorker.createdAt,
+    createdBy: currentWorker.createdBy,
+    updatedAt: input.updatedAt,
+    archivedAt: currentWorker.archivedAt,
+    legacyName: currentWorker.legacyName
+  };
+  const analyzedHistory = analyzeWorkerRateHistory(
+    [
+      ...rateVersions.filter((rateVersion) => rateVersion.id !== previousRateVersion.id),
+      closedPreviousRateVersion,
+      nextRateVersion
+    ],
+    businessDate
+  );
+  const periodWarnings = analyzedHistory
+    .filter(
+      (item) =>
+        item.rateVersion.id === closedPreviousRateVersion.id ||
+        item.rateVersion.id === nextRateVersion.id
+    )
+    .flatMap((item) => item.warnings);
+  const periodWarning =
+    periodWarnings.length > 0
+      ? `Ostrzezenia okresow: ${Array.from(new Set(periodWarnings)).join("; ")}`
+      : null;
+
+  if (periodWarning && !input.confirmPeriodWarning) {
+    throw new Error("Potwierdz zapis mimo ostrzezen okresow stawek.");
+  }
+
+  const backdatedWarning = validFrom < businessDate ? "Stawka ma date wsteczna." : null;
+
+  return {
+    worker: nextWorker,
+    rateVersion: nextRateVersion,
+    previousRateVersion: closedPreviousRateVersion,
+    auditAction: "WORKER_RATE_CHANGED",
+    beforeSummary: workerRateAuditSummary(
+      currentWorker,
+      previousRateVersion,
+      previousRateVersion.planId
+    ),
+    afterSummary: workerRateAuditSummary(nextWorker, nextRateVersion, currentPlan.id),
+    reason: rateChangeReason(backdatedWarning, periodWarning),
+    deviceId,
+    backdatedWarning,
+    periodWarning
+  };
+}
+
 export function createWorkerId(): string {
   return `worker-${globalThis.crypto.randomUUID()}`;
 }
@@ -472,6 +708,10 @@ export function createInitialWorkerRateVersionId(
   workerId: string,
   validFrom: string
 ): string {
+  return createWorkerRateVersionId(workerId, validFrom);
+}
+
+export function createWorkerRateVersionId(workerId: string, validFrom: string): string {
   return `rate-${normalizeRequiredText(workerId, "Brak identyfikatora zbieracza.")}-${normalizeBusinessDate(validFrom)}`;
 }
 
@@ -1011,6 +1251,51 @@ function workerAuditSummary(
   };
 }
 
+function workerRateAuditSummary(
+  worker: WorkerDocument,
+  rateVersion: WorkerRateVersionDocument,
+  planId: string
+): AuditSummary {
+  return {
+    workerId: worker.id,
+    displayName: worker.displayName,
+    active: worker.active,
+    planId,
+    currentPlanId: worker.currentPlanId,
+    rateVersionId: rateVersion.id,
+    currentRateVersionId: worker.currentRateVersionId,
+    rateGroszPerUnit: rateVersion.rateGroszPerUnit,
+    validFrom: rateVersion.validFrom,
+    validTo: rateVersion.validTo
+  };
+}
+
+function rateChangeReason(
+  backdatedWarning: string | null,
+  periodWarning: string | null
+): string {
+  return [
+    "Historyczne snapshoty sesji nie zostana przeliczone.",
+    backdatedWarning,
+    periodWarning
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+}
+
+function findWorkerOrThrow(
+  workers: WorkerDirectoryListItem[],
+  workerId: string
+): WorkerDirectoryListItem {
+  const worker = workers.find((item) => item.id === workerId);
+
+  if (!worker) {
+    throw new Error("Wybrany zbieracz nie istnieje.");
+  }
+
+  return worker;
+}
+
 function assertAdmin(profile: UserProfile): void {
   if (
     profile.role !== "ADMIN" ||
@@ -1079,6 +1364,10 @@ function normalizeBusinessDate(value: string): string {
   }
 
   return normalized;
+}
+
+function currentBusinessDate(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function compactWorkerName(value: string): string {

@@ -186,6 +186,45 @@ const seedPlans = async () => {
   });
 };
 
+const seedWorkerRateChangeState = async () => {
+  expect(testEnv).toBeDefined();
+  if (!testEnv) {
+    return;
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await Promise.all([
+      setDoc(
+        doc(db, "workers", "worker-anna-test"),
+        worker({
+          id: "worker-anna-test",
+          displayName: "Anna Test",
+          normalizedName: "anna test",
+          currentPlanId: "plan-weight-kg",
+          currentRateVersionId: "rate-worker-anna-test-2026-07-01"
+        })
+      ),
+      setDoc(
+        doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-01"),
+        rateVersion({
+          id: "rate-worker-anna-test-2026-07-01",
+          workerId: "worker-anna-test",
+          planId: "plan-weight-kg",
+          rateGroszPerUnit: 1000,
+          validFrom: "2026-07-01",
+          validTo: null,
+          active: true,
+          note: "Aktualna stawka.",
+          createdAt: Timestamp.fromDate(new Date("2026-07-01T08:00:00.000Z")),
+          createdBy: "admin-1",
+          supersedesRateId: null
+        })
+      )
+    ]);
+  });
+};
+
 describe("Firestore worker rules", () => {
   it("rejects worker reads for anonymous, blocked and picker users", async () => {
     await seedProfiles(
@@ -379,6 +418,172 @@ describe("Firestore worker rules", () => {
         id: "rate-worker-operator-2026-07-15",
         workerId: "worker-operator",
         createdBy: "operator-1"
+      })
+    );
+    await assertFails(operatorBatch.commit());
+  });
+
+  it("allows admin to add a worker rate version in one batch", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    await seedPlans();
+    await seedWorkerRateChangeState();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        displayName: "Anna Test",
+        normalizedName: "anna test",
+        currentPlanId: "plan-weight-kg",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+        updatedAt: serverTimestamp()
+      })
+    );
+    batch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-01"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-01",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1000,
+        validFrom: "2026-07-01",
+        validTo: "2026-07-14",
+        active: false,
+        note: "Aktualna stawka.",
+        createdAt: Timestamp.fromDate(new Date("2026-07-01T08:00:00.000Z")),
+        createdBy: "admin-1",
+        supersedesRateId: null
+      })
+    );
+    batch.set(
+      doc(db, "workerRateVersions", "rate-worker-anna-test-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-15",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1400,
+        validFrom: "2026-07-15",
+        validTo: null,
+        active: true,
+        note: "Nowa stawka.",
+        createdAt: serverTimestamp(),
+        createdBy: "admin-1",
+        supersedesRateId: "rate-worker-anna-test-2026-07-01"
+      })
+    );
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it("rejects partial or unsafe worker rate changes", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({ uid: "operator-1" })
+    );
+    await seedPlans();
+    await seedWorkerRateChangeState();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const adminDb = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      setDoc(
+        doc(adminDb, "workerRateVersions", "rate-worker-anna-test-2026-07-15"),
+        rateVersion({
+          id: "rate-worker-anna-test-2026-07-15",
+          workerId: "worker-anna-test",
+          planId: "plan-weight-kg",
+          rateGroszPerUnit: 1400,
+          validFrom: "2026-07-15",
+          supersedesRateId: "rate-worker-anna-test-2026-07-01"
+        })
+      )
+    );
+
+    const missingPreviousCloseBatch = writeBatch(adminDb);
+    missingPreviousCloseBatch.set(
+      doc(adminDb, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        displayName: "Anna Test",
+        normalizedName: "anna test",
+        currentPlanId: "plan-weight-kg",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+        updatedAt: serverTimestamp()
+      })
+    );
+    missingPreviousCloseBatch.set(
+      doc(adminDb, "workerRateVersions", "rate-worker-anna-test-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-15",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1400,
+        validFrom: "2026-07-15",
+        supersedesRateId: "rate-worker-anna-test-2026-07-01"
+      })
+    );
+    await assertFails(missingPreviousCloseBatch.commit());
+
+    const operatorBatch = writeBatch(operatorDb);
+    operatorBatch.set(
+      doc(operatorDb, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        displayName: "Anna Test",
+        normalizedName: "anna test",
+        currentPlanId: "plan-weight-kg",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+        updatedAt: serverTimestamp()
+      })
+    );
+    operatorBatch.set(
+      doc(operatorDb, "workerRateVersions", "rate-worker-anna-test-2026-07-01"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-01",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1000,
+        validFrom: "2026-07-01",
+        validTo: "2026-07-14",
+        active: false
+      })
+    );
+    operatorBatch.set(
+      doc(operatorDb, "workerRateVersions", "rate-worker-anna-test-2026-07-15"),
+      rateVersion({
+        id: "rate-worker-anna-test-2026-07-15",
+        workerId: "worker-anna-test",
+        planId: "plan-weight-kg",
+        rateGroszPerUnit: 1400,
+        validFrom: "2026-07-15",
+        createdBy: "operator-1",
+        supersedesRateId: "rate-worker-anna-test-2026-07-01"
       })
     );
     await assertFails(operatorBatch.commit());

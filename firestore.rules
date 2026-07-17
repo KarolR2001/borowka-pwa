@@ -72,7 +72,8 @@ service cloud.firestore {
         action == 'SETTLEMENT_PLAN_CREATED' ||
         action == 'SETTLEMENT_PLAN_UPDATED' ||
         action == 'SETTLEMENT_PLAN_ARCHIVED' ||
-        action == 'WORKER_CREATED';
+        action == 'WORKER_CREATED' ||
+        action == 'WORKER_RATE_CHANGED';
     }
 
     function isAuditEntityType(entityType) {
@@ -429,7 +430,8 @@ service cloud.firestore {
           'rateVersionId',
           'currentRateVersionId',
           'rateGroszPerUnit',
-          'validFrom'
+          'validFrom',
+          'validTo'
         ]) &&
         (
           !summary.keys().hasAny(['role']) ||
@@ -486,6 +488,11 @@ service cloud.firestore {
           !summary.keys().hasAny(['rateGroszPerUnit']) ||
           summary.rateGroszPerUnit == null ||
           summary.rateGroszPerUnit is int
+        ) &&
+        (
+          !summary.keys().hasAny(['validTo']) ||
+          summary.validTo == null ||
+          summary.validTo is string
         ) &&
         (
           !summary.keys().hasAny(['weightRequired']) ||
@@ -961,19 +968,21 @@ service cloud.firestore {
         data.rateGroszPerUnit is int &&
         data.rateGroszPerUnit > 0 &&
         isBusinessDate(data.validFrom) &&
-        data.validTo == null &&
+        (data.validTo == null || isBusinessDate(data.validTo)) &&
         data.active is bool &&
         (data.note == null || data.note is string) &&
         data.createdAt is timestamp &&
         data.createdBy is string &&
         data.createdBy.size() > 0 &&
-        data.supersedesRateId == null;
+        (data.supersedesRateId == null || data.supersedesRateId is string);
     }
 
     function isValidInitialWorkerRateVersionCreate(data, rateVersionId) {
       return isAdmin() &&
         hasValidWorkerRateVersionBase(data, rateVersionId) &&
         data.active == true &&
+        data.validTo == null &&
+        data.supersedesRateId == null &&
         activeSettlementPlanExists(data.planId) &&
         data.createdAt == request.time &&
         data.createdBy == request.auth.uid &&
@@ -981,6 +990,106 @@ service cloud.firestore {
         getAfter(workerPath(data.workerId)).data.currentRateVersionId == rateVersionId &&
         getAfter(workerPath(data.workerId)).data.currentPlanId == data.planId &&
         getAfter(workerPath(data.workerId)).data.active == true;
+    }
+
+    function keepsWorkerLockedForRateChange(data, previous, workerId) {
+      return data.id == workerId &&
+        data.id == previous.id &&
+        data.displayName == previous.displayName &&
+        data.normalizedName == previous.normalizedName &&
+        data.active == previous.active &&
+        data.linkedUserUid == previous.linkedUserUid &&
+        data.phone == previous.phone &&
+        data.emailContact == previous.emailContact &&
+        data.notes == previous.notes &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy &&
+        data.archivedAt == previous.archivedAt &&
+        data.legacyName == previous.legacyName;
+    }
+
+    function isValidWorkerCurrentRateUpdate(data, previous, workerId) {
+      return isAdmin() &&
+        hasValidWorkerBase(data, workerId) &&
+        previous.active == true &&
+        previous.archivedAt == null &&
+        keepsWorkerLockedForRateChange(data, previous, workerId) &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'currentPlanId',
+          'currentRateVersionId',
+          'updatedAt'
+        ]) &&
+        data.currentRateVersionId != previous.currentRateVersionId &&
+        data.updatedAt == request.time &&
+        existsAfter(workerRateVersionPath(data.currentRateVersionId)) &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.workerId == workerId &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.planId == data.currentPlanId &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.active == true &&
+        getAfter(workerRateVersionPath(data.currentRateVersionId)).data.supersedesRateId == previous.currentRateVersionId;
+    }
+
+    function isValidSubsequentWorkerRateVersionCreate(data, rateVersionId) {
+      return isAdmin() &&
+        hasValidWorkerRateVersionBase(data, rateVersionId) &&
+        data.active == true &&
+        data.validTo == null &&
+        data.supersedesRateId is string &&
+        activeSettlementPlanExists(data.planId) &&
+        data.createdAt == request.time &&
+        data.createdBy == request.auth.uid &&
+        exists(workerPath(data.workerId)) &&
+        get(workerPath(data.workerId)).data.active == true &&
+        get(workerPath(data.workerId)).data.currentRateVersionId == data.supersedesRateId &&
+        existsAfter(workerPath(data.workerId)) &&
+        getAfter(workerPath(data.workerId)).data.currentRateVersionId == rateVersionId &&
+        getAfter(workerPath(data.workerId)).data.currentPlanId == data.planId &&
+        getAfter(workerPath(data.workerId)).data.active == true &&
+        existsAfter(workerRateVersionPath(data.supersedesRateId)) &&
+        getAfter(workerRateVersionPath(data.supersedesRateId)).data.active == false &&
+        getAfter(workerRateVersionPath(data.supersedesRateId)).data.validTo is string &&
+        getAfter(workerRateVersionPath(data.supersedesRateId)).data.validTo < data.validFrom;
+    }
+
+    function keepsRateVersionLockedForClose(data, previous, rateVersionId) {
+      return data.id == rateVersionId &&
+        data.id == previous.id &&
+        data.workerId == previous.workerId &&
+        data.planId == previous.planId &&
+        data.rateGroszPerUnit == previous.rateGroszPerUnit &&
+        data.validFrom == previous.validFrom &&
+        data.note == previous.note &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy &&
+        data.supersedesRateId == previous.supersedesRateId;
+    }
+
+    function isValidWorkerRateVersionCloseUpdate(data, previous, rateVersionId) {
+      return isAdmin() &&
+        hasValidWorkerRateVersionBase(data, rateVersionId) &&
+        keepsRateVersionLockedForClose(data, previous, rateVersionId) &&
+        previous.active == true &&
+        previous.validTo == null &&
+        data.active == false &&
+        isBusinessDate(data.validTo) &&
+        data.validTo >= data.validFrom &&
+        data.diff(previous).affectedKeys().hasOnly(['active', 'validTo']) &&
+        existsAfter(workerPath(data.workerId)) &&
+        getAfter(workerPath(data.workerId)).data.currentRateVersionId != rateVersionId &&
+        existsAfter(
+          workerRateVersionPath(
+            getAfter(workerPath(data.workerId)).data.currentRateVersionId
+          )
+        ) &&
+        getAfter(
+          workerRateVersionPath(
+            getAfter(workerPath(data.workerId)).data.currentRateVersionId
+          )
+        ).data.supersedesRateId == rateVersionId &&
+        data.validTo < getAfter(
+          workerRateVersionPath(
+            getAfter(workerPath(data.workerId)).data.currentRateVersionId
+          )
+        ).data.validFrom;
     }
 
     function isOwnExistingDevice(deviceId) {
@@ -1127,7 +1236,12 @@ service cloud.firestore {
     match /workers/{workerId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
       allow create: if isValidWorkerCreate(request.resource.data, workerId);
-      allow update, delete: if false;
+      allow update: if isValidWorkerCurrentRateUpdate(
+        request.resource.data,
+        resource.data,
+        workerId
+      );
+      allow delete: if false;
     }
 
     match /workerRateVersions/{rateVersionId} {
@@ -1135,8 +1249,16 @@ service cloud.firestore {
       allow create: if isValidInitialWorkerRateVersionCreate(
         request.resource.data,
         rateVersionId
+      ) || isValidSubsequentWorkerRateVersionCreate(
+        request.resource.data,
+        rateVersionId
       );
-      allow update, delete: if false;
+      allow update: if isValidWorkerRateVersionCloseUpdate(
+        request.resource.data,
+        resource.data,
+        rateVersionId
+      );
+      allow delete: if false;
     }
 
     match /{document=**} {

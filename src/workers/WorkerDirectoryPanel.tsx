@@ -1,10 +1,20 @@
-import { Plus, RefreshCw, Scale, Search, ShieldAlert, UserRound, X } from "lucide-react";
+import {
+  Plus,
+  RefreshCw,
+  Scale,
+  Search,
+  ShieldAlert,
+  TrendingUp,
+  UserRound,
+  X
+} from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import {
+  createWorkerRateVersion,
   createWorkerWithInitialRate,
   defaultWorkerDirectoryFilters,
   analyzeWorkerRateHistory,
@@ -20,6 +30,7 @@ import {
   workerSummaryMoneyLabel,
   workerUnitLabel,
   type CreateWorkerInput,
+  type CreateWorkerRateVersionInput,
   type WorkerDirectoryFilters,
   type WorkerDirectoryListItem,
   type WorkerDirectoryListInput,
@@ -34,11 +45,16 @@ export type WorkerDirectoryApi = {
     input: WorkerDirectoryListInput
   ) => Promise<WorkerDirectoryResult>;
   create?: (env: FirebaseEnv, input: CreateWorkerInput) => Promise<unknown>;
+  createRate?: (
+    env: FirebaseEnv,
+    input: CreateWorkerRateVersionInput
+  ) => Promise<unknown>;
 };
 
 export const defaultWorkerDirectoryApi: WorkerDirectoryApi = {
   list: listWorkerDirectory,
-  create: createWorkerWithInitialRate
+  create: createWorkerWithInitialRate,
+  createRate: createWorkerRateVersion
 };
 
 type DirectoryState =
@@ -69,6 +85,16 @@ type CreateWorkerDraft = {
   confirmed: boolean;
 };
 
+type CreateWorkerRateDraft = {
+  planId: string;
+  rate: string;
+  validFrom: string;
+  note: string;
+  confirmBackdatedRate: boolean;
+  confirmHistoricalSnapshotsUnchanged: boolean;
+  confirmPeriodWarning: boolean;
+};
+
 const initialState: DirectoryState = {
   status: "IDLE",
   result: null,
@@ -91,10 +117,16 @@ export function WorkerDirectoryPanel({
   const [createDraft, setCreateDraft] = useState<CreateWorkerDraft>(() =>
     createInitialWorkerDraft()
   );
+  const [rateDraft, setRateDraft] = useState<CreateWorkerRateDraft>(() =>
+    createInitialWorkerRateDraft()
+  );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rateFeedback, setRateFeedback] = useState<string | null>(null);
+  const [rateError, setRateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRateSubmitting, setIsRateSubmitting] = useState(false);
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -185,6 +217,21 @@ export function WorkerDirectoryPanel({
       setSelectedWorkerId(null);
     }
   }, [selectedWorker, selectedWorkerId, state.result]);
+
+  useEffect(() => {
+    if (!selectedWorker) {
+      return;
+    }
+
+    setRateDraft({
+      ...createInitialWorkerRateDraft(),
+      planId: activePlans.some((plan) => plan.id === selectedWorker.currentPlanId)
+        ? selectedWorker.currentPlanId
+        : (activePlans[0]?.id ?? "")
+    });
+    setRateFeedback(null);
+    setRateError(null);
+  }, [activePlans, selectedWorker]);
 
   useEffect(() => {
     if (!isAdmin || activePlans.length === 0) {
@@ -283,6 +330,63 @@ export function WorkerDirectoryPanel({
     }
   };
 
+  const handleCreateRate = async (worker: WorkerDirectoryListItem) => {
+    if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
+      return;
+    }
+
+    setRateFeedback(null);
+    setRateError(null);
+
+    if (!rateDraft.confirmHistoricalSnapshotsUnchanged) {
+      setRateError("Potwierdz, ze historyczne snapshoty nie zostana przeliczone.");
+      return;
+    }
+
+    if (rateDraft.validFrom < currentBusinessDate() && !rateDraft.confirmBackdatedRate) {
+      setRateError("Potwierdz zapis stawki z data wsteczna.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setRateError("Dodanie stawki wymaga polaczenia online.");
+      return;
+    }
+
+    const createRate =
+      workerDirectoryApi.createRate ?? defaultWorkerDirectoryApi.createRate;
+
+    if (!createRate) {
+      setRateError("Operacja dodawania stawki nie jest dostepna.");
+      return;
+    }
+
+    setIsRateSubmitting(true);
+
+    try {
+      const result = await createRate(env, {
+        actorProfile: authState.profile,
+        workerId: worker.id,
+        planId: rateDraft.planId,
+        rateGroszPerUnit: parseWorkerRate(rateDraft.rate),
+        validFrom: rateDraft.validFrom,
+        note: rateDraft.note,
+        confirmBackdatedRate: rateDraft.confirmBackdatedRate,
+        confirmHistoricalSnapshotsUnchanged:
+          rateDraft.confirmHistoricalSnapshotsUnchanged,
+        confirmPeriodWarning: rateDraft.confirmPeriodWarning,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit(authState.profile.role);
+      setRateFeedback(createWorkerRateFeedback(result));
+      setRateDraft(createInitialWorkerRateDraft());
+    } catch (createError: unknown) {
+      setRateError(getWorkerDirectoryErrorMessage(createError));
+    } finally {
+      setIsRateSubmitting(false);
+    }
+  };
+
   const reloadAfterSubmit = async (role: "ADMIN" | "OPERATOR") => {
     const result = await workerDirectoryApi.list(env, {
       viewerRole: role
@@ -371,10 +475,19 @@ export function WorkerDirectoryPanel({
 
       {isAdmin && selectedWorker && state.result ? (
         <WorkerProfilePanel
+          activePlans={activePlans}
+          isRateSubmitting={isRateSubmitting}
           onClose={() => {
             setSelectedWorkerId(null);
           }}
+          onRateChange={setRateDraft}
+          onRateSubmit={() => {
+            void handleCreateRate(selectedWorker);
+          }}
           plans={state.result.plans}
+          rateDraft={rateDraft}
+          rateError={rateError}
+          rateFeedback={rateFeedback}
           worker={selectedWorker}
         />
       ) : null}
@@ -505,12 +618,26 @@ export function WorkerDirectoryPanel({
 }
 
 function WorkerProfilePanel({
+  activePlans,
+  isRateSubmitting,
   onClose,
+  onRateChange,
+  onRateSubmit,
   plans,
+  rateDraft,
+  rateError,
+  rateFeedback,
   worker
 }: {
+  activePlans: WorkerDirectoryResult["plans"];
+  isRateSubmitting: boolean;
   onClose: () => void;
+  onRateChange: (draft: CreateWorkerRateDraft) => void;
+  onRateSubmit: () => void;
   plans: WorkerDirectoryResult["plans"];
+  rateDraft: CreateWorkerRateDraft;
+  rateError: string | null;
+  rateFeedback: string | null;
   worker: WorkerDirectoryListItem;
 }) {
   return (
@@ -620,6 +747,19 @@ function WorkerProfilePanel({
           <p className="worker-profile__empty">brak</p>
         )}
       </WorkerProfileSection>
+
+      <CreateWorkerRateForm
+        activePlans={activePlans}
+        draft={rateDraft}
+        isSubmitting={isRateSubmitting}
+        onChange={onRateChange}
+        onSubmit={onRateSubmit}
+      />
+
+      {rateFeedback ? (
+        <p className="form-message form-message--ok">{rateFeedback}</p>
+      ) : null}
+      {rateError ? <p className="form-message form-message--error">{rateError}</p> : null}
 
       <WorkerRateHistoryTable
         currentRateVersionId={worker.currentRateVersionId}
@@ -753,6 +893,169 @@ function WorkerAuditEvents({
         ))}
       </ul>
     </WorkerProfileSection>
+  );
+}
+
+function CreateWorkerRateForm({
+  activePlans,
+  draft,
+  isSubmitting,
+  onChange,
+  onSubmit
+}: {
+  activePlans: WorkerDirectoryResult["plans"];
+  draft: CreateWorkerRateDraft;
+  isSubmitting: boolean;
+  onChange: (draft: CreateWorkerRateDraft) => void;
+  onSubmit: () => void;
+}) {
+  const isBackdated = draft.validFrom < currentBusinessDate();
+
+  return (
+    <form
+      aria-label="Dodawanie stawki zbieracza"
+      className="worker-rate-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="worker-rate-form__heading">
+        <TrendingUp aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h4>Nowa stawka</h4>
+      </div>
+
+      <label className="field">
+        <span>Plan</span>
+        <select
+          disabled={isSubmitting || activePlans.length === 0}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              planId: event.target.value
+            });
+          }}
+          value={draft.planId}
+        >
+          {activePlans.length === 0 ? (
+            <option value="">Brak aktywnych planow</option>
+          ) : null}
+          {activePlans.map((plan) => (
+            <option key={plan.id} value={plan.id}>
+              {plan.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Stawka</span>
+        <input
+          disabled={isSubmitting}
+          inputMode="decimal"
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              rate: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.rate}
+        />
+      </label>
+
+      <label className="field">
+        <span>Od dnia</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              validFrom: event.target.value,
+              confirmBackdatedRate: false,
+              confirmPeriodWarning: false
+            });
+          }}
+          type="date"
+          value={draft.validFrom}
+        />
+      </label>
+
+      <label className="field worker-rate-form__note">
+        <span>Notatka</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              note: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.note}
+        />
+      </label>
+
+      {isBackdated ? (
+        <p className="worker-form__warning">
+          Data stawki jest wsteczna. Snapshoty istniejacych sesji nie zostana przeliczone.
+        </p>
+      ) : null}
+
+      <label className="checkbox-field worker-rate-form__confirmation">
+        <input
+          checked={draft.confirmHistoricalSnapshotsUnchanged}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmHistoricalSnapshotsUnchanged: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam, ze historyczne snapshoty nie zostana przeliczone</span>
+      </label>
+
+      <label className="checkbox-field worker-rate-form__confirmation">
+        <input
+          checked={draft.confirmBackdatedRate}
+          disabled={isSubmitting || !isBackdated}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmBackdatedRate: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam zapis stawki z data wsteczna</span>
+      </label>
+
+      <label className="checkbox-field worker-rate-form__confirmation">
+        <input
+          checked={draft.confirmPeriodWarning}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmPeriodWarning: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam zapis mimo ewentualnych ostrzezen okresow</span>
+      </label>
+
+      <button
+        className="primary-action worker-rate-form__submit"
+        disabled={isSubmitting || activePlans.length === 0}
+        type="submit"
+      >
+        <TrendingUp aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Dodaj stawke</span>
+      </button>
+    </form>
   );
 }
 
@@ -1141,6 +1444,18 @@ function createInitialWorkerDraft(): CreateWorkerDraft {
   };
 }
 
+function createInitialWorkerRateDraft(): CreateWorkerRateDraft {
+  return {
+    planId: "",
+    rate: "",
+    validFrom: currentBusinessDate(),
+    note: "",
+    confirmBackdatedRate: false,
+    confirmHistoricalSnapshotsUnchanged: false,
+    confirmPeriodWarning: false
+  };
+}
+
 function parseWorkerRate(value: string): number {
   try {
     const parsed = parseDecimalToScaledInteger(value, 2);
@@ -1166,6 +1481,19 @@ function createWorkerFeedback(result: unknown): string {
   }
 
   return "Utworzono zbieracza.";
+}
+
+function createWorkerRateFeedback(result: unknown): string {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "backdatedWarning" in result &&
+    typeof result.backdatedWarning === "string"
+  ) {
+    return `Dodano stawke. ${result.backdatedWarning}`;
+  }
+
+  return "Dodano stawke.";
 }
 
 function getWorkerDirectoryErrorMessage(error: unknown): string {
