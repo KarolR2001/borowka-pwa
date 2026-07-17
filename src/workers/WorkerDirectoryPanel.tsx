@@ -1,5 +1,5 @@
-import { Plus, RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Plus, RefreshCw, Scale, Search, ShieldAlert, UserRound, X } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
@@ -19,6 +19,7 @@ import {
   workerUnitLabel,
   type CreateWorkerInput,
   type WorkerDirectoryFilters,
+  type WorkerDirectoryListItem,
   type WorkerDirectoryListInput,
   type WorkerDirectoryResult
 } from "./workerDirectory";
@@ -88,6 +89,7 @@ export function WorkerDirectoryPanel({
   const [createDraft, setCreateDraft] = useState<CreateWorkerDraft>(() =>
     createInitialWorkerDraft()
   );
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -155,7 +157,8 @@ export function WorkerDirectoryPanel({
     (state.result?.invalidWorkers.length ?? 0) +
     (state.result?.invalidPlans.length ?? 0) +
     (state.result?.invalidRateVersions.length ?? 0) +
-    (state.result?.invalidProfiles.length ?? 0);
+    (state.result?.invalidProfiles.length ?? 0) +
+    (state.result?.invalidAuditEvents.length ?? 0);
   const activePlans = useMemo(
     () => state.result?.plans.filter((plan) => plan.active) ?? [],
     [state.result]
@@ -167,6 +170,19 @@ export function WorkerDirectoryPanel({
         : [],
     [createDraft.displayName, state.result]
   );
+  const selectedWorker = useMemo(
+    () =>
+      selectedWorkerId && state.result
+        ? (state.result.workers.find((worker) => worker.id === selectedWorkerId) ?? null)
+        : null,
+    [selectedWorkerId, state.result]
+  );
+
+  useEffect(() => {
+    if (state.result && selectedWorkerId && !selectedWorker) {
+      setSelectedWorkerId(null);
+    }
+  }, [selectedWorker, selectedWorkerId, state.result]);
 
   useEffect(() => {
     if (!isAdmin || activePlans.length === 0) {
@@ -351,6 +367,16 @@ export function WorkerDirectoryPanel({
         <DirectoryStat label="Bledne dokumenty" value={String(invalidDocumentsCount)} />
       </div>
 
+      {isAdmin && selectedWorker && state.result ? (
+        <WorkerProfilePanel
+          onClose={() => {
+            setSelectedWorkerId(null);
+          }}
+          plans={state.result.plans}
+          worker={selectedWorker}
+        />
+      ) : null}
+
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">{state.message}</p>
       ) : null}
@@ -379,6 +405,7 @@ export function WorkerDirectoryPanel({
                 {isAdmin ? <th scope="col">Wyplacone</th> : null}
                 {isAdmin ? <th scope="col">Do wyplaty</th> : null}
                 {isAdmin ? <th scope="col">Ostrzezenia</th> : null}
+                {isAdmin ? <th scope="col">Profil</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -415,6 +442,21 @@ export function WorkerDirectoryPanel({
                       {worker.warnings.length > 0 ? worker.warnings.join("; ") : "brak"}
                     </td>
                   ) : null}
+                  {isAdmin ? (
+                    <td>
+                      <button
+                        aria-pressed={selectedWorkerId === worker.id}
+                        className="secondary-action directory-action"
+                        onClick={() => {
+                          setSelectedWorkerId(worker.id);
+                        }}
+                        type="button"
+                      >
+                        <UserRound aria-hidden="true" size={17} strokeWidth={2.2} />
+                        <span>Profil</span>
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -449,7 +491,260 @@ export function WorkerDirectoryPanel({
           title="Bledne dokumenty profili"
         />
       ) : null}
+
+      {state.result && state.result.invalidAuditEvents.length > 0 ? (
+        <InvalidDocuments
+          documents={state.result.invalidAuditEvents}
+          title="Bledne dokumenty audytu"
+        />
+      ) : null}
     </section>
+  );
+}
+
+function WorkerProfilePanel({
+  onClose,
+  plans,
+  worker
+}: {
+  onClose: () => void;
+  plans: WorkerDirectoryResult["plans"];
+  worker: WorkerDirectoryListItem;
+}) {
+  return (
+    <section
+      aria-label={`Profil zbieracza ${worker.displayName}`}
+      className="worker-profile"
+    >
+      <div className="worker-profile__header">
+        <div>
+          <p className="eyebrow">Profil zbieracza</p>
+          <h3>{worker.displayName}</h3>
+          <p className="panel-detail">{worker.id}</p>
+        </div>
+        <button
+          className="secondary-action directory-action"
+          onClick={onClose}
+          type="button"
+        >
+          <X aria-hidden="true" size={17} strokeWidth={2.2} />
+          <span>Zamknij</span>
+        </button>
+      </div>
+
+      <div className="worker-profile__grid">
+        <WorkerProfileSection title="Dane podstawowe">
+          <dl className="worker-profile__facts">
+            <WorkerProfileFact label="Status" value={workerStatusLabel(worker)} />
+            <WorkerProfileFact
+              label="Telefon"
+              value={optionalProfileValue(worker.phone)}
+            />
+            <WorkerProfileFact
+              label="E-mail"
+              value={optionalProfileValue(worker.emailContact)}
+            />
+            <WorkerProfileFact
+              label="Notatka"
+              value={optionalProfileValue(worker.notes)}
+            />
+          </dl>
+        </WorkerProfileSection>
+
+        <WorkerProfileSection title="Aktualny plan i stawka">
+          <dl className="worker-profile__facts">
+            <WorkerProfileFact
+              label="Plan"
+              value={worker.currentPlan?.name ?? worker.currentPlanId}
+            />
+            <WorkerProfileFact
+              label="Stawka"
+              value={workerRateLabel(worker.currentRateVersion)}
+            />
+            <WorkerProfileFact
+              label="Jednostka"
+              value={workerUnitLabel(worker.currentPlan)}
+            />
+            <WorkerProfileFact
+              label="Od dnia"
+              value={worker.currentRateVersion?.validFrom ?? "brak"}
+            />
+          </dl>
+        </WorkerProfileSection>
+
+        <WorkerProfileSection title="Konto użytkownika">
+          <dl className="worker-profile__facts">
+            <WorkerProfileFact
+              label="Konto"
+              value={worker.linkedUser?.email ?? worker.linkedUserUid ?? "brak"}
+            />
+            <WorkerProfileFact
+              label="Status konta"
+              value={worker.linkedUser ? accountProfileStatus(worker.linkedUser) : "brak"}
+            />
+          </dl>
+        </WorkerProfileSection>
+
+        <WorkerProfileSection title="Podsumowanie sezonu">
+          <dl className="worker-profile__facts">
+            <WorkerProfileFact
+              label="Kg"
+              value={workerSummaryKgLabel(worker.seasonSummary.totalKgGrams)}
+            />
+            <WorkerProfileFact
+              label="Naliczone"
+              value={workerSummaryMoneyLabel(worker.seasonSummary.earnedGrosz)}
+            />
+            <WorkerProfileFact
+              label="Wyplacone"
+              value={workerSummaryMoneyLabel(worker.seasonSummary.paidGrosz)}
+            />
+            <WorkerProfileFact
+              label="Do wyplaty"
+              value={workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}
+            />
+          </dl>
+        </WorkerProfileSection>
+      </div>
+
+      <WorkerProfileSection title="Ostrzezenia">
+        {worker.warnings.length > 0 ? (
+          <ul className="worker-profile__list">
+            {worker.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="worker-profile__empty">brak</p>
+        )}
+      </WorkerProfileSection>
+
+      <WorkerRateHistoryTable
+        currentRateVersionId={worker.currentRateVersionId}
+        plans={plans}
+        rateVersions={worker.rateVersions}
+      />
+
+      <WorkerAuditEvents auditEvents={worker.auditEvents} />
+
+      <div className="worker-profile__grid">
+        <WorkerProfileSection title="Sesje">
+          <p className="worker-profile__empty">Brak sesji do wyswietlenia.</p>
+        </WorkerProfileSection>
+        <WorkerProfileSection title="Wyplaty">
+          <p className="worker-profile__empty">Brak wyplat do wyswietlenia.</p>
+        </WorkerProfileSection>
+      </div>
+    </section>
+  );
+}
+
+function WorkerProfileSection({
+  children,
+  title
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="worker-profile__section">
+      <h4>{title}</h4>
+      {children}
+    </section>
+  );
+}
+
+function WorkerProfileFact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function WorkerRateHistoryTable({
+  currentRateVersionId,
+  plans,
+  rateVersions
+}: {
+  currentRateVersionId: string;
+  plans: WorkerDirectoryResult["plans"];
+  rateVersions: WorkerDirectoryListItem["rateVersions"];
+}) {
+  if (rateVersions.length === 0) {
+    return (
+      <WorkerProfileSection title="Historia stawek">
+        <p className="worker-profile__empty">Brak stawek do wyswietlenia.</p>
+      </WorkerProfileSection>
+    );
+  }
+
+  return (
+    <WorkerProfileSection title="Historia stawek">
+      <div className="worker-profile__table-wrap">
+        <table className="worker-profile__table">
+          <thead>
+            <tr>
+              <th scope="col">Status</th>
+              <th scope="col">Plan</th>
+              <th scope="col">Stawka</th>
+              <th scope="col">Od</th>
+              <th scope="col">Do</th>
+              <th scope="col">Autor</th>
+              <th scope="col">Notatka</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rateVersions.map((rateVersion) => (
+              <tr key={rateVersion.id}>
+                <td>
+                  {rateVersion.id === currentRateVersionId
+                    ? "Biezaca"
+                    : rateVersion.active
+                      ? "Aktywna"
+                      : "Nieaktywna"}
+                </td>
+                <td>{ratePlanLabel(rateVersion.planId, plans)}</td>
+                <td>{workerRateLabel(rateVersion)}</td>
+                <td>{rateVersion.validFrom}</td>
+                <td>{rateVersion.validTo ?? "bez terminu"}</td>
+                <td>{rateVersion.createdBy}</td>
+                <td>{optionalProfileValue(rateVersion.note)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </WorkerProfileSection>
+  );
+}
+
+function WorkerAuditEvents({
+  auditEvents
+}: {
+  auditEvents: WorkerDirectoryListItem["auditEvents"];
+}) {
+  if (auditEvents.length === 0) {
+    return (
+      <WorkerProfileSection title="Historia zmian">
+        <p className="worker-profile__empty">Brak zdarzen audytu dla tego zbieracza.</p>
+      </WorkerProfileSection>
+    );
+  }
+
+  return (
+    <WorkerProfileSection title="Historia zmian">
+      <ul className="worker-profile__audit-list">
+        {auditEvents.slice(0, 8).map((auditEvent) => (
+          <li key={auditEvent.id}>
+            <strong>{auditActionLabel(auditEvent.action)}</strong>
+            <span>{auditEvent.actorUid}</span>
+            <span>{auditEvent.reason ?? auditEvent.id}</span>
+          </li>
+        ))}
+      </ul>
+    </WorkerProfileSection>
   );
 }
 
@@ -776,6 +1071,45 @@ function AccessNotice({ title, message }: { title: string; message: string }) {
       </div>
     </div>
   );
+}
+
+function optionalProfileValue(value: string | null | undefined): string {
+  return value?.trim() ? value : "brak";
+}
+
+function accountProfileStatus(
+  profile: NonNullable<WorkerDirectoryListItem["linkedUser"]>
+) {
+  if (!profile.active || profile.registrationStatus === "BLOCKED") {
+    return "Zablokowane";
+  }
+
+  return profile.registrationStatus === "APPROVED"
+    ? "Aktywne"
+    : profile.registrationStatus;
+}
+
+function ratePlanLabel(planId: string, plans: WorkerDirectoryResult["plans"]): string {
+  return plans.find((plan) => plan.id === planId)?.name ?? planId;
+}
+
+function auditActionLabel(
+  action: WorkerDirectoryListItem["auditEvents"][number]["action"]
+): string {
+  switch (action) {
+    case "WORKER_CREATED":
+      return "Utworzenie zbieracza";
+    case "USER_WORKER_LINK_CHANGED":
+      return "Zmiana powiazania konta";
+    case "USER_ROLE_CHANGED":
+      return "Zmiana roli konta";
+    case "USER_BLOCKED":
+      return "Blokada konta";
+    case "USER_REACTIVATED":
+      return "Reaktywacja konta";
+    default:
+      return action;
+  }
 }
 
 function createInitialWorkerDraft(): CreateWorkerDraft {

@@ -109,7 +109,9 @@ const worker = ({
     createdBy: "admin-1",
     supersedesRateId: null
   },
+  rateVersions: [],
   linkedUser: null,
+  auditEvents: [],
   warnings: [],
   seasonSummary: {
     totalKgGrams: null,
@@ -178,7 +180,8 @@ describe("WorkerDirectoryPanel", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
 
     render(
@@ -200,6 +203,119 @@ describe("WorkerDirectoryPanel", () => {
     expect(screen.getByText("anna@example.test")).toBeInTheDocument();
     expect(screen.getAllByText("brak danych")).toHaveLength(4);
     expect(screen.getByText("Brak aktualnej stawki.")).toBeInTheDocument();
+  });
+
+  it("opens administrator worker profile with rate history and audit events", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [
+        worker({
+          id: "worker-anna",
+          displayName: "Anna Test",
+          phone: "500 600 700",
+          emailContact: "anna@example.test",
+          notes: "Osoba testowa.",
+          rateVersions: [
+            {
+              id: "rate-worker-anna-2026-07-01",
+              workerId: "worker-anna",
+              planId: "plan-weight",
+              rateGroszPerUnit: 1000,
+              validFrom: "2026-07-01",
+              validTo: null,
+              active: true,
+              note: "Aktualna stawka.",
+              createdAt: "created-at",
+              createdBy: "admin-1",
+              supersedesRateId: null
+            },
+            {
+              id: "rate-worker-anna-2026-06-01",
+              workerId: "worker-anna",
+              planId: "plan-weight",
+              rateGroszPerUnit: 900,
+              validFrom: "2026-06-01",
+              validTo: "2026-06-30",
+              active: false,
+              note: "Poprzednia stawka.",
+              createdAt: "created-at",
+              createdBy: "admin-1",
+              supersedesRateId: null
+            }
+          ],
+          auditEvents: [
+            {
+              id: "audit-worker-created",
+              actorUid: "admin-1",
+              actorRoleSnapshot: "ADMIN",
+              action: "WORKER_CREATED",
+              entityType: "WORKER",
+              entityId: "worker-anna",
+              businessDate: null,
+              beforeSummary: null,
+              afterSummary: {
+                workerId: "worker-anna"
+              },
+              reason: "Pierwszy zapis.",
+              createdAtDevice: "device-time",
+              createdAtServer: "server-time",
+              deviceId: "device-1"
+            }
+          ]
+        })
+      ],
+      plans: [
+        {
+          id: "plan-weight",
+          name: "Za kilogram",
+          code: "WEIGHT_KG",
+          calculationBasis: "WEIGHT",
+          unitLabelSingular: "kilogram",
+          unitLabelPlural: "kilogramy",
+          unitSymbol: "kg",
+          quantityPrecision: 3,
+          weightRequired: true,
+          allowBatchQuantity: true,
+          description: null,
+          active: true,
+          systemDefault: true,
+          createdAt: "created-at",
+          createdBy: "admin-1",
+          archivedAt: null
+        }
+      ],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: [],
+      invalidAuditEvents: []
+    });
+
+    render(
+      <WorkerDirectoryPanel
+        authState={adminState}
+        env={env}
+        workerDirectoryApi={{ list }}
+      />
+    );
+
+    await screen.findByText("Anna Test");
+    await user.click(screen.getByRole("button", { name: "Profil" }));
+
+    const profile = screen.getByRole("region", {
+      name: "Profil zbieracza Anna Test"
+    });
+
+    expect(
+      within(profile).getByRole("heading", { name: "Anna Test" })
+    ).toBeInTheDocument();
+    expect(within(profile).getByText("500 600 700")).toBeInTheDocument();
+    expect(within(profile).getByText("anna@example.test")).toBeInTheDocument();
+    expect(within(profile).getByText("Aktualna stawka.")).toBeInTheDocument();
+    expect(within(profile).getByText("Poprzednia stawka.")).toBeInTheDocument();
+    expect(within(profile).getByText("9,00 zł")).toBeInTheDocument();
+    expect(within(profile).getByText("Utworzenie zbieracza")).toBeInTheDocument();
+    expect(within(profile).getByText("Pierwszy zapis.")).toBeInTheDocument();
   });
 
   it("creates a worker with initial rate after confirmation", async () => {
@@ -229,7 +345,8 @@ describe("WorkerDirectoryPanel", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
     const create = vi
       .fn<NonNullable<WorkerDirectoryApi["create"]>>()
@@ -288,7 +405,8 @@ describe("WorkerDirectoryPanel", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
 
     render(
@@ -348,7 +466,8 @@ describe("WorkerDirectoryPanel", () => {
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
-      invalidProfiles: []
+      invalidProfiles: [],
+      invalidAuditEvents: []
     });
 
     render(
