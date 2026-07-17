@@ -819,6 +819,45 @@ h2 {
   padding-bottom: 0;
 }
 
+.configuration-cache {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.configuration-cache__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.configuration-cache__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.configuration-cache__stat--ok strong {
+  color: #0f5d3d;
+}
+
+.configuration-cache__stat--warn strong {
+  color: #8a3b12;
+}
+
+.configuration-cache__requirements {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #edf2ee;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfdfb;
+}
+
 .settlement-plan-form__example {
   display: grid;
   gap: 4px;
@@ -1018,6 +1057,10 @@ h2 {
     flex-direction: column;
   }
 
+  .configuration-cache__actions {
+    justify-content: flex-start;
+  }
+
   .directory-filters,
   .invitation-form,
   .season-form,
@@ -1089,6 +1132,11 @@ h2 {
   }
 
   .worker-profile__header {
+    flex-direction: column;
+  }
+
+  .configuration-cache__actions {
+    align-items: stretch;
     flex-direction: column;
   }
 
