@@ -858,6 +858,202 @@ h2 {
   background: #fbfdfb;
 }
 
+.active-session {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.active-session__empty {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.active-session__empty h3,
+.active-session__header h3,
+.active-session__section-header h4 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.active-session__empty p,
+.active-session__header p {
+  margin: 4px 0 0;
+  color: #5f6f66;
+  font-weight: 700;
+}
+
+.active-session__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.active-session__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.active-session__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.active-session__badge {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #dce6df;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #45564e;
+  background: #f7faf7;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.active-session__badge--ok {
+  border-color: #b7d9c4;
+  color: #17663f;
+  background: #edf8f0;
+}
+
+.active-session__badge--warn {
+  border-color: #e4c6b6;
+  color: #8a3b12;
+  background: #fff3ec;
+}
+
+.active-session__summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.active-session__metric {
+  min-height: 74px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid #edf2ee;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfdfb;
+}
+
+.active-session__metric dt,
+.active-session__facts span,
+.active-session__entry dt {
+  color: #5f6f66;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.active-session__metric dd,
+.active-session__facts strong,
+.active-session__entry dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-weight: 900;
+}
+
+.active-session__metric dd {
+  font-size: 1.14rem;
+}
+
+.active-session__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.active-session__facts div {
+  display: grid;
+  gap: 2px;
+  border-bottom: 1px solid #edf2ee;
+  padding-bottom: 8px;
+}
+
+.active-session__entries {
+  display: grid;
+  gap: 10px;
+}
+
+.active-session__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.active-session__section-header span {
+  border-radius: 999px;
+  padding: 3px 9px;
+  color: #0d4c2f;
+  background: #e8f4ec;
+  font-weight: 900;
+}
+
+.active-session__entry-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.active-session__entry {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #edf2ee;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfdfb;
+}
+
+.active-session__entry > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.active-session__entry > div:first-child span {
+  color: #5f6f66;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.active-session__entry dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.active-session__entry-status {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #29463a;
+  background: #eef4f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .settlement-plan-form__example {
   display: grid;
   gap: 4px;
@@ -1062,6 +1258,11 @@ h2 {
   }
 
   .directory-filters,
+  .active-session__header,
+  .active-session__summary,
+  .active-session__facts,
+  .active-session__entry,
+  .active-session__entry dl,
   .invitation-form,
   .season-form,
   .season-action-form,
@@ -1138,6 +1339,19 @@ h2 {
   .configuration-cache__actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .active-session {
+    margin-top: 16px;
+    padding: 14px;
+  }
+
+  .active-session__actions {
+    flex-direction: column;
+  }
+
+  .active-session__entry-status {
+    justify-self: start;
   }
 
   .worker-profile__audit-list li {
