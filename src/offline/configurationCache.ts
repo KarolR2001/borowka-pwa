@@ -155,7 +155,9 @@ export async function prepareConfigurationCache(
   }
 
   const [seasonDirectory, workerDirectory] = await Promise.all([
-    listSeasons(env),
+    listSeasons(env, {
+      viewerRole: input.viewerRole
+    }),
     listWorkerDirectory(env, {
       viewerRole: input.viewerRole
     })

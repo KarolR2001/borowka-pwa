@@ -29,6 +29,12 @@ export type SeasonDirectoryResult = {
   invalidSeasons: InvalidSeason[];
 };
 
+export type SeasonDirectoryScope = "ADMIN" | "OPERATOR";
+
+export type SeasonDirectoryListInput = {
+  viewerRole: SeasonDirectoryScope;
+};
+
 export type SeasonStatusFilter = SeasonStatus | "ALL";
 export type SeasonIdFilter = string;
 export type SeasonStatusAction = "OPEN" | "CLOSE" | "REOPEN" | "ARCHIVE" | "SET_DEFAULT";
@@ -91,10 +97,18 @@ export const defaultSeasonFilters: SeasonFilters = {
   status: "ALL"
 };
 
-export async function listSeasons(env: FirebaseEnv): Promise<SeasonDirectoryResult> {
+export async function listSeasons(
+  env: FirebaseEnv,
+  input: SeasonDirectoryListInput = { viewerRole: "ADMIN" }
+): Promise<SeasonDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs } = await import("firebase/firestore/lite");
-  const snapshot = await getDocs(collection(firestore, SEASONS_COLLECTION));
+  const { collection, getDocs, query, where } = await import("firebase/firestore/lite");
+  const seasonsCollection = collection(firestore, SEASONS_COLLECTION);
+  const seasonsQuery =
+    input.viewerRole === "ADMIN"
+      ? seasonsCollection
+      : query(seasonsCollection, where("status", "==", "OPEN"));
+  const snapshot = await getDocs(seasonsQuery);
   const documents = snapshot.docs.map((documentSnapshot) => ({
     id: documentSnapshot.id,
     data: documentSnapshot.data()
