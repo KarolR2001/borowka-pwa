@@ -2,15 +2,37 @@ import type {
   SettlementPlanDocument,
   WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
+import type { UserProfile } from "../domain/identity";
 import {
   buildSettlementPlansDirectory,
+  createSettlementPlanExample,
+  createSettlementPlanId,
   decodeSettlementPlan,
   filterSettlementPlans,
+  normalizePlanCode,
+  prepareSettlementPlanCreate,
   settlementCalculationBasisLabel,
   settlementPlanStatusLabel
 } from "./settlementPlans";
 
 const createdAt = "created-at";
+
+const adminProfile: UserProfile = {
+  uid: "admin-1",
+  email: "admin@example.test",
+  displayName: "Admin Test",
+  role: "ADMIN",
+  workerId: null,
+  active: true,
+  registrationStatus: "APPROVED",
+  offlineConsent: false
+};
+
+const operatorProfile: UserProfile = {
+  ...adminProfile,
+  uid: "operator-1",
+  role: "OPERATOR"
+};
 
 const plan = ({
   id,
@@ -58,6 +80,135 @@ const rateVersion = ({
 });
 
 describe("settlementPlans", () => {
+  it("prepares a custom quantity plan with stable code, audit summary and warning", () => {
+    const prepared = prepareSettlementPlanCreate([], {
+      actorProfile: adminProfile,
+      name: "  Za skrzynke  ",
+      code: " skrzynka  ",
+      calculationBasis: "QUANTITY",
+      unitLabelSingular: "skrzynka",
+      unitLabelPlural: "skrzynki",
+      unitSymbol: "skrz.",
+      quantityPrecision: 0,
+      weightRequired: false,
+      allowBatchQuantity: true,
+      description: "  Rozliczenie za skrzynke. ",
+      createdAt,
+      deviceId: "device-1"
+    });
+
+    expect(prepared.plan).toMatchObject({
+      id: "plan-skrzynka",
+      name: "Za skrzynke",
+      code: "SKRZYNKA",
+      calculationBasis: "QUANTITY",
+      quantityPrecision: 0,
+      weightRequired: false,
+      allowBatchQuantity: true,
+      description: "Rozliczenie za skrzynke.",
+      active: true,
+      systemDefault: false,
+      createdBy: "admin-1",
+      archivedAt: null
+    });
+    expect(prepared.auditAction).toBe("SETTLEMENT_PLAN_CREATED");
+    expect(prepared.afterSummary).toMatchObject({
+      planId: "plan-skrzynka",
+      code: "SKRZYNKA",
+      calculationBasis: "QUANTITY",
+      active: true
+    });
+    expect(prepared.inventoryWarning).toBe(
+      "Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
+    );
+  });
+
+  it("blocks unsafe custom plan creation", () => {
+    const existing = [
+      plan({
+        id: "plan-skrzynka",
+        code: "SKRZYNKA"
+      })
+    ];
+
+    expect(() =>
+      prepareSettlementPlanCreate(existing, {
+        actorProfile: adminProfile,
+        name: "Za skrzynke",
+        code: "SKRZYNKA",
+        calculationBasis: "QUANTITY",
+        unitLabelSingular: "skrzynka",
+        unitLabelPlural: "skrzynki",
+        unitSymbol: "skrz.",
+        quantityPrecision: 1,
+        weightRequired: false,
+        allowBatchQuantity: true,
+        description: null,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Kod planu musi byc unikalny.");
+
+    expect(() =>
+      prepareSettlementPlanCreate([], {
+        actorProfile: adminProfile,
+        name: "Za wage bez wagi",
+        code: "BAD_WEIGHT",
+        calculationBasis: "WEIGHT",
+        unitLabelSingular: "kilogram",
+        unitLabelPlural: "kilogramy",
+        unitSymbol: "kg",
+        quantityPrecision: 3,
+        weightRequired: false,
+        allowBatchQuantity: true,
+        description: null,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Plan wagowy musi wymagac wagi.");
+
+    expect(() =>
+      prepareSettlementPlanCreate([], {
+        actorProfile: operatorProfile,
+        name: "Brak uprawnien",
+        code: "NO_ACCESS",
+        calculationBasis: "QUANTITY",
+        unitLabelSingular: "sztuka",
+        unitLabelPlural: "sztuki",
+        unitSymbol: "szt.",
+        quantityPrecision: 0,
+        weightRequired: false,
+        allowBatchQuantity: true,
+        description: null,
+        createdAt,
+        deviceId: "device-1"
+      })
+    ).toThrow("Operacja planu wymaga aktywnego administratora.");
+  });
+
+  it("normalizes codes, creates stable ids and previews calculation", () => {
+    expect(normalizePlanCode(" Za skrzynke! ")).toBe("ZA_SKRZYNKE");
+    expect(createSettlementPlanId(" Za skrzynke! ")).toBe("plan-za-skrzynke");
+    expect(
+      createSettlementPlanExample({
+        calculationBasis: "QUANTITY",
+        quantityPrecision: 1,
+        unitLabelSingular: "ubianka",
+        unitLabelPlural: "ubianki",
+        unitSymbol: "ubianka"
+      })
+    ).toBe("3,5 ubianki x 15,00 zł = 52,50 zł");
+    expect(
+      createSettlementPlanExample({
+        calculationBasis: "WEIGHT",
+        quantityPrecision: 3,
+        unitLabelSingular: "kilogram",
+        unitLabelPlural: "kilogramy",
+        unitSymbol: "kg"
+      })
+    ).toBe("8,425 kg x 10,00 zł = 84,25 zł");
+  });
+
   it("builds plan directory with rate metrics and stable sorting", () => {
     const directory = buildSettlementPlansDirectory(
       [
