@@ -181,6 +181,7 @@ describe("WorkerDirectoryPanel", () => {
           archivedAt: null
         }
       ],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -304,6 +305,7 @@ describe("WorkerDirectoryPanel", () => {
           archivedAt: null
         }
       ],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -382,6 +384,7 @@ describe("WorkerDirectoryPanel", () => {
           archivedAt: null
         }
       ],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -436,6 +439,103 @@ describe("WorkerDirectoryPanel", () => {
     expect(screen.getByText("Dodano stawke.")).toBeInTheDocument();
   });
 
+  it("links an unassigned account from administrator worker profile", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [
+        worker({
+          id: "worker-anna",
+          displayName: "Anna Test"
+        })
+      ],
+      plans: [
+        {
+          id: "plan-weight",
+          name: "Za kilogram",
+          code: "WEIGHT_KG",
+          calculationBasis: "WEIGHT",
+          unitLabelSingular: "kilogram",
+          unitLabelPlural: "kilogramy",
+          unitSymbol: "kg",
+          quantityPrecision: 3,
+          weightRequired: true,
+          allowBatchQuantity: true,
+          description: null,
+          active: true,
+          systemDefault: true,
+          createdAt: "created-at",
+          createdBy: "admin-1",
+          archivedAt: null
+        }
+      ],
+      profiles: [
+        {
+          uid: "operator-anna",
+          email: "operator.anna@example.test",
+          displayName: "Operator Anna",
+          role: "OPERATOR",
+          workerId: null,
+          active: true,
+          registrationStatus: "APPROVED",
+          offlineConsent: false
+        }
+      ],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: [],
+      invalidAuditEvents: []
+    });
+    const updateAccountLink = vi
+      .fn<NonNullable<WorkerDirectoryApi["updateAccountLink"]>>()
+      .mockResolvedValue({
+        privacyWarning:
+          "Powiazane konto zobaczy dane przypisane do tego zbieracza po ponownym pobraniu profilu."
+      });
+
+    render(
+      <WorkerDirectoryPanel
+        authState={adminState}
+        env={env}
+        workerDirectoryApi={{ list, updateAccountLink }}
+      />
+    );
+
+    await screen.findByText("Anna Test");
+    await user.click(screen.getByRole("button", { name: "Profil" }));
+
+    const form = await screen.findByRole("form", {
+      name: "Powiazanie konta zbieracza"
+    });
+
+    await user.selectOptions(
+      within(form).getByLabelText("Konto do powiazania"),
+      "operator-anna"
+    );
+    await user.type(
+      within(form).getByLabelText("Powod zmiany powiazania"),
+      "Konto nalezy do Anny."
+    );
+    await user.click(
+      within(form).getByLabelText(
+        "Potwierdzam, ze konto zobaczy dane tego zbieracza po ponownym pobraniu profilu"
+      )
+    );
+    await user.click(within(form).getByRole("button", { name: "Zapisz powiazanie" }));
+
+    await waitFor(() => {
+      expect(updateAccountLink).toHaveBeenCalled();
+    });
+    expect(updateAccountLink.mock.calls[0]?.[1]).toMatchObject({
+      actorProfile: adminState.profile,
+      workerId: "worker-anna",
+      targetUid: "operator-anna",
+      reason: "Konto nalezy do Anny.",
+      confirmPrivacyNotice: true
+    });
+    expect(screen.getByText(/Zapisano powiazanie konta/)).toBeInTheDocument();
+  });
+
   it("creates a worker with initial rate after confirmation", async () => {
     const user = userEvent.setup();
     const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
@@ -460,6 +560,7 @@ describe("WorkerDirectoryPanel", () => {
           archivedAt: null
         }
       ],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -520,6 +621,7 @@ describe("WorkerDirectoryPanel", () => {
         })
       ],
       plans: [],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
@@ -581,6 +683,7 @@ describe("WorkerDirectoryPanel", () => {
           archivedAt: null
         }
       ],
+      profiles: [],
       invalidWorkers: [],
       invalidPlans: [],
       invalidRateVersions: [],
