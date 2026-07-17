@@ -68,13 +68,20 @@ service cloud.firestore {
         action == 'SEASON_CLOSED' ||
         action == 'SEASON_REOPENED' ||
         action == 'SEASON_ARCHIVED' ||
-        action == 'SEASON_DEFAULT_CHANGED';
+        action == 'SEASON_DEFAULT_CHANGED' ||
+        action == 'SETTLEMENT_PLAN_CREATED';
     }
 
     function isAuditEntityType(entityType) {
       return entityType == 'USER_PROFILE' ||
         entityType == 'REGISTRATION_INVITATION' ||
-        entityType == 'SEASON';
+        entityType == 'SEASON' ||
+        entityType == 'SETTLEMENT_PLAN';
+    }
+
+    function isSettlementCalculationBasis(calculationBasis) {
+      return calculationBasis == 'WEIGHT' ||
+        calculationBasis == 'QUANTITY';
     }
 
     function hasInvitedUserProfileFields(data) {
@@ -400,10 +407,17 @@ service cloud.firestore {
           'status',
           'invitationId',
           'seasonId',
+          'planId',
           'name',
+          'code',
+          'calculationBasis',
           'startDate',
           'endDate',
-          'isDefault'
+          'isDefault',
+          'unitSymbol',
+          'quantityPrecision',
+          'weightRequired',
+          'allowBatchQuantity'
         ]) &&
         (
           !summary.keys().hasAny(['uid']) ||
@@ -472,9 +486,24 @@ service cloud.firestore {
           summary.seasonId is string
         ) &&
         (
+          !summary.keys().hasAny(['planId']) ||
+          summary.planId == null ||
+          summary.planId is string
+        ) &&
+        (
           !summary.keys().hasAny(['name']) ||
           summary.name == null ||
           summary.name is string
+        ) &&
+        (
+          !summary.keys().hasAny(['code']) ||
+          summary.code == null ||
+          summary.code is string
+        ) &&
+        (
+          !summary.keys().hasAny(['calculationBasis']) ||
+          summary.calculationBasis == null ||
+          isSettlementCalculationBasis(summary.calculationBasis)
         ) &&
         (
           !summary.keys().hasAny(['startDate']) ||
@@ -490,6 +519,26 @@ service cloud.firestore {
           !summary.keys().hasAny(['isDefault']) ||
           summary.isDefault == null ||
           summary.isDefault is bool
+        ) &&
+        (
+          !summary.keys().hasAny(['unitSymbol']) ||
+          summary.unitSymbol == null ||
+          summary.unitSymbol is string
+        ) &&
+        (
+          !summary.keys().hasAny(['quantityPrecision']) ||
+          summary.quantityPrecision == null ||
+          summary.quantityPrecision is int
+        ) &&
+        (
+          !summary.keys().hasAny(['weightRequired']) ||
+          summary.weightRequired == null ||
+          summary.weightRequired is bool
+        ) &&
+        (
+          !summary.keys().hasAny(['allowBatchQuantity']) ||
+          summary.allowBatchQuantity == null ||
+          summary.allowBatchQuantity is bool
         )
       );
     }
@@ -690,6 +739,89 @@ service cloud.firestore {
         );
     }
 
+    function hasSettlementPlanFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'name',
+        'code',
+        'calculationBasis',
+        'unitLabelSingular',
+        'unitLabelPlural',
+        'unitSymbol',
+        'quantityPrecision',
+        'weightRequired',
+        'allowBatchQuantity',
+        'description',
+        'active',
+        'systemDefault',
+        'createdAt',
+        'createdBy',
+        'archivedAt'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'name',
+          'code',
+          'calculationBasis',
+          'unitLabelSingular',
+          'unitLabelPlural',
+          'unitSymbol',
+          'quantityPrecision',
+          'weightRequired',
+          'allowBatchQuantity',
+          'description',
+          'active',
+          'systemDefault',
+          'createdAt',
+          'createdBy',
+          'archivedAt'
+        ]);
+    }
+
+    function hasValidSettlementPlanBase(data, planId) {
+      return hasSettlementPlanFields(data) &&
+        data.id == planId &&
+        data.id is string &&
+        data.id.matches('^plan-[a-z0-9-]{2,50}$') &&
+        data.name is string &&
+        data.name.size() > 0 &&
+        data.code is string &&
+        data.code.matches('^[A-Z0-9_]{2,40}$') &&
+        isSettlementCalculationBasis(data.calculationBasis) &&
+        data.unitLabelSingular is string &&
+        data.unitLabelSingular.size() > 0 &&
+        data.unitLabelPlural is string &&
+        data.unitLabelPlural.size() > 0 &&
+        data.unitSymbol is string &&
+        data.unitSymbol.size() > 0 &&
+        data.quantityPrecision is int &&
+        data.quantityPrecision >= 0 &&
+        data.quantityPrecision <= 3 &&
+        data.weightRequired is bool &&
+        data.allowBatchQuantity is bool &&
+        (data.description == null || data.description is string) &&
+        data.active is bool &&
+        data.systemDefault is bool &&
+        data.createdAt is timestamp &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        (data.archivedAt == null || data.archivedAt is timestamp) &&
+        (
+          data.calculationBasis != 'WEIGHT' ||
+          data.weightRequired == true
+        );
+    }
+
+    function isValidSettlementPlanCreate(data, planId) {
+      return isAdmin() &&
+        hasValidSettlementPlanBase(data, planId) &&
+        data.active == true &&
+        data.systemDefault == false &&
+        data.createdAt == request.time &&
+        data.createdBy == request.auth.uid &&
+        data.archivedAt == null;
+    }
+
     function isOwnExistingDevice(deviceId) {
       return exists(/databases/$(database)/documents/devices/$(deviceId)) &&
         resource.data.userUid == request.auth.uid;
@@ -818,7 +950,8 @@ service cloud.firestore {
 
     match /settlementPlans/{planId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
-      allow create, update, delete: if false;
+      allow create: if isValidSettlementPlanCreate(request.resource.data, planId);
+      allow update, delete: if false;
     }
 
     match /workerRateVersions/{rateVersionId} {
