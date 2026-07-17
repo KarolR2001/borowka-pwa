@@ -57,3 +57,6 @@ Stage 5.5 ubianka entry form contract is maintained in
 
 Stage 5.6 weight entry form contract is maintained in
 `docs/domain/weight-entry-form.md`.
+
+Stage 5.7 generic quantity entry form contract is maintained in
+`docs/domain/generic-quantity-entry-form.md`.

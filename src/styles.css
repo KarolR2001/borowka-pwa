@@ -1223,6 +1223,84 @@ h2 {
   min-width: 132px;
 }
 
+.generic-quantity-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(180px, 0.75fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.generic-quantity-form__heading,
+.generic-quantity-form__facts,
+.generic-quantity-form__notice,
+.generic-quantity-form__preview,
+.generic-quantity-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.generic-quantity-form__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.generic-quantity-form__heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.generic-quantity-form__heading p {
+  margin: 4px 0 0;
+  color: #5f6f66;
+  font-weight: 700;
+}
+
+.generic-quantity-form__heading span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #29463a;
+  background: #eef4f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.generic-quantity-form__facts,
+.generic-quantity-form__preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.generic-quantity-form__facts span,
+.generic-quantity-form__preview span {
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #173129;
+  background: #eef4f0;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.generic-quantity-form__notice {
+  margin: 0;
+  border: 1px solid #e4c6b6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #8a3b12;
+  background: #fff3ec;
+  font-weight: 800;
+}
+
+.generic-quantity-form__submit {
+  min-width: 132px;
+}
+
 .settlement-plan-form__example {
   display: grid;
   gap: 4px;
@@ -1434,6 +1512,7 @@ h2 {
   .active-session__entry dl,
   .ubianka-entry-form,
   .weight-entry-form,
+  .generic-quantity-form,
   .invitation-form,
   .season-form,
   .season-action-form,
@@ -1525,7 +1604,10 @@ h2 {
   .ubianka-entry-form__quick,
   .ubianka-entry-form__preview,
   .weight-entry-form__heading,
-  .weight-entry-form__preview {
+  .weight-entry-form__preview,
+  .generic-quantity-form__heading,
+  .generic-quantity-form__facts,
+  .generic-quantity-form__preview {
     align-items: stretch;
     flex-direction: column;
   }

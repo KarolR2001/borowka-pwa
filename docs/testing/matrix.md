@@ -29,6 +29,7 @@
 - Etap 5.4 / ekran aktywnej sesji: stale widoczne pola sesji, akcje i lista wpisow w `src/harvest/ActiveHarvestSessionPanel.test.tsx`.
 - Etap 5.5 / formularz ubianki: szybkie ilosci, opcjonalna waga, reset formularza i draft lokalny w `src/harvest/UbiankaEntryForm.test.tsx`.
 - Etap 5.6 / formularz za kilogram: walidacja wagi, przeliczenie na gramy i podglad kwoty w `src/harvest/WeightEntryForm.test.tsx`.
+- Etap 5.7 / inne plany ilosciowe: formularz generowany z konfiguracji planu w `src/harvest/GenericQuantityEntryForm.test.tsx`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
