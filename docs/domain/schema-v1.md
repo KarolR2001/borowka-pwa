@@ -45,3 +45,6 @@ Session calculation scenarios for stage 5 are maintained in
 
 Stage 5.1 session status transitions are maintained in
 `docs/domain/harvest-session-state.md`.
+
+Stage 5.2/5.3 opening and snapshot rules are maintained in
+`docs/domain/open-harvest-session.md`.
