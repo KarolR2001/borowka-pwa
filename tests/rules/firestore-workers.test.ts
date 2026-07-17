@@ -699,6 +699,107 @@ describe("Firestore worker rules", () => {
     await assertFails(operatorBatch.commit());
   });
 
+  it("allows admin to link worker account only with a matching user update", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({
+        uid: "operator-anna",
+        role: "OPERATOR",
+        workerId: null
+      })
+    );
+    await seedWorkers();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "workers", "worker-anna-test"),
+        worker({
+          id: "worker-anna-test",
+          currentRateVersionId: "rate-worker-anna-test-2026-07-01"
+        })
+      );
+    });
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "workers", "worker-anna-test"),
+      worker({
+        id: "worker-anna-test",
+        currentRateVersionId: "rate-worker-anna-test-2026-07-01",
+        linkedUserUid: "operator-anna",
+        updatedAt: serverTimestamp()
+      })
+    );
+    batch.set(
+      doc(db, "users", "operator-anna"),
+      profile({
+        uid: "operator-anna",
+        role: "OPERATOR",
+        workerId: "worker-anna-test"
+      })
+    );
+
+    await assertSucceeds(batch.commit());
+
+    const workerSnapshot = await assertSucceeds(
+      getDoc(doc(db, "workers", "worker-anna-test"))
+    );
+    const userSnapshot = await assertSucceeds(getDoc(doc(db, "users", "operator-anna")));
+    expect(workerSnapshot.data()?.linkedUserUid).toBe("operator-anna");
+    expect(userSnapshot.data()?.workerId).toBe("worker-anna-test");
+  });
+
+  it("rejects worker account link writes for operator", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR",
+        workerId: null
+      })
+    );
+    await seedWorkers();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "workers", "worker-anna-test"),
+        worker({
+          id: "worker-anna-test",
+          currentRateVersionId: "rate-worker-anna-test-2026-07-01"
+        })
+      );
+    });
+
+    const db = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(db, "workers", "worker-anna-test"), {
+        linkedUserUid: "operator-1",
+        updatedAt: serverTimestamp()
+      })
+    );
+  });
+
   it("rejects worker updates, deletes and standalone rate creates", async () => {
     await seedProfiles(
       profile({
