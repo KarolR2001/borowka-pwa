@@ -1,14 +1,18 @@
-import { RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
+import { Plus, RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { getOrCreateDeviceId } from "../domain/device";
 import {
+  createSettlementPlan,
+  createSettlementPlanExample,
   defaultSettlementPlanFilters,
   filterSettlementPlans,
   isSettlementCalculationBasis,
   listSettlementPlansDirectory,
   settlementCalculationBasisLabel,
   settlementPlanStatusLabel,
+  type CreateSettlementPlanInput,
   type SettlementPlanFilters,
   type SettlementPlansDirectoryResult
 } from "./settlementPlans";
@@ -17,10 +21,12 @@ type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export type SettlementPlansApi = {
   list: (env: FirebaseEnv) => Promise<SettlementPlansDirectoryResult>;
+  create?: (env: FirebaseEnv, input: CreateSettlementPlanInput) => Promise<unknown>;
 };
 
 export const defaultSettlementPlansApi: SettlementPlansApi = {
-  list: listSettlementPlansDirectory
+  list: listSettlementPlansDirectory,
+  create: createSettlementPlan
 };
 
 type SettlementPlansState =
@@ -40,10 +46,38 @@ type SettlementPlansState =
       message: string;
     };
 
+type CreatePlanDraft = {
+  name: string;
+  code: string;
+  calculationBasis: "WEIGHT" | "QUANTITY";
+  unitLabelSingular: string;
+  unitLabelPlural: string;
+  unitSymbol: string;
+  quantityPrecision: number;
+  weightRequired: boolean;
+  allowBatchQuantity: boolean;
+  description: string;
+  confirmed: boolean;
+};
+
 const initialState: SettlementPlansState = {
   status: "IDLE",
   result: null,
   message: "Lista planow nie zostala jeszcze pobrana."
+};
+
+const initialCreatePlanDraft: CreatePlanDraft = {
+  name: "",
+  code: "",
+  calculationBasis: "QUANTITY",
+  unitLabelSingular: "",
+  unitLabelPlural: "",
+  unitSymbol: "",
+  quantityPrecision: 1,
+  weightRequired: false,
+  allowBatchQuantity: true,
+  description: "",
+  confirmed: false
 };
 
 export function AdminSettlementPlansPanel({
@@ -59,6 +93,10 @@ export function AdminSettlementPlansPanel({
     defaultSettlementPlanFilters
   );
   const [state, setState] = useState<SettlementPlansState>(initialState);
+  const [createDraft, setCreateDraft] = useState<CreatePlanDraft>(initialCreatePlanDraft);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -136,6 +174,68 @@ export function AdminSettlementPlansPanel({
       });
   };
 
+  const handleCreatePlan = async () => {
+    if (authState.status !== "READY") {
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+
+    if (!createDraft.confirmed) {
+      setError("Potwierdz utworzenie planu.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setError("Tworzenie planu wymaga polaczenia online.");
+      return;
+    }
+
+    const create = settlementPlansApi.create ?? defaultSettlementPlansApi.create;
+
+    if (!create) {
+      setError("Operacja tworzenia planu nie jest dostepna.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await create(env, {
+        actorProfile: authState.profile,
+        name: createDraft.name,
+        code: createDraft.code,
+        calculationBasis: createDraft.calculationBasis,
+        unitLabelSingular: createDraft.unitLabelSingular,
+        unitLabelPlural: createDraft.unitLabelPlural,
+        unitSymbol: createDraft.unitSymbol,
+        quantityPrecision: createDraft.quantityPrecision,
+        weightRequired: createDraft.weightRequired,
+        allowBatchQuantity: createDraft.allowBatchQuantity,
+        description: createDraft.description,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit();
+      setFeedback(createPlanFeedback(result));
+      setCreateDraft(initialCreatePlanDraft);
+    } catch (createError: unknown) {
+      setError(getSettlementPlansErrorMessage(createError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const reloadAfterSubmit = async () => {
+    const result = await settlementPlansApi.list(env);
+
+    setState({
+      status: "READY",
+      result,
+      message: "Lista planow jest aktualna."
+    });
+  };
+
   if (authState.status !== "READY") {
     return (
       <section className="settlement-plan-directory" aria-label="Plany rozliczen">
@@ -178,6 +278,20 @@ export function AdminSettlementPlansPanel({
       </div>
 
       <SettlementPlanFilterControls filters={filters} onChange={setFilters} />
+
+      {state.result ? (
+        <CreateSettlementPlanForm
+          draft={createDraft}
+          isSubmitting={isSubmitting}
+          onChange={setCreateDraft}
+          onSubmit={() => {
+            void handleCreatePlan();
+          }}
+        />
+      ) : null}
+
+      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       <div className="directory-summary" aria-label="Podsumowanie planow">
         <DirectoryStat
@@ -255,6 +369,245 @@ export function AdminSettlementPlansPanel({
         />
       ) : null}
     </section>
+  );
+}
+
+function CreateSettlementPlanForm({
+  draft,
+  isSubmitting,
+  onChange,
+  onSubmit
+}: {
+  draft: CreatePlanDraft;
+  isSubmitting: boolean;
+  onChange: (draft: CreatePlanDraft) => void;
+  onSubmit: () => void;
+}) {
+  const effectiveDraft =
+    draft.calculationBasis === "WEIGHT" && !draft.weightRequired
+      ? {
+          ...draft,
+          weightRequired: true
+        }
+      : draft;
+  const example = createSettlementPlanExample(effectiveDraft);
+  const inventoryWarning =
+    effectiveDraft.calculationBasis === "QUANTITY" && !effectiveDraft.weightRequired
+      ? "Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
+      : null;
+
+  return (
+    <form
+      aria-label="Tworzenie planu rozliczen"
+      className="settlement-plan-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Nazwa planu</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              name: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.name}
+        />
+      </label>
+
+      <label className="field">
+        <span>Kod</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              code: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.code}
+        />
+      </label>
+
+      <label className="field">
+        <span>Podstawa</span>
+        <select
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const nextBasis = event.target.value;
+
+            if (!isSettlementCalculationBasis(nextBasis)) {
+              return;
+            }
+
+            onChange({
+              ...draft,
+              calculationBasis: nextBasis,
+              weightRequired: nextBasis === "WEIGHT" ? true : draft.weightRequired,
+              quantityPrecision: nextBasis === "WEIGHT" ? 3 : draft.quantityPrecision,
+              confirmed: false
+            });
+          }}
+          value={draft.calculationBasis}
+        >
+          <option value="QUANTITY">Ilosc</option>
+          <option value="WEIGHT">Waga</option>
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Jednostka</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitLabelSingular: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.unitLabelSingular}
+        />
+      </label>
+
+      <label className="field">
+        <span>Jednostki</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitLabelPlural: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.unitLabelPlural}
+        />
+      </label>
+
+      <label className="field">
+        <span>Symbol</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitSymbol: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.unitSymbol}
+        />
+      </label>
+
+      <label className="field">
+        <span>Precyzja</span>
+        <select
+          disabled={isSubmitting || draft.calculationBasis === "WEIGHT"}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              quantityPrecision: Number(event.target.value),
+              confirmed: false
+            });
+          }}
+          value={effectiveDraft.quantityPrecision}
+        >
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+
+      <label className="field settlement-plan-form__description">
+        <span>Opis</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              description: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.description}
+        />
+      </label>
+
+      <label className="checkbox-field settlement-plan-form__confirmation">
+        <input
+          checked={effectiveDraft.weightRequired}
+          disabled={isSubmitting || draft.calculationBasis === "WEIGHT"}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              weightRequired: event.target.checked,
+              confirmed: false
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Waga wymagana</span>
+      </label>
+
+      <label className="checkbox-field settlement-plan-form__confirmation">
+        <input
+          checked={draft.allowBatchQuantity}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              allowBatchQuantity: event.target.checked,
+              confirmed: false
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Wpis zbiorczy</span>
+      </label>
+
+      <label className="checkbox-field settlement-plan-form__confirmation">
+        <input
+          checked={draft.confirmed}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...effectiveDraft,
+              confirmed: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam utworzenie planu</span>
+      </label>
+
+      <div className="settlement-plan-form__example" aria-label="Przyklad planu">
+        <strong>{example}</strong>
+        {inventoryWarning ? <span>{inventoryWarning}</span> : null}
+      </div>
+
+      <button
+        className="primary-action settlement-plan-form__submit"
+        disabled={isSubmitting}
+        type="submit"
+      >
+        <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Dodaj plan</span>
+      </button>
+    </form>
   );
 }
 
@@ -380,4 +733,25 @@ function AccessNotice({ title, message }: { title: string; message: string }) {
       </div>
     </div>
   );
+}
+
+function createPlanFeedback(result: unknown): string {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "inventoryWarning" in result &&
+    typeof result.inventoryWarning === "string"
+  ) {
+    return `Utworzono plan. ${result.inventoryWarning}`;
+  }
+
+  return "Utworzono plan.";
+}
+
+function getSettlementPlansErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Nie udalo sie zapisac planu.";
 }

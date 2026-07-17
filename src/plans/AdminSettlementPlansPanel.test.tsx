@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -186,10 +186,68 @@ describe("AdminSettlementPlansPanel", () => {
     );
 
     await screen.findByText("Za kilogram");
-    await user.selectOptions(screen.getByLabelText("Podstawa"), "WEIGHT");
+    await user.selectOptions(screen.getAllByLabelText("Podstawa")[0], "WEIGHT");
     await user.selectOptions(screen.getByLabelText("Status"), "ACTIVE");
 
     expect(screen.getByText("Za kilogram")).toBeInTheDocument();
     expect(screen.queryByText("Archiwalny plan")).not.toBeInTheDocument();
+  });
+
+  it("creates a custom settlement plan after confirmation", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<SettlementPlansApi["list"]>().mockResolvedValue({
+      plans: [],
+      invalidPlans: [],
+      invalidRateVersions: []
+    });
+    const create = vi.fn<NonNullable<SettlementPlansApi["create"]>>().mockResolvedValue({
+      inventoryWarning: "Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
+    });
+
+    render(
+      <AdminSettlementPlansPanel
+        authState={adminState}
+        env={env}
+        settlementPlansApi={{ list, create }}
+      />
+    );
+
+    const form = within(
+      await screen.findByRole("form", { name: "Tworzenie planu rozliczen" })
+    );
+
+    await user.type(form.getByLabelText("Nazwa planu"), "Za skrzynke");
+    await user.type(form.getByLabelText("Kod"), "skrzynka");
+    await user.type(form.getByLabelText("Jednostka"), "skrzynka");
+    await user.type(form.getByLabelText("Jednostki"), "skrzynki");
+    await user.type(form.getByLabelText("Symbol"), "skrz.");
+    await user.selectOptions(form.getByLabelText("Precyzja"), "0");
+    await user.type(form.getByLabelText("Opis"), "Rozliczenie za skrzynke.");
+    await user.click(form.getByLabelText("Potwierdzam utworzenie planu"));
+    await user.click(form.getByRole("button", { name: "Dodaj plan" }));
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalled();
+    });
+    const createInput = create.mock.calls[0]?.[1];
+    expect(createInput).toMatchObject({
+      actorProfile: adminState.profile,
+      name: "Za skrzynke",
+      code: "skrzynka",
+      calculationBasis: "QUANTITY",
+      unitLabelSingular: "skrzynka",
+      unitLabelPlural: "skrzynki",
+      unitSymbol: "skrz.",
+      quantityPrecision: 0,
+      weightRequired: false,
+      allowBatchQuantity: true,
+      description: "Rozliczenie za skrzynke."
+    });
+    expect(createInput.deviceId).toEqual(expect.any(String));
+    expect(
+      screen.getByText(
+        "Utworzono plan. Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
+      )
+    ).toBeInTheDocument();
   });
 });

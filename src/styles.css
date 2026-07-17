@@ -490,7 +490,8 @@ h2 {
 }
 
 .season-form,
-.season-action-form {
+.season-action-form,
+.settlement-plan-form {
   display: grid;
   align-items: end;
   gap: 12px;
@@ -512,14 +513,40 @@ h2 {
     auto;
 }
 
+.settlement-plan-form {
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(140px, 0.7fr) minmax(140px, 0.65fr)
+    minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(120px, 0.55fr)
+    minmax(110px, 0.45fr) auto;
+}
+
 .season-form__confirmation,
-.season-action-form__confirmation {
+.season-action-form__confirmation,
+.settlement-plan-form__confirmation,
+.settlement-plan-form__description,
+.settlement-plan-form__example {
   grid-column: 1 / -1;
 }
 
 .season-form__submit,
-.season-action-form__submit {
+.season-action-form__submit,
+.settlement-plan-form__submit {
   min-width: 136px;
+}
+
+.settlement-plan-form__example {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #29463a;
+  background: #f7faf7;
+}
+
+.settlement-plan-form__example span {
+  color: #8a3b12;
+  font-weight: 700;
 }
 
 .search-field {
@@ -677,6 +704,7 @@ h2 {
   .invitation-form,
   .season-form,
   .season-action-form,
+  .settlement-plan-form,
   .directory-summary {
     grid-template-columns: 1fr;
   }
@@ -722,7 +750,8 @@ h2 {
   .role-change-form,
   .account-status-form,
   .season-form,
-  .season-action-form {
+  .season-action-form,
+  .settlement-plan-form {
     grid-template-columns: 1fr;
   }
 
