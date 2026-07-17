@@ -407,6 +407,38 @@ describe("Firestore audit event rules", () => {
         })
       )
     );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-worker-archived"),
+        auditEvent({
+          id: "audit-worker-archived",
+          action: "WORKER_ARCHIVED",
+          entityType: "WORKER",
+          entityId: "worker-new-1234",
+          beforeSummary: {
+            workerId: "worker-new-1234",
+            displayName: "Anna Nowa",
+            active: true,
+            currentPlanId: "plan-weight-kg",
+            currentRateVersionId: "rate-worker-new-1234-2026-07-15",
+            uid: "picker-anna",
+            email: "anna@example.test",
+            role: "PICKER"
+          },
+          afterSummary: {
+            workerId: "worker-new-1234",
+            displayName: "Anna Nowa",
+            active: false,
+            currentPlanId: "plan-weight-kg",
+            currentRateVersionId: "rate-worker-new-1234-2026-07-15",
+            uid: "picker-anna",
+            email: "anna@example.test",
+            role: "PICKER"
+          },
+          reason: "Koniec wspolpracy. Kontrola: sprawdzono sesje."
+        })
+      )
+    );
   });
 
   it("allows admin to create worker rate change audit events", async () => {

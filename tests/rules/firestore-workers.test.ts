@@ -800,6 +800,119 @@ describe("Firestore worker rules", () => {
     );
   });
 
+  it("allows admin to archive worker without changing history fields", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "workers", "worker-anna-test"),
+        worker({
+          id: "worker-anna-test",
+          currentRateVersionId: "rate-worker-anna-test-2026-07-01"
+        })
+      );
+    });
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(db, "workers", "worker-anna-test"), {
+        active: false,
+        updatedAt: serverTimestamp(),
+        archivedAt: serverTimestamp()
+      })
+    );
+
+    const snapshot = await assertSucceeds(getDoc(doc(db, "workers", "worker-anna-test")));
+    expect(snapshot.data()?.active).toBe(false);
+    expect(snapshot.data()?.currentRateVersionId).toBe(
+      "rate-worker-anna-test-2026-07-01"
+    );
+  });
+
+  it("rejects unsafe worker archive writes", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({
+        uid: "operator-1",
+        role: "OPERATOR"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await Promise.all([
+        setDoc(
+          doc(db, "workers", "worker-anna-test"),
+          worker({
+            id: "worker-anna-test",
+            currentRateVersionId: "rate-worker-anna-test-2026-07-01",
+            linkedUserUid: "picker-anna"
+          })
+        ),
+        setDoc(
+          doc(db, "workers", "worker-bartek-test"),
+          worker({
+            id: "worker-bartek-test",
+            displayName: "Bartek Test",
+            normalizedName: "bartek test",
+            currentRateVersionId: "rate-worker-bartek-test-2026-07-01",
+            active: false,
+            archivedAt: Timestamp.fromDate(new Date("2026-07-16T08:00:00.000Z"))
+          })
+        )
+      ]);
+    });
+
+    const adminDb = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(operatorDb, "workers", "worker-anna-test"), {
+        active: false,
+        updatedAt: serverTimestamp(),
+        archivedAt: serverTimestamp()
+      })
+    );
+    await assertFails(
+      updateDoc(doc(adminDb, "workers", "worker-anna-test"), {
+        active: false,
+        linkedUserUid: null,
+        updatedAt: serverTimestamp(),
+        archivedAt: serverTimestamp()
+      })
+    );
+    await assertFails(
+      updateDoc(doc(adminDb, "workers", "worker-bartek-test"), {
+        active: false,
+        updatedAt: serverTimestamp(),
+        archivedAt: serverTimestamp()
+      })
+    );
+  });
+
   it("rejects worker updates, deletes and standalone rate creates", async () => {
     await seedProfiles(
       profile({
