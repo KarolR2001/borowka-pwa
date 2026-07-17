@@ -33,6 +33,10 @@ service cloud.firestore {
       return hasRole('ADMIN');
     }
 
+    function isOperator() {
+      return hasRole('OPERATOR');
+    }
+
     function isUserRole(role) {
       return role == 'ADMIN' || role == 'OPERATOR' || role == 'PICKER';
     }
@@ -678,6 +682,14 @@ service cloud.firestore {
         );
     }
 
+    function canReadActiveConfiguration(data) {
+      return isAdmin() ||
+        (
+          isOperator() &&
+          data.active == true
+        );
+    }
+
     function isOwnExistingDevice(deviceId) {
       return exists(/databases/$(database)/documents/devices/$(deviceId)) &&
         resource.data.userUid == request.auth.uid;
@@ -802,6 +814,16 @@ service cloud.firestore {
         seasonId
       );
       allow delete: if false;
+    }
+
+    match /settlementPlans/{planId} {
+      allow get, list: if canReadActiveConfiguration(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /workerRateVersions/{rateVersionId} {
+      allow get, list: if canReadActiveConfiguration(resource.data);
+      allow create, update, delete: if false;
     }
 
     match /{document=**} {
