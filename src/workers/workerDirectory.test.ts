@@ -7,6 +7,7 @@ import type { AuditEventDocument } from "../audit/auditEvents";
 import type { UserProfile } from "../domain/identity";
 import {
   analyzeWorkerRateHistory,
+  buildWorkerRateConsistencyReport,
   buildWorkerDirectory,
   createInitialWorkerRateVersionId,
   createWorkerRateVersionId,
@@ -347,6 +348,7 @@ describe("workerDirectory", () => {
       {
         actorProfile: adminProfile,
         workerId: "worker-anna-test",
+        expectedCurrentRateVersionId: currentRate.id,
         planId: "plan-quantity",
         rateGroszPerUnit: 1400,
         validFrom: "2026-07-15",
@@ -419,6 +421,7 @@ describe("workerDirectory", () => {
     const input = {
       actorProfile: adminProfile,
       workerId: "worker-anna-test",
+      expectedCurrentRateVersionId: currentRate.id,
       planId: "plan-weight",
       rateGroszPerUnit: 1200,
       validFrom: "2026-07-15",
@@ -465,6 +468,25 @@ describe("workerDirectory", () => {
         }
       )
     ).toThrow("Potwierdz zapis stawki z data wsteczna.");
+
+    expect(() =>
+      prepareWorkerRateVersionCreate(
+        {
+          ...currentWorker,
+          currentRateVersionId: "rate-worker-anna-test-2026-07-12"
+        },
+        [plan({ id: "plan-weight" })],
+        [
+          currentRate,
+          rateVersion({
+            id: "rate-worker-anna-test-2026-07-12",
+            workerId: "worker-anna-test",
+            validFrom: "2026-07-12"
+          })
+        ],
+        input
+      )
+    ).toThrow("Stawka zostala zmieniona w innym oknie.");
 
     expect(createWorkerRateVersionId("worker-anna-test", "2026-07-15")).toBe(
       "rate-worker-anna-test-2026-07-15"
@@ -526,6 +548,49 @@ describe("workerDirectory", () => {
       }
     ]);
     expect(workerRateHistoryStatusLabel("FUTURE")).toBe("Przyszla");
+  });
+
+  it("builds a worker rate consistency report with MVP limitations", () => {
+    const currentRate = rateVersion({
+      id: "rate-worker-anna-current",
+      workerId: "worker-anna",
+      validFrom: "2026-07-01",
+      validTo: null,
+      active: true
+    });
+    const overlappingRate = rateVersion({
+      id: "rate-worker-anna-overlap",
+      workerId: "worker-anna",
+      validFrom: "2026-07-10",
+      validTo: null,
+      active: true
+    });
+    const report = buildWorkerRateConsistencyReport(
+      workerListItem({
+        id: "worker-anna",
+        currentRateVersionId: currentRate.id,
+        currentRateVersion: currentRate,
+        rateVersions: [currentRate, overlappingRate]
+      }),
+      "2026-07-17"
+    );
+
+    expect(report.level).toBe("ERROR");
+    expect(report.checks.find((check) => check.id === "open-rate-period")).toMatchObject({
+      level: "ERROR",
+      detail: "Liczba otwartych wersji: 2."
+    });
+    const periodCheck = report.checks.find((check) => check.id === "rate-periods");
+    expect(periodCheck).toMatchObject({
+      level: "WARNING"
+    });
+    expect(periodCheck?.detail).toContain("Naklada sie");
+    expect(report.limitations).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Bez funkcji serwerowej"),
+        expect.stringContaining("transakcji klienta")
+      ])
+    );
   });
 
   it("builds worker list with current plan, rate, linked account and empty summaries", () => {
