@@ -35,3 +35,8 @@ apply that rule when entries are implemented.
 Seed documents are development/test bootstrap data. Production data must be
 created through administrator workflows after UAT, not by importing synthetic
 development workers.
+
+## Calculation references
+
+Session calculation scenarios for stage 5 are maintained in
+`docs/domain/calculation-scenarios.md`.

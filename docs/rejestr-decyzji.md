@@ -34,10 +34,11 @@
 
 ## DEC-0005 - Dlugosc sesji zbioru
 
-- Status: do zatwierdzenia przed implementacja sesji
-- Rekomendacja: jedna sesja = jedna osoba i jedna data biznesowa.
-- Powod: prostsze raportowanie dzienne, snapshot stawki i synchronizacja.
-- Wymagane od uzytkownika: akceptacja albo decyzja o wariancie wielodniowym.
+- Status: zaakceptowana na podstawie PRD
+- Data: 2026-07-17
+- Decyzja: jedna sesja dotyczy jednej osoby, jednego sezonu i jednej daty biznesowej.
+- Uzasadnienie: PRD modeluje `businessDate` jako dzien zbioru, wymaga snapshotu planu/stawki na sesji i opisuje przypadek dwoch sesji tej samej osoby tego samego dnia jako osobny, jawnie potwierdzany przypadek.
+- Skutki: etap 5 implementuje sesje jednodniowe; wariant wielodniowy wymagalby nowej decyzji, rozszerzenia modelu dat i osobnych regul raportowania.
 
 ## DEC-0006 - Reset hasla w MVP
 
@@ -98,3 +99,19 @@
 - Decyzja: PR-y sa tworzone i obslugiwane z WSL przez GitHub CLI `gh`. Jesli CI/checki PR przejda prawidlowo, a PR jest mergeable, agent moze zmergowac PR bez dodatkowego pytania.
 - Uzasadnienie: utrzymujemy workflow PR i historie review na GitHubie, a jednoczesnie nie blokujemy pracy recznymi kliknieciami po kazdym zielonym przyroscie.
 - Skutki: po merge agent synchronizuje lokalny `main`, uruchamia wymagana weryfikacje i dopiero wtedy przechodzi do kolejnego pakietu.
+
+## DEC-0014 - Oficjalne zaokraglenie sesji
+
+- Status: zaakceptowana na podstawie PRD
+- Data: 2026-07-17
+- Decyzja: oficjalna kwota sesji jest liczona z sumy aktywnych wpisow i zaokraglana raz na poziomie sesji do pelnego grosza; polowa grosza jest zaokraglana w gore.
+- Uzasadnienie: PRD BR-CALC-001 i BR-CALC-002 rozstrzygaja poziom i regule zaokraglenia, a sekcja 46 potwierdza `zaokraglenie raz na sesje; TAK`.
+- Skutki: podglad pojedynczego wpisu moze byc informacyjny, ale oficjalna naleznosc powstaje przy zamknieciu sesji i zapisuje `calculationVersion`.
+
+## DEC-0015 - Wzorcowe scenariusze obliczen Etapu 5
+
+- Status: zaakceptowana technicznie na start Etapu 5
+- Data: 2026-07-17
+- Decyzja: scenariusze obliczen sesji sa zapisane w `docs/domain/calculation-scenarios.md`; przypadki sprzedazy, korekt, wyplat i migracji sa oznaczone jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom.
+- Uzasadnienie: bramka wejscia Etapu 5 wymaga zatwierdzonych wzorcow obliczeniowych, a PRD dzieli sesje, wyplaty, sprzedaz i migracje na osobne etapy.
+- Skutki: implementacja Etapu 5 musi pokryc automatycznymi testami scenariusze sesji z tego dokumentu przed zamknieciem etapu.
