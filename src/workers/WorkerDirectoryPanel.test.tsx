@@ -336,6 +336,88 @@ describe("WorkerDirectoryPanel", () => {
     expect(within(profile).getByText("Pierwszy zapis.")).toBeInTheDocument();
   });
 
+  it("adds a new worker rate from administrator profile", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [
+        worker({
+          id: "worker-anna",
+          displayName: "Anna Test"
+        })
+      ],
+      plans: [
+        {
+          id: "plan-weight",
+          name: "Za kilogram",
+          code: "WEIGHT_KG",
+          calculationBasis: "WEIGHT",
+          unitLabelSingular: "kilogram",
+          unitLabelPlural: "kilogramy",
+          unitSymbol: "kg",
+          quantityPrecision: 3,
+          weightRequired: true,
+          allowBatchQuantity: true,
+          description: null,
+          active: true,
+          systemDefault: true,
+          createdAt: "created-at",
+          createdBy: "admin-1",
+          archivedAt: null
+        }
+      ],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: [],
+      invalidAuditEvents: []
+    });
+    const createRate = vi
+      .fn<NonNullable<WorkerDirectoryApi["createRate"]>>()
+      .mockResolvedValue({});
+
+    render(
+      <WorkerDirectoryPanel
+        authState={adminState}
+        env={env}
+        workerDirectoryApi={{ list, createRate }}
+      />
+    );
+
+    await screen.findByText("Anna Test");
+    await user.click(screen.getByRole("button", { name: "Profil" }));
+
+    const form = await screen.findByRole("form", {
+      name: "Dodawanie stawki zbieracza"
+    });
+
+    await user.type(within(form).getByLabelText("Stawka"), "14,00");
+    await user.clear(within(form).getByLabelText("Od dnia"));
+    await user.type(within(form).getByLabelText("Od dnia"), "2999-07-15");
+    await user.type(within(form).getByLabelText("Notatka"), "Nowa stawka.");
+    await user.click(
+      within(form).getByLabelText(
+        "Potwierdzam, ze historyczne snapshoty nie zostana przeliczone"
+      )
+    );
+    await user.click(within(form).getByRole("button", { name: "Dodaj stawke" }));
+
+    await waitFor(() => {
+      expect(createRate).toHaveBeenCalled();
+    });
+    expect(createRate.mock.calls[0]?.[1]).toMatchObject({
+      actorProfile: adminState.profile,
+      workerId: "worker-anna",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1400,
+      validFrom: "2999-07-15",
+      note: "Nowa stawka.",
+      confirmBackdatedRate: false,
+      confirmHistoricalSnapshotsUnchanged: true,
+      confirmPeriodWarning: false
+    });
+    expect(screen.getByText("Dodano stawke.")).toBeInTheDocument();
+  });
+
   it("creates a worker with initial rate after confirmation", async () => {
     const user = userEvent.setup();
     const list = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
