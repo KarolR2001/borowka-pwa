@@ -7,12 +7,14 @@ import { parseDecimalToScaledInteger } from "../domain/format";
 import {
   createWorkerWithInitialRate,
   defaultWorkerDirectoryFilters,
+  analyzeWorkerRateHistory,
   findSimilarWorkerNames,
   filterWorkerDirectory,
   isWorkerActivityFilter,
   isWorkerSortKey,
   listWorkerDirectory,
   workerRateLabel,
+  workerRateHistoryStatusLabel,
   workerStatusLabel,
   workerSummaryKgLabel,
   workerSummaryMoneyLabel,
@@ -672,6 +674,8 @@ function WorkerRateHistoryTable({
   plans: WorkerDirectoryResult["plans"];
   rateVersions: WorkerDirectoryListItem["rateVersions"];
 }) {
+  const historyItems = analyzeWorkerRateHistory(rateVersions, currentBusinessDate());
+
   if (rateVersions.length === 0) {
     return (
       <WorkerProfileSection title="Historia stawek">
@@ -693,26 +697,30 @@ function WorkerRateHistoryTable({
               <th scope="col">Do</th>
               <th scope="col">Autor</th>
               <th scope="col">Notatka</th>
+              <th scope="col">Ostrzezenia</th>
             </tr>
           </thead>
           <tbody>
-            {rateVersions.map((rateVersion) => (
-              <tr key={rateVersion.id}>
-                <td>
-                  {rateVersion.id === currentRateVersionId
-                    ? "Biezaca"
-                    : rateVersion.active
-                      ? "Aktywna"
-                      : "Nieaktywna"}
-                </td>
-                <td>{ratePlanLabel(rateVersion.planId, plans)}</td>
-                <td>{workerRateLabel(rateVersion)}</td>
-                <td>{rateVersion.validFrom}</td>
-                <td>{rateVersion.validTo ?? "bez terminu"}</td>
-                <td>{rateVersion.createdBy}</td>
-                <td>{optionalProfileValue(rateVersion.note)}</td>
-              </tr>
-            ))}
+            {historyItems.map((historyItem) => {
+              const { rateVersion } = historyItem;
+
+              return (
+                <tr key={rateVersion.id}>
+                  <td>
+                    {rateVersion.id === currentRateVersionId
+                      ? "Biezaca"
+                      : workerRateHistoryStatusLabel(historyItem.status)}
+                  </td>
+                  <td>{ratePlanLabel(rateVersion.planId, plans)}</td>
+                  <td>{workerRateLabel(rateVersion)}</td>
+                  <td>{rateVersion.validFrom}</td>
+                  <td>{rateVersion.validTo ?? "bez terminu"}</td>
+                  <td>{rateVersion.createdBy}</td>
+                  <td>{optionalProfileValue(rateVersion.note)}</td>
+                  <td>{rateWarningsLabel(historyItem.warnings)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1091,6 +1099,14 @@ function accountProfileStatus(
 
 function ratePlanLabel(planId: string, plans: WorkerDirectoryResult["plans"]): string {
   return plans.find((plan) => plan.id === planId)?.name ?? planId;
+}
+
+function rateWarningsLabel(warnings: string[]): string {
+  return warnings.length > 0 ? warnings.join("; ") : "brak";
+}
+
+function currentBusinessDate(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function auditActionLabel(

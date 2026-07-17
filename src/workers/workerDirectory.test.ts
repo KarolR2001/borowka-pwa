@@ -6,6 +6,7 @@ import type {
 import type { AuditEventDocument } from "../audit/auditEvents";
 import type { UserProfile } from "../domain/identity";
 import {
+  analyzeWorkerRateHistory,
   buildWorkerDirectory,
   createInitialWorkerRateVersionId,
   decodeWorker,
@@ -13,6 +14,7 @@ import {
   filterWorkerDirectory,
   prepareWorkerCreate,
   workerRateLabel,
+  workerRateHistoryStatusLabel,
   workerStatusLabel,
   workerSummaryKgLabel,
   workerSummaryMoneyLabel,
@@ -288,6 +290,63 @@ describe("workerDirectory", () => {
     expect(() => createInitialWorkerRateVersionId("worker-new", "15.07.2026")).toThrow(
       "Data obowiazywania musi miec format RRRR-MM-DD."
     );
+  });
+
+  it("analyzes rate history statuses, gaps and overlaps", () => {
+    const items = analyzeWorkerRateHistory(
+      [
+        rateVersion({
+          id: "rate-worker-anna-old",
+          workerId: "worker-anna",
+          validFrom: "2026-06-01",
+          validTo: "2026-06-10",
+          active: false
+        }),
+        rateVersion({
+          id: "rate-worker-anna-current",
+          workerId: "worker-anna",
+          validFrom: "2026-06-12",
+          validTo: null,
+          active: true
+        }),
+        rateVersion({
+          id: "rate-worker-anna-future",
+          workerId: "worker-anna",
+          validFrom: "2026-07-20",
+          validTo: null,
+          active: true
+        })
+      ],
+      "2026-07-17"
+    );
+
+    expect(
+      items.map((item) => ({
+        id: item.rateVersion.id,
+        status: item.status,
+        warnings: item.warnings
+      }))
+    ).toEqual([
+      {
+        id: "rate-worker-anna-future",
+        status: "FUTURE",
+        warnings: ["Naklada sie z wersja od 2026-06-12."]
+      },
+      {
+        id: "rate-worker-anna-current",
+        status: "CURRENT",
+        warnings: [
+          "Przerwa po wersji do 2026-06-10.",
+          "Naklada sie z wersja od 2026-07-20."
+        ]
+      },
+      {
+        id: "rate-worker-anna-old",
+        status: "INACTIVE",
+        warnings: ["Przerwa przed wersja od 2026-06-12."]
+      }
+    ]);
+    expect(workerRateHistoryStatusLabel("FUTURE")).toBe("Przyszla");
   });
 
   it("builds worker list with current plan, rate, linked account and empty summaries", () => {
