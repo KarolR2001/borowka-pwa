@@ -1,9 +1,13 @@
-import { RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
+import { Plus, RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { getOrCreateDeviceId } from "../domain/device";
+import { parseDecimalToScaledInteger } from "../domain/format";
 import {
+  createWorkerWithInitialRate,
   defaultWorkerDirectoryFilters,
+  findSimilarWorkerNames,
   filterWorkerDirectory,
   isWorkerActivityFilter,
   isWorkerSortKey,
@@ -13,6 +17,7 @@ import {
   workerSummaryKgLabel,
   workerSummaryMoneyLabel,
   workerUnitLabel,
+  type CreateWorkerInput,
   type WorkerDirectoryFilters,
   type WorkerDirectoryListInput,
   type WorkerDirectoryResult
@@ -25,10 +30,12 @@ export type WorkerDirectoryApi = {
     env: FirebaseEnv,
     input: WorkerDirectoryListInput
   ) => Promise<WorkerDirectoryResult>;
+  create?: (env: FirebaseEnv, input: CreateWorkerInput) => Promise<unknown>;
 };
 
 export const defaultWorkerDirectoryApi: WorkerDirectoryApi = {
-  list: listWorkerDirectory
+  list: listWorkerDirectory,
+  create: createWorkerWithInitialRate
 };
 
 type DirectoryState =
@@ -47,6 +54,17 @@ type DirectoryState =
       result: WorkerDirectoryResult | null;
       message: string;
     };
+
+type CreateWorkerDraft = {
+  displayName: string;
+  planId: string;
+  rate: string;
+  validFrom: string;
+  phone: string;
+  emailContact: string;
+  notes: string;
+  confirmed: boolean;
+};
 
 const initialState: DirectoryState = {
   status: "IDLE",
@@ -67,6 +85,12 @@ export function WorkerDirectoryPanel({
     defaultWorkerDirectoryFilters
   );
   const [state, setState] = useState<DirectoryState>(initialState);
+  const [createDraft, setCreateDraft] = useState<CreateWorkerDraft>(() =>
+    createInitialWorkerDraft()
+  );
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -132,6 +156,33 @@ export function WorkerDirectoryPanel({
     (state.result?.invalidPlans.length ?? 0) +
     (state.result?.invalidRateVersions.length ?? 0) +
     (state.result?.invalidProfiles.length ?? 0);
+  const activePlans = useMemo(
+    () => state.result?.plans.filter((plan) => plan.active) ?? [],
+    [state.result]
+  );
+  const similarWorkerNames = useMemo(
+    () =>
+      state.result
+        ? findSimilarWorkerNames(state.result.workers, createDraft.displayName)
+        : [],
+    [createDraft.displayName, state.result]
+  );
+
+  useEffect(() => {
+    if (!isAdmin || activePlans.length === 0) {
+      return;
+    }
+
+    if (activePlans.some((plan) => plan.id === createDraft.planId)) {
+      return;
+    }
+
+    setCreateDraft((current) => ({
+      ...current,
+      planId: activePlans[0]?.id ?? "",
+      confirmed: false
+    }));
+  }, [activePlans, createDraft.planId, isAdmin]);
 
   const reload = () => {
     if (!viewerRole) {
@@ -162,6 +213,68 @@ export function WorkerDirectoryPanel({
           message: "Nie udalo sie pobrac zbieraczy."
         }));
       });
+  };
+
+  const handleCreateWorker = async () => {
+    if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+
+    if (!createDraft.confirmed) {
+      setError("Potwierdz utworzenie zbieracza.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setError("Tworzenie zbieracza wymaga polaczenia online.");
+      return;
+    }
+
+    const create = workerDirectoryApi.create ?? defaultWorkerDirectoryApi.create;
+
+    if (!create) {
+      setError("Operacja tworzenia zbieracza nie jest dostepna.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await create(env, {
+        actorProfile: authState.profile,
+        displayName: createDraft.displayName,
+        planId: createDraft.planId,
+        rateGroszPerUnit: parseWorkerRate(createDraft.rate),
+        validFrom: createDraft.validFrom,
+        phone: createDraft.phone,
+        emailContact: createDraft.emailContact,
+        notes: createDraft.notes,
+        confirmSimilarName: createDraft.confirmed,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit(authState.profile.role);
+      setFeedback(createWorkerFeedback(result));
+      setCreateDraft(createInitialWorkerDraft());
+    } catch (createError: unknown) {
+      setError(getWorkerDirectoryErrorMessage(createError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const reloadAfterSubmit = async (role: "ADMIN" | "OPERATOR") => {
+    const result = await workerDirectoryApi.list(env, {
+      viewerRole: role
+    });
+
+    setState({
+      status: "READY",
+      result,
+      message: "Lista zbieraczy jest aktualna."
+    });
   };
 
   if (authState.status !== "READY") {
@@ -210,6 +323,22 @@ export function WorkerDirectoryPanel({
         onChange={setFilters}
         plans={state.result?.plans ?? []}
       />
+
+      {isAdmin && state.result ? (
+        <CreateWorkerForm
+          activePlans={activePlans}
+          draft={createDraft}
+          isSubmitting={isSubmitting}
+          onChange={setCreateDraft}
+          onSubmit={() => {
+            void handleCreateWorker();
+          }}
+          similarWorkerNames={similarWorkerNames}
+        />
+      ) : null}
+
+      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       <div className="directory-summary" aria-label="Podsumowanie zbieraczy">
         <DirectoryStat
@@ -324,6 +453,185 @@ export function WorkerDirectoryPanel({
   );
 }
 
+function CreateWorkerForm({
+  activePlans,
+  draft,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  similarWorkerNames
+}: {
+  activePlans: WorkerDirectoryResult["plans"];
+  draft: CreateWorkerDraft;
+  isSubmitting: boolean;
+  onChange: (draft: CreateWorkerDraft) => void;
+  onSubmit: () => void;
+  similarWorkerNames: string[];
+}) {
+  return (
+    <form
+      aria-label="Tworzenie zbieracza"
+      className="worker-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Nazwa zbieracza</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              displayName: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.displayName}
+        />
+      </label>
+
+      <label className="field">
+        <span>Plan</span>
+        <select
+          disabled={isSubmitting || activePlans.length === 0}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              planId: event.target.value,
+              confirmed: false
+            });
+          }}
+          value={draft.planId}
+        >
+          {activePlans.length === 0 ? (
+            <option value="">Brak aktywnych planow</option>
+          ) : null}
+          {activePlans.map((plan) => (
+            <option key={plan.id} value={plan.id}>
+              {plan.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Stawka</span>
+        <input
+          disabled={isSubmitting}
+          inputMode="decimal"
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              rate: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.rate}
+        />
+      </label>
+
+      <label className="field">
+        <span>Od dnia</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              validFrom: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="date"
+          value={draft.validFrom}
+        />
+      </label>
+
+      <label className="field">
+        <span>Telefon</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              phone: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.phone}
+        />
+      </label>
+
+      <label className="field">
+        <span>E-mail kontaktowy</span>
+        <input
+          disabled={isSubmitting}
+          inputMode="email"
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              emailContact: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="email"
+          value={draft.emailContact}
+        />
+      </label>
+
+      <label className="field worker-form__notes">
+        <span>Notatka</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              notes: event.target.value,
+              confirmed: false
+            });
+          }}
+          type="text"
+          value={draft.notes}
+        />
+      </label>
+
+      {similarWorkerNames.length > 0 ? (
+        <p className="worker-form__warning">
+          Podobna nazwa: {similarWorkerNames.slice(0, 3).join(", ")}.
+        </p>
+      ) : null}
+
+      <label className="checkbox-field worker-form__confirmation">
+        <input
+          checked={draft.confirmed}
+          disabled={isSubmitting || activePlans.length === 0}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmed: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam utworzenie zbieracza i pierwszej stawki</span>
+      </label>
+
+      <button
+        className="primary-action worker-form__submit"
+        disabled={isSubmitting || activePlans.length === 0}
+        type="submit"
+      >
+        <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Dodaj zbieracza</span>
+      </button>
+    </form>
+  );
+}
+
 function WorkerFilterControls({
   filters,
   onChange,
@@ -334,7 +642,11 @@ function WorkerFilterControls({
   plans: WorkerDirectoryResult["plans"];
 }) {
   return (
-    <div className="directory-filters worker-filters" aria-label="Filtry zbieraczy">
+    <div
+      aria-label="Filtry zbieraczy"
+      className="directory-filters worker-filters"
+      role="group"
+    >
       <label className="field">
         <span>Szukaj</span>
         <span className="search-field">
@@ -464,4 +776,52 @@ function AccessNotice({ title, message }: { title: string; message: string }) {
       </div>
     </div>
   );
+}
+
+function createInitialWorkerDraft(): CreateWorkerDraft {
+  return {
+    displayName: "",
+    planId: "",
+    rate: "",
+    validFrom: new Date().toISOString().slice(0, 10),
+    phone: "",
+    emailContact: "",
+    notes: "",
+    confirmed: false
+  };
+}
+
+function parseWorkerRate(value: string): number {
+  try {
+    const parsed = parseDecimalToScaledInteger(value, 2);
+
+    if (parsed <= 0) {
+      throw new Error("Stawka musi byc dodatnia.");
+    }
+
+    return parsed;
+  } catch {
+    throw new Error("Podaj dodatnia stawke, np. 12,50.");
+  }
+}
+
+function createWorkerFeedback(result: unknown): string {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "similarNameWarning" in result &&
+    typeof result.similarNameWarning === "string"
+  ) {
+    return `Utworzono zbieracza. ${result.similarNameWarning}`;
+  }
+
+  return "Utworzono zbieracza.";
+}
+
+function getWorkerDirectoryErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Nie udalo sie zapisac zbieracza.";
 }

@@ -497,7 +497,8 @@ h2 {
 
 .season-form,
 .season-action-form,
-.settlement-plan-form {
+.settlement-plan-form,
+.worker-form {
   display: grid;
   align-items: end;
   gap: 12px;
@@ -526,18 +527,39 @@ h2 {
     minmax(110px, 0.45fr) auto;
 }
 
+.worker-form {
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(180px, 0.85fr) minmax(130px, 0.55fr)
+    minmax(145px, 0.6fr) minmax(140px, 0.6fr) minmax(190px, 0.85fr)
+    auto;
+}
+
 .season-form__confirmation,
 .season-action-form__confirmation,
 .settlement-plan-form__confirmation,
 .settlement-plan-form__description,
-.settlement-plan-form__example {
+.settlement-plan-form__example,
+.worker-form__confirmation,
+.worker-form__notes,
+.worker-form__warning {
   grid-column: 1 / -1;
 }
 
 .season-form__submit,
 .season-action-form__submit,
-.settlement-plan-form__submit {
+.settlement-plan-form__submit,
+.worker-form__submit {
   min-width: 136px;
+}
+
+.worker-form__warning {
+  margin: 0;
+  border: 1px solid #f0c9a7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #8a3b12;
+  background: #fff8ef;
+  font-weight: 700;
 }
 
 .settlement-plan-form__example {
@@ -744,6 +766,7 @@ h2 {
   .season-form,
   .season-action-form,
   .settlement-plan-form,
+  .worker-form,
   .directory-summary {
     grid-template-columns: 1fr;
   }
@@ -790,7 +813,8 @@ h2 {
   .account-status-form,
   .season-form,
   .season-action-form,
-  .settlement-plan-form {
+  .settlement-plan-form,
+  .worker-form {
     grid-template-columns: 1fr;
   }
 
