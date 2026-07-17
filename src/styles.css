@@ -489,6 +489,12 @@ h2 {
   grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(150px, 0.6fr));
 }
 
+.worker-filters {
+  grid-template-columns:
+    minmax(220px, 1.4fr) minmax(140px, 0.55fr) minmax(180px, 0.75fr)
+    minmax(150px, 0.6fr);
+}
+
 .season-form,
 .season-action-form,
 .settlement-plan-form {
@@ -620,6 +626,10 @@ h2 {
   width: 100%;
   min-width: 920px;
   border-collapse: collapse;
+}
+
+.worker-table {
+  min-width: 1180px;
 }
 
 .directory-table th,
