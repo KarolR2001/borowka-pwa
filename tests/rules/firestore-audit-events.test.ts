@@ -221,6 +221,44 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create season audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-season-created"),
+        auditEvent({
+          id: "audit-season-created",
+          action: "SEASON_CREATED",
+          entityType: "SEASON",
+          entityId: "season-2027",
+          beforeSummary: null,
+          afterSummary: {
+            seasonId: "season-2027",
+            name: "Sezon 2027",
+            startDate: "2027-07-01",
+            endDate: "2027-09-30",
+            status: "OPEN",
+            isDefault: true
+          }
+        })
+      )
+    );
+  });
+
   it("rejects mutable or malformed audit events", async () => {
     await seedProfiles(
       profile({
