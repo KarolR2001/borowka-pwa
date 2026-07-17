@@ -86,6 +86,7 @@ import {
   defaultConfigurationCacheApi,
   type ConfigurationCacheApi
 } from "../offline/ConfigurationCachePanel";
+import { ActiveHarvestSessionPanel } from "../harvest/ActiveHarvestSessionPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -555,11 +556,14 @@ export function App({
         ) : null}
 
         {activeView === "operator" ? (
-          <WorkerDirectoryPanel
-            authState={authState}
-            env={env}
-            workerDirectoryApi={workerDirectoryApi}
-          />
+          <>
+            <ActiveHarvestSessionPanel view={null} />
+            <WorkerDirectoryPanel
+              authState={authState}
+              env={env}
+              workerDirectoryApi={workerDirectoryApi}
+            />
+          </>
         ) : null}
 
         {activeView === "settings" ? (

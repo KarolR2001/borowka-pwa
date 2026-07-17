@@ -48,3 +48,6 @@ Stage 5.1 session status transitions are maintained in
 
 Stage 5.2/5.3 opening and snapshot rules are maintained in
 `docs/domain/open-harvest-session.md`.
+
+Stage 5.4 active session screen contract is maintained in
+`docs/domain/active-harvest-session-screen.md`.
