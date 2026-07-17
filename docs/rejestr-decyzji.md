@@ -82,3 +82,11 @@
 - Decyzja: po kazdym pakiecie powstaje testowana galaz, commit i PR, ale deploy na development wykonujemy po spojnym bloku prac, zamknieciu etapu albo na jawna prosbe.
 - Uzasadnienie: czestsze PR-y utrzymuja maly zakres zmian, a rzadszy deploy ogranicza koszt recznego smoke testu i ryzyko czastkowej walidacji srodowiska.
 - Skutki: merge do `main` wymaga lokalnej weryfikacji `npm run verify` i, dla Rules, `npm run verify:rules`; sam deploy dev nie jest obowiazkowy po kazdym merge.
+
+## DEC-0012 - Waga w planie za ubianke
+
+- Status: zaakceptowana na podstawie PRD
+- Data: 2026-07-16
+- Decyzja: systemowy plan `QUANTITY_UBIANKA` ma `weightRequired=false`.
+- Uzasadnienie: PRD rozstrzyga, ze plan "Za ubianke" nie zawsze wymaga wagi. Wpis bez masy moze sluzyc rozliczeniu ilosciowemu, ale nie zwieksza stanu kilogramowego.
+- Skutki: walidacja sesji musi pozniej rozroznic naliczenie za jednostki od aktualizacji stanu kg; operator powinien widziec konsekwencje wpisu bez wagi.
