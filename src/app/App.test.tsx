@@ -7,6 +7,7 @@ import type { RegistrationInvitationsApi } from "../invitations/AdminRegistratio
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
+import type { WorkerDirectoryApi } from "../workers/WorkerDirectoryPanel";
 import { App, type AuthSessionApi, type DeviceRegistryApi } from "./App";
 
 const signedOutState: AuthSessionState = {
@@ -430,6 +431,14 @@ describe("App shell", () => {
       invalidPlans: [],
       invalidRateVersions: []
     });
+    const listWorkers = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [],
+      plans: [],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: []
+    });
 
     render(
       <App
@@ -438,6 +447,7 @@ describe("App shell", () => {
         settlementPlansApi={{ list: listSettlementPlans }}
         seasonsApi={{ list: listSeasons }}
         userDirectoryApi={{ list }}
+        workerDirectoryApi={{ list: listWorkers }}
         registrationInvitationsApi={{
           list: listInvitations,
           create: vi.fn<RegistrationInvitationsApi["create"]>(),
@@ -454,6 +464,9 @@ describe("App shell", () => {
       expect(listDevices).toHaveBeenCalled();
       expect(listSeasons).toHaveBeenCalled();
       expect(listSettlementPlans).toHaveBeenCalled();
+      expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
+        viewerRole: "ADMIN"
+      });
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
     expect(
@@ -462,10 +475,39 @@ describe("App shell", () => {
     expect(
       screen.getByRole("heading", { name: "Lista planow rozliczen" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Prerejestracja kont" })
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Lista urzadzen" })).toBeInTheDocument();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
+  });
+
+  it("renders simplified worker directory from the operator tab", async () => {
+    const user = userEvent.setup();
+    const listWorkers = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+      workers: [],
+      plans: [],
+      invalidWorkers: [],
+      invalidPlans: [],
+      invalidRateVersions: [],
+      invalidProfiles: []
+    });
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeOperatorState)}
+        workerDirectoryApi={{ list: listWorkers }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /^operator$/i }));
+
+    await waitFor(() => {
+      expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
+        viewerRole: "OPERATOR"
+      });
+    });
+    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
   });
 });

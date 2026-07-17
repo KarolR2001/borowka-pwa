@@ -67,6 +67,11 @@ import {
   type UserDirectoryApi
 } from "../users/AdminUserDirectoryPanel";
 import {
+  defaultWorkerDirectoryApi,
+  WorkerDirectoryPanel,
+  type WorkerDirectoryApi
+} from "../workers/WorkerDirectoryPanel";
+import {
   AdminRegistrationInvitationsPanel,
   defaultRegistrationInvitationsApi,
   type RegistrationInvitationsApi
@@ -171,6 +176,7 @@ export function App({
   deviceRegistryApi = defaultDeviceRegistryApi,
   deviceDirectoryApi = defaultDeviceDirectoryApi,
   userDirectoryApi = defaultUserDirectoryApi,
+  workerDirectoryApi = defaultWorkerDirectoryApi,
   seasonsApi = defaultSeasonsApi,
   settlementPlansApi = defaultSettlementPlansApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi
@@ -179,6 +185,7 @@ export function App({
   deviceRegistryApi?: DeviceRegistryApi;
   deviceDirectoryApi?: DeviceDirectoryApi;
   userDirectoryApi?: UserDirectoryApi;
+  workerDirectoryApi?: WorkerDirectoryApi;
   seasonsApi?: SeasonsApi;
   settlementPlansApi?: SettlementPlansApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
@@ -522,6 +529,11 @@ export function App({
               env={env}
               settlementPlansApi={settlementPlansApi}
             />
+            <WorkerDirectoryPanel
+              authState={authState}
+              env={env}
+              workerDirectoryApi={workerDirectoryApi}
+            />
             <AdminRegistrationInvitationsPanel
               authState={authState}
               env={env}
@@ -533,6 +545,14 @@ export function App({
               deviceDirectoryApi={deviceDirectoryApi}
             />
           </>
+        ) : null}
+
+        {activeView === "operator" ? (
+          <WorkerDirectoryPanel
+            authState={authState}
+            env={env}
+            workerDirectoryApi={workerDirectoryApi}
+          />
         ) : null}
       </main>
     </div>
