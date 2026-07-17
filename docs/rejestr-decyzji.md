@@ -90,3 +90,11 @@
 - Decyzja: systemowy plan `QUANTITY_UBIANKA` ma `weightRequired=false`.
 - Uzasadnienie: PRD rozstrzyga, ze plan "Za ubianke" nie zawsze wymaga wagi. Wpis bez masy moze sluzyc rozliczeniu ilosciowemu, ale nie zwieksza stanu kilogramowego.
 - Skutki: walidacja sesji musi pozniej rozroznic naliczenie za jednostki od aktualizacji stanu kg; operator powinien widziec konsekwencje wpisu bez wagi.
+
+## DEC-0013 - Automatyczny merge po zielonym CI
+
+- Status: zaakceptowana
+- Data: 2026-07-17
+- Decyzja: PR-y sa tworzone i obslugiwane z WSL przez GitHub CLI `gh`. Jesli CI/checki PR przejda prawidlowo, a PR jest mergeable, agent moze zmergowac PR bez dodatkowego pytania.
+- Uzasadnienie: utrzymujemy workflow PR i historie review na GitHubie, a jednoczesnie nie blokujemy pracy recznymi kliknieciami po kazdym zielonym przyroscie.
+- Skutki: po merge agent synchronizuje lokalny `main`, uruchamia wymagana weryfikacje i dopiero wtedy przechodzi do kolejnego pakietu.
