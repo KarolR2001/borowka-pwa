@@ -54,3 +54,6 @@ Stage 5.4 active session screen contract is maintained in
 
 Stage 5.5 ubianka entry form contract is maintained in
 `docs/domain/ubianka-entry-form.md`.
+
+Stage 5.6 weight entry form contract is maintained in
+`docs/domain/weight-entry-form.md`.

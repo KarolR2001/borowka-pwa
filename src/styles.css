@@ -1155,6 +1155,74 @@ h2 {
   min-width: 132px;
 }
 
+.weight-entry-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.weight-entry-form__heading,
+.weight-entry-form__notice,
+.weight-entry-form__preview,
+.weight-entry-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.weight-entry-form__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weight-entry-form__heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.weight-entry-form__heading span {
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #29463a;
+  background: #eef4f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.weight-entry-form__preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weight-entry-form__preview span {
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #173129;
+  background: #eef4f0;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.weight-entry-form__notice {
+  margin: 0;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #45564e;
+  background: #fbfdfb;
+  font-weight: 800;
+}
+
+.weight-entry-form__submit {
+  min-width: 132px;
+}
+
 .settlement-plan-form__example {
   display: grid;
   gap: 4px;
@@ -1365,6 +1433,7 @@ h2 {
   .active-session__entry,
   .active-session__entry dl,
   .ubianka-entry-form,
+  .weight-entry-form,
   .invitation-form,
   .season-form,
   .season-action-form,
@@ -1454,7 +1523,9 @@ h2 {
 
   .ubianka-entry-form__heading,
   .ubianka-entry-form__quick,
-  .ubianka-entry-form__preview {
+  .ubianka-entry-form__preview,
+  .weight-entry-form__heading,
+  .weight-entry-form__preview {
     align-items: stretch;
     flex-direction: column;
   }
