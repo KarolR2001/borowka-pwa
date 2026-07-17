@@ -71,6 +71,11 @@ import {
   defaultRegistrationInvitationsApi,
   type RegistrationInvitationsApi
 } from "../invitations/AdminRegistrationInvitationsPanel";
+import {
+  AdminSettlementPlansPanel,
+  defaultSettlementPlansApi,
+  type SettlementPlansApi
+} from "../plans/AdminSettlementPlansPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -167,6 +172,7 @@ export function App({
   deviceDirectoryApi = defaultDeviceDirectoryApi,
   userDirectoryApi = defaultUserDirectoryApi,
   seasonsApi = defaultSeasonsApi,
+  settlementPlansApi = defaultSettlementPlansApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi
 }: {
   authSessionApi?: AuthSessionApi;
@@ -174,6 +180,7 @@ export function App({
   deviceDirectoryApi?: DeviceDirectoryApi;
   userDirectoryApi?: UserDirectoryApi;
   seasonsApi?: SeasonsApi;
+  settlementPlansApi?: SettlementPlansApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
 } = {}) {
   const env = import.meta.env as FirebaseEnv;
@@ -510,6 +517,11 @@ export function App({
               userDirectoryApi={userDirectoryApi}
             />
             <AdminSeasonsPanel authState={authState} env={env} seasonsApi={seasonsApi} />
+            <AdminSettlementPlansPanel
+              authState={authState}
+              env={env}
+              settlementPlansApi={settlementPlansApi}
+            />
             <AdminRegistrationInvitationsPanel
               authState={authState}
               env={env}
