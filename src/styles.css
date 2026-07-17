@@ -549,6 +549,23 @@ h2 {
   font-weight: 700;
 }
 
+.settlement-plan-form__heading,
+.settlement-plan-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settlement-plan-form__heading {
+  grid-column: 1 / -1;
+  color: #173129;
+}
+
+.settlement-plan-form__actions {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
 .search-field {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
@@ -601,7 +618,7 @@ h2 {
 
 .directory-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 920px;
   border-collapse: collapse;
 }
 
@@ -631,6 +648,18 @@ h2 {
   color: #5f6f66;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.directory-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(116px, 1fr));
+  gap: 8px;
+}
+
+.directory-action {
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 10px;
 }
 
 .directory-table tr:last-child td {
