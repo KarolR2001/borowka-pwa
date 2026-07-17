@@ -22,6 +22,7 @@
 
 - Konta i role: testy Rules dla anonimowego, pending, aktywnego, zablokowanego i niekompletnego profilu.
   - Etap 3 / model profilu: anonimowy nie czyta profilu, aktywny uzytkownik czyta wlasny profil, zablokowany profil nie czyta danych, operator nie listuje uzytkownikow, administrator listuje profile.
+- Etap 4 / konfiguracja domenowa: raport bramki wyjscia w `docs/testing/etap-4-configuration-report.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
