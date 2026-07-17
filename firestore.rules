@@ -44,6 +44,13 @@ service cloud.firestore {
         status == 'EXPIRED';
     }
 
+    function isSeasonStatus(status) {
+      return status == 'PLANNED' ||
+        status == 'OPEN' ||
+        status == 'CLOSED' ||
+        status == 'ARCHIVED';
+    }
+
     function isAuditAction(action) {
       return action == 'USER_ROLE_CHANGED' ||
         action == 'USER_WORKER_LINK_CHANGED' ||
@@ -51,12 +58,19 @@ service cloud.firestore {
         action == 'USER_REACTIVATED' ||
         action == 'REGISTRATION_INVITATION_CREATED' ||
         action == 'REGISTRATION_INVITATION_CANCELLED' ||
-        action == 'REGISTRATION_INVITATION_EXPIRED';
+        action == 'REGISTRATION_INVITATION_EXPIRED' ||
+        action == 'SEASON_CREATED' ||
+        action == 'SEASON_OPENED' ||
+        action == 'SEASON_CLOSED' ||
+        action == 'SEASON_REOPENED' ||
+        action == 'SEASON_ARCHIVED' ||
+        action == 'SEASON_DEFAULT_CHANGED';
     }
 
     function isAuditEntityType(entityType) {
       return entityType == 'USER_PROFILE' ||
-        entityType == 'REGISTRATION_INVITATION';
+        entityType == 'REGISTRATION_INVITATION' ||
+        entityType == 'SEASON';
     }
 
     function hasInvitedUserProfileFields(data) {
@@ -380,7 +394,12 @@ service cloud.firestore {
           'registrationStatus',
           'offlineConsent',
           'status',
-          'invitationId'
+          'invitationId',
+          'seasonId',
+          'name',
+          'startDate',
+          'endDate',
+          'isDefault'
         ]) &&
         (
           !summary.keys().hasAny(['uid']) ||
@@ -433,6 +452,7 @@ service cloud.firestore {
           !summary.keys().hasAny(['status']) ||
           summary.status == null ||
           isInvitationStatus(summary.status) ||
+          isSeasonStatus(summary.status) ||
           summary.status == 'APPROVED' ||
           summary.status == 'REJECTED' ||
           summary.status == 'BLOCKED'
@@ -441,6 +461,31 @@ service cloud.firestore {
           !summary.keys().hasAny(['invitationId']) ||
           summary.invitationId == null ||
           summary.invitationId is string
+        ) &&
+        (
+          !summary.keys().hasAny(['seasonId']) ||
+          summary.seasonId == null ||
+          summary.seasonId is string
+        ) &&
+        (
+          !summary.keys().hasAny(['name']) ||
+          summary.name == null ||
+          summary.name is string
+        ) &&
+        (
+          !summary.keys().hasAny(['startDate']) ||
+          summary.startDate == null ||
+          summary.startDate is string
+        ) &&
+        (
+          !summary.keys().hasAny(['endDate']) ||
+          summary.endDate == null ||
+          summary.endDate is string
+        ) &&
+        (
+          !summary.keys().hasAny(['isDefault']) ||
+          summary.isDefault == null ||
+          summary.isDefault is bool
         )
       );
     }
@@ -505,6 +550,132 @@ service cloud.firestore {
         data.lastSeenAt is timestamp &&
         (data.lastSuccessfulSyncAt == null || data.lastSuccessfulSyncAt is timestamp) &&
         data.active is bool;
+    }
+
+    function hasSeasonFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'name',
+        'startDate',
+        'endDate',
+        'status',
+        'isDefault',
+        'createdAt',
+        'createdBy',
+        'closedAt',
+        'closedBy',
+        'reopenedAt'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'name',
+          'startDate',
+          'endDate',
+          'status',
+          'isDefault',
+          'createdAt',
+          'createdBy',
+          'closedAt',
+          'closedBy',
+          'reopenedAt'
+        ]);
+    }
+
+    function hasValidSeasonBase(data, seasonId) {
+      return hasSeasonFields(data) &&
+        data.id == seasonId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.name is string &&
+        data.name.size() > 0 &&
+        data.startDate is string &&
+        data.startDate.size() > 0 &&
+        (data.endDate == null || data.endDate is string) &&
+        (data.endDate == null || data.endDate >= data.startDate) &&
+        isSeasonStatus(data.status) &&
+        data.isDefault is bool &&
+        data.createdAt is timestamp &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        (data.closedAt == null || data.closedAt is timestamp) &&
+        (data.closedBy == null || data.closedBy is string) &&
+        (data.reopenedAt == null || data.reopenedAt is timestamp);
+    }
+
+    function isValidSeasonCreate(data, seasonId) {
+      return isAdmin() &&
+        hasValidSeasonBase(data, seasonId) &&
+        (data.status == 'PLANNED' || data.status == 'OPEN') &&
+        data.createdAt == request.time &&
+        data.createdBy == request.auth.uid &&
+        data.closedAt == null &&
+        data.closedBy == null &&
+        data.reopenedAt == null;
+    }
+
+    function keepsSeasonIdentity(data, previous) {
+      return data.id == previous.id &&
+        data.name == previous.name &&
+        data.startDate == previous.startDate &&
+        data.endDate == previous.endDate &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy;
+    }
+
+    function keepsSeasonCloseMetadata(data, previous) {
+      return data.closedAt == previous.closedAt &&
+        data.closedBy == previous.closedBy &&
+        data.reopenedAt == previous.reopenedAt;
+    }
+
+    function isValidSeasonDefaultUpdate(data, previous, seasonId) {
+      return isAdmin() &&
+        hasValidSeasonBase(data, seasonId) &&
+        keepsSeasonIdentity(data, previous) &&
+        data.status == previous.status &&
+        keepsSeasonCloseMetadata(data, previous) &&
+        data.diff(previous).affectedKeys().hasOnly(['isDefault']) &&
+        (
+          data.isDefault == false ||
+          data.status != 'ARCHIVED'
+        );
+    }
+
+    function isValidSeasonStatusUpdate(data, previous, seasonId) {
+      return isAdmin() &&
+        hasValidSeasonBase(data, seasonId) &&
+        keepsSeasonIdentity(data, previous) &&
+        data.isDefault == previous.isDefault &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'closedAt',
+          'closedBy',
+          'reopenedAt'
+        ]) &&
+        (
+          (
+            previous.status == 'PLANNED' &&
+            data.status == 'OPEN' &&
+            keepsSeasonCloseMetadata(data, previous)
+          ) || (
+            previous.status == 'OPEN' &&
+            data.status == 'CLOSED' &&
+            data.closedAt == request.time &&
+            data.closedBy == request.auth.uid &&
+            data.reopenedAt == previous.reopenedAt
+          ) || (
+            previous.status == 'CLOSED' &&
+            data.status == 'OPEN' &&
+            data.closedAt == previous.closedAt &&
+            data.closedBy == previous.closedBy &&
+            data.reopenedAt == request.time
+          ) || (
+            (previous.status == 'PLANNED' || previous.status == 'CLOSED') &&
+            data.status == 'ARCHIVED' &&
+            previous.isDefault == false &&
+            keepsSeasonCloseMetadata(data, previous)
+          )
+        );
     }
 
     function isOwnExistingDevice(deviceId) {
@@ -613,6 +784,22 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         deviceId
+      );
+      allow delete: if false;
+    }
+
+    match /seasons/{seasonId} {
+      allow get, list: if isSignedIn() &&
+        hasApprovedActiveProfile(request.auth.uid);
+      allow create: if isValidSeasonCreate(request.resource.data, seasonId);
+      allow update: if isValidSeasonDefaultUpdate(
+        request.resource.data,
+        resource.data,
+        seasonId
+      ) || isValidSeasonStatusUpdate(
+        request.resource.data,
+        resource.data,
+        seasonId
       );
       allow delete: if false;
     }

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
 import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
+import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
 import { App, type AuthSessionApi, type DeviceRegistryApi } from "./App";
 
@@ -419,11 +420,16 @@ describe("App shell", () => {
       devices: [],
       invalidDevices: []
     });
+    const listSeasons = vi.fn<SeasonsApi["list"]>().mockResolvedValue({
+      seasons: [],
+      invalidSeasons: []
+    });
 
     render(
       <App
         authSessionApi={createAuthSessionApi(activeAdminState)}
         deviceDirectoryApi={{ list: listDevices }}
+        seasonsApi={{ list: listSeasons }}
         userDirectoryApi={{ list }}
         registrationInvitationsApi={{
           list: listInvitations,
@@ -439,8 +445,12 @@ describe("App shell", () => {
       expect(list).toHaveBeenCalled();
       expect(listInvitations).toHaveBeenCalled();
       expect(listDevices).toHaveBeenCalled();
+      expect(listSeasons).toHaveBeenCalled();
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Konfiguracja sezonow" })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Prerejestracja kont" })
     ).toBeInTheDocument();

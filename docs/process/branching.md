@@ -31,6 +31,11 @@ npm run verify
 Zmiany w Security Rules, offline i obliczeniach wymagaja dodatkowych testow z macierzy.
 Zmiany w Security Rules wymagaja dodatkowo `npm run verify:rules`.
 
+PR-y sa tworzone przez GitHub CLI `gh` z WSL. Jesli checki CI przejda
+prawidlowo, a PR jest mergeable, PR moze zostac zmergowany bez dodatkowego
+pytania. Po merge nalezy zsynchronizowac lokalny `main` i uruchomic wymagana
+weryfikacje przed kolejnym pakietem.
+
 Deploy na development nie jest wymagany po kazdym PR. Wykonujemy go po spojnym
 bloku prac, zamknieciu etapu albo gdy srodowisko dev wymaga recznej walidacji
 nowej funkcjonalnosci.
