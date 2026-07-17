@@ -9,16 +9,19 @@ import {
   analyzeWorkerRateHistory,
   buildWorkerDirectory,
   createInitialWorkerRateVersionId,
+  createWorkerRateVersionId,
   decodeWorker,
   findSimilarWorkerNames,
   filterWorkerDirectory,
   prepareWorkerCreate,
+  prepareWorkerRateVersionCreate,
   workerRateLabel,
   workerRateHistoryStatusLabel,
   workerStatusLabel,
   workerSummaryKgLabel,
   workerSummaryMoneyLabel,
-  workerUnitLabel
+  workerUnitLabel,
+  type WorkerDirectoryListItem
 } from "./workerDirectory";
 
 const createdAt = "created-at";
@@ -143,6 +146,35 @@ const profile = ({
   offlineConsent: false,
   ...overrides
 });
+
+const workerListItem = ({
+  rateVersions,
+  ...overrides
+}: Partial<WorkerDirectoryListItem> & {
+  id: string;
+  rateVersions?: WorkerRateVersionDocument[];
+}): WorkerDirectoryListItem => {
+  const currentWorker = worker(overrides);
+  const currentRateVersion =
+    rateVersions?.find((rate) => rate.id === currentWorker.currentRateVersionId) ?? null;
+
+  return {
+    ...currentWorker,
+    currentPlan: plan({ id: currentWorker.currentPlanId }),
+    currentRateVersion,
+    rateVersions: rateVersions ?? [],
+    linkedUser: null,
+    auditEvents: [],
+    warnings: [],
+    seasonSummary: {
+      totalKgGrams: null,
+      earnedGrosz: null,
+      paidGrosz: null,
+      dueGrosz: null
+    },
+    ...overrides
+  };
+};
 
 describe("workerDirectory", () => {
   it("prepares active worker with initial rate and audit summary", () => {
@@ -289,6 +321,153 @@ describe("workerDirectory", () => {
     );
     expect(() => createInitialWorkerRateVersionId("worker-new", "15.07.2026")).toThrow(
       "Data obowiazywania musi miec format RRRR-MM-DD."
+    );
+  });
+
+  it("prepares a new worker rate version and closes previous current rate", () => {
+    const currentRate = rateVersion({
+      id: "rate-worker-anna-test-2026-07-01",
+      workerId: "worker-anna-test",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1000,
+      validFrom: "2026-07-01",
+      active: true
+    });
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      displayName: "Anna Test",
+      currentPlanId: "plan-weight",
+      currentRateVersionId: currentRate.id,
+      rateVersions: [currentRate]
+    });
+    const prepared = prepareWorkerRateVersionCreate(
+      currentWorker,
+      [plan({ id: "plan-weight" }), plan({ id: "plan-quantity" })],
+      currentWorker.rateVersions,
+      {
+        actorProfile: adminProfile,
+        workerId: "worker-anna-test",
+        planId: "plan-quantity",
+        rateGroszPerUnit: 1400,
+        validFrom: "2026-07-15",
+        note: "Nowa stawka.",
+        confirmBackdatedRate: false,
+        confirmHistoricalSnapshotsUnchanged: true,
+        confirmPeriodWarning: false,
+        businessDate: "2026-07-10",
+        createdAt,
+        updatedAt: "updated-at",
+        deviceId: "device-1"
+      }
+    );
+
+    expect(prepared.worker).toMatchObject({
+      id: "worker-anna-test",
+      currentPlanId: "plan-quantity",
+      currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+      updatedAt: "updated-at"
+    });
+    expect(prepared.previousRateVersion).toMatchObject({
+      id: currentRate.id,
+      active: false,
+      validTo: "2026-07-14"
+    });
+    expect(prepared.rateVersion).toMatchObject({
+      id: "rate-worker-anna-test-2026-07-15",
+      workerId: "worker-anna-test",
+      planId: "plan-quantity",
+      rateGroszPerUnit: 1400,
+      validFrom: "2026-07-15",
+      validTo: null,
+      active: true,
+      note: "Nowa stawka.",
+      createdBy: "admin-1",
+      supersedesRateId: currentRate.id
+    });
+    expect(prepared.auditAction).toBe("WORKER_RATE_CHANGED");
+    expect(prepared.beforeSummary).toMatchObject({
+      workerId: "worker-anna-test",
+      rateVersionId: currentRate.id,
+      rateGroszPerUnit: 1000,
+      validFrom: "2026-07-01",
+      validTo: null
+    });
+    expect(prepared.afterSummary).toMatchObject({
+      workerId: "worker-anna-test",
+      rateVersionId: "rate-worker-anna-test-2026-07-15",
+      currentRateVersionId: "rate-worker-anna-test-2026-07-15",
+      rateGroszPerUnit: 1400,
+      validFrom: "2026-07-15",
+      validTo: null
+    });
+    expect(prepared.reason).toContain("Historyczne snapshoty sesji");
+  });
+
+  it("blocks unsafe worker rate changes", () => {
+    const currentRate = rateVersion({
+      id: "rate-worker-anna-test-2026-07-01",
+      workerId: "worker-anna-test",
+      planId: "plan-weight",
+      validFrom: "2026-07-01"
+    });
+    const currentWorker = workerListItem({
+      id: "worker-anna-test",
+      currentPlanId: "plan-weight",
+      currentRateVersionId: currentRate.id,
+      rateVersions: [currentRate]
+    });
+    const input = {
+      actorProfile: adminProfile,
+      workerId: "worker-anna-test",
+      planId: "plan-weight",
+      rateGroszPerUnit: 1200,
+      validFrom: "2026-07-15",
+      note: null,
+      confirmBackdatedRate: false,
+      confirmHistoricalSnapshotsUnchanged: true,
+      confirmPeriodWarning: false,
+      businessDate: "2026-07-10",
+      createdAt,
+      updatedAt: "updated-at",
+      deviceId: "device-1"
+    };
+
+    expect(() =>
+      prepareWorkerRateVersionCreate(
+        currentWorker,
+        [plan({ id: "plan-weight" })],
+        [currentRate],
+        {
+          ...input,
+          confirmHistoricalSnapshotsUnchanged: false
+        }
+      )
+    ).toThrow("Potwierdz, ze historyczne snapshoty nie zostana przeliczone.");
+
+    expect(() =>
+      prepareWorkerRateVersionCreate(
+        currentWorker,
+        [plan({ id: "plan-weight", active: false })],
+        [currentRate],
+        input
+      )
+    ).toThrow("Nie mozna przypisac archiwalnego planu.");
+
+    expect(() =>
+      prepareWorkerRateVersionCreate(
+        currentWorker,
+        [plan({ id: "plan-weight" })],
+        [currentRate],
+        {
+          ...input,
+          validFrom: "2026-07-05",
+          businessDate: "2026-07-10"
+        }
+      )
+    ).toThrow("Potwierdz zapis stawki z data wsteczna.");
+
+    expect(createWorkerRateVersionId("worker-anna-test", "2026-07-15")).toBe(
+      "rate-worker-anna-test-2026-07-15"
     );
   });
 
