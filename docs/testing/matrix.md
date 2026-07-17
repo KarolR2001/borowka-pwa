@@ -25,6 +25,7 @@
 - Etap 4 / konfiguracja domenowa: raport bramki wyjscia w `docs/testing/etap-4-configuration-report.md`.
 - Etap 5 / sesje online: minimalne scenariusze obliczen w `docs/domain/calculation-scenarios.md`.
 - Etap 5.1 / model stanu sesji: przejscia statusow w `src/harvest/harvestSessionState.test.ts` i dokumentacja w `docs/domain/harvest-session-state.md`.
+- Etap 5.2/5.3 / otwieranie sesji: snapshot, wybor stawki i istniejace otwarte sesje w `src/harvest/openHarvestSession.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
