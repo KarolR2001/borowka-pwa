@@ -1,3 +1,10 @@
+import {
+  AUDIT_EVENTS_COLLECTION,
+  createAuditEventDraft,
+  createAuditEventId,
+  type AuditAction,
+  type AuditSummary
+} from "../audit/auditEvents";
 import { getFirebaseServices } from "../config/firebaseServices";
 import {
   SETTLEMENT_PLANS_COLLECTION,
@@ -6,6 +13,8 @@ import {
   type SettlementPlanDocument,
   type WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
+import { formatMoney } from "../domain/format";
+import type { UserProfile } from "../domain/identity";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -48,6 +57,31 @@ export type SettlementPlanFilters = {
   search: string;
   basis: SettlementPlanBasisFilter;
   status: SettlementPlanStatusFilter;
+};
+
+export type CreateSettlementPlanInput = {
+  actorProfile: UserProfile;
+  name: string;
+  code: string;
+  calculationBasis: SettlementCalculationBasis;
+  unitLabelSingular: string;
+  unitLabelPlural: string;
+  unitSymbol: string;
+  quantityPrecision: number;
+  weightRequired: boolean;
+  allowBatchQuantity: boolean;
+  description?: string | null;
+  deviceId: string;
+};
+
+export type PreparedSettlementPlanCreate = {
+  plan: SettlementPlanDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary | null;
+  afterSummary: AuditSummary;
+  reason: string | null;
+  deviceId: string;
+  inventoryWarning: string | null;
 };
 
 export type SettlementPlanDecodeResult =
@@ -98,6 +132,45 @@ export async function listSettlementPlansDirectory(
   );
 }
 
+export async function createSettlementPlan(
+  env: FirebaseEnv,
+  input: CreateSettlementPlanInput
+): Promise<PreparedSettlementPlanCreate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const currentDirectory = await listSettlementPlansDirectory(env);
+  const prepared = prepareSettlementPlanCreate(currentDirectory.plans, {
+    ...input,
+    createdAt: serverTimestamp()
+  });
+  const auditId = createAuditEventId();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, SETTLEMENT_PLANS_COLLECTION, prepared.plan.id), prepared.plan);
+  batch.set(
+    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+    createAuditEventDraft({
+      id: auditId,
+      actorUid: input.actorProfile.uid,
+      actorRoleSnapshot: input.actorProfile.role,
+      action: prepared.auditAction,
+      entityType: "SETTLEMENT_PLAN",
+      entityId: prepared.plan.id,
+      beforeSummary: prepared.beforeSummary,
+      afterSummary: prepared.afterSummary,
+      reason: prepared.reason,
+      createdAtDevice: Timestamp.now(),
+      createdAtServer: serverTimestamp(),
+      deviceId: prepared.deviceId
+    })
+  );
+
+  await batch.commit();
+
+  return prepared;
+}
+
 export function buildSettlementPlansDirectory(
   planDocuments: SettlementPlanDocumentSnapshot[],
   rateVersionDocuments: WorkerRateVersionDocumentSnapshot[]
@@ -141,6 +214,79 @@ export function buildSettlementPlansDirectory(
     invalidRateVersions: invalidRateVersions.sort((left, right) =>
       left.id.localeCompare(right.id, "pl")
     )
+  };
+}
+
+export function prepareSettlementPlanCreate(
+  existingPlans: SettlementPlanDocument[],
+  input: CreateSettlementPlanInput & { createdAt: unknown }
+): PreparedSettlementPlanCreate {
+  assertAdmin(input.actorProfile);
+
+  const name = normalizeRequiredText(input.name, "Podaj nazwe planu.");
+  const code = normalizePlanCode(input.code);
+  const id = createSettlementPlanId(code);
+  const unitLabelSingular = normalizeRequiredText(
+    input.unitLabelSingular,
+    "Podaj etykiete jednostki w liczbie pojedynczej."
+  );
+  const unitLabelPlural = normalizeRequiredText(
+    input.unitLabelPlural,
+    "Podaj etykiete jednostki w liczbie mnogiej."
+  );
+  const unitSymbol = normalizeRequiredText(input.unitSymbol, "Podaj symbol jednostki.");
+  const quantityPrecision = normalizeQuantityPrecision(input.quantityPrecision);
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+
+  if (
+    existingPlans.some((plan) => plan.id === id || normalizePlanCode(plan.code) === code)
+  ) {
+    throw new Error("Kod planu musi byc unikalny.");
+  }
+
+  if (!isSettlementCalculationBasis(input.calculationBasis)) {
+    throw new Error("Wybierz poprawna podstawe rozliczenia.");
+  }
+
+  if (input.calculationBasis === "WEIGHT" && !input.weightRequired) {
+    throw new Error("Plan wagowy musi wymagac wagi.");
+  }
+
+  const description = normalizeOptionalText(input.description);
+  const inventoryWarning =
+    input.calculationBasis === "QUANTITY" && !input.weightRequired
+      ? "Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
+      : null;
+  const plan: SettlementPlanDocument = {
+    id,
+    name,
+    code,
+    calculationBasis: input.calculationBasis,
+    unitLabelSingular,
+    unitLabelPlural,
+    unitSymbol,
+    quantityPrecision,
+    weightRequired: input.weightRequired,
+    allowBatchQuantity: input.allowBatchQuantity,
+    description,
+    active: true,
+    systemDefault: false,
+    createdAt: input.createdAt,
+    createdBy: input.actorProfile.uid,
+    archivedAt: null
+  };
+
+  return {
+    plan,
+    auditAction: "SETTLEMENT_PLAN_CREATED",
+    beforeSummary: null,
+    afterSummary: settlementPlanAuditSummary(plan),
+    reason: inventoryWarning,
+    deviceId,
+    inventoryWarning
   };
 }
 
@@ -360,6 +506,54 @@ export function settlementPlanStatusLabel(plan: Pick<SettlementPlanListItem, "ac
   return plan.active ? "Aktywny" : "Archiwalny";
 }
 
+export function createSettlementPlanExample(
+  input: Pick<
+    CreateSettlementPlanInput,
+    | "calculationBasis"
+    | "quantityPrecision"
+    | "unitLabelSingular"
+    | "unitLabelPlural"
+    | "unitSymbol"
+  >
+): string {
+  const quantity = input.calculationBasis === "WEIGHT" ? 8.425 : 3.5;
+  const rateGrosz = input.calculationBasis === "WEIGHT" ? 1000 : 1500;
+  const quantityPrecision =
+    input.calculationBasis === "WEIGHT"
+      ? 3
+      : Math.min(Math.max(input.quantityPrecision, 0), 3);
+  const unit =
+    input.calculationBasis === "WEIGHT"
+      ? input.unitSymbol || "kg"
+      : input.unitLabelPlural || input.unitSymbol || "jednostki";
+  const amountGrosz = Math.round(quantity * rateGrosz);
+
+  return `${formatPlanQuantity(quantity, quantityPrecision)} ${unit} x ${formatMoney(
+    rateGrosz
+  )} = ${formatMoney(amountGrosz)}`;
+}
+
+export function createSettlementPlanId(code: string): string {
+  return `plan-${normalizePlanCode(code).toLocaleLowerCase("pl-PL").replace(/_/g, "-")}`;
+}
+
+export function normalizePlanCode(code: string): string {
+  const normalized = code
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleUpperCase("pl-PL")
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
+
+  if (!/^[A-Z0-9_]{2,40}$/.test(normalized)) {
+    throw new Error("Kod planu musi miec od 2 do 40 znakow A-Z, 0-9 lub _.");
+  }
+
+  return normalized;
+}
+
 export function isSettlementCalculationBasis(
   value: unknown
 ): value is SettlementCalculationBasis {
@@ -398,6 +592,63 @@ function sortSettlementPlans(plans: SettlementPlanListItem[]): SettlementPlanLis
 
 function isQuantityPrecision(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 3;
+}
+
+function normalizeQuantityPrecision(value: number): number {
+  if (!isQuantityPrecision(value)) {
+    throw new Error("Precyzja musi byc liczba calkowita od 0 do 3.");
+  }
+
+  return value;
+}
+
+function settlementPlanAuditSummary(plan: SettlementPlanDocument): AuditSummary {
+  return {
+    planId: plan.id,
+    name: plan.name,
+    code: plan.code,
+    calculationBasis: plan.calculationBasis,
+    unitSymbol: plan.unitSymbol,
+    quantityPrecision: plan.quantityPrecision,
+    weightRequired: plan.weightRequired,
+    allowBatchQuantity: plan.allowBatchQuantity,
+    active: plan.active
+  };
+}
+
+function assertAdmin(profile: UserProfile): void {
+  if (
+    profile.role !== "ADMIN" ||
+    !profile.active ||
+    profile.registrationStatus !== "APPROVED"
+  ) {
+    throw new Error("Operacja planu wymaga aktywnego administratora.");
+  }
+}
+
+function normalizeRequiredText(value: string, message: string): string {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+
+  if (!trimmed) {
+    throw new Error(message);
+  }
+
+  return trimmed;
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim() === "") {
+    return null;
+  }
+
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function formatPlanQuantity(value: number, fractionDigits: number): string {
+  return new Intl.NumberFormat("pl-PL", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(value);
 }
 
 function isBusinessDate(value: string): boolean {

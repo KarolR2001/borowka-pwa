@@ -12,6 +12,7 @@ import {
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   setDoc,
   updateDoc,
   where
@@ -237,7 +238,107 @@ describe("Firestore settlement plan rules", () => {
     expect(ratesSnapshot.size).toBe(1);
   });
 
-  it("rejects plan and rate version writes in read-only package", async () => {
+  it("allows admin to create custom settlement plans", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "settlementPlans", "plan-skrzynka"),
+        settlementPlan({
+          id: "plan-skrzynka",
+          name: "Za skrzynke",
+          code: "SKRZYNKA",
+          calculationBasis: "QUANTITY",
+          unitLabelSingular: "skrzynka",
+          unitLabelPlural: "skrzynki",
+          unitSymbol: "skrz.",
+          quantityPrecision: 0,
+          weightRequired: false,
+          allowBatchQuantity: true,
+          description: "Rozliczenie za skrzynke.",
+          active: true,
+          systemDefault: false,
+          createdAt: serverTimestamp(),
+          createdBy: "admin-1",
+          archivedAt: null
+        })
+      )
+    );
+  });
+
+  it("rejects malformed custom settlement plan creates and non-admin creates", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({ uid: "operator-1" })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const adminDb = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      setDoc(
+        doc(operatorDb, "settlementPlans", "plan-operator"),
+        settlementPlan({
+          id: "plan-operator",
+          code: "OPERATOR",
+          systemDefault: false,
+          createdAt: serverTimestamp(),
+          createdBy: "operator-1"
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(adminDb, "settlementPlans", "plan-bad-precision"),
+        settlementPlan({
+          id: "plan-bad-precision",
+          code: "BAD_PRECISION",
+          quantityPrecision: 4,
+          systemDefault: false,
+          createdAt: serverTimestamp()
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(adminDb, "settlementPlans", "plan-weight-no-weight"),
+        settlementPlan({
+          id: "plan-weight-no-weight",
+          code: "WEIGHT_NO_WEIGHT",
+          calculationBasis: "WEIGHT",
+          weightRequired: false,
+          systemDefault: false,
+          createdAt: serverTimestamp()
+        })
+      )
+    );
+  });
+
+  it("rejects plan updates and rate version writes in create-plan package", async () => {
     await seedProfiles(
       profile({
         uid: "admin-1",
@@ -255,18 +356,17 @@ describe("Firestore settlement plan rules", () => {
       .firestore();
 
     await assertFails(
-      setDoc(
-        doc(db, "settlementPlans", "plan-new"),
-        settlementPlan({
-          id: "plan-new",
-          code: "NEW_PLAN"
-        })
-      )
-    );
-    await assertFails(
       updateDoc(doc(db, "settlementPlans", "plan-weight-kg"), {
         active: false
       })
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "workerRateVersions", "rate-new"),
+        rateVersion({
+          id: "rate-new"
+        })
+      )
     );
     await assertFails(deleteDoc(doc(db, "workerRateVersions", "rate-worker-1")));
   });

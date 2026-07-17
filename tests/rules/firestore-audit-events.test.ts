@@ -259,6 +259,47 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create settlement plan audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-plan-created"),
+        auditEvent({
+          id: "audit-plan-created",
+          action: "SETTLEMENT_PLAN_CREATED",
+          entityType: "SETTLEMENT_PLAN",
+          entityId: "plan-skrzynka",
+          beforeSummary: null,
+          afterSummary: {
+            planId: "plan-skrzynka",
+            name: "Za skrzynke",
+            code: "SKRZYNKA",
+            calculationBasis: "QUANTITY",
+            unitSymbol: "skrz.",
+            quantityPrecision: 0,
+            weightRequired: false,
+            allowBatchQuantity: true,
+            active: true
+          }
+        })
+      )
+    );
+  });
+
   it("rejects mutable or malformed audit events", async () => {
     await seedProfiles(
       profile({
