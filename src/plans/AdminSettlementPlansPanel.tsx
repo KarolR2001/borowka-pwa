@@ -1,9 +1,18 @@
-import { Plus, RefreshCw, Scale, Search, ShieldAlert } from "lucide-react";
+import {
+  Archive,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Scale,
+  Search,
+  ShieldAlert
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import {
+  archiveSettlementPlan,
   createSettlementPlan,
   createSettlementPlanExample,
   defaultSettlementPlanFilters,
@@ -12,9 +21,13 @@ import {
   listSettlementPlansDirectory,
   settlementCalculationBasisLabel,
   settlementPlanStatusLabel,
+  updateSettlementPlan,
+  type ArchiveSettlementPlanInput,
   type CreateSettlementPlanInput,
+  type SettlementPlanListItem,
   type SettlementPlanFilters,
-  type SettlementPlansDirectoryResult
+  type SettlementPlansDirectoryResult,
+  type UpdateSettlementPlanInput
 } from "./settlementPlans";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -22,11 +35,15 @@ type FirebaseEnv = Record<string, string | boolean | undefined>;
 export type SettlementPlansApi = {
   list: (env: FirebaseEnv) => Promise<SettlementPlansDirectoryResult>;
   create?: (env: FirebaseEnv, input: CreateSettlementPlanInput) => Promise<unknown>;
+  update?: (env: FirebaseEnv, input: UpdateSettlementPlanInput) => Promise<unknown>;
+  archive?: (env: FirebaseEnv, input: ArchiveSettlementPlanInput) => Promise<unknown>;
 };
 
 export const defaultSettlementPlansApi: SettlementPlansApi = {
   list: listSettlementPlansDirectory,
-  create: createSettlementPlan
+  create: createSettlementPlan,
+  update: updateSettlementPlan,
+  archive: archiveSettlementPlan
 };
 
 type SettlementPlansState =
@@ -57,6 +74,25 @@ type CreatePlanDraft = {
   weightRequired: boolean;
   allowBatchQuantity: boolean;
   description: string;
+  confirmed: boolean;
+};
+
+type EditPlanDraft = {
+  planId: string;
+  planName: string;
+  wasUsed: boolean;
+  name: string;
+  unitLabelSingular: string;
+  unitLabelPlural: string;
+  unitSymbol: string;
+  description: string;
+  confirmHistoricalSnapshotsUnchanged: boolean;
+};
+
+type ArchivePlanDraft = {
+  planId: string;
+  planName: string;
+  reason: string;
   confirmed: boolean;
 };
 
@@ -94,6 +130,8 @@ export function AdminSettlementPlansPanel({
   );
   const [state, setState] = useState<SettlementPlansState>(initialState);
   const [createDraft, setCreateDraft] = useState<CreatePlanDraft>(initialCreatePlanDraft);
+  const [editDraft, setEditDraft] = useState<EditPlanDraft | null>(null);
+  const [archiveDraft, setArchiveDraft] = useState<ArchivePlanDraft | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -226,6 +264,124 @@ export function AdminSettlementPlansPanel({
     }
   };
 
+  const startEditPlan = (plan: SettlementPlanListItem) => {
+    setFeedback(null);
+    setError(null);
+    setArchiveDraft(null);
+    setEditDraft({
+      planId: plan.id,
+      planName: plan.name,
+      wasUsed: plan.wasUsed,
+      name: plan.name,
+      unitLabelSingular: plan.unitLabelSingular,
+      unitLabelPlural: plan.unitLabelPlural,
+      unitSymbol: plan.unitSymbol,
+      description: plan.description ?? "",
+      confirmHistoricalSnapshotsUnchanged: false
+    });
+  };
+
+  const startArchivePlan = (plan: SettlementPlanListItem) => {
+    setFeedback(null);
+    setError(null);
+    setEditDraft(null);
+    setArchiveDraft({
+      planId: plan.id,
+      planName: plan.name,
+      reason: "",
+      confirmed: false
+    });
+  };
+
+  const handleUpdatePlan = async () => {
+    if (authState.status !== "READY" || !editDraft) {
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+
+    if (!navigator.onLine) {
+      setError("Edycja planu wymaga polaczenia online.");
+      return;
+    }
+
+    const update = settlementPlansApi.update ?? defaultSettlementPlansApi.update;
+
+    if (!update) {
+      setError("Operacja edycji planu nie jest dostepna.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await update(env, {
+        actorProfile: authState.profile,
+        planId: editDraft.planId,
+        name: editDraft.name,
+        unitLabelSingular: editDraft.unitLabelSingular,
+        unitLabelPlural: editDraft.unitLabelPlural,
+        unitSymbol: editDraft.unitSymbol,
+        description: editDraft.description,
+        confirmHistoricalSnapshotsUnchanged:
+          editDraft.confirmHistoricalSnapshotsUnchanged,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit();
+      setFeedback("Zapisano plan.");
+      setEditDraft(null);
+    } catch (updateError: unknown) {
+      setError(getSettlementPlansErrorMessage(updateError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleArchivePlan = async () => {
+    if (authState.status !== "READY" || !archiveDraft) {
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+
+    if (!archiveDraft.confirmed) {
+      setError("Potwierdz archiwizacje planu.");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setError("Archiwizacja planu wymaga polaczenia online.");
+      return;
+    }
+
+    const archive = settlementPlansApi.archive ?? defaultSettlementPlansApi.archive;
+
+    if (!archive) {
+      setError("Operacja archiwizacji planu nie jest dostepna.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await archive(env, {
+        actorProfile: authState.profile,
+        planId: archiveDraft.planId,
+        reason: archiveDraft.reason,
+        deviceId: getOrCreateDeviceId()
+      });
+      await reloadAfterSubmit();
+      setFeedback("Zarchiwizowano plan.");
+      setArchiveDraft(null);
+    } catch (archiveError: unknown) {
+      setError(getSettlementPlansErrorMessage(archiveError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const reloadAfterSubmit = async () => {
     const result = await settlementPlansApi.list(env);
 
@@ -290,6 +446,34 @@ export function AdminSettlementPlansPanel({
         />
       ) : null}
 
+      {editDraft ? (
+        <EditSettlementPlanForm
+          draft={editDraft}
+          isSubmitting={isSubmitting}
+          onCancel={() => {
+            setEditDraft(null);
+          }}
+          onChange={setEditDraft}
+          onSubmit={() => {
+            void handleUpdatePlan();
+          }}
+        />
+      ) : null}
+
+      {archiveDraft ? (
+        <ArchiveSettlementPlanForm
+          draft={archiveDraft}
+          isSubmitting={isSubmitting}
+          onCancel={() => {
+            setArchiveDraft(null);
+          }}
+          onChange={setArchiveDraft}
+          onSubmit={() => {
+            void handleArchivePlan();
+          }}
+        />
+      ) : null}
+
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
@@ -329,6 +513,7 @@ export function AdminSettlementPlansPanel({
                 <th scope="col">Aktywne stawki</th>
                 <th scope="col">Uzyty</th>
                 <th scope="col">Status</th>
+                <th scope="col">Akcje</th>
               </tr>
             </thead>
             <tbody>
@@ -348,6 +533,31 @@ export function AdminSettlementPlansPanel({
                   <td>{plan.activeRateCount}</td>
                   <td>{plan.wasUsed ? "Tak" : "Nie"}</td>
                   <td>{settlementPlanStatusLabel(plan)}</td>
+                  <td>
+                    <div className="directory-actions">
+                      <button
+                        className="secondary-action directory-action"
+                        onClick={() => {
+                          startEditPlan(plan);
+                        }}
+                        type="button"
+                      >
+                        <Pencil aria-hidden="true" size={16} strokeWidth={2.2} />
+                        <span>Edytuj</span>
+                      </button>
+                      <button
+                        className="secondary-action directory-action"
+                        disabled={!plan.active}
+                        onClick={() => {
+                          startArchivePlan(plan);
+                        }}
+                        type="button"
+                      >
+                        <Archive aria-hidden="true" size={16} strokeWidth={2.2} />
+                        <span>Archiwizuj</span>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -607,6 +817,224 @@ function CreateSettlementPlanForm({
         <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
         <span>Dodaj plan</span>
       </button>
+    </form>
+  );
+}
+
+function EditSettlementPlanForm({
+  draft,
+  isSubmitting,
+  onCancel,
+  onChange,
+  onSubmit
+}: {
+  draft: EditPlanDraft;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onChange: (draft: EditPlanDraft) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      aria-label="Edycja planu rozliczen"
+      className="settlement-plan-form settlement-plan-form--edit"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="settlement-plan-form__heading">
+        <strong>{draft.planName}</strong>
+      </div>
+
+      <label className="field">
+        <span>Nazwa planu</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              name: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.name}
+        />
+      </label>
+
+      <label className="field">
+        <span>Jednostka</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitLabelSingular: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.unitLabelSingular}
+        />
+      </label>
+
+      <label className="field">
+        <span>Jednostki</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitLabelPlural: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.unitLabelPlural}
+        />
+      </label>
+
+      <label className="field">
+        <span>Symbol</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              unitSymbol: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.unitSymbol}
+        />
+      </label>
+
+      <label className="field settlement-plan-form__description">
+        <span>Opis</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              description: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.description}
+        />
+      </label>
+
+      {draft.wasUsed ? (
+        <label className="checkbox-field settlement-plan-form__confirmation">
+          <input
+            checked={draft.confirmHistoricalSnapshotsUnchanged}
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({
+                ...draft,
+                confirmHistoricalSnapshotsUnchanged: event.target.checked
+              });
+            }}
+            type="checkbox"
+          />
+          <span>Potwierdzam, ze snapshoty historyczne pozostaja bez zmian</span>
+        </label>
+      ) : null}
+
+      <div className="settlement-plan-form__actions">
+        <button
+          className="primary-action settlement-plan-form__submit"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          <Pencil aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Zapisz plan</span>
+        </button>
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <span>Anuluj</span>
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ArchiveSettlementPlanForm({
+  draft,
+  isSubmitting,
+  onCancel,
+  onChange,
+  onSubmit
+}: {
+  draft: ArchivePlanDraft;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onChange: (draft: ArchivePlanDraft) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      aria-label="Archiwizacja planu rozliczen"
+      className="settlement-plan-form settlement-plan-form--archive"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="settlement-plan-form__heading">
+        <strong>{draft.planName}</strong>
+      </div>
+
+      <label className="field settlement-plan-form__description">
+        <span>Powod</span>
+        <input
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <label className="checkbox-field settlement-plan-form__confirmation">
+        <input
+          checked={draft.confirmed}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              confirmed: event.target.checked
+            });
+          }}
+          type="checkbox"
+        />
+        <span>Potwierdzam archiwizacje planu</span>
+      </label>
+
+      <div className="settlement-plan-form__actions">
+        <button
+          className="primary-action settlement-plan-form__submit"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          <Archive aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Archiwizuj plan</span>
+        </button>
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <span>Anuluj</span>
+        </button>
+      </div>
     </form>
   );
 }

@@ -10,7 +10,9 @@ import {
   decodeSettlementPlan,
   filterSettlementPlans,
   normalizePlanCode,
+  prepareSettlementPlanArchive,
   prepareSettlementPlanCreate,
+  prepareSettlementPlanUpdate,
   settlementCalculationBasisLabel,
   settlementPlanStatusLabel
 } from "./settlementPlans";
@@ -207,6 +209,129 @@ describe("settlementPlans", () => {
         unitSymbol: "kg"
       })
     ).toBe("8,425 kg x 10,00 zł = 84,25 zł");
+  });
+
+  it("prepares a safe plan update with audit summaries", () => {
+    const currentPlan = {
+      ...plan({
+        id: "plan-quantity",
+        name: "Za ubianke",
+        description: "Stary opis"
+      }),
+      activeRateCount: 1,
+      rateVersionCount: 1,
+      wasUsed: true
+    };
+    const prepared = prepareSettlementPlanUpdate(currentPlan, {
+      actorProfile: adminProfile,
+      planId: "plan-quantity",
+      name: "Za pelna ubianke",
+      unitLabelSingular: "ubianka",
+      unitLabelPlural: "pelne ubianki",
+      unitSymbol: "ubianka",
+      description: "Nowy opis",
+      confirmHistoricalSnapshotsUnchanged: true,
+      deviceId: "device-1"
+    });
+
+    expect(prepared.auditAction).toBe("SETTLEMENT_PLAN_UPDATED");
+    expect(prepared.changedFields).toEqual(["name", "unitLabelPlural", "description"]);
+    expect(prepared.beforeSummary).toMatchObject({
+      planId: "plan-quantity",
+      name: "Za ubianke",
+      unitLabelPlural: "ubianki"
+    });
+    expect(prepared.afterSummary).toMatchObject({
+      planId: "plan-quantity",
+      name: "Za pelna ubianke",
+      unitLabelPlural: "pelne ubianki"
+    });
+    expect(prepared.reason).toBe(
+      "Administrator potwierdzil, ze snapshoty historyczne pozostaja bez zmian."
+    );
+  });
+
+  it("blocks used plan label update without snapshot confirmation", () => {
+    const currentPlan = {
+      ...plan({
+        id: "plan-used"
+      }),
+      activeRateCount: 1,
+      rateVersionCount: 1,
+      wasUsed: true
+    };
+
+    expect(() =>
+      prepareSettlementPlanUpdate(currentPlan, {
+        actorProfile: adminProfile,
+        planId: "plan-used",
+        name: "plan-used",
+        unitLabelSingular: "koszyk",
+        unitLabelPlural: "koszyki",
+        unitSymbol: "kosz.",
+        description: null,
+        confirmHistoricalSnapshotsUnchanged: false,
+        deviceId: "device-1"
+      })
+    ).toThrow("Potwierdz, ze snapshoty historyczne pozostana bez zmian.");
+
+    expect(() =>
+      prepareSettlementPlanUpdate(currentPlan, {
+        actorProfile: operatorProfile,
+        planId: "plan-used",
+        name: "plan-used",
+        unitLabelSingular: "ubianka",
+        unitLabelPlural: "ubianki",
+        unitSymbol: "ubianka",
+        description: "Zmiana",
+        confirmHistoricalSnapshotsUnchanged: false,
+        deviceId: "device-1"
+      })
+    ).toThrow("Operacja planu wymaga aktywnego administratora.");
+  });
+
+  it("prepares settlement plan archive without changing history fields", () => {
+    const currentPlan = {
+      ...plan({
+        id: "plan-active",
+        active: true
+      }),
+      activeRateCount: 0,
+      rateVersionCount: 0,
+      wasUsed: false
+    };
+    const prepared = prepareSettlementPlanArchive(currentPlan, {
+      actorProfile: adminProfile,
+      planId: "plan-active",
+      reason: "Nie uzywamy w tym sezonie.",
+      archivedAt: "archived-at",
+      deviceId: "device-1"
+    });
+
+    expect(prepared.auditAction).toBe("SETTLEMENT_PLAN_ARCHIVED");
+    expect(prepared.plan).toMatchObject({
+      id: "plan-active",
+      active: false,
+      archivedAt: "archived-at"
+    });
+    expect(prepared.beforeSummary.active).toBe(true);
+    expect(prepared.afterSummary.active).toBe(false);
+    expect(prepared.reason).toBe("Nie uzywamy w tym sezonie.");
+
+    expect(() =>
+      prepareSettlementPlanArchive(
+        {
+          ...currentPlan,
+          active: false
+        },
+        {
+          actorProfile: adminProfile,
+          planId: "plan-active",
+          archivedAt: "archived-at",
+          deviceId: "device-1"
+        }
+      )
+    ).toThrow("Plan jest juz archiwalny.");
   });
 
   it("builds plan directory with rate metrics and stable sorting", () => {

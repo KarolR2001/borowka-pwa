@@ -338,7 +338,7 @@ describe("Firestore settlement plan rules", () => {
     );
   });
 
-  it("rejects plan updates and rate version writes in create-plan package", async () => {
+  it("allows admin to update presentation fields and archive plans", async () => {
     await seedProfiles(
       profile({
         uid: "admin-1",
@@ -355,19 +355,62 @@ describe("Firestore settlement plan rules", () => {
       .authenticatedContext("admin-1", { email: "admin-1@example.test" })
       .firestore();
 
-    await assertFails(
+    await assertSucceeds(
       updateDoc(doc(db, "settlementPlans", "plan-weight-kg"), {
-        active: false
+        name: "Za potwierdzony kilogram",
+        unitLabelPlural: "kilogramy potwierdzone",
+        description: "Zmieniony opis prezentacyjny."
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, "settlementPlans", "plan-weight-kg"), {
+        active: false,
+        archivedAt: serverTimestamp()
+      })
+    );
+    await assertFails(deleteDoc(doc(db, "settlementPlans", "plan-weight-kg")));
+  });
+
+  it("rejects unsafe plan updates, non-admin updates and rate version writes", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      }),
+      profile({ uid: "operator-1" })
+    );
+    await seedConfiguration();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const adminDb = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const operatorDb = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertFails(
+      updateDoc(doc(adminDb, "settlementPlans", "plan-weight-kg"), {
+        calculationBasis: "QUANTITY",
+        quantityPrecision: 1
+      })
+    );
+    await assertFails(
+      updateDoc(doc(operatorDb, "settlementPlans", "plan-weight-kg"), {
+        name: "Operator nie powinien zmieniac planu"
       })
     );
     await assertFails(
       setDoc(
-        doc(db, "workerRateVersions", "rate-new"),
+        doc(adminDb, "workerRateVersions", "rate-new"),
         rateVersion({
           id: "rate-new"
         })
       )
     );
-    await assertFails(deleteDoc(doc(db, "workerRateVersions", "rate-worker-1")));
+    await assertFails(deleteDoc(doc(adminDb, "workerRateVersions", "rate-worker-1")));
   });
 });

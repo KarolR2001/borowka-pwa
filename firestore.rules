@@ -69,7 +69,9 @@ service cloud.firestore {
         action == 'SEASON_REOPENED' ||
         action == 'SEASON_ARCHIVED' ||
         action == 'SEASON_DEFAULT_CHANGED' ||
-        action == 'SETTLEMENT_PLAN_CREATED';
+        action == 'SETTLEMENT_PLAN_CREATED' ||
+        action == 'SETTLEMENT_PLAN_UPDATED' ||
+        action == 'SETTLEMENT_PLAN_ARCHIVED';
     }
 
     function isAuditEntityType(entityType) {
@@ -414,26 +416,14 @@ service cloud.firestore {
           'startDate',
           'endDate',
           'isDefault',
+          'unitLabelSingular',
+          'unitLabelPlural',
           'unitSymbol',
           'quantityPrecision',
           'weightRequired',
-          'allowBatchQuantity'
+          'allowBatchQuantity',
+          'description'
         ]) &&
-        (
-          !summary.keys().hasAny(['uid']) ||
-          summary.uid == null ||
-          summary.uid is string
-        ) &&
-        (
-          !summary.keys().hasAny(['email']) ||
-          summary.email == null ||
-          summary.email is string
-        ) &&
-        (
-          !summary.keys().hasAny(['displayName']) ||
-          summary.displayName == null ||
-          summary.displayName is string
-        ) &&
         (
           !summary.keys().hasAny(['role']) ||
           summary.role == null ||
@@ -462,11 +452,6 @@ service cloud.firestore {
           summary.registrationStatus == 'BLOCKED'
         ) &&
         (
-          !summary.keys().hasAny(['offlineConsent']) ||
-          summary.offlineConsent == null ||
-          summary.offlineConsent is bool
-        ) &&
-        (
           !summary.keys().hasAny(['status']) ||
           summary.status == null ||
           isInvitationStatus(summary.status) ||
@@ -476,54 +461,14 @@ service cloud.firestore {
           summary.status == 'BLOCKED'
         ) &&
         (
-          !summary.keys().hasAny(['invitationId']) ||
-          summary.invitationId == null ||
-          summary.invitationId is string
-        ) &&
-        (
-          !summary.keys().hasAny(['seasonId']) ||
-          summary.seasonId == null ||
-          summary.seasonId is string
-        ) &&
-        (
-          !summary.keys().hasAny(['planId']) ||
-          summary.planId == null ||
-          summary.planId is string
-        ) &&
-        (
-          !summary.keys().hasAny(['name']) ||
-          summary.name == null ||
-          summary.name is string
-        ) &&
-        (
-          !summary.keys().hasAny(['code']) ||
-          summary.code == null ||
-          summary.code is string
-        ) &&
-        (
           !summary.keys().hasAny(['calculationBasis']) ||
           summary.calculationBasis == null ||
           isSettlementCalculationBasis(summary.calculationBasis)
         ) &&
         (
-          !summary.keys().hasAny(['startDate']) ||
-          summary.startDate == null ||
-          summary.startDate is string
-        ) &&
-        (
-          !summary.keys().hasAny(['endDate']) ||
-          summary.endDate == null ||
-          summary.endDate is string
-        ) &&
-        (
           !summary.keys().hasAny(['isDefault']) ||
           summary.isDefault == null ||
           summary.isDefault is bool
-        ) &&
-        (
-          !summary.keys().hasAny(['unitSymbol']) ||
-          summary.unitSymbol == null ||
-          summary.unitSymbol is string
         ) &&
         (
           !summary.keys().hasAny(['quantityPrecision']) ||
@@ -822,6 +767,48 @@ service cloud.firestore {
         data.archivedAt == null;
     }
 
+    function keepsSettlementPlanLockedFields(data, previous, planId) {
+      return data.id == planId &&
+        data.id == previous.id &&
+        data.code == previous.code &&
+        data.calculationBasis == previous.calculationBasis &&
+        data.quantityPrecision == previous.quantityPrecision &&
+        data.weightRequired == previous.weightRequired &&
+        data.allowBatchQuantity == previous.allowBatchQuantity &&
+        data.systemDefault == previous.systemDefault &&
+        data.createdAt == previous.createdAt &&
+        data.createdBy == previous.createdBy;
+    }
+
+    function isValidSettlementPlanPresentationUpdate(data, previous, planId) {
+      return isAdmin() &&
+        hasValidSettlementPlanBase(data, planId) &&
+        keepsSettlementPlanLockedFields(data, previous, planId) &&
+        data.active == previous.active &&
+        data.archivedAt == previous.archivedAt &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'name',
+          'unitLabelSingular',
+          'unitLabelPlural',
+          'unitSymbol',
+          'description'
+        ]);
+    }
+
+    function isValidSettlementPlanArchiveUpdate(data, previous, planId) {
+      return isAdmin() &&
+        hasValidSettlementPlanBase(data, planId) &&
+        keepsSettlementPlanLockedFields(data, previous, planId) &&
+        previous.active == true &&
+        previous.archivedAt == null &&
+        data.active == false &&
+        data.archivedAt == request.time &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'active',
+          'archivedAt'
+        ]);
+    }
+
     function isOwnExistingDevice(deviceId) {
       return exists(/databases/$(database)/documents/devices/$(deviceId)) &&
         resource.data.userUid == request.auth.uid;
@@ -951,7 +938,16 @@ service cloud.firestore {
     match /settlementPlans/{planId} {
       allow get, list: if canReadActiveConfiguration(resource.data);
       allow create: if isValidSettlementPlanCreate(request.resource.data, planId);
-      allow update, delete: if false;
+      allow update: if isValidSettlementPlanPresentationUpdate(
+        request.resource.data,
+        resource.data,
+        planId
+      ) || isValidSettlementPlanArchiveUpdate(
+        request.resource.data,
+        resource.data,
+        planId
+      );
+      allow delete: if false;
     }
 
     match /workerRateVersions/{rateVersionId} {

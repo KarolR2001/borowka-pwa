@@ -250,4 +250,115 @@ describe("AdminSettlementPlansPanel", () => {
       )
     ).toBeInTheDocument();
   });
+
+  it("edits safe settlement plan fields after snapshot confirmation", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<SettlementPlansApi["list"]>().mockResolvedValue({
+      plans: [
+        settlementPlan({
+          id: "plan-quantity-ubianka",
+          name: "Za ubianke",
+          code: "QUANTITY_UBIANKA",
+          unitLabelSingular: "ubianka",
+          unitLabelPlural: "ubianki",
+          unitSymbol: "ubianka",
+          description: "Stary opis.",
+          activeRateCount: 1,
+          rateVersionCount: 1,
+          wasUsed: true
+        })
+      ],
+      invalidPlans: [],
+      invalidRateVersions: []
+    });
+    const update = vi
+      .fn<NonNullable<SettlementPlansApi["update"]>>()
+      .mockResolvedValue({});
+
+    render(
+      <AdminSettlementPlansPanel
+        authState={adminState}
+        env={env}
+        settlementPlansApi={{ list, update }}
+      />
+    );
+
+    await screen.findByText("Za ubianke");
+    await user.click(screen.getByRole("button", { name: "Edytuj" }));
+
+    const form = within(
+      await screen.findByRole("form", { name: "Edycja planu rozliczen" })
+    );
+    await user.clear(form.getByLabelText("Nazwa planu"));
+    await user.type(form.getByLabelText("Nazwa planu"), "Za pelna ubianke");
+    await user.clear(form.getByLabelText("Jednostki"));
+    await user.type(form.getByLabelText("Jednostki"), "pelne ubianki");
+    await user.click(
+      form.getByLabelText("Potwierdzam, ze snapshoty historyczne pozostaja bez zmian")
+    );
+    await user.click(form.getByRole("button", { name: "Zapisz plan" }));
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalled();
+    });
+    const updateInput = update.mock.calls[0]?.[1];
+    expect(updateInput).toMatchObject({
+      actorProfile: adminState.profile,
+      planId: "plan-quantity-ubianka",
+      name: "Za pelna ubianke",
+      unitLabelPlural: "pelne ubianki",
+      confirmHistoricalSnapshotsUnchanged: true
+    });
+    expect(updateInput.deviceId).toEqual(expect.any(String));
+    expect(screen.getByText("Zapisano plan.")).toBeInTheDocument();
+  });
+
+  it("archives an active settlement plan after confirmation", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn<SettlementPlansApi["list"]>().mockResolvedValue({
+      plans: [
+        settlementPlan({
+          id: "plan-skrzynka",
+          name: "Za skrzynke",
+          code: "SKRZYNKA",
+          active: true
+        })
+      ],
+      invalidPlans: [],
+      invalidRateVersions: []
+    });
+    const archive = vi
+      .fn<NonNullable<SettlementPlansApi["archive"]>>()
+      .mockResolvedValue({});
+
+    render(
+      <AdminSettlementPlansPanel
+        authState={adminState}
+        env={env}
+        settlementPlansApi={{ list, archive }}
+      />
+    );
+
+    await screen.findByText("Za skrzynke");
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+
+    const form = within(
+      await screen.findByRole("form", { name: "Archiwizacja planu rozliczen" })
+    );
+    await user.type(form.getByLabelText("Powod"), "Nie uzywamy w tym sezonie.");
+    await user.click(form.getByLabelText("Potwierdzam archiwizacje planu"));
+    await user.click(form.getByRole("button", { name: "Archiwizuj plan" }));
+
+    await waitFor(() => {
+      expect(archive).toHaveBeenCalled();
+    });
+    const archiveInput = archive.mock.calls[0]?.[1];
+    expect(archiveInput).toMatchObject({
+      actorProfile: adminState.profile,
+      planId: "plan-skrzynka",
+      reason: "Nie uzywamy w tym sezonie."
+    });
+    expect(archiveInput.deviceId).toEqual(expect.any(String));
+    expect(screen.getByText("Zarchiwizowano plan.")).toBeInTheDocument();
+  });
 });

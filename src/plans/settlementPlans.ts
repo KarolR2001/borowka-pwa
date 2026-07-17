@@ -74,6 +74,25 @@ export type CreateSettlementPlanInput = {
   deviceId: string;
 };
 
+export type UpdateSettlementPlanInput = {
+  actorProfile: UserProfile;
+  planId: string;
+  name: string;
+  unitLabelSingular: string;
+  unitLabelPlural: string;
+  unitSymbol: string;
+  description?: string | null;
+  confirmHistoricalSnapshotsUnchanged: boolean;
+  deviceId: string;
+};
+
+export type ArchiveSettlementPlanInput = {
+  actorProfile: UserProfile;
+  planId: string;
+  reason?: string | null;
+  deviceId: string;
+};
+
 export type PreparedSettlementPlanCreate = {
   plan: SettlementPlanDocument;
   auditAction: AuditAction;
@@ -82,6 +101,25 @@ export type PreparedSettlementPlanCreate = {
   reason: string | null;
   deviceId: string;
   inventoryWarning: string | null;
+};
+
+export type PreparedSettlementPlanUpdate = {
+  plan: SettlementPlanDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string | null;
+  deviceId: string;
+  changedFields: string[];
+};
+
+export type PreparedSettlementPlanArchive = {
+  plan: SettlementPlanDocument;
+  auditAction: AuditAction;
+  beforeSummary: AuditSummary;
+  afterSummary: AuditSummary;
+  reason: string | null;
+  deviceId: string;
 };
 
 export type SettlementPlanDecodeResult =
@@ -143,6 +181,84 @@ export async function createSettlementPlan(
   const prepared = prepareSettlementPlanCreate(currentDirectory.plans, {
     ...input,
     createdAt: serverTimestamp()
+  });
+  const auditId = createAuditEventId();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, SETTLEMENT_PLANS_COLLECTION, prepared.plan.id), prepared.plan);
+  batch.set(
+    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+    createAuditEventDraft({
+      id: auditId,
+      actorUid: input.actorProfile.uid,
+      actorRoleSnapshot: input.actorProfile.role,
+      action: prepared.auditAction,
+      entityType: "SETTLEMENT_PLAN",
+      entityId: prepared.plan.id,
+      beforeSummary: prepared.beforeSummary,
+      afterSummary: prepared.afterSummary,
+      reason: prepared.reason,
+      createdAtDevice: Timestamp.now(),
+      createdAtServer: serverTimestamp(),
+      deviceId: prepared.deviceId
+    })
+  );
+
+  await batch.commit();
+
+  return prepared;
+}
+
+export async function updateSettlementPlan(
+  env: FirebaseEnv,
+  input: UpdateSettlementPlanInput
+): Promise<PreparedSettlementPlanUpdate> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const currentDirectory = await listSettlementPlansDirectory(env);
+  const currentPlan = findSettlementPlanOrThrow(currentDirectory.plans, input.planId);
+  const prepared = prepareSettlementPlanUpdate(currentPlan, input);
+  const auditId = createAuditEventId();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, SETTLEMENT_PLANS_COLLECTION, prepared.plan.id), prepared.plan);
+  batch.set(
+    doc(firestore, AUDIT_EVENTS_COLLECTION, auditId),
+    createAuditEventDraft({
+      id: auditId,
+      actorUid: input.actorProfile.uid,
+      actorRoleSnapshot: input.actorProfile.role,
+      action: prepared.auditAction,
+      entityType: "SETTLEMENT_PLAN",
+      entityId: prepared.plan.id,
+      beforeSummary: prepared.beforeSummary,
+      afterSummary: prepared.afterSummary,
+      reason: prepared.reason,
+      createdAtDevice: Timestamp.now(),
+      createdAtServer: serverTimestamp(),
+      deviceId: prepared.deviceId
+    })
+  );
+
+  await batch.commit();
+
+  return prepared;
+}
+
+export async function archiveSettlementPlan(
+  env: FirebaseEnv,
+  input: ArchiveSettlementPlanInput
+): Promise<PreparedSettlementPlanArchive> {
+  const { firestore } = await getFirebaseServices(env);
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
+    await import("firebase/firestore/lite");
+  const currentDirectory = await listSettlementPlansDirectory(env);
+  const currentPlan = findSettlementPlanOrThrow(currentDirectory.plans, input.planId);
+  const archivedAt = serverTimestamp();
+  const prepared = prepareSettlementPlanArchive(currentPlan, {
+    ...input,
+    archivedAt
   });
   const auditId = createAuditEventId();
   const batch = writeBatch(firestore);
@@ -287,6 +403,102 @@ export function prepareSettlementPlanCreate(
     reason: inventoryWarning,
     deviceId,
     inventoryWarning
+  };
+}
+
+export function prepareSettlementPlanUpdate(
+  currentPlan: SettlementPlanListItem,
+  input: UpdateSettlementPlanInput
+): PreparedSettlementPlanUpdate {
+  assertAdmin(input.actorProfile);
+
+  if (currentPlan.id !== normalizeRequiredText(input.planId, "Brak planu do edycji.")) {
+    throw new Error("Plan ma niezgodny identyfikator edycji.");
+  }
+
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+  const nextPlan: SettlementPlanDocument = {
+    ...toSettlementPlanDocument(currentPlan),
+    name: normalizeRequiredText(input.name, "Podaj nazwe planu."),
+    unitLabelSingular: normalizeRequiredText(
+      input.unitLabelSingular,
+      "Podaj etykiete jednostki w liczbie pojedynczej."
+    ),
+    unitLabelPlural: normalizeRequiredText(
+      input.unitLabelPlural,
+      "Podaj etykiete jednostki w liczbie mnogiej."
+    ),
+    unitSymbol: normalizeRequiredText(input.unitSymbol, "Podaj symbol jednostki."),
+    description: normalizeOptionalText(input.description)
+  };
+  const changedFields = settlementPlanChangedFields(currentPlan, nextPlan);
+  const labelFieldsChanged = changedFields.some((field) =>
+    ["unitLabelSingular", "unitLabelPlural", "unitSymbol"].includes(field)
+  );
+
+  if (changedFields.length === 0) {
+    throw new Error("Nie zmieniono zadnego pola planu.");
+  }
+
+  if (
+    currentPlan.wasUsed &&
+    labelFieldsChanged &&
+    !input.confirmHistoricalSnapshotsUnchanged
+  ) {
+    throw new Error("Potwierdz, ze snapshoty historyczne pozostana bez zmian.");
+  }
+
+  return {
+    plan: nextPlan,
+    auditAction: "SETTLEMENT_PLAN_UPDATED",
+    beforeSummary: settlementPlanAuditSummary(currentPlan),
+    afterSummary: settlementPlanAuditSummary(nextPlan),
+    reason:
+      currentPlan.wasUsed && labelFieldsChanged
+        ? "Administrator potwierdzil, ze snapshoty historyczne pozostaja bez zmian."
+        : null,
+    deviceId,
+    changedFields
+  };
+}
+
+export function prepareSettlementPlanArchive(
+  currentPlan: SettlementPlanListItem,
+  input: ArchiveSettlementPlanInput & { archivedAt: unknown }
+): PreparedSettlementPlanArchive {
+  assertAdmin(input.actorProfile);
+
+  if (
+    currentPlan.id !== normalizeRequiredText(input.planId, "Brak planu do archiwizacji.")
+  ) {
+    throw new Error("Plan ma niezgodny identyfikator archiwizacji.");
+  }
+
+  if (!currentPlan.active) {
+    throw new Error("Plan jest juz archiwalny.");
+  }
+
+  const deviceId = normalizeRequiredText(
+    input.deviceId,
+    "Brak identyfikatora urzadzenia dla audytu."
+  );
+  const reason = normalizeOptionalText(input.reason);
+  const nextPlan: SettlementPlanDocument = {
+    ...toSettlementPlanDocument(currentPlan),
+    active: false,
+    archivedAt: input.archivedAt
+  };
+
+  return {
+    plan: nextPlan,
+    auditAction: "SETTLEMENT_PLAN_ARCHIVED",
+    beforeSummary: settlementPlanAuditSummary(currentPlan),
+    afterSummary: settlementPlanAuditSummary(nextPlan),
+    reason,
+    deviceId
   };
 }
 
@@ -608,12 +820,65 @@ function settlementPlanAuditSummary(plan: SettlementPlanDocument): AuditSummary 
     name: plan.name,
     code: plan.code,
     calculationBasis: plan.calculationBasis,
+    unitLabelSingular: plan.unitLabelSingular,
+    unitLabelPlural: plan.unitLabelPlural,
     unitSymbol: plan.unitSymbol,
     quantityPrecision: plan.quantityPrecision,
     weightRequired: plan.weightRequired,
     allowBatchQuantity: plan.allowBatchQuantity,
+    description: plan.description,
     active: plan.active
   };
+}
+
+function findSettlementPlanOrThrow(
+  plans: SettlementPlanListItem[],
+  planId: string
+): SettlementPlanListItem {
+  const normalizedPlanId = normalizeRequiredText(planId, "Brak identyfikatora planu.");
+  const plan = plans.find((candidate) => candidate.id === normalizedPlanId);
+
+  if (!plan) {
+    throw new Error("Nie znaleziono planu rozliczen.");
+  }
+
+  return plan;
+}
+
+function toSettlementPlanDocument(plan: SettlementPlanDocument): SettlementPlanDocument {
+  return {
+    id: plan.id,
+    name: plan.name,
+    code: plan.code,
+    calculationBasis: plan.calculationBasis,
+    unitLabelSingular: plan.unitLabelSingular,
+    unitLabelPlural: plan.unitLabelPlural,
+    unitSymbol: plan.unitSymbol,
+    quantityPrecision: plan.quantityPrecision,
+    weightRequired: plan.weightRequired,
+    allowBatchQuantity: plan.allowBatchQuantity,
+    description: plan.description,
+    active: plan.active,
+    systemDefault: plan.systemDefault,
+    createdAt: plan.createdAt,
+    createdBy: plan.createdBy,
+    archivedAt: plan.archivedAt
+  };
+}
+
+function settlementPlanChangedFields(
+  before: SettlementPlanDocument,
+  after: SettlementPlanDocument
+): string[] {
+  const editableFields = [
+    "name",
+    "unitLabelSingular",
+    "unitLabelPlural",
+    "unitSymbol",
+    "description"
+  ] as const;
+
+  return editableFields.filter((field) => before[field] !== after[field]);
 }
 
 function assertAdmin(profile: UserProfile): void {
