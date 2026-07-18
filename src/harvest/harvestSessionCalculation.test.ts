@@ -223,6 +223,54 @@ describe("harvest session calculation", () => {
     ).toBe(667);
   });
 
+  it("rejects zero session rate because the MVP has no free plan enabled", () => {
+    const zeroRateSession = {
+      ...weightSession,
+      rateGroszSnapshot: 0
+    };
+
+    expect(() =>
+      calculateHarvestSessionTotals({
+        session: zeroRateSession,
+        entries: [activeEntry("entry-1", 1000)]
+      })
+    ).toThrow("Stawka sesji musi byc wieksza od zera.");
+    expect(() =>
+      calculateEntryAmountPreviewGrosz(zeroRateSession, {
+        quantityMilli: 1000,
+        weightG: 1000
+      })
+    ).toThrow("Stawka sesji musi byc wieksza od zera.");
+    expect(() =>
+      calculateHarvestSessionAmountDueGrosz(zeroRateSession, {
+        totalQuantityMilli: 1000,
+        totalWeightG: 1000
+      })
+    ).toThrow("Stawka sesji musi byc wieksza od zera.");
+    expect(() => calculateRoundedGroszFromMilli(1000, 0)).toThrow(
+      "Stawka sesji musi byc wieksza od zera."
+    );
+  });
+
+  it("calculates a very large but safe allowed session exactly", () => {
+    const entries = Array.from({ length: 1000 }, (_, index) =>
+      activeEntry(`entry-${String(index + 1)}`, 9_000_000_000, 9_000_000_000)
+    );
+
+    const totals = calculateHarvestSessionTotals({
+      session: weightSession,
+      entries
+    });
+
+    expect(totals).toMatchObject({
+      activeEntryCount: 1000,
+      totalQuantityMilli: 9_000_000_000_000,
+      totalWeightG: 9_000_000_000_000,
+      amountDueGrosz: 9_000_000_000_000
+    });
+    expect(Number.isSafeInteger(totals.amountDueGrosz)).toBe(true);
+  });
+
   it("appends one active entry to existing session totals", () => {
     expect(
       appendActiveHarvestEntryToSessionTotals({
