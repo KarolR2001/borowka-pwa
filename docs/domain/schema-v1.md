@@ -78,3 +78,6 @@ Stage 5.12 harvest session calculation contract is maintained in
 
 Stage 5.13 client trust boundary and aggregate consistency contract is
 maintained in `docs/domain/harvest-session-trust-boundary.md`.
+
+Stage 5.14 online close contract is maintained in
+`docs/domain/close-harvest-session-online.md`.
