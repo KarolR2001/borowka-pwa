@@ -186,6 +186,31 @@ describe("close harvest session online", () => {
     });
   });
 
+  it("uses reclose audit action for a session closed after earlier transitions", () => {
+    const result = prepareCloseHarvestSessionOnline(
+      defaultInput({
+        session: createSession(undefined, {
+          revision: 3
+        }),
+        auditId: "audit-session-reclose-1"
+      })
+    );
+
+    expect(result.auditAction).toBe("HARVEST_SESSION_RECLOSED");
+    expect(result.auditEvent).toMatchObject({
+      id: "audit-session-reclose-1",
+      action: "HARVEST_SESSION_RECLOSED",
+      beforeSummary: {
+        status: "OPEN",
+        revision: 3
+      },
+      afterSummary: {
+        status: "CLOSED",
+        revision: 4
+      }
+    });
+  });
+
   it("blocks close without confirmation, online state or allowed role", () => {
     expect(() =>
       prepareCloseHarvestSessionOnline(defaultInput({ confirmationAccepted: false }))

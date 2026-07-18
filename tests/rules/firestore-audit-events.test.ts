@@ -546,6 +546,125 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create complete harvest session lifecycle audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const openSummary = {
+      status: "OPEN",
+      seasonId: "season-2026-test",
+      workerId: "worker-anna-test",
+      businessDate: "2026-07-17",
+      planId: "plan-weight-kg",
+      rateVersionId: "rate-worker-anna-test-2026-07-01",
+      rateGroszPerUnit: 1000,
+      totalEntryCount: 0,
+      totalQuantityMilli: 0,
+      totalWeightG: 0,
+      amountDueGrosz: null,
+      calculationVersion: "1",
+      closedBy: null,
+      paymentId: null,
+      revision: 1
+    };
+    const closedSummary = {
+      ...openSummary,
+      status: "CLOSED",
+      totalEntryCount: 2,
+      totalQuantityMilli: 2495,
+      totalWeightG: 2495,
+      amountDueGrosz: 2495,
+      closedBy: "admin-1",
+      revision: 2
+    };
+    const reviewSummary = {
+      ...closedSummary,
+      status: "REVIEW_REQUIRED",
+      revision: 3
+    };
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-created"),
+        auditEvent({
+          id: "audit-harvest-session-created",
+          action: "HARVEST_SESSION_CREATED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: null,
+          afterSummary: openSummary,
+          reason: null
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-review-required"),
+        auditEvent({
+          id: "audit-harvest-session-review-required",
+          action: "HARVEST_SESSION_MARKED_REVIEW_REQUIRED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: closedSummary,
+          afterSummary: reviewSummary,
+          reason: "Konflikt danych po synchronizacji."
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-review-resolved"),
+        auditEvent({
+          id: "audit-harvest-session-review-resolved",
+          action: "HARVEST_SESSION_REVIEW_RESOLVED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: reviewSummary,
+          afterSummary: {
+            ...openSummary,
+            revision: 4
+          },
+          reason: "Administrator zaakceptowal snapshot historyczny."
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-reclosed"),
+        auditEvent({
+          id: "audit-harvest-session-reclosed",
+          action: "HARVEST_SESSION_RECLOSED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: {
+            ...openSummary,
+            revision: 4
+          },
+          afterSummary: {
+            ...closedSummary,
+            revision: 5
+          },
+          reason: null
+        })
+      )
+    );
+  });
+
   it("allows admin to create harvest session reopen audit events", async () => {
     await seedProfiles(
       profile({
@@ -647,6 +766,74 @@ describe("Firestore audit event rules", () => {
             revision: 3
           },
           reason: "Duplikat sesji."
+        })
+      )
+    );
+  });
+
+  it("allows admin to create harvest entry audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+    const activeEntrySummary = {
+      entryId: "entry-1",
+      sessionId: "session-worker-anna-test",
+      seasonId: "season-2026-test",
+      workerId: "worker-anna-test",
+      businessDate: "2026-07-17",
+      status: "ACTIVE",
+      sequenceNumber: 1,
+      quantityMilli: 1000,
+      weightG: 1000,
+      pendingSync: false,
+      createdBy: "operator-1",
+      createdDeviceId: "device-1",
+      replacesEntryId: null,
+      cancelledBy: null
+    };
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-entry-created"),
+        auditEvent({
+          id: "audit-harvest-entry-created",
+          action: "HARVEST_ENTRY_CREATED",
+          entityType: "HARVEST_ENTRY",
+          entityId: "entry-1",
+          businessDate: "2026-07-17",
+          beforeSummary: null,
+          afterSummary: activeEntrySummary,
+          reason: null
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-entry-cancelled"),
+        auditEvent({
+          id: "audit-harvest-entry-cancelled",
+          action: "HARVEST_ENTRY_CANCELLED",
+          entityType: "HARVEST_ENTRY",
+          entityId: "entry-1",
+          businessDate: "2026-07-17",
+          beforeSummary: activeEntrySummary,
+          afterSummary: {
+            ...activeEntrySummary,
+            status: "CANCELLED",
+            cancelledBy: "admin-1"
+          },
+          reason: "Bledna waga."
         })
       )
     );

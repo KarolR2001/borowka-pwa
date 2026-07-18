@@ -15,6 +15,10 @@ import {
   type HarvestSessionAuditAction
 } from "./harvestSessionState";
 import {
+  harvestSessionAuditSummary,
+  resolveHarvestSessionCloseAuditAction
+} from "./harvestAudit";
+import {
   prepareTrustedHarvestSessionCloseTotals,
   type TrustedHarvestSessionCloseTotals
 } from "./harvestSessionTrustBoundary";
@@ -70,7 +74,10 @@ export type PreparedCloseHarvestSessionOnline = {
   status: "CLOSED";
   session: HarvestSessionDocument;
   sessionUpdate: HarvestSessionCloseUpdate;
-  auditAction: Extract<HarvestSessionAuditAction, "HARVEST_SESSION_CLOSED">;
+  auditAction: Extract<
+    HarvestSessionAuditAction,
+    "HARVEST_SESSION_CLOSED" | "HARVEST_SESSION_RECLOSED"
+  >;
   beforeSummary: AuditSummary;
   afterSummary: AuditSummary;
   auditEvent: AuditEventDocument;
@@ -137,11 +144,12 @@ export function prepareCloseHarvestSessionOnline(
   };
   const beforeSummary = harvestSessionCloseAuditSummary(input.session);
   const afterSummary = harvestSessionCloseAuditSummary(session);
+  const auditAction = resolveHarvestSessionCloseAuditAction(input.session);
   const auditEvent = createAuditEventDraft({
     id: input.auditId,
     actorUid,
     actorRoleSnapshot: input.actorProfile.role,
-    action: "HARVEST_SESSION_CLOSED",
+    action: auditAction,
     entityType: "HARVEST_SESSION",
     entityId: input.session.id,
     businessDate: input.session.businessDate,
@@ -157,7 +165,7 @@ export function prepareCloseHarvestSessionOnline(
     status: "CLOSED",
     session,
     sessionUpdate,
-    auditAction: "HARVEST_SESSION_CLOSED",
+    auditAction,
     beforeSummary,
     afterSummary,
     auditEvent,
@@ -173,16 +181,7 @@ export function prepareCloseHarvestSessionOnline(
 export function harvestSessionCloseAuditSummary(
   session: HarvestSessionDocument
 ): AuditSummary {
-  return {
-    status: session.status,
-    totalEntryCount: session.totalEntryCount,
-    totalQuantityMilli: session.totalQuantityMilli,
-    totalWeightG: session.totalWeightG,
-    amountDueGrosz: session.amountDueGrosz,
-    calculationVersion: session.calculationVersion,
-    closedBy: session.closedBy,
-    revision: session.revision
-  };
+  return harvestSessionAuditSummary(session);
 }
 
 function buildCloseConfirmationSummary(

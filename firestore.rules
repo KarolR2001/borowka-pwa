@@ -75,9 +75,15 @@ service cloud.firestore {
         action == 'WORKER_CREATED' ||
         action == 'WORKER_ARCHIVED' ||
         action == 'WORKER_RATE_CHANGED' ||
+        action == 'HARVEST_SESSION_CREATED' ||
         action == 'HARVEST_SESSION_CLOSED' ||
+        action == 'HARVEST_SESSION_RECLOSED' ||
         action == 'HARVEST_SESSION_REOPENED' ||
-        action == 'HARVEST_SESSION_CANCELLED';
+        action == 'HARVEST_SESSION_CANCELLED' ||
+        action == 'HARVEST_SESSION_MARKED_REVIEW_REQUIRED' ||
+        action == 'HARVEST_SESSION_REVIEW_RESOLVED' ||
+        action == 'HARVEST_ENTRY_CREATED' ||
+        action == 'HARVEST_ENTRY_CANCELLED';
     }
 
     function isAuditEntityType(entityType) {
@@ -86,7 +92,8 @@ service cloud.firestore {
         entityType == 'SEASON' ||
         entityType == 'SETTLEMENT_PLAN' ||
         entityType == 'WORKER' ||
-        entityType == 'HARVEST_SESSION';
+        entityType == 'HARVEST_SESSION' ||
+        entityType == 'HARVEST_ENTRY';
     }
 
     function isHarvestSessionStatus(status) {
@@ -435,11 +442,14 @@ service cloud.firestore {
           'status',
           'invitationId',
           'seasonId',
+          'sessionId',
+          'entryId',
           'planId',
           'name',
           'code',
           'currentPlanId',
           'calculationBasis',
+          'businessDate',
           'startDate',
           'endDate',
           'isDefault',
@@ -455,6 +465,14 @@ service cloud.firestore {
           'rateGroszPerUnit',
           'validFrom',
           'validTo',
+          'sequenceNumber',
+          'quantityMilli',
+          'weightG',
+          'pendingSync',
+          'createdBy',
+          'createdDeviceId',
+          'replacesEntryId',
+          'cancelledBy',
           'totalEntryCount',
           'totalQuantityMilli',
           'totalWeightG',
@@ -497,6 +515,8 @@ service cloud.firestore {
           isInvitationStatus(summary.status) ||
           isSeasonStatus(summary.status) ||
           isHarvestSessionStatus(summary.status) ||
+          summary.status == 'ACTIVE' ||
+          summary.status == 'CANCELLED' ||
           summary.status == 'APPROVED' ||
           summary.status == 'REJECTED' ||
           summary.status == 'BLOCKED'
