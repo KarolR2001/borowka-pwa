@@ -54,7 +54,8 @@ function createSessionView(
       amountPreviewGrosz: 3000,
       status: "ACTIVE",
       createdAtLabel: "10:01",
-      pendingSync: false
+      pendingSync: false,
+      createdByName: "Operator Test"
     },
     {
       id: "entry-2",
@@ -64,7 +65,11 @@ function createSessionView(
       amountPreviewGrosz: 3310,
       status: "ACTIVE",
       createdAtLabel: "10:06",
-      pendingSync: true
+      pendingSync: true,
+      createdByName: "Operator Test",
+      correctionLabel: "Korekta lokalna",
+      canEdit: true,
+      canCancel: true
     }
   ];
 
@@ -102,7 +107,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByText("3 kilogram")).toBeInTheDocument();
     expect(screen.getByText("6,310 kg")).toBeInTheDocument();
     expect(screen.getByText("63,10 zł")).toBeInTheDocument();
-    expect(screen.getByText("Operator Test")).toBeInTheDocument();
+    expect(screen.getAllByText("Operator Test").length).toBeGreaterThan(0);
     expect(screen.getByText("Telefon operatora")).toBeInTheDocument();
     expect(screen.getAllByText("#2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
@@ -118,8 +123,13 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(within(entries[0]).getByText("2 kilogram")).toBeInTheDocument();
     expect(within(entries[0]).getByText("3,310 kg")).toBeInTheDocument();
     expect(within(entries[0]).getByText("33,10 zł")).toBeInTheDocument();
-    expect(within(entries[0]).getByText("Aktywny · oczekuje")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("10:06")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("Operator Test")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("Oczekuje synchronizacji")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("Korekta lokalna")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("Aktywny")).toBeInTheDocument();
     expect(within(entries[1]).getByText("#1")).toBeInTheDocument();
+    expect(within(entries[1]).getByText("Potwierdzony")).toBeInTheDocument();
   });
 
   it("deduplicates local and server snapshots of the same entry id", () => {
@@ -156,7 +166,64 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(entries).toHaveLength(1);
     expect(within(entries[0]).getByText("#1")).toBeInTheDocument();
     expect(within(entries[0]).getByText("Aktywny")).toBeInTheDocument();
-    expect(within(entries[0]).queryByText("Aktywny · oczekuje")).not.toBeInTheDocument();
+    expect(within(entries[0]).getByText("Potwierdzony")).toBeInTheDocument();
+    expect(
+      within(entries[0]).queryByText("Oczekuje synchronizacji")
+    ).not.toBeInTheDocument();
+  });
+
+  it("invokes entry edit and cancel actions only when allowed by the view model", async () => {
+    const user = userEvent.setup();
+    const onEditEntry = vi.fn();
+    const onCancelEntry = vi.fn();
+
+    render(
+      <ActiveHarvestSessionPanel
+        onCancelEntry={onCancelEntry}
+        onEditEntry={onEditEntry}
+        view={createSessionView()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Popraw" }));
+    await user.click(screen.getByRole("button", { name: "Anuluj" }));
+
+    expect(onEditEntry).toHaveBeenCalledWith("entry-2");
+    expect(onCancelEntry).toHaveBeenCalledWith("entry-2");
+  });
+
+  it("shows cancelled entries and hides unavailable actions", () => {
+    render(
+      <ActiveHarvestSessionPanel
+        onCancelEntry={vi.fn()}
+        onEditEntry={vi.fn()}
+        view={createSessionView({
+          entries: [
+            {
+              id: "entry-cancelled",
+              sequenceNumber: 3,
+              quantityMilli: 1000,
+              weightG: 3000,
+              amountPreviewGrosz: null,
+              status: "CANCELLED",
+              createdAtLabel: "10:12",
+              pendingSync: false,
+              correctionLabel: "Anulowano przez administratora"
+            }
+          ]
+        })}
+      />
+    );
+
+    const entries = screen.getAllByRole("listitem");
+
+    expect(entries).toHaveLength(1);
+    expect(within(entries[0]).getByText("Anulowany")).toBeInTheDocument();
+    expect(
+      within(entries[0]).getByText("Anulowano przez administratora")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Popraw" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Anuluj" })).not.toBeInTheDocument();
   });
 
   it("invokes add and close actions when enabled", async () => {

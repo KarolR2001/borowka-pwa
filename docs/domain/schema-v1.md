@@ -66,3 +66,6 @@ Stage 5.8 harvest entry validation contract is maintained in
 
 Stage 5.9 harvest entry UUID and idempotency contract is maintained in
 `docs/domain/harvest-entry-idempotency.md`.
+
+Stage 5.10 harvest entry list contract is maintained in
+`docs/domain/harvest-entry-list.md`.

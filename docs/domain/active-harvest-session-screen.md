@@ -39,6 +39,8 @@ The screen shows:
 - Entries are displayed by newest sequence number first.
 - Entries with the same UUID are displayed once; server-confirmed data replaces
   the pending local snapshot for display.
+- Stage 5.10 entry row details and actions are maintained in
+  `docs/domain/harvest-entry-list.md`.
 
 ## Code reference
 
