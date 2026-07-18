@@ -3,6 +3,11 @@ import {
   normalizeHarvestEntryId,
   normalizeSequenceNumber
 } from "./harvestEntryIdempotency";
+import {
+  appendActiveHarvestEntryToSessionTotals,
+  calculateEntryAmountPreviewGrosz,
+  calculateHarvestSessionAmountDueGrosz
+} from "./harvestSessionCalculation";
 import type { HarvestSessionDocument } from "./openHarvestSession";
 
 export type HarvestEntryDraft = {
@@ -76,27 +81,20 @@ export function validateHarvestEntryDraft(
     quantityMilli: draft.quantityMilli,
     weightG
   });
-  const totalEntryCount = addSafeIntegers(
-    session.totalEntryCount,
-    1,
-    "Liczba wpisow sesji przekracza bezpieczny zakres."
-  );
-  const totalQuantityMilli = addSafeIntegers(
-    session.totalQuantityMilli,
-    draft.quantityMilli,
-    "Suma ilosci sesji przekracza bezpieczny zakres."
-  );
-  const totalWeightG =
-    weightG === null
-      ? assertSafeNonNegativeInteger(
-          session.totalWeightG,
-          "Suma wagi sesji ma nieprawidlowy zakres."
-        )
-      : addSafeIntegers(
-          session.totalWeightG,
-          weightG,
-          "Suma wagi sesji przekracza bezpieczny zakres."
-        );
+  const nextTotals = appendActiveHarvestEntryToSessionTotals({
+    session,
+    currentTotals: {
+      activeEntryCount: session.totalEntryCount,
+      totalQuantityMilli: session.totalQuantityMilli,
+      totalWeightG: session.totalWeightG
+    },
+    entry: {
+      id: draft.id,
+      status: "ACTIVE",
+      quantityMilli: draft.quantityMilli,
+      weightG
+    }
+  });
 
   return {
     ...draft,
@@ -105,13 +103,10 @@ export function validateHarvestEntryDraft(
     stockWeightG: weightG,
     connectivityMode: input.isOnline ? "ONLINE" : "OFFLINE_ALLOWED",
     nextSessionTotals: {
-      totalEntryCount,
-      totalQuantityMilli,
-      totalWeightG,
-      estimatedAmountGrosz: calculateHarvestSessionEstimatedAmountGrosz(session, {
-        totalQuantityMilli,
-        totalWeightG
-      })
+      totalEntryCount: nextTotals.activeEntryCount,
+      totalQuantityMilli: nextTotals.totalQuantityMilli,
+      totalWeightG: nextTotals.totalWeightG,
+      estimatedAmountGrosz: nextTotals.amountDueGrosz
     }
   };
 }
@@ -120,41 +115,14 @@ export function calculateHarvestEntryPreviewGrosz(
   session: Pick<HarvestSessionDocument, "calculationBasisSnapshot" | "rateGroszSnapshot">,
   draft: Pick<HarvestEntryDraft, "quantityMilli" | "weightG">
 ): number {
-  const rateGrosz = assertSafePositiveInteger(
-    session.rateGroszSnapshot,
-    "Stawka sesji musi byc wieksza od zera."
-  );
-  const basisMilli =
-    session.calculationBasisSnapshot === "WEIGHT"
-      ? assertSafePositiveInteger(draft.weightG, "Waga wpisu musi byc wieksza od zera.")
-      : assertSafePositiveInteger(
-          draft.quantityMilli,
-          "Ilosc wpisu musi byc wieksza od zera."
-        );
-
-  return calculateRoundedGroszFromMilli(basisMilli, rateGrosz);
+  return calculateEntryAmountPreviewGrosz(session, draft);
 }
 
 export function calculateHarvestSessionEstimatedAmountGrosz(
   session: Pick<HarvestSessionDocument, "calculationBasisSnapshot" | "rateGroszSnapshot">,
   totals: Pick<HarvestEntryNextSessionTotals, "totalQuantityMilli" | "totalWeightG">
 ): number {
-  const rateGrosz = assertSafePositiveInteger(
-    session.rateGroszSnapshot,
-    "Stawka sesji musi byc wieksza od zera."
-  );
-  const basisMilli =
-    session.calculationBasisSnapshot === "WEIGHT"
-      ? assertSafeNonNegativeInteger(
-          totals.totalWeightG,
-          "Suma wagi sesji ma nieprawidlowy zakres."
-        )
-      : assertSafeNonNegativeInteger(
-          totals.totalQuantityMilli,
-          "Suma ilosci sesji ma nieprawidlowy zakres."
-        );
-
-  return calculateRoundedGroszFromMilli(basisMilli, rateGrosz);
+  return calculateHarvestSessionAmountDueGrosz(session, totals);
 }
 
 export function isQuantityAllowedByPrecision(
@@ -242,53 +210,12 @@ function assertQuantityPrecision(quantityMilli: number, quantityPrecision: numbe
   }
 }
 
-function addSafeIntegers(left: number, right: number, message: string): number {
-  assertSafeNonNegativeInteger(left, message);
-  assertSafePositiveInteger(right, message);
-
-  const value = left + right;
-
-  if (!Number.isSafeInteger(value)) {
-    throw new Error(message);
-  }
-
-  return value;
-}
-
-function calculateRoundedGroszFromMilli(basisMilli: number, rateGrosz: number): number {
-  assertSafeNonNegativeInteger(
-    basisMilli,
-    "Podstawa obliczenia ma nieprawidlowy zakres."
-  );
-  assertSafePositiveInteger(rateGrosz, "Stawka sesji musi byc wieksza od zera.");
-
-  const numerator = BigInt(basisMilli) * BigInt(rateGrosz);
-  const quotient = numerator / 1000n;
-  const remainder = numerator % 1000n;
-  const rounded = quotient + (remainder >= 500n ? 1n : 0n);
-  const value = Number(rounded);
-
-  if (!Number.isSafeInteger(value)) {
-    throw new Error("Kwota wpisu przekracza bezpieczny zakres.");
-  }
-
-  return value;
-}
-
 function assertSafePositiveInteger(value: number | null, message: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value)) {
     throw new Error(message);
   }
 
   if (value <= 0) {
-    throw new Error(message);
-  }
-
-  return value;
-}
-
-function assertSafeNonNegativeInteger(value: number, message: string): number {
-  if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(message);
   }
 

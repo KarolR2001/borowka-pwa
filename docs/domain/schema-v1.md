@@ -72,3 +72,6 @@ Stage 5.10 harvest entry list contract is maintained in
 
 Stage 5.11 harvest entry correction contract is maintained in
 `docs/domain/harvest-entry-correction.md`.
+
+Stage 5.12 harvest session calculation contract is maintained in
+`docs/domain/harvest-session-calculation.md`.

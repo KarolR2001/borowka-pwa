@@ -49,6 +49,8 @@ zapisane jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom planu.
 
 ## Minimalne pokrycie automatyczne
 
-Przed zamknieciem Etapu 5 testy musza pokryc scenariusze `CALC-001` -
-`CALC-014`. Przyszle rozszerzenia musza zostac przeniesione do testow w
-odpowiednich etapach.
+Etap 5.12 pokrywa automatycznie scenariusze `CALC-001` - `CALC-012` w
+`src/harvest/harvestSessionCalculation.test.ts`. Przed zamknieciem Etapu 5
+nadal trzeba pokryc scenariusze `CALC-013` - `CALC-014` w przeplywach
+zamkniecia i otwierania sesji. Przyszle rozszerzenia musza zostac przeniesione
+do testow w odpowiednich etapach.
