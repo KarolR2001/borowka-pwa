@@ -29,7 +29,8 @@ entry as allowed:
 
 Action handlers receive the entry UUID. Permission decisions stay outside this
 presentational component and must be derived from the authenticated profile and
-entry/session state before rendering.
+entry/session state before rendering. Stage 5.11 correction rules are maintained
+in `docs/domain/harvest-entry-correction.md`.
 
 ## Large sessions
 

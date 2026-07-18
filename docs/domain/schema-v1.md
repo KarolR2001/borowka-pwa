@@ -69,3 +69,6 @@ Stage 5.9 harvest entry UUID and idempotency contract is maintained in
 
 Stage 5.10 harvest entry list contract is maintained in
 `docs/domain/harvest-entry-list.md`.
+
+Stage 5.11 harvest entry correction contract is maintained in
+`docs/domain/harvest-entry-correction.md`.
