@@ -599,6 +599,59 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create harvest session cancel audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-cancelled"),
+        auditEvent({
+          id: "audit-harvest-session-cancelled",
+          action: "HARVEST_SESSION_CANCELLED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: {
+            status: "CLOSED",
+            totalEntryCount: 2,
+            totalQuantityMilli: 2495,
+            totalWeightG: 2495,
+            amountDueGrosz: 2495,
+            calculationVersion: "1",
+            closedBy: "admin-1",
+            paymentId: null,
+            revision: 2
+          },
+          afterSummary: {
+            status: "CANCELLED",
+            totalEntryCount: 2,
+            totalQuantityMilli: 2495,
+            totalWeightG: 2495,
+            amountDueGrosz: 2495,
+            calculationVersion: "1",
+            closedBy: "admin-1",
+            paymentId: null,
+            revision: 3
+          },
+          reason: "Duplikat sesji."
+        })
+      )
+    );
+  });
+
   it("rejects mutable or malformed audit events", async () => {
     await seedProfiles(
       profile({

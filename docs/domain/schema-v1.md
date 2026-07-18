@@ -84,3 +84,6 @@ Stage 5.14 online close contract is maintained in
 
 Stage 5.15 reopen contract is maintained in
 `docs/domain/reopen-harvest-session.md`.
+
+Stage 5.16 cancel contract is maintained in
+`docs/domain/cancel-harvest-session.md`.

@@ -76,7 +76,8 @@ service cloud.firestore {
         action == 'WORKER_ARCHIVED' ||
         action == 'WORKER_RATE_CHANGED' ||
         action == 'HARVEST_SESSION_CLOSED' ||
-        action == 'HARVEST_SESSION_REOPENED';
+        action == 'HARVEST_SESSION_REOPENED' ||
+        action == 'HARVEST_SESSION_CANCELLED';
     }
 
     function isAuditEntityType(entityType) {

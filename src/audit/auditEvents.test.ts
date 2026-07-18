@@ -59,6 +59,7 @@ describe("audit events", () => {
     expect(isAuditAction("USER_BLOCKED")).toBe(true);
     expect(isAuditAction("HARVEST_SESSION_CLOSED")).toBe(true);
     expect(isAuditAction("HARVEST_SESSION_REOPENED")).toBe(true);
+    expect(isAuditAction("HARVEST_SESSION_CANCELLED")).toBe(true);
     expect(isAuditAction("UNKNOWN")).toBe(false);
     expect(isAuditEntityType("USER_PROFILE")).toBe(true);
     expect(isAuditEntityType("HARVEST_SESSION")).toBe(true);
