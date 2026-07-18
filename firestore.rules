@@ -75,7 +75,8 @@ service cloud.firestore {
         action == 'WORKER_CREATED' ||
         action == 'WORKER_ARCHIVED' ||
         action == 'WORKER_RATE_CHANGED' ||
-        action == 'HARVEST_SESSION_CLOSED';
+        action == 'HARVEST_SESSION_CLOSED' ||
+        action == 'HARVEST_SESSION_REOPENED';
     }
 
     function isAuditEntityType(entityType) {
@@ -459,6 +460,7 @@ service cloud.firestore {
           'amountDueGrosz',
           'calculationVersion',
           'closedBy',
+          'paymentId',
           'revision'
         ]) &&
         (

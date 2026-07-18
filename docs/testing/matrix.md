@@ -37,6 +37,7 @@
 - Etap 5.12 / obliczenia sesji: aktywne wpisy, anulowane wpisy, brak wagi, snapshot stawki, WEIGHT/QUANTITY, jedno zaokraglenie i bezpieczne zakresy w `src/harvest/harvestSessionCalculation.test.ts`.
 - Etap 5.13 / ograniczenie zaufania bez backendu: wpisy jako zrodlo prawdy, przeliczenie przy zamknieciu, blokada recznej kwoty, kontrola agregatow i rekomendacja `REVIEW_REQUIRED` w `src/harvest/harvestSessionTrustBoundary.test.ts`.
 - Etap 5.14 / zamkniecie sesji online: potwierdzenie, online-only, brak pending writes, walidacja sezonu/zbieracza/stawki, oficjalne sumy, rewizja i audyt w `src/harvest/closeHarvestSession.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
+- Etap 5.15 / ponowne otwarcie: tylko admin online, powod, brak aktywnej wyplaty, brak pending writes, wyczyszczenie biezacej kwoty oficjalnej, zachowanie poprzedniej kwoty w audycie i rewizja w `src/harvest/reopenHarvestSession.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
