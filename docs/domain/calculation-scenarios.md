@@ -50,7 +50,9 @@ zapisane jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom planu.
 ## Minimalne pokrycie automatyczne
 
 Etap 5.12 pokrywa automatycznie scenariusze `CALC-001` - `CALC-012` w
-`src/harvest/harvestSessionCalculation.test.ts`. Przed zamknieciem Etapu 5
-nadal trzeba pokryc scenariusze `CALC-013` - `CALC-014` w przeplywach
-zamkniecia i otwierania sesji. Przyszle rozszerzenia musza zostac przeniesione
-do testow w odpowiednich etapach.
+`src/harvest/harvestSessionCalculation.test.ts`. Etap 5.13 pokrywa domenowa
+czesc `CALC-013`, blokujac przygotowanie zamkniecia pustej sesji w
+`src/harvest/harvestSessionTrustBoundary.test.ts`. Przed zamknieciem Etapu 5
+nadal trzeba pokryc integracyjny przeplyw zamkniecia sesji oraz `CALC-014` w
+przeplywach zamkniecia i otwierania sesji. Przyszle rozszerzenia musza zostac
+przeniesione do testow w odpowiednich etapach.

@@ -35,6 +35,7 @@
 - Etap 5.10 / lista wpisow: numer, ilosc, waga, czas, autor, synchronizacja, korekta, anulowanie i poprawa w `src/harvest/ActiveHarvestSessionPanel.test.tsx`.
 - Etap 5.11 / poprawa przed zamknieciem: lokalna poprawa pending wpisu, administracyjna korekta potwierdzonego wpisu przez anulowanie i nowy UUID, blokady roli, sesji i urzadzenia w `src/harvest/harvestEntryCorrection.test.ts`.
 - Etap 5.12 / obliczenia sesji: aktywne wpisy, anulowane wpisy, brak wagi, snapshot stawki, WEIGHT/QUANTITY, jedno zaokraglenie i bezpieczne zakresy w `src/harvest/harvestSessionCalculation.test.ts`.
+- Etap 5.13 / ograniczenie zaufania bez backendu: wpisy jako zrodlo prawdy, przeliczenie przy zamknieciu, blokada recznej kwoty, kontrola agregatow i rekomendacja `REVIEW_REQUIRED` w `src/harvest/harvestSessionTrustBoundary.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
