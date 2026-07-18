@@ -19,6 +19,8 @@ migration checks.
 - Half grosz rounds up.
 - Money arithmetic uses integer and `BigInt` operations, not floating point.
 - The result returns `calculationVersion`.
+- Stage 5.13 uses this calculator as the only trusted client-side source for
+  close totals and aggregate consistency checks.
 
 ## Covered Scenarios
 
@@ -31,3 +33,4 @@ session-level rounding.
 
 - `src/harvest/harvestSessionCalculation.ts`
 - `src/harvest/harvestSessionCalculation.test.ts`
+- `src/harvest/harvestSessionTrustBoundary.ts`
