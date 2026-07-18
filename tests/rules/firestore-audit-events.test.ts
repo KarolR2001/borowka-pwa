@@ -495,6 +495,57 @@ describe("Firestore audit event rules", () => {
     );
   });
 
+  it("allows admin to create harvest session close audit events", async () => {
+    await seedProfiles(
+      profile({
+        uid: "admin-1",
+        role: "ADMIN"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("admin-1", { email: "admin-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-closed"),
+        auditEvent({
+          id: "audit-harvest-session-closed",
+          action: "HARVEST_SESSION_CLOSED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: {
+            status: "OPEN",
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: null,
+            calculationVersion: "1",
+            closedBy: null,
+            revision: 1
+          },
+          afterSummary: {
+            status: "CLOSED",
+            totalEntryCount: 2,
+            totalQuantityMilli: 2495,
+            totalWeightG: 2495,
+            amountDueGrosz: 2495,
+            calculationVersion: "1",
+            closedBy: "admin-1",
+            revision: 2
+          },
+          reason: null
+        })
+      )
+    );
+  });
+
   it("rejects mutable or malformed audit events", async () => {
     await seedProfiles(
       profile({

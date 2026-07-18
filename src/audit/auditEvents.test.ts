@@ -57,8 +57,10 @@ describe("audit events", () => {
 
   it("rejects unsupported action, entity type and summary values", () => {
     expect(isAuditAction("USER_BLOCKED")).toBe(true);
+    expect(isAuditAction("HARVEST_SESSION_CLOSED")).toBe(true);
     expect(isAuditAction("UNKNOWN")).toBe(false);
     expect(isAuditEntityType("USER_PROFILE")).toBe(true);
+    expect(isAuditEntityType("HARVEST_SESSION")).toBe(true);
     expect(isAuditEntityType("SESSION")).toBe(false);
 
     expect(() =>

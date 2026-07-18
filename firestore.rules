@@ -74,7 +74,8 @@ service cloud.firestore {
         action == 'SETTLEMENT_PLAN_ARCHIVED' ||
         action == 'WORKER_CREATED' ||
         action == 'WORKER_ARCHIVED' ||
-        action == 'WORKER_RATE_CHANGED';
+        action == 'WORKER_RATE_CHANGED' ||
+        action == 'HARVEST_SESSION_CLOSED';
     }
 
     function isAuditEntityType(entityType) {
@@ -82,7 +83,16 @@ service cloud.firestore {
         entityType == 'REGISTRATION_INVITATION' ||
         entityType == 'SEASON' ||
         entityType == 'SETTLEMENT_PLAN' ||
-        entityType == 'WORKER';
+        entityType == 'WORKER' ||
+        entityType == 'HARVEST_SESSION';
+    }
+
+    function isHarvestSessionStatus(status) {
+      return status == 'OPEN' ||
+        status == 'CLOSED' ||
+        status == 'PAID' ||
+        status == 'CANCELLED' ||
+        status == 'REVIEW_REQUIRED';
     }
 
     function isSettlementCalculationBasis(calculationBasis) {
@@ -442,7 +452,14 @@ service cloud.firestore {
           'currentRateVersionId',
           'rateGroszPerUnit',
           'validFrom',
-          'validTo'
+          'validTo',
+          'totalEntryCount',
+          'totalQuantityMilli',
+          'totalWeightG',
+          'amountDueGrosz',
+          'calculationVersion',
+          'closedBy',
+          'revision'
         ]) &&
         (
           !summary.keys().hasAny(['role']) ||
@@ -476,6 +493,7 @@ service cloud.firestore {
           summary.status == null ||
           isInvitationStatus(summary.status) ||
           isSeasonStatus(summary.status) ||
+          isHarvestSessionStatus(summary.status) ||
           summary.status == 'APPROVED' ||
           summary.status == 'REJECTED' ||
           summary.status == 'BLOCKED'
