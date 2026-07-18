@@ -151,6 +151,124 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "businessDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAtServer",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "businessDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAtServer",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "businessDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAtServer",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "seasonId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "businessDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAtServer",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "businessDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAtServer",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAtServer",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "businessDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "harvestEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "sessionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sequenceNumber",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
