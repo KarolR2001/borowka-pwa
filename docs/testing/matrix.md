@@ -33,6 +33,7 @@
 - Etap 5.8 / walidacja wpisu: sesja, autor, precyzja, waga, zakresy liczbowe i offline w `src/harvest/harvestEntryValidation.test.ts`.
 - Etap 5.9 / UUID i idempotencja wpisu: rezerwacja `id`, retry tego samego dokumentu, deduplikacja listenera i blokada podwojnego submitu w `src/harvest/harvestEntryIdempotency.test.ts`, `src/harvest/ActiveHarvestSessionPanel.test.tsx` oraz testach formularzy wpisu.
 - Etap 5.10 / lista wpisow: numer, ilosc, waga, czas, autor, synchronizacja, korekta, anulowanie i poprawa w `src/harvest/ActiveHarvestSessionPanel.test.tsx`.
+- Etap 5.11 / poprawa przed zamknieciem: lokalna poprawa pending wpisu, administracyjna korekta potwierdzonego wpisu przez anulowanie i nowy UUID, blokady roli, sesji i urzadzenia w `src/harvest/harvestEntryCorrection.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
