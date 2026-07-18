@@ -81,3 +81,6 @@ maintained in `docs/domain/harvest-session-trust-boundary.md`.
 
 Stage 5.14 online close contract is maintained in
 `docs/domain/close-harvest-session-online.md`.
+
+Stage 5.15 reopen contract is maintained in
+`docs/domain/reopen-harvest-session.md`.
