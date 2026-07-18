@@ -16,7 +16,7 @@ export type WeightEntryDraft = {
 export type WeightEntryFormProps = {
   disabled?: boolean;
   rateGroszPerKg: number;
-  onSubmit: (draft: WeightEntryDraft) => void;
+  onSubmit: (draft: WeightEntryDraft) => void | Promise<void>;
 };
 
 export function WeightEntryForm({
@@ -27,13 +27,22 @@ export function WeightEntryForm({
   const [weight, setWeight] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const weightInputRef = useRef<HTMLInputElement | null>(null);
+  const formDisabled = disabled || isSubmitting;
   const preview = previewWeightEntry(weight, rateGroszPerKg);
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (disabled || submittingRef.current) {
+      return;
+    }
+
     setFeedback(null);
     setError(null);
+    let focusAfterSubmit = false;
 
     try {
       const draft = createWeightEntryDraft({
@@ -41,12 +50,23 @@ export function WeightEntryForm({
         rateGroszPerKg
       });
 
-      onSubmit(draft);
+      submittingRef.current = true;
+      setIsSubmitting(true);
+      await onSubmit(draft);
       setWeight("");
       setFeedback("Wpis wagowy dodany lokalnie.");
-      weightInputRef.current?.focus();
+      focusAfterSubmit = true;
     } catch (submitError: unknown) {
       setError(getWeightEntryFormErrorMessage(submitError));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+
+      if (focusAfterSubmit) {
+        window.setTimeout(() => {
+          weightInputRef.current?.focus();
+        }, 0);
+      }
     }
   };
 
@@ -54,7 +74,9 @@ export function WeightEntryForm({
     <form
       aria-label="Formularz wpisu za kilogram"
       className="weight-entry-form"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
     >
       <div className="weight-entry-form__heading">
         <h4>Wpis za kilogram</h4>
@@ -65,7 +87,7 @@ export function WeightEntryForm({
         Waga kg
         <input
           autoComplete="off"
-          disabled={disabled}
+          disabled={formDisabled}
           id="weight-entry-weight"
           inputMode="decimal"
           onChange={(event) => {
@@ -90,7 +112,10 @@ export function WeightEntryForm({
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
-      <button className="primary-action weight-entry-form__submit" disabled={disabled}>
+      <button
+        className="primary-action weight-entry-form__submit"
+        disabled={formDisabled}
+      >
         <CirclePlus aria-hidden="true" size={18} strokeWidth={2.2} />
         Zapisz wpis
       </button>

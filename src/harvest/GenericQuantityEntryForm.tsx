@@ -24,7 +24,7 @@ export type GenericQuantityEntryDraft = {
 export type GenericQuantityEntryFormProps = {
   disabled?: boolean;
   plan: GenericQuantityPlanConfig;
-  onSubmit: (draft: GenericQuantityEntryDraft) => void;
+  onSubmit: (draft: GenericQuantityEntryDraft) => void | Promise<void>;
 };
 
 const DEFAULT_QUANTITY = "1";
@@ -38,13 +38,22 @@ export function GenericQuantityEntryForm({
   const [weight, setWeight] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const quantityInputRef = useRef<HTMLInputElement | null>(null);
+  const formDisabled = disabled || isSubmitting;
   const preview = previewGenericQuantityEntry({ quantity, weight, plan });
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (disabled || submittingRef.current) {
+      return;
+    }
+
     setFeedback(null);
     setError(null);
+    let focusAfterSubmit = false;
 
     try {
       const draft = createGenericQuantityEntryDraft({
@@ -53,13 +62,24 @@ export function GenericQuantityEntryForm({
         plan
       });
 
-      onSubmit(draft);
+      submittingRef.current = true;
+      setIsSubmitting(true);
+      await onSubmit(draft);
       setQuantity(DEFAULT_QUANTITY);
       setWeight("");
       setFeedback("Wpis ilosciowy dodany lokalnie.");
-      quantityInputRef.current?.focus();
+      focusAfterSubmit = true;
     } catch (submitError: unknown) {
       setError(getGenericQuantityEntryFormErrorMessage(submitError));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+
+      if (focusAfterSubmit) {
+        window.setTimeout(() => {
+          quantityInputRef.current?.focus();
+        }, 0);
+      }
     }
   };
 
@@ -67,7 +87,9 @@ export function GenericQuantityEntryForm({
     <form
       aria-label="Formularz wpisu ilosciowego"
       className="generic-quantity-form"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
     >
       <div className="generic-quantity-form__heading">
         <div>
@@ -81,7 +103,7 @@ export function GenericQuantityEntryForm({
         Ilosc {plan.unitLabelSingular}
         <input
           autoComplete="off"
-          disabled={disabled}
+          disabled={formDisabled}
           id="generic-quantity"
           inputMode="decimal"
           onChange={(event) => {
@@ -97,7 +119,7 @@ export function GenericQuantityEntryForm({
         Waga kg
         <input
           autoComplete="off"
-          disabled={disabled}
+          disabled={formDisabled}
           id="generic-quantity-weight"
           inputMode="decimal"
           onChange={(event) => {
@@ -135,7 +157,7 @@ export function GenericQuantityEntryForm({
 
       <button
         className="primary-action generic-quantity-form__submit"
-        disabled={disabled}
+        disabled={formDisabled}
       >
         <CirclePlus aria-hidden="true" size={18} strokeWidth={2.2} />
         Zapisz wpis

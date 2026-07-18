@@ -74,6 +74,8 @@ function draftFor(
   overrides: Partial<HarvestEntryDraft> = {}
 ): HarvestEntryDraft {
   return {
+    id: "entry-1",
+    sequenceNumber: 1,
     sessionId: session.id,
     seasonId: session.seasonId,
     workerId: session.workerId,

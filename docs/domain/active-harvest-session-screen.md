@@ -37,6 +37,8 @@ The screen shows:
 - A status notice can block the screen when synchronization reports that the
   session changed elsewhere.
 - Entries are displayed by newest sequence number first.
+- Entries with the same UUID are displayed once; server-confirmed data replaces
+  the pending local snapshot for display.
 
 ## Code reference
 

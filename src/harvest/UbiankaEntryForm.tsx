@@ -15,7 +15,7 @@ export type UbiankaEntryFormProps = {
   weightRequired: boolean;
   allowBatchQuantity: boolean;
   lastQuantityMilli?: number | null;
-  onSubmit: (draft: UbiankaEntryDraft) => void;
+  onSubmit: (draft: UbiankaEntryDraft) => void | Promise<void>;
 };
 
 const DEFAULT_QUANTITY = "1";
@@ -37,17 +37,26 @@ export function UbiankaEntryForm({
   const [weight, setWeight] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const weightInputRef = useRef<HTMLInputElement | null>(null);
+  const formDisabled = disabled || isSubmitting;
   const canRepeatQuantity =
     typeof lastQuantityMilli === "number" &&
     Number.isSafeInteger(lastQuantityMilli) &&
     lastQuantityMilli > 0 &&
     (allowBatchQuantity || lastQuantityMilli <= 1000);
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (disabled || submittingRef.current) {
+      return;
+    }
+
     setFeedback(null);
     setError(null);
+    let focusAfterSubmit = false;
 
     try {
       const draft = createUbiankaEntryDraft({
@@ -57,13 +66,24 @@ export function UbiankaEntryForm({
         allowBatchQuantity
       });
 
-      onSubmit(draft);
+      submittingRef.current = true;
+      setIsSubmitting(true);
+      await onSubmit(draft);
       setQuantity(DEFAULT_QUANTITY);
       setWeight("");
       setFeedback("Wpis dodany lokalnie.");
-      weightInputRef.current?.focus();
+      focusAfterSubmit = true;
     } catch (submitError: unknown) {
       setError(getUbiankaEntryFormErrorMessage(submitError));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+
+      if (focusAfterSubmit) {
+        window.setTimeout(() => {
+          weightInputRef.current?.focus();
+        }, 0);
+      }
     }
   };
 
@@ -71,7 +91,9 @@ export function UbiankaEntryForm({
     <form
       aria-label="Formularz wpisu za ubianke"
       className="ubianka-entry-form"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
     >
       <div className="ubianka-entry-form__heading">
         <h4>Wpis za ubianke</h4>
@@ -88,14 +110,14 @@ export function UbiankaEntryForm({
           }}
           type="text"
           value={quantity}
-          disabled={disabled}
+          disabled={formDisabled}
         />
       </label>
 
       <div className="ubianka-entry-form__quick" aria-label="Szybkie ilosci">
         {QUICK_QUANTITIES.map((quickQuantity) => {
           const quickDisabled =
-            disabled || (!allowBatchQuantity && quickQuantity.milli > 1000);
+            formDisabled || (!allowBatchQuantity && quickQuantity.milli > 1000);
 
           return (
             <button
@@ -112,7 +134,7 @@ export function UbiankaEntryForm({
           );
         })}
         <button
-          disabled={disabled || !canRepeatQuantity}
+          disabled={formDisabled || !canRepeatQuantity}
           onClick={() => {
             if (typeof lastQuantityMilli === "number") {
               setQuantity(formatMilliForInput(lastQuantityMilli));
@@ -136,7 +158,7 @@ export function UbiankaEntryForm({
           ref={weightInputRef}
           type="text"
           value={weight}
-          disabled={disabled}
+          disabled={formDisabled}
         />
       </label>
 
@@ -154,7 +176,10 @@ export function UbiankaEntryForm({
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
-      <button className="primary-action ubianka-entry-form__submit" disabled={disabled}>
+      <button
+        className="primary-action ubianka-entry-form__submit"
+        disabled={formDisabled}
+      >
         <CirclePlus aria-hidden="true" size={18} strokeWidth={2.2} />
         Zapisz wpis
       </button>

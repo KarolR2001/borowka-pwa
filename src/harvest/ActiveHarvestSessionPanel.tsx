@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
+import { mergeHarvestEntrySnapshotsById } from "./harvestEntryIdempotency";
 import type { HarvestSessionDocument } from "./openHarvestSession";
 import { harvestSessionStatusLabel } from "./harvestSessionState";
 
@@ -63,7 +64,7 @@ export function ActiveHarvestSessionPanel({
     );
   }
 
-  const sortedEntries = [...view.entries].sort(
+  const sortedEntries = mergeHarvestEntrySnapshotsById(view.entries).sort(
     (left, right) => right.sequenceNumber - left.sequenceNumber
   );
   const lastEntry: ActiveHarvestSessionEntryItem | null =
