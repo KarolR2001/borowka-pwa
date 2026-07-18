@@ -37,6 +37,10 @@ service cloud.firestore {
       return hasRole('OPERATOR');
     }
 
+    function isPicker() {
+      return hasRole('PICKER');
+    }
+
     function isUserRole(role) {
       return role == 'ADMIN' || role == 'OPERATOR' || role == 'PICKER';
     }
@@ -907,6 +911,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/workers/$(workerId);
     }
 
+    function seasonPath(seasonId) {
+      return /databases/$(database)/documents/seasons/$(seasonId);
+    }
+
+    function harvestSessionPath(sessionId) {
+      return /databases/$(database)/documents/harvestSessions/$(sessionId);
+    }
+
     function hasWorkerFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1272,6 +1284,426 @@ service cloud.firestore {
         data.lastSeenAt == request.time;
     }
 
+    function canReadHarvestDocument(data) {
+      return isAdmin() ||
+        isOperator() ||
+        (
+          isPicker() &&
+          profile(request.auth.uid).workerId is string &&
+          profile(request.auth.uid).workerId == data.workerId
+        );
+    }
+
+    function hasHarvestSessionFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'seasonId',
+        'workerId',
+        'workerNameSnapshot',
+        'businessDate',
+        'status',
+        'planIdSnapshot',
+        'planNameSnapshot',
+        'calculationBasisSnapshot',
+        'unitLabelSnapshot',
+        'rateVersionIdSnapshot',
+        'rateGroszSnapshot',
+        'weightRequiredSnapshot',
+        'quantityPrecisionSnapshot',
+        'totalEntryCount',
+        'totalQuantityMilli',
+        'totalWeightG',
+        'amountDueGrosz',
+        'calculationVersion',
+        'note',
+        'createdBy',
+        'createdDeviceId',
+        'createdAtDevice',
+        'createdAtServer',
+        'updatedAtServer',
+        'closedAtDevice',
+        'closedAtServer',
+        'closedBy',
+        'paidAt',
+        'paymentId',
+        'cancelledAt',
+        'cancelledBy',
+        'cancellationReason',
+        'revision',
+        'legacyImport',
+        'legacySourceRows'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'seasonId',
+          'workerId',
+          'workerNameSnapshot',
+          'businessDate',
+          'status',
+          'planIdSnapshot',
+          'planNameSnapshot',
+          'calculationBasisSnapshot',
+          'unitLabelSnapshot',
+          'rateVersionIdSnapshot',
+          'rateGroszSnapshot',
+          'weightRequiredSnapshot',
+          'quantityPrecisionSnapshot',
+          'totalEntryCount',
+          'totalQuantityMilli',
+          'totalWeightG',
+          'amountDueGrosz',
+          'calculationVersion',
+          'note',
+          'createdBy',
+          'createdDeviceId',
+          'createdAtDevice',
+          'createdAtServer',
+          'updatedAtServer',
+          'closedAtDevice',
+          'closedAtServer',
+          'closedBy',
+          'paidAt',
+          'paymentId',
+          'cancelledAt',
+          'cancelledBy',
+          'cancellationReason',
+          'revision',
+          'legacyImport',
+          'legacySourceRows'
+        ]);
+    }
+
+    function hasValidHarvestSessionBase(data, sessionId) {
+      return hasHarvestSessionFields(data) &&
+        data.id == sessionId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        data.workerId is string &&
+        data.workerId.size() > 0 &&
+        data.workerNameSnapshot is string &&
+        data.workerNameSnapshot.size() > 0 &&
+        isBusinessDate(data.businessDate) &&
+        isHarvestSessionStatus(data.status) &&
+        data.planIdSnapshot is string &&
+        data.planIdSnapshot.size() > 0 &&
+        data.planNameSnapshot is string &&
+        data.planNameSnapshot.size() > 0 &&
+        isSettlementCalculationBasis(data.calculationBasisSnapshot) &&
+        data.unitLabelSnapshot is string &&
+        data.unitLabelSnapshot.size() > 0 &&
+        data.rateVersionIdSnapshot is string &&
+        data.rateVersionIdSnapshot.size() > 0 &&
+        data.rateGroszSnapshot is int &&
+        data.rateGroszSnapshot > 0 &&
+        data.weightRequiredSnapshot is bool &&
+        data.quantityPrecisionSnapshot is int &&
+        data.quantityPrecisionSnapshot >= 0 &&
+        data.quantityPrecisionSnapshot <= 3 &&
+        data.totalEntryCount is int &&
+        data.totalEntryCount >= 0 &&
+        data.totalQuantityMilli is int &&
+        data.totalQuantityMilli >= 0 &&
+        data.totalWeightG is int &&
+        data.totalWeightG >= 0 &&
+        (data.amountDueGrosz == null || data.amountDueGrosz is int) &&
+        data.calculationVersion is string &&
+        data.calculationVersion.size() > 0 &&
+        (data.note == null || data.note is string) &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        data.createdDeviceId is string &&
+        data.createdDeviceId.size() > 0 &&
+        data.createdAtDevice is timestamp &&
+        data.createdAtServer is timestamp &&
+        (data.updatedAtServer == null || data.updatedAtServer is timestamp) &&
+        (data.closedAtDevice == null || data.closedAtDevice is timestamp) &&
+        (data.closedAtServer == null || data.closedAtServer is timestamp) &&
+        (data.closedBy == null || data.closedBy is string) &&
+        (data.paidAt == null || data.paidAt is timestamp) &&
+        (data.paymentId == null || data.paymentId is string) &&
+        (data.cancelledAt == null || data.cancelledAt is timestamp) &&
+        (data.cancelledBy == null || data.cancelledBy is string) &&
+        (data.cancellationReason == null || data.cancellationReason is string) &&
+        data.revision is int &&
+        data.revision > 0 &&
+        data.legacyImport is bool &&
+        data.legacySourceRows is list;
+    }
+
+    function openSeasonContainsBusinessDate(seasonId, businessDate) {
+      return exists(seasonPath(seasonId)) &&
+        get(seasonPath(seasonId)).data.status == 'OPEN' &&
+        businessDate >= get(seasonPath(seasonId)).data.startDate &&
+        (
+          get(seasonPath(seasonId)).data.endDate == null ||
+          businessDate <= get(seasonPath(seasonId)).data.endDate
+        );
+    }
+
+    function activeWorkerMatchesSession(workerId, workerNameSnapshot) {
+      return exists(workerPath(workerId)) &&
+        get(workerPath(workerId)).data.active == true &&
+        get(workerPath(workerId)).data.displayName == workerNameSnapshot;
+    }
+
+    function isValidHarvestSessionCreate(data, sessionId) {
+      return (isAdmin() || isOperator()) &&
+        data.status == 'OPEN' &&
+        data.createdBy == request.auth.uid &&
+        hasValidHarvestSessionBase(data, sessionId) &&
+        data.createdAtServer == request.time &&
+        data.updatedAtServer == null &&
+        data.closedAtDevice == null &&
+        data.closedAtServer == null &&
+        data.closedBy == null &&
+        data.paidAt == null &&
+        data.paymentId == null &&
+        data.cancelledAt == null &&
+        data.cancelledBy == null &&
+        data.cancellationReason == null &&
+        data.totalEntryCount == 0 &&
+        data.totalQuantityMilli == 0 &&
+        data.totalWeightG == 0 &&
+        data.amountDueGrosz == null &&
+        data.revision == 1 &&
+        data.legacyImport == false &&
+        data.legacySourceRows.size() == 0 &&
+        openSeasonContainsBusinessDate(data.seasonId, data.businessDate) &&
+        activeWorkerMatchesSession(data.workerId, data.workerNameSnapshot);
+    }
+
+    function isHarvestSessionCloseUpdate(data, previous, sessionId) {
+      return (isAdmin() || isOperator()) &&
+        previous.status == 'OPEN' &&
+        data.status == 'CLOSED' &&
+        data.id == sessionId &&
+        data.closedBy == request.auth.uid &&
+        data.closedAtServer == request.time &&
+        data.updatedAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.totalEntryCount > 0 &&
+        data.totalEntryCount is int &&
+        data.totalQuantityMilli is int &&
+        data.totalQuantityMilli > 0 &&
+        data.totalWeightG is int &&
+        data.totalWeightG >= 0 &&
+        data.amountDueGrosz is int &&
+        data.amountDueGrosz >= 0 &&
+        data.closedAtDevice is timestamp &&
+        data.cancelledAt == previous.cancelledAt &&
+        data.cancelledBy == previous.cancelledBy &&
+        data.cancellationReason == previous.cancellationReason &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'totalEntryCount',
+          'totalQuantityMilli',
+          'totalWeightG',
+          'amountDueGrosz',
+          'calculationVersion',
+          'closedAtDevice',
+          'closedAtServer',
+          'closedBy',
+          'updatedAtServer',
+          'revision'
+        ]);
+    }
+
+    function isHarvestSessionReopenUpdate(data, previous, sessionId) {
+      return isAdmin() &&
+        previous.status == 'CLOSED' &&
+        previous.paymentId == null &&
+        data.status == 'OPEN' &&
+        data.id == sessionId &&
+        data.amountDueGrosz == null &&
+        data.closedAtDevice == null &&
+        data.closedAtServer == null &&
+        data.closedBy == null &&
+        data.updatedAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.totalEntryCount == previous.totalEntryCount &&
+        data.totalQuantityMilli == previous.totalQuantityMilli &&
+        data.totalWeightG == previous.totalWeightG &&
+        data.cancelledAt == previous.cancelledAt &&
+        data.cancelledBy == previous.cancelledBy &&
+        data.cancellationReason == previous.cancellationReason &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'amountDueGrosz',
+          'closedAtDevice',
+          'closedAtServer',
+          'closedBy',
+          'updatedAtServer',
+          'revision'
+        ]);
+    }
+
+    function isHarvestSessionCancelUpdate(data, previous, sessionId) {
+      return isAdmin() &&
+        (
+          previous.status == 'OPEN' ||
+          previous.status == 'CLOSED' ||
+          previous.status == 'REVIEW_REQUIRED'
+        ) &&
+        previous.paymentId == null &&
+        data.status == 'CANCELLED' &&
+        data.id == sessionId &&
+        data.cancelledAt == request.time &&
+        data.cancelledBy == request.auth.uid &&
+        data.cancellationReason is string &&
+        data.cancellationReason.size() >= 3 &&
+        data.updatedAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.totalEntryCount == previous.totalEntryCount &&
+        data.totalQuantityMilli == previous.totalQuantityMilli &&
+        data.totalWeightG == previous.totalWeightG &&
+        data.amountDueGrosz == previous.amountDueGrosz &&
+        data.closedAtDevice == previous.closedAtDevice &&
+        data.closedAtServer == previous.closedAtServer &&
+        data.closedBy == previous.closedBy &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'cancelledAt',
+          'cancelledBy',
+          'cancellationReason',
+          'updatedAtServer',
+          'revision'
+        ]);
+    }
+
+    function hasHarvestEntryFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'sessionId',
+        'seasonId',
+        'workerId',
+        'businessDate',
+        'status',
+        'sequenceNumber',
+        'quantityMilli',
+        'weightG',
+        'amountPreviewGrosz',
+        'stockWeightG',
+        'pendingSync',
+        'createdBy',
+        'createdDeviceId',
+        'createdAtDevice',
+        'createdAtServer',
+        'replacesEntryId',
+        'cancellationReason',
+        'cancelledBy',
+        'cancelledAtServer',
+        'revision'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'sessionId',
+          'seasonId',
+          'workerId',
+          'businessDate',
+          'status',
+          'sequenceNumber',
+          'quantityMilli',
+          'weightG',
+          'amountPreviewGrosz',
+          'stockWeightG',
+          'pendingSync',
+          'createdBy',
+          'createdDeviceId',
+          'createdAtDevice',
+          'createdAtServer',
+          'replacesEntryId',
+          'cancellationReason',
+          'cancelledBy',
+          'cancelledAtServer',
+          'revision'
+        ]);
+    }
+
+    function hasValidHarvestEntryBase(data, entryId) {
+      return hasHarvestEntryFields(data) &&
+        data.id == entryId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.sessionId is string &&
+        data.sessionId.size() > 0 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        data.workerId is string &&
+        data.workerId.size() > 0 &&
+        isBusinessDate(data.businessDate) &&
+        (data.status == 'ACTIVE' || data.status == 'CANCELLED') &&
+        data.sequenceNumber is int &&
+        data.sequenceNumber > 0 &&
+        data.quantityMilli is int &&
+        data.quantityMilli > 0 &&
+        (data.weightG == null || data.weightG is int) &&
+        (data.weightG == null || data.weightG > 0) &&
+        data.amountPreviewGrosz is int &&
+        data.amountPreviewGrosz >= 0 &&
+        (data.stockWeightG == null || data.stockWeightG is int) &&
+        (data.stockWeightG == null || data.stockWeightG > 0) &&
+        data.pendingSync is bool &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        data.createdDeviceId is string &&
+        data.createdDeviceId.size() > 0 &&
+        data.createdAtDevice is timestamp &&
+        data.createdAtServer is timestamp &&
+        (data.replacesEntryId == null || data.replacesEntryId is string) &&
+        (data.cancellationReason == null || data.cancellationReason is string) &&
+        (data.cancelledBy == null || data.cancelledBy is string) &&
+        (data.cancelledAtServer == null || data.cancelledAtServer is timestamp) &&
+        data.revision is int &&
+        data.revision > 0;
+    }
+
+    function harvestEntryMatchesOpenSession(data) {
+      return exists(harvestSessionPath(data.sessionId)) &&
+        get(harvestSessionPath(data.sessionId)).data.status == 'OPEN' &&
+        get(harvestSessionPath(data.sessionId)).data.seasonId == data.seasonId &&
+        get(harvestSessionPath(data.sessionId)).data.workerId == data.workerId &&
+        get(harvestSessionPath(data.sessionId)).data.businessDate == data.businessDate &&
+        (
+          isAdmin() ||
+          get(harvestSessionPath(data.sessionId)).data.createdBy == request.auth.uid
+        );
+    }
+
+    function isValidHarvestEntryCreate(data, entryId) {
+      return (isAdmin() || isOperator()) &&
+        data.status == 'ACTIVE' &&
+        data.pendingSync == false &&
+        data.createdBy == request.auth.uid &&
+        data.createdAtServer == request.time &&
+        data.cancellationReason == null &&
+        data.cancelledBy == null &&
+        data.cancelledAtServer == null &&
+        data.revision == 1 &&
+        hasValidHarvestEntryBase(data, entryId) &&
+        harvestEntryMatchesOpenSession(data);
+    }
+
+    function isValidHarvestEntryCancelUpdate(data, previous, entryId) {
+      return isAdmin() &&
+        previous.status == 'ACTIVE' &&
+        data.status == 'CANCELLED' &&
+        data.id == entryId &&
+        data.cancellationReason is string &&
+        data.cancellationReason.size() >= 3 &&
+        data.cancelledBy == request.auth.uid &&
+        data.cancelledAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'cancellationReason',
+          'cancelledBy',
+          'cancelledAtServer',
+          'revision'
+        ]);
+    }
+
     match /users/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
@@ -1405,6 +1837,39 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         rateVersionId
+      );
+      allow delete: if false;
+    }
+
+    match /harvestSessions/{sessionId} {
+      allow get, list: if canReadHarvestDocument(resource.data);
+      allow create: if isValidHarvestSessionCreate(
+        request.resource.data,
+        sessionId
+      );
+      allow update: if isHarvestSessionCloseUpdate(
+        request.resource.data,
+        resource.data,
+        sessionId
+      ) || isHarvestSessionReopenUpdate(
+        request.resource.data,
+        resource.data,
+        sessionId
+      ) || isHarvestSessionCancelUpdate(
+        request.resource.data,
+        resource.data,
+        sessionId
+      );
+      allow delete: if false;
+    }
+
+    match /harvestEntries/{entryId} {
+      allow get, list: if canReadHarvestDocument(resource.data);
+      allow create: if isValidHarvestEntryCreate(request.resource.data, entryId);
+      allow update: if isValidHarvestEntryCancelUpdate(
+        request.resource.data,
+        resource.data,
+        entryId
       );
       allow delete: if false;
     }
