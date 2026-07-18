@@ -63,3 +63,6 @@ Stage 5.7 generic quantity entry form contract is maintained in
 
 Stage 5.8 harvest entry validation contract is maintained in
 `docs/domain/harvest-entry-validation.md`.
+
+Stage 5.9 harvest entry UUID and idempotency contract is maintained in
+`docs/domain/harvest-entry-idempotency.md`.

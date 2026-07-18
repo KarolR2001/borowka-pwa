@@ -99,6 +99,39 @@ describe("UbiankaEntryForm", () => {
     });
   });
 
+  it("blocks a second submit while the local operation is pending", async () => {
+    const user = userEvent.setup();
+    let resolveSubmit!: () => void;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        })
+    );
+
+    render(
+      <UbiankaEntryForm
+        allowBatchQuantity={true}
+        onSubmit={onSubmit}
+        weightRequired={false}
+      />
+    );
+
+    const submitButton = screen.getByRole("button", { name: "Zapisz wpis" });
+
+    await user.click(submitButton);
+    await user.click(submitButton);
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(submitButton).toBeDisabled();
+
+    resolveSubmit();
+
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
+  });
+
   it("requires weight when the plan requires weight", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();

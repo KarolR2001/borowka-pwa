@@ -122,6 +122,43 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(within(entries[1]).getByText("#1")).toBeInTheDocument();
   });
 
+  it("deduplicates local and server snapshots of the same entry id", () => {
+    const view = createSessionView({
+      entries: [
+        {
+          id: "entry-1",
+          sequenceNumber: 1,
+          quantityMilli: 1000,
+          weightG: 3000,
+          amountPreviewGrosz: 3000,
+          status: "ACTIVE",
+          createdAtLabel: "10:01",
+          pendingSync: true
+        },
+        {
+          id: "entry-1",
+          sequenceNumber: 1,
+          quantityMilli: 1000,
+          weightG: 3000,
+          amountPreviewGrosz: 3000,
+          status: "ACTIVE",
+          createdAtLabel: "10:01",
+          pendingSync: false
+        }
+      ],
+      pendingWriteCount: 0
+    });
+
+    render(<ActiveHarvestSessionPanel view={view} />);
+
+    const entries = screen.getAllByRole("listitem");
+
+    expect(entries).toHaveLength(1);
+    expect(within(entries[0]).getByText("#1")).toBeInTheDocument();
+    expect(within(entries[0]).getByText("Aktywny")).toBeInTheDocument();
+    expect(within(entries[0]).queryByText("Aktywny · oczekuje")).not.toBeInTheDocument();
+  });
+
   it("invokes add and close actions when enabled", async () => {
     const user = userEvent.setup();
     const onAddEntry = vi.fn();

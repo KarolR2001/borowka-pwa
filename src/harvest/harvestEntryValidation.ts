@@ -1,7 +1,13 @@
 import type { UserProfile } from "../domain/identity";
+import {
+  normalizeHarvestEntryId,
+  normalizeSequenceNumber
+} from "./harvestEntryIdempotency";
 import type { HarvestSessionDocument } from "./openHarvestSession";
 
 export type HarvestEntryDraft = {
+  id: string;
+  sequenceNumber: number;
   sessionId: string;
   seasonId: string;
   workerId: string;
@@ -173,6 +179,8 @@ function assertEntryAuthorRole(actorProfile: UserProfile): void {
 
 function normalizeDraft(draft: HarvestEntryDraft): HarvestEntryDraft {
   return {
+    id: normalizeHarvestEntryId(draft.id),
+    sequenceNumber: normalizeSequenceNumber(draft.sequenceNumber),
     sessionId: normalizeRequiredText(
       draft.sessionId,
       "Wpis wymaga identyfikatora sesji."

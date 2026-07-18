@@ -6,6 +6,9 @@ offline persistence is attached.
 ## Rules
 
 - An entry requires an existing `OPEN` harvest session.
+- The entry draft must include a stable UUID `id`.
+- The entry draft must include a positive `sequenceNumber` independent from the
+  UUID.
 - `sessionId`, `seasonId`, `workerId` and `businessDate` must match the session.
 - The actor must be `ADMIN` or `OPERATOR`.
 - `createdBy` must match the current actor UID.

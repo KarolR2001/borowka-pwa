@@ -62,6 +62,35 @@ describe("WeightEntryForm", () => {
     });
   });
 
+  it("blocks a second submit while the local operation is pending", async () => {
+    const user = userEvent.setup();
+    let resolveSubmit!: () => void;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        })
+    );
+
+    render(<WeightEntryForm onSubmit={onSubmit} rateGroszPerKg={1000} />);
+
+    await user.type(screen.getByLabelText("Waga kg"), "1");
+
+    const submitButton = screen.getByRole("button", { name: "Zapisz wpis" });
+
+    await user.click(submitButton);
+    await user.click(submitButton);
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(submitButton).toBeDisabled();
+
+    resolveSubmit();
+
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
+  });
+
   it("rejects empty, zero, negative and over-precision values", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
