@@ -351,6 +351,18 @@ describe("open harvest session preparation", () => {
       prepareOpenHarvestSession(
         defaultInput({
           rateVersions: [
+            {
+              ...seed.workerRateVersions[0],
+              rateGroszPerUnit: 0
+            }
+          ]
+        })
+      )
+    ).toThrow("Stawka zbieracza musi byc wieksza od zera.");
+    expect(() =>
+      prepareOpenHarvestSession(
+        defaultInput({
+          rateVersions: [
             seed.workerRateVersions[0],
             {
               ...seed.workerRateVersions[0],
