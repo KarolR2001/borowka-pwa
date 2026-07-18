@@ -43,6 +43,7 @@
 - Etap 5.18 / Security Rules sesji i wpisow: tworzenie sesji przez admina/operatora, blokady pickera i kont zablokowanych, aktywny worker, wpis do otwartej sesji, zgodnosc `sessionId`/`workerId`/`seasonId`/`businessDate`, dodatnie wartosci, kontrolowane update'y statusu, delete forbidden i izolacja pickera w `tests/rules/firestore-harvest.test.ts`.
 - Etap 5.19 / zapytania i indeksy: kontrakt zapytan harvest, brak listenera wpisow calego sezonu, manifest indeksow i test spojnosc indeksow w `src/harvest/harvestQueries.test.ts` oraz `tests/scripts/firestore-indexes.test.ts`.
 - Etap 5.22 / bramka testow jednostkowych: raport checklisty obliczen i statusow w `docs/testing/etap-5-unit-test-report.md`.
+- Etap 5.23 / test integracyjny przeplywu sesji: emulator Firestore, 10 wpisow, listener wpisow konkretnej sesji, zamkniecie i blokada kolejnego wpisu w `tests/integration/harvest-session-flow.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
