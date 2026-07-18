@@ -33,3 +33,6 @@ jobs:
 
       - name: Verify Firestore rules
         run: npm run verify:rules
+
+      - name: Verify integration flows
+        run: npm run verify:integration
