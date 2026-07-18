@@ -40,6 +40,7 @@
 - Etap 5.15 / ponowne otwarcie: tylko admin online, powod, brak aktywnej wyplaty, brak pending writes, wyczyszczenie biezacej kwoty oficjalnej, zachowanie poprzedniej kwoty w audycie i rewizja w `src/harvest/reopenHarvestSession.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
 - Etap 5.16 / anulowanie sesji: tylko admin online, powod, blokada aktywnej wyplaty, brak pending writes, status `CANCELLED`, zachowanie historycznych snapshotow i audyt w `src/harvest/cancelHarvestSession.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
 - Etap 5.17 / audyt operacji zbiorowych: katalog akcji sesji i wpisow, wymaganie powodow, summary zgodne z Rules, korekta wpisu jako anulowanie plus nowy wpis w `src/harvest/harvestAudit.test.ts`, `src/audit/auditEvents.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
+- Etap 5.18 / Security Rules sesji i wpisow: tworzenie sesji przez admina/operatora, blokady pickera i kont zablokowanych, aktywny worker, wpis do otwartej sesji, zgodnosc `sessionId`/`workerId`/`seasonId`/`businessDate`, dodatnie wartosci, kontrolowane update'y statusu, delete forbidden i izolacja pickera w `tests/rules/firestore-harvest.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
