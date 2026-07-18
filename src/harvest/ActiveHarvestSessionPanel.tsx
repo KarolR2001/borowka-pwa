@@ -4,6 +4,8 @@ import {
   ClipboardList,
   CloudOff,
   Lock,
+  Pencil,
+  Slash,
   Wifi
 } from "lucide-react";
 
@@ -23,6 +25,10 @@ export type ActiveHarvestSessionEntryItem = {
   status: HarvestEntryStatus;
   createdAtLabel: string;
   pendingSync: boolean;
+  createdByName?: string | null;
+  correctionLabel?: string | null;
+  canEdit?: boolean;
+  canCancel?: boolean;
 };
 
 export type ActiveHarvestSessionView = {
@@ -42,11 +48,15 @@ export type ActiveHarvestSessionView = {
 export function ActiveHarvestSessionPanel({
   view,
   onAddEntry,
-  onCloseSession
+  onCloseSession,
+  onEditEntry,
+  onCancelEntry
 }: {
   view: ActiveHarvestSessionView | null;
   onAddEntry?: () => void;
   onCloseSession?: () => void;
+  onEditEntry?: (entryId: string) => void;
+  onCancelEntry?: (entryId: string) => void;
 }) {
   if (!view) {
     return (
@@ -181,12 +191,12 @@ export function ActiveHarvestSessionPanel({
           <span>{sortedEntries.length}</span>
         </div>
         {sortedEntries.length > 0 ? (
-          <ol className="active-session__entry-list">
+          <ol className="active-session__entry-list" aria-label="Lista wpisow sesji">
             {sortedEntries.map((entry) => (
               <li key={entry.id} className="active-session__entry">
-                <div>
+                <div className="active-session__entry-heading">
                   <strong>{entryTitle(entry)}</strong>
-                  <span>{entry.createdAtLabel}</span>
+                  <span>{entry.id}</span>
                 </div>
                 <dl>
                   <div>
@@ -206,6 +216,10 @@ export function ActiveHarvestSessionPanel({
                     </dd>
                   </div>
                   <div>
+                    <dt>Czas</dt>
+                    <dd>{entry.createdAtLabel}</dd>
+                  </div>
+                  <div>
                     <dt>Podglad</dt>
                     <dd>
                       {entry.amountPreviewGrosz === null
@@ -213,11 +227,59 @@ export function ActiveHarvestSessionPanel({
                         : formatMoney(entry.amountPreviewGrosz)}
                     </dd>
                   </div>
+                  {entry.createdByName ? (
+                    <div>
+                      <dt>Autor</dt>
+                      <dd>{entry.createdByName}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>Synchronizacja</dt>
+                    <dd>
+                      {entry.pendingSync ? "Oczekuje synchronizacji" : "Potwierdzony"}
+                    </dd>
+                  </div>
                 </dl>
-                <span className="active-session__entry-status">
-                  {entry.status === "ACTIVE" ? "Aktywny" : "Anulowany"}
-                  {entry.pendingSync ? " · oczekuje" : ""}
-                </span>
+                <div className="active-session__entry-side">
+                  <span
+                    className={`active-session__entry-status active-session__entry-status--${entry.status.toLowerCase()}`}
+                  >
+                    {entry.status === "ACTIVE" ? "Aktywny" : "Anulowany"}
+                  </span>
+                  {entry.correctionLabel ? (
+                    <span className="active-session__entry-correction">
+                      {entry.correctionLabel}
+                    </span>
+                  ) : null}
+                  <div className="active-session__entry-actions">
+                    {entry.canEdit ? (
+                      <button
+                        className="secondary-action active-session__entry-action"
+                        onClick={() => {
+                          onEditEntry?.(entry.id);
+                        }}
+                        title={`Popraw wpis ${entryTitle(entry)}`}
+                        type="button"
+                      >
+                        <Pencil aria-hidden="true" size={16} strokeWidth={2.2} />
+                        Popraw
+                      </button>
+                    ) : null}
+                    {entry.canCancel ? (
+                      <button
+                        className="secondary-action active-session__entry-action"
+                        onClick={() => {
+                          onCancelEntry?.(entry.id);
+                        }}
+                        title={`Anuluj wpis ${entryTitle(entry)}`}
+                        type="button"
+                      >
+                        <Slash aria-hidden="true" size={16} strokeWidth={2.2} />
+                        Anuluj
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </li>
             ))}
           </ol>
