@@ -14,6 +14,7 @@ import {
   type HarvestSessionAuditAction,
   type HarvestSessionStatus
 } from "./harvestSessionState";
+import { harvestSessionAuditSummary } from "./harvestAudit";
 
 export const INITIAL_HARVEST_SESSION_REVISION = 1;
 export const HARVEST_SESSION_CALCULATION_VERSION = String(CALCULATION_RULE_VERSION);
@@ -330,19 +331,6 @@ function assertKnownDeviceTime(value: unknown): void {
   if (value === null || value === undefined) {
     throw new Error("Sesja wymaga czasu utworzenia na urzadzeniu.");
   }
-}
-
-function harvestSessionAuditSummary(session: HarvestSessionDocument): AuditSummary {
-  return {
-    status: session.status,
-    seasonId: session.seasonId,
-    workerId: session.workerId,
-    businessDate: session.businessDate,
-    planId: session.planIdSnapshot,
-    rateVersionId: session.rateVersionIdSnapshot,
-    rateGrosz: session.rateGroszSnapshot,
-    revision: session.revision
-  };
 }
 
 function defaultRandomUuid(): string {

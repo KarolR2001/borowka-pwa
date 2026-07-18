@@ -87,3 +87,6 @@ Stage 5.15 reopen contract is maintained in
 
 Stage 5.16 cancel contract is maintained in
 `docs/domain/cancel-harvest-session.md`.
+
+Stage 5.17 harvest operation audit contract is maintained in
+`docs/domain/harvest-audit.md`.

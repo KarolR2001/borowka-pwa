@@ -107,7 +107,7 @@ describe("open harvest session preparation", () => {
       status: "OPEN",
       workerId: "worker-anna-test",
       businessDate: "2026-07-17",
-      rateGrosz: 1000
+      rateGroszPerUnit: 1000
     });
     expect(result.duplicateMode).toBe("FIRST_SESSION");
     expect(result.reason).toBeNull();

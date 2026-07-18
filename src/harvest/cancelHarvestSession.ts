@@ -8,6 +8,7 @@ import {
   assertHarvestSessionTransitionAllowed,
   type HarvestSessionAuditAction
 } from "./harvestSessionState";
+import { harvestSessionAuditSummary } from "./harvestAudit";
 import type { HarvestSessionDocument } from "./openHarvestSession";
 
 export type HarvestSessionCancelUpdate = Pick<
@@ -146,17 +147,7 @@ export function prepareCancelHarvestSession(
 export function harvestSessionCancelAuditSummary(
   session: HarvestSessionDocument
 ): AuditSummary {
-  return {
-    status: session.status,
-    totalEntryCount: session.totalEntryCount,
-    totalQuantityMilli: session.totalQuantityMilli,
-    totalWeightG: session.totalWeightG,
-    amountDueGrosz: session.amountDueGrosz,
-    calculationVersion: session.calculationVersion,
-    closedBy: session.closedBy,
-    paymentId: session.paymentId,
-    revision: session.revision
-  };
+  return harvestSessionAuditSummary(session);
 }
 
 function assertPendingWriteCount(pendingWriteCount: number): void {
