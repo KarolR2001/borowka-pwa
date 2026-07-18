@@ -93,3 +93,6 @@ Stage 5.17 harvest operation audit contract is maintained in
 
 Stage 5.18 harvest session and entry Security Rules contract is maintained in
 `docs/domain/harvest-security-rules.md`.
+
+Stage 5.19 harvest query and index contract is maintained in
+`docs/domain/harvest-queries-and-indexes.md`.

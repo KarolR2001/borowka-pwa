@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { HARVEST_QUERY_INDEX_REQUIREMENTS } from "../../src/harvest/harvestQueries";
+
 type FirestoreIndexOrder = "ASCENDING" | "DESCENDING";
 
 type FirestoreIndexField = {
@@ -35,7 +37,11 @@ const expectedCompositeIndexes = [
     "active:ASCENDING",
     "validFrom:DESCENDING"
   ],
-  ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"]
+  ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"],
+  ...HARVEST_QUERY_INDEX_REQUIREMENTS.map((requirement) => [
+    requirement.collectionGroup,
+    ...requirement.fields.map((field) => `${field.fieldPath}:${field.order}`)
+  ])
 ];
 
 function readIndexManifest(): FirestoreIndexManifest {
@@ -93,7 +99,7 @@ function indexKey(index: FirestoreIndex) {
 }
 
 describe("firestore indexes", () => {
-  it("keeps required stage 4 composite indexes in the manifest", () => {
+  it("keeps required stage 4 and stage 5.19 composite indexes in the manifest", () => {
     const indexManifest = readIndexManifest();
     const manifestKeys = new Set(indexManifest.indexes.map(indexKey));
 

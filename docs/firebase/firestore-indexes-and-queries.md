@@ -1,7 +1,7 @@
 # Firestore indexes and query patterns
 
-This document maps the stage 4 configuration screens to Firestore queries and
-the index manifest deployed from `firestore.indexes.json`.
+This document maps the current Firestore query families to the index manifest
+deployed from `firestore.indexes.json`.
 
 ## Control rule
 
@@ -25,17 +25,32 @@ reproducible.
 | Accounts available for linking     | `users`                   | `active == true`, `registrationStatus == APPROVED`, `workerId == null`   | Composite index in manifest                                                                                |
 | Account directory role filters     | `users`                   | `role == role`, `active == true`                                         | Composite index in manifest                                                                                |
 
+## Current stage 5 harvest queries
+
+| Area                       | Collection        | Query pattern                                                       | Index status                |
+| -------------------------- | ----------------- | ------------------------------------------------------------------- | --------------------------- |
+| Today's sessions           | `harvestSessions` | `businessDate == date`, ordered by `createdAtServer desc`           | Composite index in manifest |
+| Open sessions              | `harvestSessions` | `status == OPEN`, ordered by `businessDate desc`, `createdAtServer` | Composite index in manifest |
+| Sessions for worker/picker | `harvestSessions` | `workerId == workerId`, ordered by `businessDate desc`              | Composite index in manifest |
+| Sessions for season        | `harvestSessions` | `seasonId == seasonId`, ordered by `businessDate desc`              | Composite index in manifest |
+| Sessions by status         | `harvestSessions` | `status == status`, ordered by `businessDate desc`                  | Composite index in manifest |
+| Sessions by operator       | `harvestSessions` | `createdBy == operatorUid`, ordered by `businessDate desc`          | Composite index in manifest |
+| Review queue               | `harvestSessions` | `status == REVIEW_REQUIRED`, ordered by `updatedAtServer desc`      | Composite index in manifest |
+| Entries for one session    | `harvestEntries`  | `sessionId == sessionId`, ordered by `sequenceNumber asc`           | Composite index in manifest |
+
+Do not attach a listener to all `harvestEntries` for a season. Entry queries
+must remain scoped to a single session.
+
 ## Planned later-stage query families
 
 PRD section 38 defines additional query families for sessions, entries,
-payments and sales. They are intentionally not added to the stage 4 manifest
-yet. Add them when the corresponding collections and Firestore calls are
-implemented, so the manifest reflects real screens and Rules tests.
+payments and sales. Harvest session and entry families are now represented in
+the manifest. Add payments and sales indexes when the corresponding collections
+and Firestore calls are implemented, so the manifest reflects real screens and
+Rules tests.
 
 Expected future collection names from the PRD:
 
-- `harvestSessions`;
-- `harvestEntries`;
 - `payments`;
 - `sales`.
 
