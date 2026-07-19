@@ -45,6 +45,7 @@
 - Etap 5.22 / bramka testow jednostkowych: raport checklisty obliczen i statusow w `docs/testing/etap-5-unit-test-report.md`.
 - Etap 5.23 / test integracyjny przeplywu sesji: emulator Firestore, 10 wpisow, listener wpisow konkretnej sesji, zamkniecie i blokada kolejnego wpisu w `tests/integration/harvest-session-flow.test.ts`.
 - Etap 5.23 / korekta administracyjna integracyjnie: reopen admina, anulowanie wpisu, replacement entry, ponowne zamkniecie i anulowanie sesji w `tests/integration/harvest-session-flow.test.ts`.
+- Etap 5.23 / negatywne scenariusze integracyjne: stale close, rownolegly close payload, blokada recznej zmiany snapshotu i odczytu cudzej sesji przez pickera w `tests/integration/harvest-session-flow.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

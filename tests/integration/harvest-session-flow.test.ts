@@ -8,6 +8,7 @@ import {
   Timestamp,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -340,6 +341,52 @@ describe("harvest session integration flow", () => {
     );
     expect(historicalEntries.docs).toHaveLength(11);
   });
+
+  it("rejects stale closes, manual snapshot changes and foreign picker reads", async () => {
+    await seedConfiguration();
+    const operatorDb = getActorFirestore("operator-1");
+    const pickerDb = getActorFirestore("picker-anna");
+    const openedSession = await openIntegrationSession(operatorDb, "session-negative-1");
+    await writeTenHarvestEntries(operatorDb, openedSession);
+
+    const entries = await readSessionEntries(operatorDb, openedSession.id);
+    const close = prepareCloseHarvestSessionOnline({
+      actorProfile: operatorProfile,
+      session: openedSession,
+      entries,
+      season: seed.seasons[0],
+      worker: seed.workers[0],
+      rateVersion: seed.workerRateVersions[0],
+      isOnline: true,
+      pendingWriteCount: 0,
+      confirmationAccepted: true,
+      closedAtDevice,
+      closedAtServer: serverTimestamp(),
+      auditId: "audit-negative-close-1",
+      deviceId
+    });
+
+    await updateDoc(
+      doc(operatorDb, "harvestSessions", openedSession.id),
+      close.sessionUpdate
+    );
+    await assertFails(
+      updateDoc(doc(operatorDb, "harvestSessions", openedSession.id), close.sessionUpdate)
+    );
+    await assertFails(
+      updateDoc(doc(operatorDb, "harvestSessions", openedSession.id), {
+        workerNameSnapshot: "Zmiana z klienta"
+      })
+    );
+
+    const foreignSession = await openIntegrationSession(
+      operatorDb,
+      "session-foreign-picker",
+      1
+    );
+
+    await assertFails(getDoc(doc(pickerDb, "harvestSessions", foreignSession.id)));
+  });
 });
 
 async function seedConfiguration(): Promise<void> {
@@ -370,13 +417,14 @@ function getActorFirestore(uid: string): TestFirestore {
 
 async function openIntegrationSession(
   firestore: TestFirestore,
-  sessionId: string
+  sessionId: string,
+  workerIndex = 0
 ): Promise<HarvestSessionDocument> {
   const preparedOpen = prepareOpenHarvestSession({
     actorProfile: operatorProfile,
     id: sessionId,
     season: seed.seasons[0],
-    worker: seed.workers[0],
+    worker: seed.workers[workerIndex],
     plans: seed.settlementPlans,
     rateVersions: seed.workerRateVersions,
     businessDate: "2026-07-17",
