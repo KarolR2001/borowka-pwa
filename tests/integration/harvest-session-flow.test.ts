@@ -34,6 +34,8 @@ import {
   prepareOpenHarvestSession,
   type HarvestSessionDocument
 } from "../../src/harvest/openHarvestSession";
+import { prepareReopenHarvestSession } from "../../src/harvest/reopenHarvestSession";
+import { prepareCancelHarvestSession } from "../../src/harvest/cancelHarvestSession";
 
 const projectId = "demo-borowka-pwa-harvest-integration";
 const createdAtDevice = Timestamp.fromDate(new Date("2026-07-17T08:00:00.000Z"));
@@ -210,6 +212,134 @@ describe("harvest session integration flow", () => {
       unsubscribe();
     }
   });
+
+  it("reopens by admin, cancels one entry, recloses and cancels the session", async () => {
+    await seedConfiguration();
+    const operatorDb = getActorFirestore("operator-1");
+    const adminDb = getActorFirestore("admin-1");
+    const openedSession = await openIntegrationSession(
+      operatorDb,
+      "session-correction-1"
+    );
+    await writeTenHarvestEntries(operatorDb, openedSession);
+
+    const firstCloseEntries = await readSessionEntries(operatorDb, openedSession.id);
+    const firstClose = prepareCloseHarvestSessionOnline({
+      actorProfile: operatorProfile,
+      session: openedSession,
+      entries: firstCloseEntries,
+      season: seed.seasons[0],
+      worker: seed.workers[0],
+      rateVersion: seed.workerRateVersions[0],
+      isOnline: true,
+      pendingWriteCount: 0,
+      confirmationAccepted: true,
+      closedAtDevice,
+      closedAtServer: serverTimestamp(),
+      auditId: "audit-close-correction-1",
+      deviceId
+    });
+    await updateDoc(
+      doc(operatorDb, "harvestSessions", openedSession.id),
+      firstClose.sessionUpdate
+    );
+
+    const reopenedAtDevice = Timestamp.fromDate(new Date("2026-07-17T10:20:00.000Z"));
+    const reopen = prepareReopenHarvestSession({
+      actorProfile: adminProfile,
+      session: firstClose.session,
+      isOnline: true,
+      hasActivePayment: false,
+      pendingWriteCount: 0,
+      reason: "Korekta wpisu",
+      reopenedAtDevice,
+      reopenedAtServer: serverTimestamp(),
+      auditId: "audit-reopen-correction-1",
+      deviceId
+    });
+    await updateDoc(
+      doc(adminDb, "harvestSessions", openedSession.id),
+      reopen.sessionUpdate
+    );
+    expect(reopen.auditEvent.action).toBe("HARVEST_SESSION_REOPENED");
+
+    await updateDoc(doc(adminDb, "harvestEntries", "entry-03"), {
+      status: "CANCELLED",
+      cancellationReason: "Bledna waga",
+      cancelledBy: adminProfile.uid,
+      cancelledAtServer: serverTimestamp(),
+      revision: 2
+    });
+    await setDoc(
+      doc(adminDb, "harvestEntries", "entry-11"),
+      buildHarvestEntryDocument({
+        actorProfile: adminProfile,
+        session: reopen.session,
+        sequenceNumber: 11,
+        quantityMilli: 2000,
+        createdAtDevice: Timestamp.fromDate(new Date("2026-07-17T10:25:00.000Z")),
+        replacesEntryId: "entry-03"
+      }).document
+    );
+
+    const correctedEntries = await readSessionEntries(operatorDb, openedSession.id);
+    const correctedTotals = calculateHarvestSessionTotals({
+      session: reopen.session,
+      entries: correctedEntries
+    });
+    expect(correctedTotals).toMatchObject({
+      activeEntryCount: 10,
+      skippedCancelledEntryCount: 1,
+      totalQuantityMilli: 11_000,
+      totalWeightG: 11_000,
+      amountDueGrosz: 11_000
+    });
+
+    const reclose = prepareCloseHarvestSessionOnline({
+      actorProfile: operatorProfile,
+      session: reopen.session,
+      entries: correctedEntries,
+      season: seed.seasons[0],
+      worker: seed.workers[0],
+      rateVersion: seed.workerRateVersions[0],
+      isOnline: true,
+      pendingWriteCount: 0,
+      confirmationAccepted: true,
+      closedAtDevice: Timestamp.fromDate(new Date("2026-07-17T10:30:00.000Z")),
+      closedAtServer: serverTimestamp(),
+      auditId: "audit-reclose-correction-1",
+      deviceId
+    });
+    await updateDoc(
+      doc(operatorDb, "harvestSessions", openedSession.id),
+      reclose.sessionUpdate
+    );
+    expect(reclose.auditAction).toBe("HARVEST_SESSION_RECLOSED");
+    expect(reclose.session.amountDueGrosz).toBe(11_000);
+
+    const cancel = prepareCancelHarvestSession({
+      actorProfile: adminProfile,
+      session: reclose.session,
+      isOnline: true,
+      hasActivePayment: false,
+      pendingWriteCount: 0,
+      reason: "Duplikat sesji",
+      cancelledAtDevice: Timestamp.fromDate(new Date("2026-07-17T10:40:00.000Z")),
+      cancelledAtServer: serverTimestamp(),
+      auditId: "audit-cancel-correction-1",
+      deviceId
+    });
+    await updateDoc(
+      doc(adminDb, "harvestSessions", openedSession.id),
+      cancel.sessionUpdate
+    );
+    expect(cancel.auditEvent.action).toBe("HARVEST_SESSION_CANCELLED");
+
+    const historicalEntries = await getDocs(
+      harvestEntriesQuery(adminDb, openedSession.id)
+    );
+    expect(historicalEntries.docs).toHaveLength(11);
+  });
 });
 
 async function seedConfiguration(): Promise<void> {
@@ -236,6 +366,53 @@ function getActorFirestore(uid: string): TestFirestore {
   }
 
   return testEnv.authenticatedContext(uid, { email: `${uid}@example.test` }).firestore();
+}
+
+async function openIntegrationSession(
+  firestore: TestFirestore,
+  sessionId: string
+): Promise<HarvestSessionDocument> {
+  const preparedOpen = prepareOpenHarvestSession({
+    actorProfile: operatorProfile,
+    id: sessionId,
+    season: seed.seasons[0],
+    worker: seed.workers[0],
+    plans: seed.settlementPlans,
+    rateVersions: seed.workerRateVersions,
+    businessDate: "2026-07-17",
+    existingSessions: [],
+    isOnline: true,
+    createdDeviceId: deviceId,
+    createdAtDevice
+  });
+
+  if (preparedOpen.status !== "CREATED") {
+    throw new Error("Expected integration session to be created.");
+  }
+
+  await setDoc(doc(firestore, "harvestSessions", preparedOpen.session.id), {
+    ...preparedOpen.session,
+    createdAtServer: serverTimestamp()
+  });
+
+  return preparedOpen.session;
+}
+
+async function readSessionEntries(
+  firestore: TestFirestore,
+  sessionId: string
+): Promise<CalculableHarvestEntry[]> {
+  return decodeCalculableEntries(
+    await getDocs(harvestEntriesQuery(firestore, sessionId))
+  );
+}
+
+function harvestEntriesQuery(firestore: TestFirestore, sessionId: string) {
+  return query(
+    collection(firestore, "harvestEntries"),
+    where("sessionId", "==", sessionId),
+    orderBy("sequenceNumber", "asc")
+  );
 }
 
 async function writeTenHarvestEntries(
@@ -273,19 +450,23 @@ async function writeTenHarvestEntries(
 }
 
 function buildHarvestEntryDocument({
+  actorProfile = operatorProfile,
   session,
   sequenceNumber,
   quantityMilli,
-  createdAtDevice
+  createdAtDevice,
+  replacesEntryId = null
 }: {
+  actorProfile?: UserProfile;
   session: HarvestSessionDocument;
   sequenceNumber: number;
   quantityMilli: number;
   createdAtDevice: Timestamp;
+  replacesEntryId?: string | null;
 }) {
   const id = `entry-${String(sequenceNumber).padStart(2, "0")}`;
   const validated = validateHarvestEntryDraft({
-    actorProfile: operatorProfile,
+    actorProfile,
     session,
     draft: {
       id,
@@ -294,7 +475,7 @@ function buildHarvestEntryDocument({
       seasonId: session.seasonId,
       workerId: session.workerId,
       businessDate: session.businessDate,
-      createdBy: operatorProfile.uid,
+      createdBy: actorProfile.uid,
       quantityMilli,
       weightG: quantityMilli
     },
@@ -319,7 +500,7 @@ function buildHarvestEntryDocument({
       createdDeviceId: deviceId,
       createdAtDevice,
       createdAtServer: serverTimestamp(),
-      replacesEntryId: null,
+      replacesEntryId,
       cancellationReason: null,
       cancelledBy: null,
       cancelledAtServer: null,
