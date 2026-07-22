@@ -499,6 +499,7 @@ h2 {
 .season-form,
 .season-action-form,
 .settlement-plan-form,
+.open-session-form,
 .worker-form {
   display: grid;
   align-items: end;
@@ -535,6 +536,12 @@ h2 {
     auto;
 }
 
+.open-session-form {
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(160px, 0.75fr) minmax(140px, 0.6fr)
+    minmax(220px, 1fr) auto;
+}
+
 .worker-rate-form,
 .worker-account-link-form,
 .worker-archive-form {
@@ -567,6 +574,9 @@ h2 {
 .settlement-plan-form__confirmation,
 .settlement-plan-form__description,
 .settlement-plan-form__example,
+.open-session-form__note,
+.open-session-form__second-reason,
+.open-session-form__warning,
 .worker-form__confirmation,
 .worker-form__notes,
 .worker-form__warning,
@@ -582,6 +592,7 @@ h2 {
 .season-form__submit,
 .season-action-form__submit,
 .settlement-plan-form__submit,
+.open-session-form__submit,
 .worker-form__submit,
 .worker-rate-form__submit {
   min-width: 136px;
@@ -599,6 +610,7 @@ h2 {
   font-size: 1rem;
 }
 
+.open-session-form__warning,
 .worker-form__warning {
   margin: 0;
   border: 1px solid #f0c9a7;
@@ -1600,6 +1612,7 @@ h2 {
   .season-form,
   .season-action-form,
   .settlement-plan-form,
+  .open-session-form,
   .worker-form,
   .worker-rate-form,
   .worker-account-link-form,
@@ -1659,6 +1672,7 @@ h2 {
   .season-form,
   .season-action-form,
   .settlement-plan-form,
+  .open-session-form,
   .worker-form,
   .worker-rate-form,
   .worker-account-link-form,

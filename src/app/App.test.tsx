@@ -551,11 +551,32 @@ describe("App shell", () => {
         invalidEntries: [],
         invalidSeasons: []
       });
+    const listOpeningConfiguration = vi
+      .fn<OperatorHarvestSessionsApi["listOpeningConfiguration"]>()
+      .mockResolvedValue({
+        seasons: [],
+        workers: [],
+        plans: [],
+        rateVersions: [],
+        openSessions: [],
+        invalidSeasons: [],
+        invalidWorkers: [],
+        invalidPlans: [],
+        invalidRateVersions: [],
+        invalidSessions: []
+      });
+    const openHarvestSession = vi
+      .fn<OperatorHarvestSessionsApi["open"]>()
+      .mockRejectedValue(new Error("unused"));
 
     render(
       <App
         authSessionApi={createAuthSessionApi(activeOperatorState)}
-        harvestSessionsApi={{ list: listHarvestSessions }}
+        harvestSessionsApi={{
+          list: listHarvestSessions,
+          listOpeningConfiguration,
+          open: openHarvestSession
+        }}
         workerDirectoryApi={{ list: listWorkers }}
       />
     );
@@ -571,6 +592,9 @@ describe("App shell", () => {
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "OPERATOR"
       });
+    });
+    expect(listOpeningConfiguration).toHaveBeenCalledWith(expect.anything(), {
+      actorProfile: activeOperatorState.profile
     });
     expect(
       screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
