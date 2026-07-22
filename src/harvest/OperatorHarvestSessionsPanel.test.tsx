@@ -6,8 +6,10 @@ import { createInitialDomainSeed } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import {
   buildHarvestSessionDashboard,
+  type HarvestEntryDocument,
   type HarvestSessionDashboardResult
 } from "./harvestSessionDashboard";
+import type { AddHarvestEntryOnlineResult } from "./harvestEntryRuntime";
 import {
   OperatorHarvestSessionsPanel,
   type OperatorHarvestSessionsApi
@@ -92,7 +94,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(screen.getByRole("heading", { name: "Anna Test" })).toBeInTheDocument();
     expect(screen.getByText("Sezon testowy 2026 · 17.07.2026")).toBeInTheDocument();
     expect(screen.getAllByText("1 kilogram").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeDisabled();
   });
 
@@ -214,6 +216,64 @@ describe("OperatorHarvestSessionsPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("adds a weight entry to the selected session and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const session = createSession("session-1");
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResult());
+    const api = createHarvestSessionsApi({
+      list,
+      addEntry: vi.fn<OperatorHarvestSessionsApi["addEntry"]>().mockResolvedValue({
+        entry: createEntry(session, 2, "entry-02"),
+        selectedSessionId: session.id,
+        message: "Dodano wpis #2.",
+        nextSessionTotals: {
+          totalEntryCount: 2,
+          totalQuantityMilli: 1750,
+          totalWeightG: 1750,
+          estimatedAmountGrosz: 1750
+        }
+      } satisfies AddHarvestEntryOnlineResult)
+    });
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={api}
+        isOnline={true}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Anna Test" });
+    await user.click(screen.getByRole("button", { name: "Dodaj wpis" }));
+    await screen.findByRole("form", { name: "Formularz wpisu za kilogram" });
+    await user.type(screen.getByLabelText("Waga kg"), "0,750");
+    await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
+
+    await waitFor(() => {
+      expect(api.addEntry).toHaveBeenCalledWith(
+        env,
+        expect.objectContaining({
+          actorProfile: operatorState.profile,
+          sessionId: "session-1",
+          quantityMilli: 750,
+          weightG: 750,
+          isOnline: true
+        })
+      );
+    });
+    expect(typeof vi.mocked(api.addEntry).mock.calls.at(-1)?.[1].createdDeviceId).toBe(
+      "string"
+    );
+    expect(list).toHaveBeenLastCalledWith(env, {
+      actorProfile: operatorState.profile,
+      selectedSessionId: "session-1",
+      isOnline: true
+    });
+  });
+
   it("does not load sessions for picker role", () => {
     const api = createHarvestSessionsApi();
 
@@ -246,6 +306,9 @@ function createHarvestSessionsApi(
       .mockResolvedValue(createOpeningConfiguration()),
     open: vi
       .fn<OperatorHarvestSessionsApi["open"]>()
+      .mockRejectedValue(new Error("unused")),
+    addEntry: vi
+      .fn<OperatorHarvestSessionsApi["addEntry"]>()
       .mockRejectedValue(new Error("unused")),
     ...overrides
   };
@@ -305,6 +368,7 @@ function createDashboardResult(
     ],
     seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
     selectedSessionId,
+    actorProfile: operatorProfile,
     isOnline: true
   });
 }
@@ -342,7 +406,7 @@ function createEntry(
   session: HarvestSessionDocument,
   sequenceNumber: number,
   id = `entry-${String(sequenceNumber).padStart(2, "0")}`
-) {
+): HarvestEntryDocument {
   return {
     id,
     sessionId: session.id,

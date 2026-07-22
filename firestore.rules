@@ -1321,10 +1321,12 @@ service cloud.firestore {
         'planNameSnapshot',
         'calculationBasisSnapshot',
         'unitLabelSnapshot',
+        'unitLabelPluralSnapshot',
         'rateVersionIdSnapshot',
         'rateGroszSnapshot',
         'weightRequiredSnapshot',
         'quantityPrecisionSnapshot',
+        'allowBatchQuantitySnapshot',
         'totalEntryCount',
         'totalQuantityMilli',
         'totalWeightG',
@@ -1359,10 +1361,12 @@ service cloud.firestore {
           'planNameSnapshot',
           'calculationBasisSnapshot',
           'unitLabelSnapshot',
+          'unitLabelPluralSnapshot',
           'rateVersionIdSnapshot',
           'rateGroszSnapshot',
           'weightRequiredSnapshot',
           'quantityPrecisionSnapshot',
+          'allowBatchQuantitySnapshot',
           'totalEntryCount',
           'totalQuantityMilli',
           'totalWeightG',
@@ -1408,6 +1412,8 @@ service cloud.firestore {
         isSettlementCalculationBasis(data.calculationBasisSnapshot) &&
         data.unitLabelSnapshot is string &&
         data.unitLabelSnapshot.size() > 0 &&
+        data.unitLabelPluralSnapshot is string &&
+        data.unitLabelPluralSnapshot.size() > 0 &&
         data.rateVersionIdSnapshot is string &&
         data.rateVersionIdSnapshot.size() > 0 &&
         data.rateGroszSnapshot is int &&
@@ -1416,6 +1422,7 @@ service cloud.firestore {
         data.quantityPrecisionSnapshot is int &&
         data.quantityPrecisionSnapshot >= 0 &&
         data.quantityPrecisionSnapshot <= 3 &&
+        data.allowBatchQuantitySnapshot is bool &&
         data.totalEntryCount is int &&
         data.totalEntryCount >= 0 &&
         data.totalQuantityMilli is int &&

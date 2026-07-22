@@ -85,10 +85,12 @@ describe("open harvest session preparation", () => {
       planNameSnapshot: "Za kilogram",
       calculationBasisSnapshot: "WEIGHT",
       unitLabelSnapshot: "kilogram",
+      unitLabelPluralSnapshot: "kilogramy",
       rateVersionIdSnapshot: "rate-worker-anna-test-2026-07-01",
       rateGroszSnapshot: 1000,
       weightRequiredSnapshot: true,
       quantityPrecisionSnapshot: 3,
+      allowBatchQuantitySnapshot: true,
       totalEntryCount: 0,
       totalQuantityMilli: 0,
       totalWeightG: 0,
@@ -188,9 +190,11 @@ describe("open harvest session preparation", () => {
       planIdSnapshot: QUANTITY_UBIANKA_PLAN_ID,
       calculationBasisSnapshot: "QUANTITY",
       unitLabelSnapshot: "ubianka",
+      unitLabelPluralSnapshot: "ubianki",
       rateGroszSnapshot: 1500,
       weightRequiredSnapshot: false,
-      quantityPrecisionSnapshot: 1
+      quantityPrecisionSnapshot: 1,
+      allowBatchQuantitySnapshot: true
     });
     expect(describeHarvestSessionCalculation(result.session)).toContain(
       "aktywnej ilosci"

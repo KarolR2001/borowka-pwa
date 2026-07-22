@@ -45,6 +45,7 @@ Entry summaries use:
 ## Current boundary
 
 Runtime session opening writes `HARVEST_SESSION_CREATED` in the same client batch
-as `harvestSessions`. Security Rules allow operators to append harvest operation
-audit events for their operational actions, but audit reads remain admin-only.
-Entry write wiring remains part of the next runtime package.
+as `harvestSessions`. Runtime entry creation writes `HARVEST_ENTRY_CREATED` in
+the same client batch as `harvestEntries`. Security Rules allow operators to
+append harvest operation audit events for their operational actions, but audit
+reads remain admin-only.

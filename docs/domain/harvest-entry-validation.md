@@ -1,7 +1,8 @@
 # Harvest entry validation
 
-Stage 5.8 keeps entry validation as pure domain logic before Firestore or local
-offline persistence is attached.
+Stage 5.8 keeps entry validation as pure domain logic. Runtime online creation
+uses the same validator before writing `harvestEntries` and
+`HARVEST_ENTRY_CREATED` audit events.
 
 ## Rules
 
@@ -35,3 +36,8 @@ of rounding once at the session level.
 
 - `src/harvest/harvestEntryValidation.ts`
 - `src/harvest/harvestEntryValidation.test.ts`
+- `src/harvest/harvestEntryRuntime.ts`
+- `src/harvest/harvestEntryRuntime.test.ts`
+- `src/harvest/OperatorHarvestSessionsPanel.test.tsx`
+- `tests/rules/firestore-harvest.test.ts`
+- `tests/rules/firestore-audit-events.test.ts`
