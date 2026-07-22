@@ -578,6 +578,9 @@ describe("App shell", () => {
     const reopenHarvestSession = vi
       .fn<OperatorHarvestSessionsApi["reopen"]>()
       .mockRejectedValue(new Error("unused"));
+    const cancelHarvestSession = vi
+      .fn<OperatorHarvestSessionsApi["cancel"]>()
+      .mockRejectedValue(new Error("unused"));
 
     render(
       <App
@@ -588,7 +591,8 @@ describe("App shell", () => {
           open: openHarvestSession,
           addEntry: addHarvestEntry,
           close: closeHarvestSession,
-          reopen: reopenHarvestSession
+          reopen: reopenHarvestSession,
+          cancel: cancelHarvestSession
         }}
         workerDirectoryApi={{ list: listWorkers }}
       />

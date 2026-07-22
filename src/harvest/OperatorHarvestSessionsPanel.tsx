@@ -1,4 +1,11 @@
-import { ClipboardList, Plus, RefreshCw, RotateCcw, ShieldAlert } from "lucide-react";
+import {
+  Ban,
+  ClipboardList,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  ShieldAlert
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -6,6 +13,11 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import { ActiveHarvestSessionPanel } from "./ActiveHarvestSessionPanel";
+import {
+  cancelHarvestSessionOnline,
+  type CancelHarvestSessionOnlineInput,
+  type CancelHarvestSessionOnlineResult
+} from "./cancelHarvestSessionRuntime";
 import {
   closeHarvestSessionOnline,
   type CloseHarvestSessionOnlineInput,
@@ -66,6 +78,10 @@ export type OperatorHarvestSessionsApi = {
     env: FirebaseEnv,
     input: ReopenHarvestSessionOnlineInput
   ) => Promise<ReopenHarvestSessionOnlineResult>;
+  cancel: (
+    env: FirebaseEnv,
+    input: CancelHarvestSessionOnlineInput
+  ) => Promise<CancelHarvestSessionOnlineResult>;
 };
 
 export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
@@ -74,7 +90,8 @@ export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   open: openHarvestSessionOnline,
   addEntry: addHarvestEntryOnline,
   close: closeHarvestSessionOnline,
-  reopen: reopenHarvestSessionOnline
+  reopen: reopenHarvestSessionOnline,
+  cancel: cancelHarvestSessionOnline
 };
 
 type DashboardState =
@@ -129,6 +146,11 @@ type ReopenSessionDraft = {
   reason: string;
 };
 
+type CancelSessionDraft = {
+  sessionId: string;
+  reason: string;
+};
+
 type HarvestViewerProfile = UserProfile & {
   role: "ADMIN" | "OPERATOR";
 };
@@ -169,12 +191,17 @@ export function OperatorHarvestSessionsPanel({
     sessionId: "",
     reason: ""
   });
+  const [cancelDraft, setCancelDraft] = useState<CancelSessionDraft>({
+    sessionId: "",
+    reason: ""
+  });
   const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
   const [isReopeningSession, setIsReopeningSession] = useState(false);
+  const [isCancellingSession, setIsCancellingSession] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
 
   useEffect(() => {
@@ -184,6 +211,7 @@ export function OperatorHarvestSessionsPanel({
       setState(initialDashboardState);
       setSelectedSessionId(null);
       setReopenDraft({ sessionId: "", reason: "" });
+      setCancelDraft({ sessionId: "", reason: "" });
       setSessionFeedback(null);
       setSessionError(null);
       return undefined;
@@ -531,6 +559,75 @@ export function OperatorHarvestSessionsPanel({
     }
   };
 
+  const handleCancelSession = async () => {
+    if (viewerProfile?.role !== "ADMIN") {
+      return;
+    }
+
+    if (isCancellingSession) {
+      return;
+    }
+
+    const cancellableSessions = [
+      ...(state.result?.openSessions ?? []),
+      ...(state.result?.closedSessions ?? [])
+    ];
+    const selectedCancelSession =
+      cancellableSessions.find((session) => session.id === cancelDraft.sessionId) ??
+      cancellableSessions.at(0) ??
+      null;
+
+    setSessionFeedback(null);
+    setSessionError(null);
+
+    if (!selectedCancelSession) {
+      setSessionError("Wybierz sesje przed anulowaniem.");
+      return;
+    }
+
+    if (!isOnline) {
+      setSessionError("Anulowanie sesji wymaga polaczenia online.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Anulowac sesje ${selectedCancelSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+        selectedCancelSession.businessDate
+      )}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsCancellingSession(true);
+
+    try {
+      const result = await harvestSessionsApi.cancel(env, {
+        actorProfile: viewerProfile,
+        sessionId: selectedCancelSession.id,
+        reason: cancelDraft.reason,
+        hasActivePayment: selectedCancelSession.paymentId !== null,
+        isOnline,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      setSessionFeedback(result.message);
+      setCancelDraft({
+        sessionId: "",
+        reason: ""
+      });
+      setIsEntryFormOpen(false);
+      setSelectedSessionId(result.selectedSessionId);
+      await reload(result.selectedSessionId);
+      await reloadOpeningConfiguration();
+    } catch (error: unknown) {
+      setSessionError(getSessionOperationErrorMessage(error));
+    } finally {
+      setIsCancellingSession(false);
+    }
+  };
+
   if (!viewerProfile) {
     return (
       <section className="operator-sessions" aria-label="Sesje zbioru operatora">
@@ -569,6 +666,14 @@ export function OperatorHarvestSessionsPanel({
   const reopenSession =
     result?.closedSessions.find((session) => session.id === reopenDraft.sessionId) ??
     result?.closedSessions.at(0) ??
+    null;
+  const cancellableSessions = [
+    ...(result?.openSessions ?? []),
+    ...(result?.closedSessions ?? [])
+  ];
+  const cancelSession =
+    cancellableSessions.find((session) => session.id === cancelDraft.sessionId) ??
+    cancellableSessions.at(0) ??
     null;
 
   return (
@@ -668,6 +773,7 @@ export function OperatorHarvestSessionsPanel({
       {isReopeningSession ? (
         <p className="panel-detail">Ponowne otwieranie sesji.</p>
       ) : null}
+      {isCancellingSession ? <p className="panel-detail">Anulowanie sesji.</p> : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
         <section
@@ -684,20 +790,36 @@ export function OperatorHarvestSessionsPanel({
       ) : null}
 
       {viewerProfile.role === "ADMIN" ? (
-        <AdminReopenHarvestSessionForm
-          draft={{
-            sessionId: reopenSession?.id ?? "",
-            reason: reopenDraft.reason
-          }}
-          isOnline={isOnline}
-          isSubmitting={isReopeningSession}
-          onChange={setReopenDraft}
-          onSubmit={() => {
-            void handleReopenSession();
-          }}
-          session={reopenSession}
-          sessions={result?.closedSessions ?? []}
-        />
+        <>
+          <AdminReopenHarvestSessionForm
+            draft={{
+              sessionId: reopenSession?.id ?? "",
+              reason: reopenDraft.reason
+            }}
+            isOnline={isOnline}
+            isSubmitting={isReopeningSession}
+            onChange={setReopenDraft}
+            onSubmit={() => {
+              void handleReopenSession();
+            }}
+            session={reopenSession}
+            sessions={result?.closedSessions ?? []}
+          />
+          <AdminCancelHarvestSessionForm
+            draft={{
+              sessionId: cancelSession?.id ?? "",
+              reason: cancelDraft.reason
+            }}
+            isOnline={isOnline}
+            isSubmitting={isCancellingSession}
+            onChange={setCancelDraft}
+            onSubmit={() => {
+              void handleCancelSession();
+            }}
+            session={cancelSession}
+            sessions={cancellableSessions}
+          />
+        </>
       ) : null}
     </section>
   );
@@ -785,6 +907,93 @@ function AdminReopenHarvestSessionForm({
       >
         <RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />
         <span>Otworz ponownie</span>
+      </button>
+    </form>
+  );
+}
+
+function AdminCancelHarvestSessionForm({
+  draft,
+  isOnline,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  session,
+  sessions
+}: {
+  draft: CancelSessionDraft;
+  isOnline: boolean;
+  isSubmitting: boolean;
+  onChange: (draft: CancelSessionDraft) => void;
+  onSubmit: () => void;
+  session: HarvestSessionDocument | null;
+  sessions: readonly HarvestSessionDocument[];
+}) {
+  const isDisabled = isSubmitting || !isOnline || sessions.length === 0;
+  const canSubmit = Boolean(session && draft.reason.trim().length >= 3);
+
+  return (
+    <form
+      aria-label="Anulowanie sesji zbioru"
+      className="open-session-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Sesja do anulowania</span>
+        <select
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              sessionId: event.target.value
+            });
+          }}
+          value={draft.sessionId}
+        >
+          {sessions.length === 0 ? (
+            <option value="">Brak sesji do anulowania</option>
+          ) : null}
+          {sessions.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.workerNameSnapshot} ·{" "}
+              {formatBusinessDate(candidate.businessDate)} ·{" "}
+              {candidate.status === "OPEN" ? "otwarta" : "zamknieta"}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field open-session-form__note">
+        <span>Powod anulowania</span>
+        <input
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      {session ? (
+        <p className="open-session-form__warning">
+          Wpisy pozostana historyczne. Sesja zostanie usunieta z sum rozliczen.
+        </p>
+      ) : null}
+
+      <button
+        className="secondary-action open-session-form__submit"
+        disabled={isDisabled || !canSubmit}
+        type="submit"
+      >
+        <Ban aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Anuluj sesje</span>
       </button>
     </form>
   );
