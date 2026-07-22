@@ -69,6 +69,7 @@ describe("harvestSessionDashboard", () => {
     expect(result.invalidSessions).toEqual([]);
     expect(result.invalidEntries).toEqual([]);
     expect(result.openSessions).toHaveLength(1);
+    expect(result.closedSessions).toEqual([]);
     expect(result.selectedSessionId).toBe("session-1");
     expect(result.selectedSessionView).toMatchObject({
       seasonName: "Sezon testowy 2026",
@@ -127,6 +128,34 @@ describe("harvestSessionDashboard", () => {
     expect(result.invalidSeasons).toEqual([
       { id: "broken-season", reason: "Sezon nie ma wymaganych danych." }
     ]);
+  });
+
+  it("returns closed sessions separately for admin reopen flow", () => {
+    const openSession = createSession("session-open");
+    const closedSession = createSession("session-closed", {
+      status: "CLOSED",
+      amountDueGrosz: 1000,
+      closedAtDevice: "2026-07-17T10:00:00.000Z",
+      closedAtServer: "2026-07-17T10:00:01.000Z",
+      closedBy: "operator-1",
+      revision: 2
+    });
+    const result = buildHarvestSessionDashboard({
+      sessionDocuments: [
+        { id: openSession.id, data: openSession },
+        { id: closedSession.id, data: closedSession }
+      ],
+      entryDocuments: [],
+      seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: { uid: "admin-1", role: "ADMIN" },
+      isOnline: true
+    });
+
+    expect(result.openSessions.map((session) => session.id)).toEqual(["session-open"]);
+    expect(result.closedSessions.map((session) => session.id)).toEqual([
+      "session-closed"
+    ]);
+    expect(result.selectedSessionId).toBe("session-open");
   });
 });
 

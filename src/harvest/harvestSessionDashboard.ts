@@ -60,6 +60,7 @@ export type InvalidHarvestDashboardDocument = {
 
 export type HarvestSessionDashboardResult = {
   openSessions: HarvestSessionDocument[];
+  closedSessions: HarvestSessionDocument[];
   selectedSessionId: string | null;
   selectedSessionView: ActiveHarvestSessionView | null;
   invalidSessions: InvalidHarvestDashboardDocument[];
@@ -102,7 +103,7 @@ export async function listOperatorHarvestSessionDashboard(
   const { firestore } = await getFirebaseServices(env);
   const { collection, getDocs, limit, orderBy, query, where } =
     await import("firebase/firestore/lite");
-  const [sessionsSnapshot, seasonsSnapshot] = await Promise.all([
+  const sessionQueries = [
     getDocs(
       query(
         collection(firestore, HARVEST_SESSIONS_COLLECTION),
@@ -111,15 +112,35 @@ export async function listOperatorHarvestSessionDashboard(
         orderBy("createdAtServer", "desc"),
         limit(100)
       )
-    ),
+    )
+  ];
+
+  if (input.actorProfile.role === "ADMIN") {
+    sessionQueries.push(
+      getDocs(
+        query(
+          collection(firestore, HARVEST_SESSIONS_COLLECTION),
+          where("status", "==", "CLOSED"),
+          orderBy("businessDate", "desc"),
+          orderBy("createdAtServer", "desc"),
+          limit(100)
+        )
+      )
+    );
+  }
+
+  const [sessionsSnapshots, seasonsSnapshot] = await Promise.all([
+    Promise.all(sessionQueries),
     getDocs(
       query(collection(firestore, SEASONS_COLLECTION), where("status", "==", "OPEN"))
     )
   ]);
-  const sessionDocuments = sessionsSnapshot.docs.map((documentSnapshot) => ({
-    id: documentSnapshot.id,
-    data: documentSnapshot.data()
-  }));
+  const sessionDocuments = sessionsSnapshots.flatMap((snapshot) =>
+    snapshot.docs.map((documentSnapshot) => ({
+      id: documentSnapshot.id,
+      data: documentSnapshot.data()
+    }))
+  );
   const seasonDocuments = seasonsSnapshot.docs.map((documentSnapshot) => ({
     id: documentSnapshot.id,
     data: documentSnapshot.data()
@@ -215,6 +236,9 @@ export function buildHarvestSessionDashboard({
   const openSessions = sessions
     .filter((session) => session.status === "OPEN")
     .sort(compareSessionsForDashboard);
+  const closedSessions = sessions
+    .filter((session) => session.status === "CLOSED")
+    .sort(compareSessionsForDashboard);
   const selectedSession =
     openSessions.find((session) => session.id === selectedSessionId) ??
     openSessions.at(0) ??
@@ -222,6 +246,7 @@ export function buildHarvestSessionDashboard({
 
   return {
     openSessions,
+    closedSessions,
     selectedSessionId: selectedSession?.id ?? null,
     selectedSessionView: selectedSession
       ? createActiveSessionView({

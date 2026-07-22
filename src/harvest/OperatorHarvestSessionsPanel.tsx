@@ -1,9 +1,9 @@
-import { ClipboardList, Plus, RefreshCw, ShieldAlert } from "lucide-react";
+import { ClipboardList, Plus, RefreshCw, RotateCcw, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
-import { formatBusinessDate } from "../domain/format";
+import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import { ActiveHarvestSessionPanel } from "./ActiveHarvestSessionPanel";
 import {
@@ -31,6 +31,11 @@ import {
   type OpenHarvestSessionOnlineResult
 } from "./openHarvestSessionRuntime";
 import type { HarvestSessionDocument } from "./openHarvestSession";
+import {
+  reopenHarvestSessionOnline,
+  type ReopenHarvestSessionOnlineInput,
+  type ReopenHarvestSessionOnlineResult
+} from "./reopenHarvestSessionRuntime";
 import { UbiankaEntryForm } from "./UbiankaEntryForm";
 import { WeightEntryForm } from "./WeightEntryForm";
 
@@ -57,6 +62,10 @@ export type OperatorHarvestSessionsApi = {
     env: FirebaseEnv,
     input: CloseHarvestSessionOnlineInput
   ) => Promise<CloseHarvestSessionOnlineResult>;
+  reopen: (
+    env: FirebaseEnv,
+    input: ReopenHarvestSessionOnlineInput
+  ) => Promise<ReopenHarvestSessionOnlineResult>;
 };
 
 export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
@@ -64,7 +73,8 @@ export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   listOpeningConfiguration: listOpenHarvestSessionConfiguration,
   open: openHarvestSessionOnline,
   addEntry: addHarvestEntryOnline,
-  close: closeHarvestSessionOnline
+  close: closeHarvestSessionOnline,
+  reopen: reopenHarvestSessionOnline
 };
 
 type DashboardState =
@@ -114,6 +124,11 @@ type AddEntryDraft = {
   weightG: number | null;
 };
 
+type ReopenSessionDraft = {
+  sessionId: string;
+  reason: string;
+};
+
 type HarvestViewerProfile = UserProfile & {
   role: "ADMIN" | "OPERATOR";
 };
@@ -150,11 +165,16 @@ export function OperatorHarvestSessionsPanel({
   );
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [reopenDraft, setReopenDraft] = useState<ReopenSessionDraft>({
+    sessionId: "",
+    reason: ""
+  });
   const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
+  const [isReopeningSession, setIsReopeningSession] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
 
   useEffect(() => {
@@ -163,6 +183,7 @@ export function OperatorHarvestSessionsPanel({
     if (!viewerProfile) {
       setState(initialDashboardState);
       setSelectedSessionId(null);
+      setReopenDraft({ sessionId: "", reason: "" });
       setSessionFeedback(null);
       setSessionError(null);
       return undefined;
@@ -445,6 +466,71 @@ export function OperatorHarvestSessionsPanel({
     }
   };
 
+  const handleReopenSession = async () => {
+    if (viewerProfile?.role !== "ADMIN") {
+      return;
+    }
+
+    if (isReopeningSession) {
+      return;
+    }
+
+    const closedSessions = state.result?.closedSessions ?? [];
+    const selectedClosedSession =
+      closedSessions.find((session) => session.id === reopenDraft.sessionId) ??
+      closedSessions.at(0) ??
+      null;
+
+    setSessionFeedback(null);
+    setSessionError(null);
+
+    if (!selectedClosedSession) {
+      setSessionError("Wybierz zamknieta sesje przed ponownym otwarciem.");
+      return;
+    }
+
+    if (!isOnline) {
+      setSessionError("Ponowne otwarcie sesji wymaga polaczenia online.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Ponownie otworzyc sesje ${selectedClosedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+        selectedClosedSession.businessDate
+      )}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsReopeningSession(true);
+
+    try {
+      const result = await harvestSessionsApi.reopen(env, {
+        actorProfile: viewerProfile,
+        sessionId: selectedClosedSession.id,
+        reason: reopenDraft.reason,
+        hasActivePayment: selectedClosedSession.paymentId !== null,
+        isOnline,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      setSessionFeedback(result.message);
+      setReopenDraft({
+        sessionId: "",
+        reason: ""
+      });
+      setSelectedSessionId(result.selectedSessionId);
+      await reload(result.selectedSessionId);
+      await reloadOpeningConfiguration();
+    } catch (error: unknown) {
+      setSessionError(getSessionOperationErrorMessage(error));
+    } finally {
+      setIsReopeningSession(false);
+    }
+  };
+
   if (!viewerProfile) {
     return (
       <section className="operator-sessions" aria-label="Sesje zbioru operatora">
@@ -480,6 +566,10 @@ export function OperatorHarvestSessionsPanel({
         session.workerId === openDraft.workerId &&
         session.businessDate === openDraft.businessDate
     ) ?? [];
+  const reopenSession =
+    result?.closedSessions.find((session) => session.id === reopenDraft.sessionId) ??
+    result?.closedSessions.at(0) ??
+    null;
 
   return (
     <section className="operator-sessions" aria-label="Sesje zbioru operatora">
@@ -575,6 +665,9 @@ export function OperatorHarvestSessionsPanel({
         <p className="form-message form-message--error">{sessionError}</p>
       ) : null}
       {isClosingSession ? <p className="panel-detail">Zamykanie sesji.</p> : null}
+      {isReopeningSession ? (
+        <p className="panel-detail">Ponowne otwieranie sesji.</p>
+      ) : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
         <section
@@ -589,7 +682,111 @@ export function OperatorHarvestSessionsPanel({
           />
         </section>
       ) : null}
+
+      {viewerProfile.role === "ADMIN" ? (
+        <AdminReopenHarvestSessionForm
+          draft={{
+            sessionId: reopenSession?.id ?? "",
+            reason: reopenDraft.reason
+          }}
+          isOnline={isOnline}
+          isSubmitting={isReopeningSession}
+          onChange={setReopenDraft}
+          onSubmit={() => {
+            void handleReopenSession();
+          }}
+          session={reopenSession}
+          sessions={result?.closedSessions ?? []}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function AdminReopenHarvestSessionForm({
+  draft,
+  isOnline,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  session,
+  sessions
+}: {
+  draft: ReopenSessionDraft;
+  isOnline: boolean;
+  isSubmitting: boolean;
+  onChange: (draft: ReopenSessionDraft) => void;
+  onSubmit: () => void;
+  session: HarvestSessionDocument | null;
+  sessions: readonly HarvestSessionDocument[];
+}) {
+  const isDisabled = isSubmitting || !isOnline || sessions.length === 0;
+  const canSubmit = Boolean(session && draft.reason.trim().length >= 3);
+
+  return (
+    <form
+      aria-label="Ponowne otwarcie sesji zbioru"
+      className="open-session-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span>Zamknieta sesja</span>
+        <select
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              sessionId: event.target.value
+            });
+          }}
+          value={draft.sessionId}
+        >
+          {sessions.length === 0 ? (
+            <option value="">Brak zamknietych sesji do korekty</option>
+          ) : null}
+          {sessions.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.workerNameSnapshot} ·{" "}
+              {formatBusinessDate(candidate.businessDate)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field open-session-form__note">
+        <span>Powod ponownego otwarcia</span>
+        <input
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      {session ? (
+        <p className="open-session-form__warning">
+          Dotychczasowa kwota: {formatMoney(session.amountDueGrosz ?? 0)}. Raporty moga
+          sie zmienic po kolejnych wpisach i zamknieciu.
+        </p>
+      ) : null}
+
+      <button
+        className="secondary-action open-session-form__submit"
+        disabled={isDisabled || !canSubmit}
+        type="submit"
+      >
+        <RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Otworz ponownie</span>
+      </button>
+    </form>
   );
 }
 
