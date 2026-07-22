@@ -52,5 +52,7 @@ as the official `harvestSessions` close update. Runtime session reopen writes
 `HARVEST_SESSION_REOPENED` in the same client batch as the `harvestSessions`
 reopen update. Runtime session cancel writes `HARVEST_SESSION_CANCELLED` in the
 same client batch as the `harvestSessions` cancel update and leaves entries
-historical. Security Rules allow operators to append harvest operation audit
-events for their operational actions, but audit reads remain admin-only.
+historical. Runtime entry cancel writes `HARVEST_ENTRY_CANCELLED` in the same
+client batch as the controlled `harvestEntries` cancellation update. Security
+Rules allow operators to append harvest operation audit events for their
+operational actions, but audit reads remain admin-only.

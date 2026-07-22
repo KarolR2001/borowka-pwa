@@ -22,6 +22,13 @@ const operatorProfile: UserProfile = {
   registrationStatus: "APPROVED",
   offlineConsent: true
 };
+const adminProfile: UserProfile = {
+  ...operatorProfile,
+  uid: "admin-1",
+  email: "admin@example.test",
+  displayName: "Admin Test",
+  role: "ADMIN"
+};
 
 describe("harvestSessionDashboard", () => {
   it("decodes valid harvest session and entry documents", () => {
@@ -156,6 +163,56 @@ describe("harvestSessionDashboard", () => {
       "session-closed"
     ]);
     expect(result.selectedSessionId).toBe("session-open");
+  });
+
+  it("exposes entry cancellation only for clean admin sessions", () => {
+    const session = createSession("session-1");
+    const entry = createEntry(session, 1);
+    const operatorResult = buildHarvestSessionDashboard({
+      sessionDocuments: [{ id: session.id, data: session }],
+      entryDocuments: [{ id: entry.id, data: entry }],
+      seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: operatorProfile,
+      isOnline: true
+    });
+    const adminResult = buildHarvestSessionDashboard({
+      sessionDocuments: [{ id: session.id, data: session }],
+      entryDocuments: [{ id: entry.id, data: entry }],
+      seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: adminProfile,
+      isOnline: true
+    });
+    const pendingResult = buildHarvestSessionDashboard({
+      sessionDocuments: [{ id: session.id, data: session }],
+      entryDocuments: [{ id: entry.id, data: { ...entry, pendingSync: true } }],
+      seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: adminProfile,
+      isOnline: true
+    });
+    const paidResult = buildHarvestSessionDashboard({
+      sessionDocuments: [
+        { id: session.id, data: { ...session, paymentId: "payment-1" } }
+      ],
+      entryDocuments: [{ id: entry.id, data: entry }],
+      seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: adminProfile,
+      isOnline: true
+    });
+
+    expect(operatorResult.selectedSessionView?.entries[0]).toMatchObject({
+      canCancel: false
+    });
+    expect(adminResult.selectedSessionView?.entries[0]).toMatchObject({
+      canCancel: true
+    });
+    expect(pendingResult.selectedSessionView?.entries[0]).toMatchObject({
+      pendingSync: true,
+      canCancel: false
+    });
+    expect(pendingResult.selectedSessionView?.canCloseSession).toBe(false);
+    expect(paidResult.selectedSessionView?.entries[0]).toMatchObject({
+      canCancel: false
+    });
   });
 });
 

@@ -4,7 +4,8 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  ShieldAlert
+  ShieldAlert,
+  X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -12,12 +13,20 @@ import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
-import { ActiveHarvestSessionPanel } from "./ActiveHarvestSessionPanel";
+import {
+  ActiveHarvestSessionPanel,
+  type ActiveHarvestSessionEntryItem
+} from "./ActiveHarvestSessionPanel";
 import {
   cancelHarvestSessionOnline,
   type CancelHarvestSessionOnlineInput,
   type CancelHarvestSessionOnlineResult
 } from "./cancelHarvestSessionRuntime";
+import {
+  cancelHarvestEntryOnline,
+  type CancelHarvestEntryOnlineInput,
+  type CancelHarvestEntryOnlineResult
+} from "./cancelHarvestEntryRuntime";
 import {
   closeHarvestSessionOnline,
   type CloseHarvestSessionOnlineInput,
@@ -70,6 +79,10 @@ export type OperatorHarvestSessionsApi = {
     env: FirebaseEnv,
     input: AddHarvestEntryOnlineInput
   ) => Promise<AddHarvestEntryOnlineResult>;
+  cancelEntry: (
+    env: FirebaseEnv,
+    input: CancelHarvestEntryOnlineInput
+  ) => Promise<CancelHarvestEntryOnlineResult>;
   close: (
     env: FirebaseEnv,
     input: CloseHarvestSessionOnlineInput
@@ -89,6 +102,7 @@ export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   listOpeningConfiguration: listOpenHarvestSessionConfiguration,
   open: openHarvestSessionOnline,
   addEntry: addHarvestEntryOnline,
+  cancelEntry: cancelHarvestEntryOnline,
   close: closeHarvestSessionOnline,
   reopen: reopenHarvestSessionOnline,
   cancel: cancelHarvestSessionOnline
@@ -139,6 +153,11 @@ type OpenSessionDraft = {
 type AddEntryDraft = {
   quantityMilli: number;
   weightG: number | null;
+};
+
+type CancelEntryDraft = {
+  entryId: string;
+  reason: string;
 };
 
 type ReopenSessionDraft = {
@@ -195,11 +214,16 @@ export function OperatorHarvestSessionsPanel({
     sessionId: "",
     reason: ""
   });
+  const [cancelEntryDraft, setCancelEntryDraft] = useState<CancelEntryDraft>({
+    entryId: "",
+    reason: ""
+  });
   const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
+  const [isCancellingEntry, setIsCancellingEntry] = useState(false);
   const [isReopeningSession, setIsReopeningSession] = useState(false);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
@@ -212,6 +236,7 @@ export function OperatorHarvestSessionsPanel({
       setSelectedSessionId(null);
       setReopenDraft({ sessionId: "", reason: "" });
       setCancelDraft({ sessionId: "", reason: "" });
+      setCancelEntryDraft({ entryId: "", reason: "" });
       setSessionFeedback(null);
       setSessionError(null);
       return undefined;
@@ -435,6 +460,69 @@ export function OperatorHarvestSessionsPanel({
     });
 
     await reload(result.selectedSessionId);
+  };
+
+  const handleCancelEntry = async () => {
+    if (viewerProfile?.role !== "ADMIN") {
+      return;
+    }
+
+    if (isCancellingEntry) {
+      return;
+    }
+
+    const selectedSession = state.result?.selectedSessionView?.session ?? null;
+    const selectedEntry =
+      state.result?.selectedSessionView?.entries.find(
+        (entry) => entry.id === cancelEntryDraft.entryId
+      ) ?? null;
+
+    setSessionFeedback(null);
+    setSessionError(null);
+
+    if (!selectedSession || !selectedEntry) {
+      setSessionError("Wybierz wpis przed anulowaniem.");
+      return;
+    }
+
+    if (!isOnline) {
+      setSessionError("Anulowanie wpisu wymaga polaczenia online.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Anulowac wpis #${String(selectedEntry.sequenceNumber)} w sesji ${
+        selectedSession.workerNameSnapshot
+      }?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsCancellingEntry(true);
+
+    try {
+      const result = await harvestSessionsApi.cancelEntry(env, {
+        actorProfile: viewerProfile,
+        sessionId: selectedSession.id,
+        entryId: selectedEntry.id,
+        reason: cancelEntryDraft.reason,
+        isOnline,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      setSessionFeedback(result.message);
+      setCancelEntryDraft({
+        entryId: "",
+        reason: ""
+      });
+      await reload(result.selectedSessionId);
+    } catch (error: unknown) {
+      setSessionError(getSessionOperationErrorMessage(error));
+    } finally {
+      setIsCancellingEntry(false);
+    }
   };
 
   const handleCloseSession = async () => {
@@ -735,6 +823,7 @@ export function OperatorHarvestSessionsPanel({
               onClick={() => {
                 setSelectedSessionId(session.id);
                 setIsEntryFormOpen(false);
+                setCancelEntryDraft({ entryId: "", reason: "" });
               }}
               type="button"
             >
@@ -757,6 +846,14 @@ export function OperatorHarvestSessionsPanel({
         onAddEntry={() => {
           setIsEntryFormOpen((current) => !current);
         }}
+        onCancelEntry={(entryId) => {
+          setCancelEntryDraft((current) => ({
+            entryId,
+            reason: current.entryId === entryId ? current.reason : ""
+          }));
+          setSessionFeedback(null);
+          setSessionError(null);
+        }}
         onCloseSession={() => {
           void handleCloseSession();
         }}
@@ -770,10 +867,29 @@ export function OperatorHarvestSessionsPanel({
         <p className="form-message form-message--error">{sessionError}</p>
       ) : null}
       {isClosingSession ? <p className="panel-detail">Zamykanie sesji.</p> : null}
+      {isCancellingEntry ? <p className="panel-detail">Anulowanie wpisu.</p> : null}
       {isReopeningSession ? (
         <p className="panel-detail">Ponowne otwieranie sesji.</p>
       ) : null}
       {isCancellingSession ? <p className="panel-detail">Anulowanie sesji.</p> : null}
+
+      {viewerProfile.role === "ADMIN" &&
+      selectedSessionView &&
+      cancelEntryDraft.entryId ? (
+        <AdminCancelHarvestEntryForm
+          draft={cancelEntryDraft}
+          entries={selectedSessionView.entries}
+          isOnline={isOnline}
+          isSubmitting={isCancellingEntry}
+          onChange={setCancelEntryDraft}
+          onDismiss={() => {
+            setCancelEntryDraft({ entryId: "", reason: "" });
+          }}
+          onSubmit={() => {
+            void handleCancelEntry();
+          }}
+        />
+      ) : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
         <section
@@ -995,6 +1111,82 @@ function AdminCancelHarvestSessionForm({
         <Ban aria-hidden="true" size={18} strokeWidth={2.2} />
         <span>Anuluj sesje</span>
       </button>
+    </form>
+  );
+}
+
+function AdminCancelHarvestEntryForm({
+  draft,
+  entries,
+  isOnline,
+  isSubmitting,
+  onChange,
+  onDismiss,
+  onSubmit
+}: {
+  draft: CancelEntryDraft;
+  entries: readonly ActiveHarvestSessionEntryItem[];
+  isOnline: boolean;
+  isSubmitting: boolean;
+  onChange: (draft: CancelEntryDraft) => void;
+  onDismiss: () => void;
+  onSubmit: () => void;
+}) {
+  const entry = entries.find((candidate) => candidate.id === draft.entryId) ?? null;
+  const isDisabled = isSubmitting || !isOnline || !entry;
+  const canSubmit = Boolean(entry && draft.reason.trim().length >= 3);
+
+  return (
+    <form
+      aria-label="Anulowanie wpisu zbioru"
+      className="open-session-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div>
+        <p className="eyebrow">Korekta wpisu</p>
+        <h4>{entry ? `Wpis #${String(entry.sequenceNumber)}` : "Wpis"}</h4>
+        <p className="panel-detail">
+          Anulowany wpis zostanie w historii i nie bedzie liczony w sumach.
+        </p>
+      </div>
+
+      <label className="field open-session-form__note">
+        <span>Powod anulowania wpisu</span>
+        <input
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange({
+              ...draft,
+              reason: event.target.value
+            });
+          }}
+          type="text"
+          value={draft.reason}
+        />
+      </label>
+
+      <div className="open-session-form__actions">
+        <button
+          className="secondary-action open-session-form__submit"
+          disabled={isSubmitting}
+          onClick={onDismiss}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Zamknij</span>
+        </button>
+        <button
+          className="secondary-action open-session-form__submit"
+          disabled={isDisabled || !canSubmit}
+          type="submit"
+        >
+          <Ban aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj wpis</span>
+        </button>
+      </div>
     </form>
   );
 }

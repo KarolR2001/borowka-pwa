@@ -1,7 +1,7 @@
 # Harvest entry correction
 
-Stage 5.11 records the correction model before session close. The first
-implementation is pure domain logic without Firestore writes.
+Stage 5.11 records the correction model before session close. The domain model
+is backed by runtime admin cancellation for confirmed entries.
 
 ## Decision
 
@@ -41,6 +41,13 @@ requires:
 The cancelled entry keeps the original history and the replacement entry stores
 `replacesEntryId`.
 
+Runtime cancellation of a confirmed entry is online-only and available only to
+an active administrator. It writes a controlled `harvestEntries` update with
+`status: CANCELLED`, `cancellationReason`, `cancelledBy`, `cancelledAtServer`
+and an incremented `revision`. The same batch appends `HARVEST_ENTRY_CANCELLED`
+to audit events. A closed session must be reopened first, and a paid session
+requires payment cancellation before entry correction.
+
 ## Validation
 
 Corrected values are checked against the session snapshots:
@@ -53,3 +60,5 @@ Corrected values are checked against the session snapshots:
 
 - `src/harvest/harvestEntryCorrection.ts`
 - `src/harvest/harvestEntryCorrection.test.ts`
+- `src/harvest/cancelHarvestEntryRuntime.ts`
+- `src/harvest/cancelHarvestEntryRuntime.test.ts`

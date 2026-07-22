@@ -557,7 +557,14 @@ function createActiveSessionView({
     seasonName: season?.name ?? session.seasonId,
     createdByName: session.createdBy,
     deviceName: session.createdDeviceId,
-    entries: sortedEntries.map(toActiveSessionEntryItem),
+    entries: sortedEntries.map((entry) =>
+      toActiveSessionEntryItem({
+        actorProfile,
+        entry,
+        pendingWriteCount,
+        session
+      })
+    ),
     estimatedAmountGrosz: totals.amountDueGrosz,
     pendingWriteCount,
     isOnline,
@@ -590,9 +597,17 @@ function canActorCloseSession(
   return actorProfile.role === "ADMIN" || session.createdBy === actorProfile.uid;
 }
 
-function toActiveSessionEntryItem(
-  entry: HarvestEntryDocument
-): ActiveHarvestSessionEntryItem {
+function toActiveSessionEntryItem({
+  actorProfile,
+  entry,
+  pendingWriteCount,
+  session
+}: {
+  actorProfile: Pick<UserProfile, "uid" | "role"> | null;
+  entry: HarvestEntryDocument;
+  pendingWriteCount: number;
+  session: HarvestSessionDocument;
+}): ActiveHarvestSessionEntryItem {
   return {
     id: entry.id,
     sequenceNumber: entry.sequenceNumber,
@@ -610,7 +625,13 @@ function toActiveSessionEntryItem(
           ? `Zastepuje ${entry.replacesEntryId}`
           : null,
     canEdit: false,
-    canCancel: false
+    canCancel:
+      actorProfile?.role === "ADMIN" &&
+      session.status === "OPEN" &&
+      session.paymentId === null &&
+      entry.status === "ACTIVE" &&
+      !entry.pendingSync &&
+      pendingWriteCount === 0
   };
 }
 

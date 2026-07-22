@@ -62,6 +62,30 @@ test.describe("Seeded harvest flow", () => {
     await expect(page.getByText("Ponownie otwarto sesje dla Anna Test.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Anna Test" })).toBeVisible();
 
+    await page
+      .getByRole("button", { name: /^Anuluj$/ })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("form", { name: "Anulowanie wpisu zbioru" })
+    ).toBeVisible();
+    await page.getByLabel("Powod anulowania wpisu").fill("Korekta E2E wpisu");
+    await page.getByRole("button", { name: "Anuluj wpis" }).click();
+
+    await expect(page.getByText("Anulowano wpis #10.")).toBeVisible();
+    await expect(page.getByText("9 kilogram")).toBeVisible();
+    await expect(page.getByText("Anulowany")).toBeVisible();
+
+    await page.getByRole("button", { name: "Dodaj wpis" }).click();
+    await expect(
+      page.getByRole("form", { name: "Formularz wpisu za kilogram" })
+    ).toBeVisible();
+    await page.getByLabel("Waga kg").fill("1,000");
+    await page.getByRole("button", { name: "Zapisz wpis" }).click();
+    await expect(page.getByText("Wpis wagowy dodany lokalnie.")).toBeVisible();
+    await expect(page.getByText("#11", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("10 kilogram")).toBeVisible();
+
     await page.getByLabel("Powod anulowania").fill("Test E2E anulowania");
     await page.getByRole("button", { name: "Anuluj sesje" }).click();
 
