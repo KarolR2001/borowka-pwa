@@ -3,9 +3,9 @@
 Date: 2026-07-17
 
 This document records the stage 5.4 screen contract for an active
-`harvestSessions` document. The first implementation is a presentational React
-component with explicit input data. Runtime Firestore loading is left for the
-later persistence packages.
+`harvestSessions` document. The screen is rendered by a presentational React
+component, and the operator dashboard now adapts Firestore `harvestSessions` and
+`harvestEntries` documents into that view model.
 
 ## Required visible data
 
@@ -41,8 +41,14 @@ The screen shows:
   the pending local snapshot for display.
 - Stage 5.10 entry row details and actions are maintained in
   `docs/domain/harvest-entry-list.md`.
+- The runtime operator dashboard recalculates the visible active totals from
+  entries, because entries remain the source of truth before official close.
 
 ## Code reference
 
 - `src/harvest/ActiveHarvestSessionPanel.tsx`
 - `src/harvest/ActiveHarvestSessionPanel.test.tsx`
+- `src/harvest/OperatorHarvestSessionsPanel.tsx`
+- `src/harvest/OperatorHarvestSessionsPanel.test.tsx`
+- `src/harvest/harvestSessionDashboard.ts`
+- `src/harvest/harvestSessionDashboard.test.ts`
