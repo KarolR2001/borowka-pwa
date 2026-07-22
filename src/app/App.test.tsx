@@ -572,6 +572,9 @@ describe("App shell", () => {
     const addHarvestEntry = vi
       .fn<OperatorHarvestSessionsApi["addEntry"]>()
       .mockRejectedValue(new Error("unused"));
+    const cancelHarvestEntry = vi
+      .fn<OperatorHarvestSessionsApi["cancelEntry"]>()
+      .mockRejectedValue(new Error("unused"));
     const closeHarvestSession = vi
       .fn<OperatorHarvestSessionsApi["close"]>()
       .mockRejectedValue(new Error("unused"));
@@ -590,6 +593,7 @@ describe("App shell", () => {
           listOpeningConfiguration,
           open: openHarvestSession,
           addEntry: addHarvestEntry,
+          cancelEntry: cancelHarvestEntry,
           close: closeHarvestSession,
           reopen: reopenHarvestSession,
           cancel: cancelHarvestSession

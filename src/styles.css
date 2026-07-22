@@ -598,6 +598,13 @@ h2 {
   min-width: 136px;
 }
 
+.open-session-form__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .worker-rate-form__heading {
   display: flex;
   align-items: center;

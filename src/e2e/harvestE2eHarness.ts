@@ -23,6 +23,7 @@ import {
 import { prepareRuntimeCloseHarvestSession } from "../harvest/closeHarvestSessionRuntime";
 import { prepareRuntimeReopenHarvestSession } from "../harvest/reopenHarvestSessionRuntime";
 import { prepareRuntimeCancelHarvestSession } from "../harvest/cancelHarvestSessionRuntime";
+import { prepareRuntimeCancelHarvestEntry } from "../harvest/cancelHarvestEntryRuntime";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -253,6 +254,39 @@ function createHarvestHarnessState() {
         selectedSessionId: prepared.entry.sessionId,
         message: `Dodano wpis #${String(prepared.entry.sequenceNumber)}.`,
         nextSessionTotals: prepared.validated.nextSessionTotals
+      });
+    },
+    cancelEntry: (_env, input) => {
+      const session = findSession(input.sessionId);
+      const currentEntries = entriesForSession(session.id);
+      const entry = currentEntries.find((candidate) => candidate.id === input.entryId);
+
+      if (!entry) {
+        throw new Error("E2E harness: missing harvest entry.");
+      }
+
+      const prepared = prepareRuntimeCancelHarvestEntry({
+        actorProfile: input.actorProfile,
+        session,
+        entry,
+        entries: currentEntries,
+        reason: input.reason,
+        isOnline: input.isOnline,
+        cancelledAtDevice: CREATED_AT,
+        cancelledAtServer: SERVER_TIME,
+        auditId: nextAuditId(),
+        deviceId: input.deviceId
+      });
+
+      entries = entries.map((candidate) =>
+        candidate.id === prepared.entry.id ? prepared.entry : candidate
+      );
+
+      return Promise.resolve({
+        entry: prepared.entry,
+        selectedSessionId: prepared.entry.sessionId,
+        message: `Anulowano wpis #${String(prepared.entry.sequenceNumber)}.`,
+        confirmationSummary: prepared.confirmationSummary
       });
     },
     close: (_env, input) => {

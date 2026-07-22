@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
+import type { CancelHarvestEntryOnlineResult } from "./cancelHarvestEntryRuntime";
 import type { CancelHarvestSessionOnlineResult } from "./cancelHarvestSessionRuntime";
 import type { CloseHarvestSessionOnlineResult } from "./closeHarvestSessionRuntime";
 import { createInitialDomainSeed } from "../domain/domainConfiguration";
@@ -374,6 +375,83 @@ describe("OperatorHarvestSessionsPanel", () => {
     }
   });
 
+  it("cancels a confirmed entry as admin with reason and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const session = createSession("session-1");
+    const cancelledEntry: HarvestEntryDocument = {
+      ...createEntry(session, 1),
+      status: "CANCELLED",
+      cancellationReason: "Bledna waga",
+      cancelledBy: adminProfile.uid,
+      cancelledAtServer: "2026-07-17T11:00:00.000Z",
+      revision: 2
+    };
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResult("session-1", adminProfile));
+    const api = createHarvestSessionsApi({
+      list,
+      cancelEntry: vi.fn<OperatorHarvestSessionsApi["cancelEntry"]>().mockResolvedValue({
+        entry: cancelledEntry,
+        selectedSessionId: session.id,
+        message: "Anulowano wpis #1.",
+        confirmationSummary: {
+          entryId: cancelledEntry.id,
+          sequenceNumber: 1,
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          quantityMilli: 1000,
+          weightG: 1000,
+          amountPreviewGrosz: 1000,
+          pendingWriteCount: 0,
+          reason: "Bledna waga"
+        }
+      } satisfies CancelHarvestEntryOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={adminState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("heading", { name: "Anna Test" });
+      await user.click(screen.getByRole("button", { name: /^Anuluj$/i }));
+      await screen.findByRole("form", { name: "Anulowanie wpisu zbioru" });
+      await user.type(screen.getByLabelText("Powod anulowania wpisu"), "Bledna waga");
+      await user.click(screen.getByRole("button", { name: "Anuluj wpis" }));
+
+      await waitFor(() => {
+        expect(api.cancelEntry).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: adminState.profile,
+            sessionId: "session-1",
+            entryId: "entry-01",
+            reason: "Bledna waga",
+            isOnline: true
+          })
+        );
+      });
+      expect(typeof vi.mocked(api.cancelEntry).mock.calls.at(-1)?.[1].deviceId).toBe(
+        "string"
+      );
+      expect(confirmSpy).toHaveBeenCalledWith("Anulowac wpis #1 w sesji Anna Test?");
+      expect(list).toHaveBeenLastCalledWith(env, {
+        actorProfile: adminState.profile,
+        selectedSessionId: "session-1",
+        isOnline: true
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("reopens a closed session as admin with reason and refreshes the dashboard", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -569,6 +647,9 @@ function createHarvestSessionsApi(
     addEntry: vi
       .fn<OperatorHarvestSessionsApi["addEntry"]>()
       .mockRejectedValue(new Error("unused")),
+    cancelEntry: vi
+      .fn<OperatorHarvestSessionsApi["cancelEntry"]>()
+      .mockRejectedValue(new Error("unused")),
     close: vi
       .fn<OperatorHarvestSessionsApi["close"]>()
       .mockRejectedValue(new Error("unused")),
@@ -610,7 +691,8 @@ function createOpeningConfiguration(): OpenHarvestSessionConfigurationResult {
 }
 
 function createDashboardResult(
-  selectedSessionId = "session-1"
+  selectedSessionId = "session-1",
+  actorProfile: Pick<UserProfile, "uid" | "role"> = operatorProfile
 ): HarvestSessionDashboardResult {
   const firstSession = createSession("session-1");
   const secondSession = createSession("session-2", {
@@ -637,7 +719,7 @@ function createDashboardResult(
     ],
     seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
     selectedSessionId,
-    actorProfile: operatorProfile,
+    actorProfile,
     isOnline: true
   });
 }
