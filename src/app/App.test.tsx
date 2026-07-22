@@ -545,6 +545,7 @@ describe("App shell", () => {
       .fn<OperatorHarvestSessionsApi["list"]>()
       .mockResolvedValue({
         openSessions: [],
+        closedSessions: [],
         selectedSessionId: null,
         selectedSessionView: null,
         invalidSessions: [],
@@ -574,6 +575,9 @@ describe("App shell", () => {
     const closeHarvestSession = vi
       .fn<OperatorHarvestSessionsApi["close"]>()
       .mockRejectedValue(new Error("unused"));
+    const reopenHarvestSession = vi
+      .fn<OperatorHarvestSessionsApi["reopen"]>()
+      .mockRejectedValue(new Error("unused"));
 
     render(
       <App
@@ -583,7 +587,8 @@ describe("App shell", () => {
           listOpeningConfiguration,
           open: openHarvestSession,
           addEntry: addHarvestEntry,
-          close: closeHarvestSession
+          close: closeHarvestSession,
+          reopen: reopenHarvestSession
         }}
         workerDirectoryApi={{ list: listWorkers }}
       />

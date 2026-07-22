@@ -23,6 +23,7 @@ import type {
   OpenHarvestSessionConfigurationResult,
   OpenHarvestSessionOnlineResult
 } from "./openHarvestSessionRuntime";
+import type { ReopenHarvestSessionOnlineResult } from "./reopenHarvestSessionRuntime";
 
 const env = {
   VITE_APP_ENV: "test"
@@ -51,6 +52,26 @@ const operatorState: AuthSessionState = {
   access: {
     status: "READY",
     role: "OPERATOR"
+  }
+};
+const adminProfile: UserProfile = {
+  ...operatorProfile,
+  uid: "admin-1",
+  email: "admin@example.test",
+  displayName: "Admin Test",
+  role: "ADMIN"
+};
+const adminState: AuthSessionState = {
+  ...operatorState,
+  user: {
+    uid: "admin-1",
+    email: "admin@example.test",
+    displayName: "Admin Test"
+  },
+  profile: adminProfile,
+  access: {
+    status: "READY",
+    role: "ADMIN"
   }
 };
 const pickerState: AuthSessionState = {
@@ -352,6 +373,83 @@ describe("OperatorHarvestSessionsPanel", () => {
     }
   });
 
+  it("reopens a closed session as admin with reason and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const closedSession = createClosedSession("session-closed");
+    const reopenedSession: HarvestSessionDocument = {
+      ...closedSession,
+      status: "OPEN",
+      amountDueGrosz: null,
+      closedAtDevice: null,
+      closedAtServer: null,
+      closedBy: null,
+      revision: 3
+    };
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResultWithClosedSession(closedSession));
+    const api = createHarvestSessionsApi({
+      list,
+      reopen: vi.fn<OperatorHarvestSessionsApi["reopen"]>().mockResolvedValue({
+        session: reopenedSession,
+        selectedSessionId: reopenedSession.id,
+        message: "Ponownie otwarto sesje dla Anna Test.",
+        confirmationSummary: {
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          previousAmountDueGrosz: 1000,
+          totalEntryCount: 1,
+          totalQuantityMilli: 1000,
+          totalWeightG: 1000,
+          reportsMayChange: true,
+          pendingWriteCount: 0,
+          reason: "Korekta wpisu"
+        }
+      } satisfies ReopenHarvestSessionOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={adminState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("form", { name: "Ponowne otwarcie sesji zbioru" });
+      expect(screen.getByText(/Dotychczasowa kwota: 10,00 zł/)).toBeInTheDocument();
+      await user.type(screen.getByLabelText("Powod ponownego otwarcia"), "Korekta wpisu");
+      await user.click(screen.getByRole("button", { name: "Otworz ponownie" }));
+
+      await waitFor(() => {
+        expect(api.reopen).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: adminState.profile,
+            sessionId: "session-closed",
+            reason: "Korekta wpisu",
+            hasActivePayment: false,
+            isOnline: true
+          })
+        );
+      });
+      expect(typeof vi.mocked(api.reopen).mock.calls.at(-1)?.[1].deviceId).toBe("string");
+      expect(confirmSpy).toHaveBeenCalledWith(
+        "Ponownie otworzyc sesje Anna Test z dnia 17.07.2026?"
+      );
+      expect(list).toHaveBeenLastCalledWith(env, {
+        actorProfile: adminState.profile,
+        selectedSessionId: "session-closed",
+        isOnline: true
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("does not load sessions for picker role", () => {
     const api = createHarvestSessionsApi();
 
@@ -391,6 +489,9 @@ function createHarvestSessionsApi(
     close: vi
       .fn<OperatorHarvestSessionsApi["close"]>()
       .mockRejectedValue(new Error("unused")),
+    reopen: vi
+      .fn<OperatorHarvestSessionsApi["reopen"]>()
+      .mockRejectedValue(new Error("unused")),
     ...overrides
   };
 }
@@ -398,6 +499,7 @@ function createHarvestSessionsApi(
 function emptyDashboardResult(): HarvestSessionDashboardResult {
   return {
     openSessions: [],
+    closedSessions: [],
     selectedSessionId: null,
     selectedSessionView: null,
     invalidSessions: [],
@@ -454,6 +556,17 @@ function createDashboardResult(
   });
 }
 
+function createDashboardResultWithClosedSession(
+  closedSession: HarvestSessionDocument
+): HarvestSessionDashboardResult {
+  const result = createDashboardResult();
+
+  return {
+    ...result,
+    closedSessions: [closedSession]
+  };
+}
+
 function createSession(
   id: string,
   overrides: Partial<HarvestSessionDocument> = {}
@@ -480,6 +593,21 @@ function createSession(
     ...prepared.session,
     createdAtServer: createdAt,
     ...overrides
+  };
+}
+
+function createClosedSession(id: string): HarvestSessionDocument {
+  return {
+    ...createSession(id),
+    status: "CLOSED",
+    totalEntryCount: 1,
+    totalQuantityMilli: 1000,
+    totalWeightG: 1000,
+    amountDueGrosz: 1000,
+    closedAtDevice: "2026-07-17T10:00:00.000Z",
+    closedAtServer: "2026-07-17T10:00:01.000Z",
+    closedBy: operatorProfile.uid,
+    revision: 2
   };
 }
 

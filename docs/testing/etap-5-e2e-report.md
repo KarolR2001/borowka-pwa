@@ -18,7 +18,7 @@ akcjach sesji w runtime UI.
 | Operator poprawia wpis              | Pokryte domenowo/integracyjnie; E2E UI do dodania         | TODO    |
 | Operator zamyka sesje               | Runtime action/API + integracja; seeded browser E2E czeka | PARTIAL |
 | Blokada wpisu po zamknieciu         | Pokryte integracyjnie; E2E UI do dodania                  | TODO    |
-| Admin reopen, anulowanie i reclose  | Pokryte integracyjnie; E2E UI do dodania                  | TODO    |
+| Admin reopen, anulowanie i reclose  | Reopen runtime/API + integracja; cancel/reclose UI czeka  | PARTIAL |
 | Picker widzi wlasna sesje           | Pokryte Rules/integracyjnie; E2E UI do dodania            | TODO    |
 
 ## Uruchamianie lokalne

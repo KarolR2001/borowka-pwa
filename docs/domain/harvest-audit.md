@@ -48,6 +48,7 @@ Runtime session opening writes `HARVEST_SESSION_CREATED` in the same client batc
 as `harvestSessions`. Runtime entry creation writes `HARVEST_ENTRY_CREATED` in
 the same client batch as `harvestEntries`. Runtime session close writes
 `HARVEST_SESSION_CLOSED` or `HARVEST_SESSION_RECLOSED` in the same client batch
-as the official `harvestSessions` close update. Security Rules allow operators
-to append harvest operation audit events for their operational actions, but audit
-reads remain admin-only.
+as the official `harvestSessions` close update. Runtime session reopen writes
+`HARVEST_SESSION_REOPENED` in the same client batch as the `harvestSessions`
+reopen update. Security Rules allow operators to append harvest operation audit
+events for their operational actions, but audit reads remain admin-only.
