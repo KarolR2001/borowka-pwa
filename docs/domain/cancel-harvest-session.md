@@ -1,8 +1,9 @@
 # Cancel harvest session
 
-Stage 5.16 prepares the domain payload for cancelling a harvest session. The
-Firestore session and entry collections are still not connected, so this
-package defines the operation that a later transaction must write atomically.
+Stage 5.16 defines the online cancel operation for a harvest session. Runtime UI
+now exposes cancellable open and closed sessions to administrators, requires a
+reason, fetches current entries and writes the session update with the audit
+event in one client batch.
 
 ## Rules
 
@@ -19,7 +20,21 @@ package defines the operation that a later transaction must write atomically.
 - A `HARVEST_SESSION_CANCELLED` audit event is prepared for the same logical
   write.
 
+## Atomic Write Contract
+
+`prepareCancelHarvestSession` returns:
+
+- the cancelled `session`;
+- the minimal `sessionUpdate` fields for the write batch;
+- the `auditEvent` document;
+- the confirmation summary that records historical totals and the reason.
+
+`cancelHarvestSessionOnline` writes the session update and audit event together
+through Firestore `writeBatch`. The operation never deletes harvest entries.
+
 ## Source
 
 - `src/harvest/cancelHarvestSession.ts`
 - `src/harvest/cancelHarvestSession.test.ts`
+- `src/harvest/cancelHarvestSessionRuntime.ts`
+- `src/harvest/cancelHarvestSessionRuntime.test.ts`

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
+import type { CancelHarvestSessionOnlineResult } from "./cancelHarvestSessionRuntime";
 import type { CloseHarvestSessionOnlineResult } from "./closeHarvestSessionRuntime";
 import { createInitialDomainSeed } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
@@ -450,6 +451,88 @@ describe("OperatorHarvestSessionsPanel", () => {
     }
   });
 
+  it("cancels a session as admin with reason and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const openSession = createSession("session-1");
+    const cancelledSession: HarvestSessionDocument = {
+      ...openSession,
+      status: "CANCELLED",
+      cancelledAt: "2026-07-17T11:00:00.000Z",
+      cancelledBy: adminProfile.uid,
+      cancellationReason: "Duplikat sesji",
+      revision: 2
+    };
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResult());
+    const api = createHarvestSessionsApi({
+      list,
+      cancel: vi.fn<OperatorHarvestSessionsApi["cancel"]>().mockResolvedValue({
+        session: cancelledSession,
+        selectedSessionId: null,
+        message: "Anulowano sesje dla Anna Test.",
+        confirmationSummary: {
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          sourceStatus: "OPEN",
+          amountDueGrosz: null,
+          totalEntryCount: 1,
+          totalQuantityMilli: 1000,
+          totalWeightG: 1000,
+          removesFromSettlementSums: true,
+          leavesEntriesHistorical: true,
+          pendingWriteCount: 0,
+          reason: "Duplikat sesji"
+        }
+      } satisfies CancelHarvestSessionOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={adminState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("form", { name: "Anulowanie sesji zbioru" });
+      expect(
+        screen.getByText(
+          "Wpisy pozostana historyczne. Sesja zostanie usunieta z sum rozliczen."
+        )
+      ).toBeInTheDocument();
+      await user.type(screen.getByLabelText("Powod anulowania"), "Duplikat sesji");
+      await user.click(screen.getByRole("button", { name: "Anuluj sesje" }));
+
+      await waitFor(() => {
+        expect(api.cancel).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: adminState.profile,
+            sessionId: "session-1",
+            reason: "Duplikat sesji",
+            hasActivePayment: false,
+            isOnline: true
+          })
+        );
+      });
+      expect(typeof vi.mocked(api.cancel).mock.calls.at(-1)?.[1].deviceId).toBe("string");
+      expect(confirmSpy).toHaveBeenCalledWith(
+        "Anulowac sesje Anna Test z dnia 17.07.2026?"
+      );
+      expect(list).toHaveBeenLastCalledWith(env, {
+        actorProfile: adminState.profile,
+        selectedSessionId: null,
+        isOnline: true
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("does not load sessions for picker role", () => {
     const api = createHarvestSessionsApi();
 
@@ -491,6 +574,9 @@ function createHarvestSessionsApi(
       .mockRejectedValue(new Error("unused")),
     reopen: vi
       .fn<OperatorHarvestSessionsApi["reopen"]>()
+      .mockRejectedValue(new Error("unused")),
+    cancel: vi
+      .fn<OperatorHarvestSessionsApi["cancel"]>()
       .mockRejectedValue(new Error("unused")),
     ...overrides
   };
