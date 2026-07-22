@@ -86,7 +86,11 @@ import {
   defaultConfigurationCacheApi,
   type ConfigurationCacheApi
 } from "../offline/ConfigurationCachePanel";
-import { ActiveHarvestSessionPanel } from "../harvest/ActiveHarvestSessionPanel";
+import {
+  defaultOperatorHarvestSessionsApi,
+  OperatorHarvestSessionsPanel,
+  type OperatorHarvestSessionsApi
+} from "../harvest/OperatorHarvestSessionsPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -186,7 +190,8 @@ export function App({
   seasonsApi = defaultSeasonsApi,
   settlementPlansApi = defaultSettlementPlansApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi,
-  configurationCacheApi = defaultConfigurationCacheApi
+  configurationCacheApi = defaultConfigurationCacheApi,
+  harvestSessionsApi = defaultOperatorHarvestSessionsApi
 }: {
   authSessionApi?: AuthSessionApi;
   deviceRegistryApi?: DeviceRegistryApi;
@@ -197,6 +202,7 @@ export function App({
   settlementPlansApi?: SettlementPlansApi;
   registrationInvitationsApi?: RegistrationInvitationsApi;
   configurationCacheApi?: ConfigurationCacheApi;
+  harvestSessionsApi?: OperatorHarvestSessionsApi;
 } = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
@@ -557,7 +563,12 @@ export function App({
 
         {activeView === "operator" ? (
           <>
-            <ActiveHarvestSessionPanel view={null} />
+            <OperatorHarvestSessionsPanel
+              authState={authState}
+              env={env}
+              harvestSessionsApi={harvestSessionsApi}
+              isOnline={isOnline}
+            />
             <WorkerDirectoryPanel
               authState={authState}
               env={env}

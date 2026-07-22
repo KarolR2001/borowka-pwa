@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
 import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
+import type { OperatorHarvestSessionsApi } from "../harvest/OperatorHarvestSessionsPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { ConfigurationCacheApi } from "../offline/ConfigurationCachePanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
@@ -540,10 +541,21 @@ describe("App shell", () => {
       invalidProfiles: [],
       invalidAuditEvents: []
     });
+    const listHarvestSessions = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue({
+        openSessions: [],
+        selectedSessionId: null,
+        selectedSessionView: null,
+        invalidSessions: [],
+        invalidEntries: [],
+        invalidSeasons: []
+      });
 
     render(
       <App
         authSessionApi={createAuthSessionApi(activeOperatorState)}
+        harvestSessionsApi={{ list: listHarvestSessions }}
         workerDirectoryApi={{ list: listWorkers }}
       />
     );
@@ -551,10 +563,18 @@ describe("App shell", () => {
     await user.click(screen.getByRole("button", { name: /^operator$/i }));
 
     await waitFor(() => {
+      expect(listHarvestSessions).toHaveBeenCalledWith(expect.anything(), {
+        actorProfile: activeOperatorState.profile,
+        selectedSessionId: null,
+        isOnline: true
+      });
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "OPERATOR"
       });
     });
+    expect(
+      screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
   });
 });

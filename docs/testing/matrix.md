@@ -47,6 +47,7 @@
 - Etap 5.23 / korekta administracyjna integracyjnie: reopen admina, anulowanie wpisu, replacement entry, ponowne zamkniecie i anulowanie sesji w `tests/integration/harvest-session-flow.test.ts`.
 - Etap 5.23 / negatywne scenariusze integracyjne: stale close, rownolegly close payload, blokada recznej zmiany snapshotu i odczytu cudzej sesji przez pickera w `tests/integration/harvest-session-flow.test.ts`.
 - Etap 5.24 / harness E2E online: Playwright smoke test shell/diagnostyki w `tests/e2e/app-shell.spec.ts`, raport w `docs/testing/etap-5-e2e-report.md`; pelny harvest E2E wymaga runtime UI sesji.
+- Etap 5.24 / runtime pulpit sesji operatora: dekodowanie `harvestSessions`/`harvestEntries`, przeliczanie widoku z wpisow jako zrodla prawdy i podpiecie `OperatorHarvestSessionsPanel` w `src/harvest/harvestSessionDashboard.test.ts`, `src/harvest/OperatorHarvestSessionsPanel.test.tsx` oraz `src/app/App.test.tsx`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

@@ -2,7 +2,8 @@
 
 Ten raport sledzi punkt 8.24. Pierwszy przyrost dodaje harness Playwright dla
 aplikacji webowej uruchamianej w WSL oraz stabilny smoke test pierwszego ekranu.
-Pelny scenariusz harvest E2E pozostaje do podlaczenia po runtime UI sesji.
+Pelny scenariusz harvest E2E pozostaje do domkniecia po formularzach zapisu i
+akcjach sesji w runtime UI.
 
 ## Pokrycie 8.24
 
@@ -11,7 +12,8 @@ Pelny scenariusz harvest E2E pozostaje do podlaczenia po runtime UI sesji.
 | Harness E2E web                     | `playwright.config.ts`, `tests/e2e/app-shell.spec.ts`    | OK     |
 | Aplikacja startuje w przegladarce   | Smoke: glowny naglowek, nawigacja i diagnostyka          | OK     |
 | Administrator tworzy osobe i stawke | Wymaga runtime E2E danych/admin flow                     | TODO   |
-| Operator otwiera sesje              | Wymaga podlaczenia `ActiveHarvestSessionPanel` do danych | TODO   |
+| Operator widzi otwarta sesje        | Runtime panel czyta `harvestSessions` i `harvestEntries` | OK     |
+| Operator otwiera sesje              | Wymaga formularza tworzenia sesji w runtime UI           | TODO   |
 | Operator dodaje 10 wpisow           | Pokryte integracyjnie; E2E UI do dodania                 | TODO   |
 | Operator poprawia wpis              | Pokryte domenowo/integracyjnie; E2E UI do dodania        | TODO   |
 | Operator zamyka sesje               | Pokryte domenowo/integracyjnie; E2E UI do dodania        | TODO   |
