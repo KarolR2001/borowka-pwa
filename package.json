@@ -20,7 +20,7 @@
     "test:integration:unit": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run tests/integration",
     "test:rules": "node scripts/firebase-cli.mjs emulators:exec --project demo-borowka-pwa-dev --only firestore \"npm run test:rules:unit\"",
     "test:rules:unit": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run tests/rules",
-    "pretest:e2e": "npm run build:pwa",
+    "pretest:e2e": "cross-env VITE_E2E_HARNESS=harvest npm run build:pwa",
     "preview:e2e": "vite preview --host 127.0.0.1 --port 4173",
     "test:e2e": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp playwright test",
     "test:e2e:ui": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp playwright test --ui",
