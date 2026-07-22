@@ -36,3 +36,9 @@ jobs:
 
       - name: Verify integration flows
         run: npm run verify:integration
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify E2E smoke
+        run: npm run verify:e2e
