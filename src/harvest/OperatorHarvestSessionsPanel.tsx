@@ -6,6 +6,12 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import { ActiveHarvestSessionPanel } from "./ActiveHarvestSessionPanel";
+import { GenericQuantityEntryForm } from "./GenericQuantityEntryForm";
+import {
+  addHarvestEntryOnline,
+  type AddHarvestEntryOnlineInput,
+  type AddHarvestEntryOnlineResult
+} from "./harvestEntryRuntime";
 import {
   listOperatorHarvestSessionDashboard,
   type HarvestSessionDashboardResult,
@@ -19,6 +25,9 @@ import {
   type OpenHarvestSessionOnlineInput,
   type OpenHarvestSessionOnlineResult
 } from "./openHarvestSessionRuntime";
+import type { HarvestSessionDocument } from "./openHarvestSession";
+import { UbiankaEntryForm } from "./UbiankaEntryForm";
+import { WeightEntryForm } from "./WeightEntryForm";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -35,12 +44,17 @@ export type OperatorHarvestSessionsApi = {
     env: FirebaseEnv,
     input: OpenHarvestSessionOnlineInput
   ) => Promise<OpenHarvestSessionOnlineResult>;
+  addEntry: (
+    env: FirebaseEnv,
+    input: AddHarvestEntryOnlineInput
+  ) => Promise<AddHarvestEntryOnlineResult>;
 };
 
 export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   list: listOperatorHarvestSessionDashboard,
   listOpeningConfiguration: listOpenHarvestSessionConfiguration,
-  open: openHarvestSessionOnline
+  open: openHarvestSessionOnline,
+  addEntry: addHarvestEntryOnline
 };
 
 type DashboardState =
@@ -85,6 +99,11 @@ type OpenSessionDraft = {
   secondSessionReason: string;
 };
 
+type AddEntryDraft = {
+  quantityMilli: number;
+  weightG: number | null;
+};
+
 type HarvestViewerProfile = UserProfile & {
   role: "ADMIN" | "OPERATOR";
 };
@@ -122,6 +141,7 @@ export function OperatorHarvestSessionsPanel({
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
+  const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
 
   useEffect(() => {
@@ -175,6 +195,7 @@ export function OperatorHarvestSessionsPanel({
     if (!viewerProfile) {
       setOpeningConfigurationState(initialOpeningConfigurationState);
       setOpenDraft(createInitialOpenSessionDraft());
+      setIsEntryFormOpen(false);
       return undefined;
     }
 
@@ -325,6 +346,33 @@ export function OperatorHarvestSessionsPanel({
     }
   };
 
+  const handleAddEntry = async (draft: AddEntryDraft) => {
+    if (!viewerProfile) {
+      throw new Error("Dodanie wpisu wymaga zalogowanego operatora.");
+    }
+
+    const selectedSessionId = state.result?.selectedSessionId;
+
+    if (!selectedSessionId) {
+      throw new Error("Wybierz otwarta sesje przed dodaniem wpisu.");
+    }
+
+    if (!isOnline) {
+      throw new Error("Dodanie wpisu online wymaga polaczenia.");
+    }
+
+    const result = await harvestSessionsApi.addEntry(env, {
+      actorProfile: viewerProfile,
+      sessionId: selectedSessionId,
+      quantityMilli: draft.quantityMilli,
+      weightG: draft.weightG,
+      isOnline,
+      createdDeviceId: getOrCreateDeviceId()
+    });
+
+    await reload(result.selectedSessionId);
+  };
+
   if (!viewerProfile) {
     return (
       <section className="operator-sessions" aria-label="Sesje zbioru operatora">
@@ -342,6 +390,7 @@ export function OperatorHarvestSessionsPanel({
   }
 
   const result = state.result;
+  const selectedSessionView = result?.selectedSessionView ?? null;
   const openingConfiguration = openingConfigurationState.result;
   const invalidDocumentsCount =
     (result?.invalidSessions.length ?? 0) +
@@ -418,6 +467,7 @@ export function OperatorHarvestSessionsPanel({
               key={session.id}
               onClick={() => {
                 setSelectedSessionId(session.id);
+                setIsEntryFormOpen(false);
               }}
               type="button"
             >
@@ -436,9 +486,99 @@ export function OperatorHarvestSessionsPanel({
         <p className="empty-state">Brak otwartych sesji zbioru.</p>
       ) : null}
 
-      <ActiveHarvestSessionPanel view={result?.selectedSessionView ?? null} />
+      <ActiveHarvestSessionPanel
+        onAddEntry={() => {
+          setIsEntryFormOpen((current) => !current);
+        }}
+        view={selectedSessionView}
+      />
+
+      {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
+        <section
+          aria-label="Dodawanie wpisu zbioru"
+          className="operator-sessions__entry-form"
+        >
+          <HarvestEntryForm
+            disabled={!isOnline}
+            onSubmit={handleAddEntry}
+            session={selectedSessionView.session}
+            lastQuantityMilli={findLastActiveQuantity(selectedSessionView.entries)}
+          />
+        </section>
+      ) : null}
     </section>
   );
+}
+
+function HarvestEntryForm({
+  disabled,
+  lastQuantityMilli,
+  onSubmit,
+  session
+}: {
+  disabled: boolean;
+  lastQuantityMilli: number | null;
+  onSubmit: (draft: AddEntryDraft) => void | Promise<void>;
+  session: HarvestSessionDocument;
+}) {
+  if (session.calculationBasisSnapshot === "WEIGHT") {
+    return (
+      <WeightEntryForm
+        disabled={disabled}
+        onSubmit={onSubmit}
+        rateGroszPerKg={session.rateGroszSnapshot}
+      />
+    );
+  }
+
+  if (isUbiankaSession(session)) {
+    return (
+      <UbiankaEntryForm
+        allowBatchQuantity={session.allowBatchQuantitySnapshot}
+        disabled={disabled}
+        lastQuantityMilli={lastQuantityMilli}
+        onSubmit={onSubmit}
+        unitLabel={session.unitLabelSnapshot}
+        weightRequired={session.weightRequiredSnapshot}
+      />
+    );
+  }
+
+  return (
+    <GenericQuantityEntryForm
+      disabled={disabled}
+      onSubmit={onSubmit}
+      plan={{
+        name: session.planNameSnapshot,
+        unitLabelSingular: session.unitLabelSnapshot,
+        unitLabelPlural: session.unitLabelPluralSnapshot,
+        quantityPrecision: session.quantityPrecisionSnapshot,
+        weightRequired: session.weightRequiredSnapshot,
+        allowBatchQuantity: session.allowBatchQuantitySnapshot,
+        description: null,
+        rateGroszPerUnit: session.rateGroszSnapshot
+      }}
+    />
+  );
+}
+
+function isUbiankaSession(session: HarvestSessionDocument): boolean {
+  return session.unitLabelSnapshot.toLocaleLowerCase("pl").includes("ubiank");
+}
+
+function findLastActiveQuantity(
+  entries: readonly {
+    status: "ACTIVE" | "CANCELLED";
+    sequenceNumber: number;
+    quantityMilli: number;
+  }[]
+): number | null {
+  const latest = entries
+    .filter((entry) => entry.status === "ACTIVE")
+    .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
+    .at(0);
+
+  return latest?.quantityMilli ?? null;
 }
 
 function OpenHarvestSessionForm({

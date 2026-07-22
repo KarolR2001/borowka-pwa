@@ -30,10 +30,12 @@ export type HarvestSessionDocument = {
   planNameSnapshot: string;
   calculationBasisSnapshot: SettlementCalculationBasis;
   unitLabelSnapshot: string;
+  unitLabelPluralSnapshot: string;
   rateVersionIdSnapshot: string;
   rateGroszSnapshot: number;
   weightRequiredSnapshot: boolean;
   quantityPrecisionSnapshot: number;
+  allowBatchQuantitySnapshot: boolean;
   totalEntryCount: number;
   totalQuantityMilli: number;
   totalWeightG: number;
@@ -170,10 +172,12 @@ export function prepareOpenHarvestSession(
     planNameSnapshot: plan.name,
     calculationBasisSnapshot: plan.calculationBasis,
     unitLabelSnapshot: plan.unitLabelSingular,
+    unitLabelPluralSnapshot: plan.unitLabelPlural,
     rateVersionIdSnapshot: rateVersion.id,
     rateGroszSnapshot: rateVersion.rateGroszPerUnit,
     weightRequiredSnapshot: plan.weightRequired,
     quantityPrecisionSnapshot: plan.quantityPrecision,
+    allowBatchQuantitySnapshot: plan.allowBatchQuantity,
     totalEntryCount: 0,
     totalQuantityMilli: 0,
     totalWeightG: 0,

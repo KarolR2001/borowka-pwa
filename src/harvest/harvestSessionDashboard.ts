@@ -129,6 +129,7 @@ export async function listOperatorHarvestSessionDashboard(
     entryDocuments: [],
     seasonDocuments,
     selectedSessionId: input.selectedSessionId,
+    actorProfile: input.actorProfile,
     isOnline: input.isOnline
   });
   const selectedSessionId = withoutEntries.selectedSessionId;
@@ -154,6 +155,7 @@ export async function listOperatorHarvestSessionDashboard(
     })),
     seasonDocuments,
     selectedSessionId,
+    actorProfile: input.actorProfile,
     isOnline: input.isOnline
   });
 }
@@ -163,12 +165,14 @@ export function buildHarvestSessionDashboard({
   entryDocuments,
   seasonDocuments,
   selectedSessionId,
+  actorProfile,
   isOnline
 }: {
   sessionDocuments: HarvestSessionDashboardDocument[];
   entryDocuments: HarvestSessionDashboardDocument[];
   seasonDocuments: HarvestSessionDashboardDocument[];
   selectedSessionId?: string | null;
+  actorProfile?: Pick<UserProfile, "uid" | "role"> | null;
   isOnline: boolean;
 }): HarvestSessionDashboardResult {
   const sessions: HarvestSessionDocument[] = [];
@@ -224,6 +228,7 @@ export function buildHarvestSessionDashboard({
           session: selectedSession,
           entries: entries.filter((entry) => entry.sessionId === selectedSession.id),
           seasons,
+          actorProfile: actorProfile ?? null,
           isOnline
         })
       : null,
@@ -251,10 +256,16 @@ export function decodeHarvestSession(
   const planNameSnapshot = readRequiredString(data, "planNameSnapshot");
   const calculationBasisSnapshot = data.calculationBasisSnapshot;
   const unitLabelSnapshot = readRequiredString(data, "unitLabelSnapshot");
+  const unitLabelPluralSnapshot =
+    readRequiredString(data, "unitLabelPluralSnapshot") ?? unitLabelSnapshot ?? "";
   const rateVersionIdSnapshot = readRequiredString(data, "rateVersionIdSnapshot");
   const rateGroszSnapshot = readPositiveInteger(data.rateGroszSnapshot);
   const weightRequiredSnapshot = data.weightRequiredSnapshot;
   const quantityPrecisionSnapshot = readQuantityPrecision(data.quantityPrecisionSnapshot);
+  const allowBatchQuantitySnapshot =
+    typeof data.allowBatchQuantitySnapshot === "boolean"
+      ? data.allowBatchQuantitySnapshot
+      : true;
   const totalEntryCount = readNonNegativeInteger(data.totalEntryCount);
   const totalQuantityMilli = readNonNegativeInteger(data.totalQuantityMilli);
   const totalWeightG = readNonNegativeInteger(data.totalWeightG);
@@ -347,10 +358,12 @@ export function decodeHarvestSession(
       planNameSnapshot,
       calculationBasisSnapshot,
       unitLabelSnapshot,
+      unitLabelPluralSnapshot,
       rateVersionIdSnapshot,
       rateGroszSnapshot,
       weightRequiredSnapshot,
       quantityPrecisionSnapshot,
+      allowBatchQuantitySnapshot,
       totalEntryCount,
       totalQuantityMilli,
       totalWeightG,
@@ -483,11 +496,13 @@ function createActiveSessionView({
   session,
   entries,
   seasons,
+  actorProfile,
   isOnline
 }: {
   session: HarvestSessionDocument;
   entries: HarvestEntryDocument[];
   seasons: SeasonDocument[];
+  actorProfile: Pick<UserProfile, "uid" | "role"> | null;
   isOnline: boolean;
 }): ActiveHarvestSessionView {
   const sortedEntries = entries.sort(
@@ -520,10 +535,21 @@ function createActiveSessionView({
     estimatedAmountGrosz: totals.amountDueGrosz,
     pendingWriteCount: sortedEntries.filter((entry) => entry.pendingSync).length,
     isOnline,
-    canAddEntry: false,
+    canAddEntry: canActorAddEntry(actorProfile, session),
     canCloseSession: false,
     statusNotice: null
   };
+}
+
+function canActorAddEntry(
+  actorProfile: Pick<UserProfile, "uid" | "role"> | null,
+  session: HarvestSessionDocument
+): boolean {
+  if (!actorProfile || session.status !== "OPEN") {
+    return false;
+  }
+
+  return actorProfile.role === "ADMIN" || session.createdBy === actorProfile.uid;
 }
 
 function toActiveSessionEntryItem(

@@ -54,9 +54,9 @@ export type HarvestOperationAuditEventInput = {
 
 export type HarvestEntryAuditSnapshot = CorrectableHarvestEntry &
   Partial<{
-    cancellationReason: string;
-    cancelledBy: string;
-    replacesEntryId: string;
+    cancellationReason: string | null;
+    cancelledBy: string | null;
+    replacesEntryId: string | null;
   }>;
 
 export type HarvestEntryCorrectionAuditEventsInput = {

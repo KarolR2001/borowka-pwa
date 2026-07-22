@@ -45,8 +45,12 @@ export type HarvestSessionTransitionRequiredField =
   | "planNameSnapshot"
   | "calculationBasisSnapshot"
   | "unitLabelSnapshot"
+  | "unitLabelPluralSnapshot"
   | "rateVersionIdSnapshot"
   | "rateGroszSnapshot"
+  | "weightRequiredSnapshot"
+  | "quantityPrecisionSnapshot"
+  | "allowBatchQuantitySnapshot"
   | "createdBy"
   | "createdDeviceId"
   | "createdAtDevice"
@@ -154,8 +158,12 @@ const transitionDefinitions = {
       "planNameSnapshot",
       "calculationBasisSnapshot",
       "unitLabelSnapshot",
+      "unitLabelPluralSnapshot",
       "rateVersionIdSnapshot",
       "rateGroszSnapshot",
+      "weightRequiredSnapshot",
+      "quantityPrecisionSnapshot",
+      "allowBatchQuantitySnapshot",
       "createdBy",
       "createdDeviceId",
       "createdAtDevice",

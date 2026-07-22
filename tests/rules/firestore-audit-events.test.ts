@@ -198,6 +198,38 @@ describe("Firestore audit event rules", () => {
       )
     );
     await assertFails(getDoc(doc(db, "auditEvents", "audit-harvest-session-created")));
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-entry-created-by-operator"),
+        auditEvent({
+          id: "audit-harvest-entry-created-by-operator",
+          actorUid: "operator-1",
+          actorRoleSnapshot: "OPERATOR",
+          action: "HARVEST_ENTRY_CREATED",
+          entityType: "HARVEST_ENTRY",
+          entityId: "entry-1",
+          businessDate: "2026-07-17",
+          beforeSummary: null,
+          afterSummary: {
+            entryId: "entry-1",
+            sessionId: "session-worker-anna-test",
+            seasonId: "season-2026-test",
+            workerId: "worker-anna-test",
+            businessDate: "2026-07-17",
+            status: "ACTIVE",
+            sequenceNumber: 1,
+            quantityMilli: 1000,
+            weightG: 1000,
+            pendingSync: false,
+            createdBy: "operator-1",
+            createdDeviceId: "device-1",
+            replacesEntryId: null,
+            cancelledBy: null
+          },
+          reason: null
+        })
+      )
+    );
     await assertFails(
       setDoc(
         doc(db, "auditEvents", "audit-user-change-by-operator"),

@@ -39,6 +39,9 @@ The screen shows:
 - Entries are displayed by newest sequence number first.
 - Entries with the same UUID are displayed once; server-confirmed data replaces
   the pending local snapshot for display.
+- The add-entry action opens the runtime entry form for the selected session.
+  The form writes online through `harvestEntryRuntime` and refreshes the selected
+  dashboard view after a successful write.
 - Stage 5.10 entry row details and actions are maintained in
   `docs/domain/harvest-entry-list.md`.
 - The runtime operator dashboard recalculates the visible active totals from
@@ -52,3 +55,5 @@ The screen shows:
 - `src/harvest/OperatorHarvestSessionsPanel.test.tsx`
 - `src/harvest/harvestSessionDashboard.ts`
 - `src/harvest/harvestSessionDashboard.test.ts`
+- `src/harvest/harvestEntryRuntime.ts`
+- `src/harvest/harvestEntryRuntime.test.ts`

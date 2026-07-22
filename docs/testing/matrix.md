@@ -49,6 +49,7 @@
 - Etap 5.24 / harness E2E online: Playwright smoke test shell/diagnostyki w `tests/e2e/app-shell.spec.ts`, raport w `docs/testing/etap-5-e2e-report.md`; pelny harvest E2E wymaga runtime UI sesji.
 - Etap 5.24 / runtime pulpit sesji operatora: dekodowanie `harvestSessions`/`harvestEntries`, przeliczanie widoku z wpisow jako zrodla prawdy i podpiecie `OperatorHarvestSessionsPanel` w `src/harvest/harvestSessionDashboard.test.ts`, `src/harvest/OperatorHarvestSessionsPanel.test.tsx` oraz `src/app/App.test.tsx`.
 - Etap 5.24 / runtime otwieranie sesji operatora: formularz w zakladce Operator, konfiguracja otwarcia, zapis `harvestSessions` z audytem harvest i waskie dopuszczenie operatorowego audit append w `src/harvest/openHarvestSessionRuntime.test.ts`, `src/harvest/OperatorHarvestSessionsPanel.test.tsx`, `src/app/App.test.tsx` oraz `tests/rules/firestore-audit-events.test.ts`.
+- Etap 5.25 / runtime dodawanie wpisow zbioru: formularz wpisu w aktywnej sesji, runtime `harvestEntries` + audit `HARVEST_ENTRY_CREATED`, przeliczanie sum z wpisow jako zrodla prawdy i blokada operatora dla cudzej sesji w `src/harvest/harvestEntryRuntime.test.ts`, `src/harvest/OperatorHarvestSessionsPanel.test.tsx`, `src/harvest/harvestSessionDashboard.test.ts`, `src/app/App.test.tsx`, `tests/rules/firestore-harvest.test.ts` oraz `tests/rules/firestore-audit-events.test.ts`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

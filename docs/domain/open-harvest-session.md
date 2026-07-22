@@ -42,9 +42,10 @@ The draft freezes:
 
 - worker id and display name;
 - season id and business date;
-- plan id, name, calculation basis and unit label;
+- plan id, name, calculation basis and unit labels;
 - worker rate version id and rate in grosz;
-- weight requirement and quantity precision for later entry validation;
+- weight requirement, quantity precision and batch quantity flag for later entry
+  validation;
 - calculation rule version.
 
 Later changes to worker name, plan name or rate amount do not update the
