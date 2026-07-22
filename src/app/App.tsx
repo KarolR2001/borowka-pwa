@@ -122,6 +122,19 @@ export type DeviceRegistryApi = {
   register: (env: FirebaseEnv, input: RegisterCurrentDeviceInput) => Promise<void>;
 };
 
+export type AppProps = {
+  authSessionApi?: AuthSessionApi;
+  deviceRegistryApi?: DeviceRegistryApi;
+  deviceDirectoryApi?: DeviceDirectoryApi;
+  userDirectoryApi?: UserDirectoryApi;
+  workerDirectoryApi?: WorkerDirectoryApi;
+  seasonsApi?: SeasonsApi;
+  settlementPlansApi?: SettlementPlansApi;
+  registrationInvitationsApi?: RegistrationInvitationsApi;
+  configurationCacheApi?: ConfigurationCacheApi;
+  harvestSessionsApi?: OperatorHarvestSessionsApi;
+};
+
 type PanelState = {
   title: string;
   status: string;
@@ -192,18 +205,7 @@ export function App({
   registrationInvitationsApi = defaultRegistrationInvitationsApi,
   configurationCacheApi = defaultConfigurationCacheApi,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi
-}: {
-  authSessionApi?: AuthSessionApi;
-  deviceRegistryApi?: DeviceRegistryApi;
-  deviceDirectoryApi?: DeviceDirectoryApi;
-  userDirectoryApi?: UserDirectoryApi;
-  workerDirectoryApi?: WorkerDirectoryApi;
-  seasonsApi?: SeasonsApi;
-  settlementPlansApi?: SettlementPlansApi;
-  registrationInvitationsApi?: RegistrationInvitationsApi;
-  configurationCacheApi?: ConfigurationCacheApi;
-  harvestSessionsApi?: OperatorHarvestSessionsApi;
-} = {}) {
+}: AppProps = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
   const [authState, setAuthState] = useState<AuthSessionState>(() =>

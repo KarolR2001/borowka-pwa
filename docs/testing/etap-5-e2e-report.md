@@ -2,24 +2,24 @@
 
 Ten raport sledzi punkt 8.24. Pierwszy przyrost dodaje harness Playwright dla
 aplikacji webowej uruchamianej w WSL oraz stabilny smoke test pierwszego ekranu.
-Pelny scenariusz harvest E2E pozostaje do domkniecia po formularzach zapisu i
-akcjach sesji w runtime UI.
+Seeded harvest E2E uruchamia ten sam UI przez kontrolowany harness danych, bez
+sekretow Firebase i bez recznego seedowania DEV.
 
 ## Pokrycie 8.24
 
-| Wymaganie 8.24                      | Pokrycie                                                  | Status  |
-| ----------------------------------- | --------------------------------------------------------- | ------- |
-| Harness E2E web                     | `playwright.config.ts`, `tests/e2e/app-shell.spec.ts`     | OK      |
-| Aplikacja startuje w przegladarce   | Smoke: glowny naglowek, nawigacja i diagnostyka           | OK      |
-| Administrator tworzy osobe i stawke | Wymaga runtime E2E danych/admin flow                      | TODO    |
-| Operator widzi otwarta sesje        | Runtime panel czyta `harvestSessions` i `harvestEntries`  | OK      |
-| Operator otwiera sesje              | Runtime form/API + Rules; seeded browser E2E do dodania   | PARTIAL |
-| Operator dodaje 10 wpisow           | Runtime form/API + integracja; seeded browser E2E czeka   | PARTIAL |
-| Operator poprawia wpis              | Pokryte domenowo/integracyjnie; E2E UI do dodania         | TODO    |
-| Operator zamyka sesje               | Runtime action/API + integracja; seeded browser E2E czeka | PARTIAL |
-| Blokada wpisu po zamknieciu         | Pokryte integracyjnie; E2E UI do dodania                  | TODO    |
-| Admin reopen, anulowanie i reclose  | Reopen/cancel runtime UI + integracja; reclose E2E czeka  | PARTIAL |
-| Picker widzi wlasna sesje           | Pokryte Rules/integracyjnie; E2E UI do dodania            | TODO    |
+| Wymaganie 8.24                      | Pokrycie                                                 | Status  |
+| ----------------------------------- | -------------------------------------------------------- | ------- |
+| Harness E2E web                     | `playwright.config.ts`, `tests/e2e/app-shell.spec.ts`    | OK      |
+| Aplikacja startuje w przegladarce   | Smoke: glowny naglowek, nawigacja i diagnostyka          | OK      |
+| Administrator tworzy osobe i stawke | Wymaga runtime E2E danych/admin flow                     | TODO    |
+| Operator widzi otwarta sesje        | Runtime panel czyta `harvestSessions` i `harvestEntries` | OK      |
+| Operator otwiera sesje              | Seeded browser E2E + runtime UI                          | OK      |
+| Operator dodaje 10 wpisow           | Seeded browser E2E + runtime UI                          | OK      |
+| Operator poprawia wpis              | Pokryte domenowo/integracyjnie; E2E UI do dodania        | TODO    |
+| Operator zamyka sesje               | Seeded browser E2E + runtime UI                          | OK      |
+| Blokada wpisu po zamknieciu         | Seeded browser E2E potwierdza brak aktywnej sesji        | OK      |
+| Admin reopen, anulowanie i reclose  | Reopen/cancel w seeded E2E; reclose po korekcie czeka    | PARTIAL |
+| Picker widzi wlasna sesje           | Pokryte Rules/integracyjnie; E2E UI do dodania           | TODO    |
 
 ## Uruchamianie lokalne
 
