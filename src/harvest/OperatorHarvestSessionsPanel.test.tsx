@@ -16,6 +16,10 @@ import {
   prepareOpenHarvestSession,
   type HarvestSessionDocument
 } from "./openHarvestSession";
+import type {
+  OpenHarvestSessionConfigurationResult,
+  OpenHarvestSessionOnlineResult
+} from "./openHarvestSessionRuntime";
 
 const env = {
   VITE_APP_ENV: "test"
@@ -62,19 +66,21 @@ const pickerState: AuthSessionState = {
 describe("OperatorHarvestSessionsPanel", () => {
   it("loads open sessions and renders active session details", async () => {
     const result = createDashboardResult();
-    const list = vi.fn<OperatorHarvestSessionsApi["list"]>().mockResolvedValue(result);
+    const api = createHarvestSessionsApi({
+      list: vi.fn<OperatorHarvestSessionsApi["list"]>().mockResolvedValue(result)
+    });
 
     render(
       <OperatorHarvestSessionsPanel
         authState={operatorState}
         env={env}
-        harvestSessionsApi={{ list }}
+        harvestSessionsApi={api}
         isOnline={true}
       />
     );
 
     await waitFor(() => {
-      expect(list).toHaveBeenCalledWith(env, {
+      expect(api.list).toHaveBeenCalledWith(env, {
         actorProfile: operatorState.profile,
         selectedSessionId: null,
         isOnline: true
@@ -94,16 +100,18 @@ describe("OperatorHarvestSessionsPanel", () => {
     const user = userEvent.setup();
     const firstResult = createDashboardResult();
     const secondResult = createDashboardResult("session-2");
-    const list = vi
-      .fn<OperatorHarvestSessionsApi["list"]>()
-      .mockResolvedValueOnce(firstResult)
-      .mockResolvedValueOnce(secondResult);
+    const api = createHarvestSessionsApi({
+      list: vi
+        .fn<OperatorHarvestSessionsApi["list"]>()
+        .mockResolvedValueOnce(firstResult)
+        .mockResolvedValueOnce(secondResult)
+    });
 
     render(
       <OperatorHarvestSessionsPanel
         authState={operatorState}
         env={env}
-        harvestSessionsApi={{ list }}
+        harvestSessionsApi={api}
         isOnline={true}
       />
     );
@@ -112,7 +120,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     await user.click(screen.getByRole("button", { name: /bartek test/i }));
 
     await waitFor(() => {
-      expect(list).toHaveBeenLastCalledWith(env, {
+      expect(api.list).toHaveBeenLastCalledWith(env, {
         actorProfile: operatorState.profile,
         selectedSessionId: "session-2",
         isOnline: true
@@ -120,24 +128,154 @@ describe("OperatorHarvestSessionsPanel", () => {
     });
   });
 
+  it("opens a new session from the runtime form and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const createdSession = createSession("session-new");
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResult());
+    list.mockResolvedValueOnce(emptyDashboardResult());
+    const api = createHarvestSessionsApi({
+      list,
+      open: vi.fn<OperatorHarvestSessionsApi["open"]>().mockResolvedValue({
+        status: "CREATED",
+        session: createdSession,
+        selectedSessionId: createdSession.id,
+        message: "Otworzono sesje dla Anna Test.",
+        duplicateMode: "FIRST_SESSION",
+        calculationDescription:
+          "10,00 zl za kilogram; oficjalna kwota powstaje przy zamknieciu."
+      } satisfies OpenHarvestSessionOnlineResult)
+    });
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={api}
+        isOnline={true}
+      />
+    );
+
+    await screen.findByRole("form", { name: "Otwieranie sesji zbioru" });
+    await user.clear(screen.getByLabelText("Data"));
+    await user.type(screen.getByLabelText("Data"), "2026-07-17");
+    await user.type(screen.getByLabelText("Notatka"), "poranny zbior");
+    await user.click(screen.getByRole("button", { name: "Otworz sesje" }));
+
+    await waitFor(() => {
+      expect(api.open).toHaveBeenCalledWith(
+        env,
+        expect.objectContaining({
+          actorProfile: operatorState.profile,
+          seasonId: seed.seasons[0].id,
+          workerId: seed.workers[0].id,
+          businessDate: "2026-07-17",
+          note: "poranny zbior",
+          secondSessionReason: null,
+          isOnline: true
+        })
+      );
+    });
+    expect(typeof vi.mocked(api.open).mock.calls.at(-1)?.[1].createdDeviceId).toBe(
+      "string"
+    );
+    expect(screen.getByText("Otworzono sesje dla Anna Test.")).toBeInTheDocument();
+    expect(api.list).toHaveBeenLastCalledWith(env, {
+      actorProfile: operatorState.profile,
+      selectedSessionId: "session-new",
+      isOnline: true
+    });
+  });
+
+  it("shows duplicate same-day session warning before opening another session", async () => {
+    const user = userEvent.setup();
+    const api = createHarvestSessionsApi({
+      list: vi
+        .fn<OperatorHarvestSessionsApi["list"]>()
+        .mockResolvedValue(createDashboardResult())
+    });
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={api}
+        isOnline={true}
+      />
+    );
+
+    await screen.findByRole("form", { name: "Otwieranie sesji zbioru" });
+    await user.clear(screen.getByLabelText("Data"));
+    await user.type(screen.getByLabelText("Data"), "2026-07-17");
+
+    expect(
+      screen.getByText("Istnieje otwarta sesja tej osoby dla wybranej daty.")
+    ).toBeInTheDocument();
+  });
+
   it("does not load sessions for picker role", () => {
-    const list = vi.fn<OperatorHarvestSessionsApi["list"]>();
+    const api = createHarvestSessionsApi();
 
     render(
       <OperatorHarvestSessionsPanel
         authState={pickerState}
         env={env}
-        harvestSessionsApi={{ list }}
+        harvestSessionsApi={api}
         isOnline={true}
       />
     );
 
-    expect(list).not.toHaveBeenCalled();
+    expect(api.list).not.toHaveBeenCalled();
+    expect(api.listOpeningConfiguration).not.toHaveBeenCalled();
     expect(
       screen.getByRole("heading", { name: "Brak dostepu do sesji zbioru" })
     ).toBeInTheDocument();
   });
 });
+
+function createHarvestSessionsApi(
+  overrides: Partial<OperatorHarvestSessionsApi> = {}
+): OperatorHarvestSessionsApi {
+  return {
+    list: vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(emptyDashboardResult()),
+    listOpeningConfiguration: vi
+      .fn<OperatorHarvestSessionsApi["listOpeningConfiguration"]>()
+      .mockResolvedValue(createOpeningConfiguration()),
+    open: vi
+      .fn<OperatorHarvestSessionsApi["open"]>()
+      .mockRejectedValue(new Error("unused")),
+    ...overrides
+  };
+}
+
+function emptyDashboardResult(): HarvestSessionDashboardResult {
+  return {
+    openSessions: [],
+    selectedSessionId: null,
+    selectedSessionView: null,
+    invalidSessions: [],
+    invalidEntries: [],
+    invalidSeasons: []
+  };
+}
+
+function createOpeningConfiguration(): OpenHarvestSessionConfigurationResult {
+  return {
+    seasons: [seed.seasons[0]],
+    workers: seed.workers,
+    plans: seed.settlementPlans,
+    rateVersions: seed.workerRateVersions,
+    openSessions: [],
+    invalidSeasons: [],
+    invalidWorkers: [],
+    invalidPlans: [],
+    invalidRateVersions: [],
+    invalidSessions: []
+  };
+}
 
 function createDashboardResult(
   selectedSessionId = "session-1"

@@ -153,6 +153,63 @@ describe("Firestore audit event rules", () => {
     expect(listSnapshot.size).toBe(1);
   });
 
+  it("allows operator to append harvest operation audit without audit read access", async () => {
+    await seedProfiles(profile({ uid: "operator-1" }));
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-created"),
+        auditEvent({
+          id: "audit-harvest-session-created",
+          actorUid: "operator-1",
+          actorRoleSnapshot: "OPERATOR",
+          action: "HARVEST_SESSION_CREATED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: null,
+          afterSummary: {
+            status: "OPEN",
+            seasonId: "season-2026-test",
+            workerId: "worker-anna-test",
+            businessDate: "2026-07-17",
+            planId: "plan-weight-kg",
+            rateVersionId: "rate-worker-anna-test-2026-07-01",
+            rateGroszPerUnit: 1000,
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: null,
+            calculationVersion: "1",
+            closedBy: null,
+            paymentId: null,
+            revision: 1
+          },
+          reason: null
+        })
+      )
+    );
+    await assertFails(getDoc(doc(db, "auditEvents", "audit-harvest-session-created")));
+    await assertFails(
+      setDoc(
+        doc(db, "auditEvents", "audit-user-change-by-operator"),
+        auditEvent({
+          id: "audit-user-change-by-operator",
+          actorUid: "operator-1",
+          actorRoleSnapshot: "OPERATOR"
+        })
+      )
+    );
+  });
+
   it("rejects audit reads for non-admin users", async () => {
     await seedProfiles(
       profile({

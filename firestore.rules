@@ -583,6 +583,21 @@ service cloud.firestore {
         data.deviceId.size() > 0;
     }
 
+    function isOperatorHarvestAuditAction(action) {
+      return action == 'HARVEST_SESSION_CREATED' ||
+        action == 'HARVEST_SESSION_CLOSED' ||
+        action == 'HARVEST_SESSION_RECLOSED' ||
+        action == 'HARVEST_ENTRY_CREATED';
+    }
+
+    function canCreateAuditEvent(data) {
+      return isAdmin() || (
+        isOperator() &&
+        (data.entityType == 'HARVEST_SESSION' || data.entityType == 'HARVEST_ENTRY') &&
+        isOperatorHarvestAuditAction(data.action)
+      );
+    }
+
     function hasDeviceFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1753,7 +1768,7 @@ service cloud.firestore {
 
     match /auditEvents/{auditEventId} {
       allow get, list: if isAdmin();
-      allow create: if isAdmin() &&
+      allow create: if canCreateAuditEvent(request.resource.data) &&
         isValidAuditEventCreate(request.resource.data, auditEventId);
       allow update, delete: if false;
     }

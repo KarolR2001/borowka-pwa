@@ -3,9 +3,8 @@
 Date: 2026-07-17
 
 This document records the stage 5.2/5.3 domain rules for preparing a new
-`harvestSessions` document in status `OPEN`. The current package prepares a
-validated draft and audit metadata. Firestore persistence, transaction handling
-and Security Rules are intentionally left for later stage 5 packages.
+`harvestSessions` document in status `OPEN`. Runtime UI now uses these rules to
+write the session online together with a harvest audit event.
 
 ## Opening flow
 
@@ -32,7 +31,8 @@ New session drafts start with:
 - `totalQuantityMilli = 0`;
 - `totalWeightG = 0`;
 - `amountDueGrosz = null`;
-- `createdAtServer = null` until Firestore confirms persistence;
+- `createdAtServer = null` in the draft and `serverTimestamp()` in runtime
+  persistence;
 - no close, payment or cancellation fields;
 - `legacyImport = false`.
 
@@ -63,3 +63,7 @@ For the same worker and business date:
 
 - `src/harvest/openHarvestSession.ts`
 - `src/harvest/openHarvestSession.test.ts`
+- `src/harvest/openHarvestSessionRuntime.ts`
+- `src/harvest/openHarvestSessionRuntime.test.ts`
+- `src/harvest/OperatorHarvestSessionsPanel.tsx`
+- `src/harvest/OperatorHarvestSessionsPanel.test.tsx`
