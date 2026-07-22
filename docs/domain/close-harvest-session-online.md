@@ -1,9 +1,9 @@
 # Close harvest session online
 
-Stage 5.14 prepares the online close operation for `harvestSessions`. The app
-does not yet have connected Firestore collections for sessions and entries, so
-this package defines the atomic domain payload that the later transaction must
-write as one logical operation.
+Stage 5.14 defines the online close operation for `harvestSessions`. Runtime UI
+now fetches the current session, its entries and required configuration from
+Firestore, recalculates official totals from entries, and writes the session
+update with the audit event in one client batch.
 
 ## Rules
 
@@ -27,16 +27,18 @@ write as one logical operation.
 `prepareCloseHarvestSessionOnline` returns:
 
 - the full closed `session`;
-- the minimal `sessionUpdate` fields for a transaction;
+- the minimal `sessionUpdate` fields for the write batch;
 - the `auditEvent` document;
 - the trusted totals used for the official amount;
 - the confirmation summary that should be shown before the user confirms.
 
-Later Firestore integration must write the session update and audit event
-together. A partial write must not leave the session payable without the audit
-event and official totals.
+`closeHarvestSessionOnline` writes the session update and audit event together
+through Firestore `writeBatch`. A partial write must not leave the session
+payable without the audit event and official totals.
 
 ## Source
 
 - `src/harvest/closeHarvestSession.ts`
 - `src/harvest/closeHarvestSession.test.ts`
+- `src/harvest/closeHarvestSessionRuntime.ts`
+- `src/harvest/closeHarvestSessionRuntime.test.ts`

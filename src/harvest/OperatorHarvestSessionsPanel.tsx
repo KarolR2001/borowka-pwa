@@ -6,6 +6,11 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import { ActiveHarvestSessionPanel } from "./ActiveHarvestSessionPanel";
+import {
+  closeHarvestSessionOnline,
+  type CloseHarvestSessionOnlineInput,
+  type CloseHarvestSessionOnlineResult
+} from "./closeHarvestSessionRuntime";
 import { GenericQuantityEntryForm } from "./GenericQuantityEntryForm";
 import {
   addHarvestEntryOnline,
@@ -48,13 +53,18 @@ export type OperatorHarvestSessionsApi = {
     env: FirebaseEnv,
     input: AddHarvestEntryOnlineInput
   ) => Promise<AddHarvestEntryOnlineResult>;
+  close: (
+    env: FirebaseEnv,
+    input: CloseHarvestSessionOnlineInput
+  ) => Promise<CloseHarvestSessionOnlineResult>;
 };
 
 export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   list: listOperatorHarvestSessionDashboard,
   listOpeningConfiguration: listOpenHarvestSessionConfiguration,
   open: openHarvestSessionOnline,
-  addEntry: addHarvestEntryOnline
+  addEntry: addHarvestEntryOnline,
+  close: closeHarvestSessionOnline
 };
 
 type DashboardState =
@@ -140,8 +150,11 @@ export function OperatorHarvestSessionsPanel({
   );
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
+  const [isClosingSession, setIsClosingSession] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
 
   useEffect(() => {
@@ -150,6 +163,8 @@ export function OperatorHarvestSessionsPanel({
     if (!viewerProfile) {
       setState(initialDashboardState);
       setSelectedSessionId(null);
+      setSessionFeedback(null);
+      setSessionError(null);
       return undefined;
     }
 
@@ -373,6 +388,63 @@ export function OperatorHarvestSessionsPanel({
     await reload(result.selectedSessionId);
   };
 
+  const handleCloseSession = async () => {
+    if (!viewerProfile) {
+      return;
+    }
+
+    if (isClosingSession) {
+      return;
+    }
+
+    const selectedSession = state.result?.selectedSessionView?.session ?? null;
+
+    setSessionFeedback(null);
+    setSessionError(null);
+
+    if (!selectedSession) {
+      setSessionError("Wybierz otwarta sesje przed zamknieciem.");
+      return;
+    }
+
+    if (!isOnline) {
+      setSessionError("Zamkniecie sesji wymaga polaczenia online.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Zamknac sesje ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+        selectedSession.businessDate
+      )}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsClosingSession(true);
+
+    try {
+      const result = await harvestSessionsApi.close(env, {
+        actorProfile: viewerProfile,
+        sessionId: selectedSession.id,
+        confirmationAccepted: true,
+        isOnline,
+        deviceId: getOrCreateDeviceId()
+      });
+
+      setSessionFeedback(result.message);
+      setIsEntryFormOpen(false);
+      setSelectedSessionId(result.selectedSessionId);
+      await reload(result.selectedSessionId);
+      await reloadOpeningConfiguration();
+    } catch (error: unknown) {
+      setSessionError(getSessionOperationErrorMessage(error));
+    } finally {
+      setIsClosingSession(false);
+    }
+  };
+
   if (!viewerProfile) {
     return (
       <section className="operator-sessions" aria-label="Sesje zbioru operatora">
@@ -490,8 +562,19 @@ export function OperatorHarvestSessionsPanel({
         onAddEntry={() => {
           setIsEntryFormOpen((current) => !current);
         }}
+        onCloseSession={() => {
+          void handleCloseSession();
+        }}
         view={selectedSessionView}
       />
+
+      {sessionFeedback ? (
+        <p className="form-message form-message--ok">{sessionFeedback}</p>
+      ) : null}
+      {sessionError ? (
+        <p className="form-message form-message--error">{sessionError}</p>
+      ) : null}
+      {isClosingSession ? <p className="panel-detail">Zamykanie sesji.</p> : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
         <section
@@ -784,4 +867,12 @@ function getOpenSessionErrorMessage(error: unknown): string {
   }
 
   return "Nie udalo sie otworzyc sesji zbioru.";
+}
+
+function getSessionOperationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Nie udalo sie wykonac operacji na sesji zbioru.";
 }
