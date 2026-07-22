@@ -62,6 +62,7 @@ describe("harvestSessionDashboard", () => {
         }
       ],
       seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+      actorProfile: operatorProfile,
       isOnline: true
     });
 
@@ -73,6 +74,8 @@ describe("harvestSessionDashboard", () => {
       seasonName: "Sezon testowy 2026",
       estimatedAmountGrosz: 2000,
       pendingWriteCount: 0,
+      canAddEntry: true,
+      canCloseSession: true,
       session: {
         totalEntryCount: 2,
         totalQuantityMilli: 2000,

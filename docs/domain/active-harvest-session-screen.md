@@ -42,6 +42,9 @@ The screen shows:
 - The add-entry action opens the runtime entry form for the selected session.
   The form writes online through `harvestEntryRuntime` and refreshes the selected
   dashboard view after a successful write.
+- The close-session action asks for confirmation, writes through
+  `closeHarvestSessionRuntime`, clears the active selection after a successful
+  close and refreshes the dashboard/opening configuration.
 - Stage 5.10 entry row details and actions are maintained in
   `docs/domain/harvest-entry-list.md`.
 - The runtime operator dashboard recalculates the visible active totals from
@@ -57,3 +60,5 @@ The screen shows:
 - `src/harvest/harvestSessionDashboard.test.ts`
 - `src/harvest/harvestEntryRuntime.ts`
 - `src/harvest/harvestEntryRuntime.test.ts`
+- `src/harvest/closeHarvestSessionRuntime.ts`
+- `src/harvest/closeHarvestSessionRuntime.test.ts`

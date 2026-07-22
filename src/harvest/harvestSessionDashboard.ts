@@ -525,6 +525,7 @@ function createActiveSessionView({
     totalQuantityMilli: totals.totalQuantityMilli,
     totalWeightG: totals.totalWeightG
   };
+  const pendingWriteCount = sortedEntries.filter((entry) => entry.pendingSync).length;
 
   return {
     session: viewSession,
@@ -533,15 +534,27 @@ function createActiveSessionView({
     deviceName: session.createdDeviceId,
     entries: sortedEntries.map(toActiveSessionEntryItem),
     estimatedAmountGrosz: totals.amountDueGrosz,
-    pendingWriteCount: sortedEntries.filter((entry) => entry.pendingSync).length,
+    pendingWriteCount,
     isOnline,
     canAddEntry: canActorAddEntry(actorProfile, session),
-    canCloseSession: false,
+    canCloseSession:
+      canActorCloseSession(actorProfile, session) && pendingWriteCount === 0,
     statusNotice: null
   };
 }
 
 function canActorAddEntry(
+  actorProfile: Pick<UserProfile, "uid" | "role"> | null,
+  session: HarvestSessionDocument
+): boolean {
+  if (!actorProfile || session.status !== "OPEN") {
+    return false;
+  }
+
+  return actorProfile.role === "ADMIN" || session.createdBy === actorProfile.uid;
+}
+
+function canActorCloseSession(
   actorProfile: Pick<UserProfile, "uid" | "role"> | null,
   session: HarvestSessionDocument
 ): boolean {

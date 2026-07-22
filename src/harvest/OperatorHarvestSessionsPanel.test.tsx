@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
+import type { CloseHarvestSessionOnlineResult } from "./closeHarvestSessionRuntime";
 import { createInitialDomainSeed } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import {
@@ -95,7 +96,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(screen.getByText("Sezon testowy 2026 · 17.07.2026")).toBeInTheDocument();
     expect(screen.getAllByText("1 kilogram").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeEnabled();
   });
 
   it("reloads the dashboard when another open session is selected", async () => {
@@ -274,6 +275,83 @@ describe("OperatorHarvestSessionsPanel", () => {
     });
   });
 
+  it("closes the selected session after confirmation and refreshes the dashboard", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const session = createSession("session-1");
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValue(createDashboardResult());
+    const api = createHarvestSessionsApi({
+      list,
+      close: vi.fn<OperatorHarvestSessionsApi["close"]>().mockResolvedValue({
+        session: {
+          ...session,
+          status: "CLOSED",
+          totalEntryCount: 1,
+          totalQuantityMilli: 1000,
+          totalWeightG: 1000,
+          amountDueGrosz: 1000,
+          closedBy: operatorProfile.uid,
+          revision: 2
+        },
+        selectedSessionId: null,
+        message: "Zamknieto sesje dla Anna Test.",
+        confirmationSummary: {
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          planName: "Za kilogram",
+          unitLabel: "kilogram",
+          rateGrosz: 1000,
+          calculationBasis: "WEIGHT",
+          totalEntryCount: 1,
+          totalQuantityMilli: 1000,
+          totalWeightG: 1000,
+          amountDueGrosz: 1000,
+          skippedCancelledEntryCount: 0,
+          pendingWriteCount: 0
+        }
+      } satisfies CloseHarvestSessionOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={operatorState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("heading", { name: "Anna Test" });
+      await user.click(screen.getByRole("button", { name: "Zamknij sesje" }));
+
+      await waitFor(() => {
+        expect(api.close).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: operatorState.profile,
+            sessionId: "session-1",
+            confirmationAccepted: true,
+            isOnline: true
+          })
+        );
+      });
+      expect(typeof vi.mocked(api.close).mock.calls.at(-1)?.[1].deviceId).toBe("string");
+      expect(confirmSpy).toHaveBeenCalledWith(
+        "Zamknac sesje Anna Test z dnia 17.07.2026?"
+      );
+      expect(list).toHaveBeenLastCalledWith(env, {
+        actorProfile: operatorState.profile,
+        selectedSessionId: null,
+        isOnline: true
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("does not load sessions for picker role", () => {
     const api = createHarvestSessionsApi();
 
@@ -309,6 +387,9 @@ function createHarvestSessionsApi(
       .mockRejectedValue(new Error("unused")),
     addEntry: vi
       .fn<OperatorHarvestSessionsApi["addEntry"]>()
+      .mockRejectedValue(new Error("unused")),
+    close: vi
+      .fn<OperatorHarvestSessionsApi["close"]>()
       .mockRejectedValue(new Error("unused")),
     ...overrides
   };
