@@ -86,6 +86,14 @@ test.describe("Seeded harvest flow", () => {
     await expect(page.getByText("#11", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("10 kilogram")).toBeVisible();
 
+    await page.getByRole("button", { name: "Zamknij sesje" }).click();
+
+    await expect(page.getByText("Zamknieto sesje dla Anna Test.")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Brak aktywnej sesji" })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dodaj wpis" })).toHaveCount(0);
+
     await page.getByLabel("Powod anulowania").fill("Test E2E anulowania");
     await page.getByRole("button", { name: "Anuluj sesje" }).click();
 
