@@ -11,7 +11,14 @@ import {
   Wifi,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SyntheticEvent
+} from "react";
 
 import {
   PASSWORD_RESET_CONFIRMATION,
@@ -92,6 +99,15 @@ import {
   type TrustedOfflineConsentUpdateInput
 } from "../offline/trustedOfflineConsent";
 import {
+  createSynchronizationRequest,
+  defaultSynchronizationApi,
+  evaluateSynchronizationTrigger,
+  type SynchronizationApi,
+  type SynchronizationRunResult,
+  type SynchronizationTrigger
+} from "../offline/automaticSynchronization";
+import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import {
   defaultOperatorHarvestSessionsApi,
   OperatorHarvestSessionsPanel,
   type OperatorHarvestSessionsApi
@@ -137,6 +153,7 @@ export type AppProps = {
   registrationInvitationsApi?: RegistrationInvitationsApi;
   configurationCacheApi?: ConfigurationCacheApi;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
+  synchronizationApi?: SynchronizationApi;
 };
 
 type PanelState = {
@@ -208,7 +225,8 @@ export function App({
   settlementPlansApi = defaultSettlementPlansApi,
   registrationInvitationsApi = defaultRegistrationInvitationsApi,
   configurationCacheApi = defaultConfigurationCacheApi,
-  harvestSessionsApi = defaultOperatorHarvestSessionsApi
+  harvestSessionsApi = defaultOperatorHarvestSessionsApi,
+  synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("start");
@@ -223,8 +241,15 @@ export function App({
   const [firebaseServicesStatus, setFirebaseServicesStatus] = useState(
     initialFirebaseServicesStatus
   );
+  const [syncDocuments, setSyncDocuments] = useState<SyncDocumentMetadataInput[]>([]);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const latestAuthStateRef = useRef(authState);
+  const latestIsOnlineRef = useRef(isOnline);
   const refreshInFlightRef = useRef(false);
+  const syncInFlightRef = useRef(false);
+  const initialAuthReadyRef = useRef(authState.status === "READY");
+  const firstReadySyncHandledRef = useRef(false);
+  const lastReadySyncUidRef = useRef<string | null>(null);
   const deviceIdentity = useMemo(() => readCurrentDeviceIdentity(), []);
   const deviceId = deviceIdentity.id;
   const panel = panelByNavigation[activeView];
@@ -294,6 +319,178 @@ export function App({
   useEffect(() => {
     latestAuthStateRef.current = authState;
   }, [authState]);
+
+  useEffect(() => {
+    latestIsOnlineRef.current = isOnline;
+  }, [isOnline]);
+
+  const requestSynchronization = useCallback(
+    async (trigger: SynchronizationTrigger): Promise<SynchronizationRunResult> => {
+      const requestedAtIso = new Date().toISOString();
+      const currentAuthState = latestAuthStateRef.current;
+
+      if (currentAuthState.status !== "READY") {
+        return createSkippedSynchronizationResult(
+          trigger,
+          "Synchronizacja wymaga aktywnego profilu.",
+          requestedAtIso
+        );
+      }
+
+      if (!initialFirebaseServicesStatus.ready) {
+        const result = createSkippedSynchronizationResult(
+          trigger,
+          "Synchronizacja wymaga poprawnej konfiguracji Firebase.",
+          requestedAtIso
+        );
+
+        if (trigger === "MANUAL_RETRY") {
+          setLastSyncError(result.message);
+        }
+
+        return result;
+      }
+
+      if (syncInFlightRef.current) {
+        const decision = evaluateSynchronizationTrigger({
+          authReady: true,
+          hasLocalDataForAccount: true,
+          inFlight: true,
+          isOnline: latestIsOnlineRef.current,
+          isVisible: isDocumentVisible(),
+          trigger
+        });
+        const result = createSkippedSynchronizationResult(
+          trigger,
+          decision.message,
+          requestedAtIso
+        );
+
+        if (trigger === "MANUAL_RETRY") {
+          setLastSyncError(result.message);
+        }
+
+        return result;
+      }
+
+      syncInFlightRef.current = true;
+
+      try {
+        const accountQuery = {
+          deviceId,
+          userUid: currentAuthState.profile.uid
+        };
+        const [hasLocalDataResult, currentDocuments] = await Promise.all([
+          synchronizationApi.hasLocalData(env, accountQuery),
+          synchronizationApi.listLocalDocuments(env, accountQuery)
+        ]);
+        const hasLocalDataForAccount = hasLocalDataResult || currentDocuments.length > 0;
+        const decision = evaluateSynchronizationTrigger({
+          authReady: true,
+          hasLocalDataForAccount,
+          inFlight: false,
+          isOnline: latestIsOnlineRef.current,
+          isVisible: isDocumentVisible(),
+          trigger
+        });
+
+        setSyncDocuments([...currentDocuments]);
+
+        if (!decision.shouldRun) {
+          if (decision.reason === "NO_LOCAL_DATA") {
+            setLastSyncError(null);
+          } else if (trigger === "MANUAL_RETRY") {
+            setLastSyncError(decision.message);
+          }
+
+          return createSkippedSynchronizationResult(
+            trigger,
+            decision.message,
+            requestedAtIso
+          );
+        }
+
+        const result = await synchronizationApi.synchronize(
+          env,
+          createSynchronizationRequest({
+            deviceId,
+            pendingDocumentCount: currentDocuments.length,
+            requestedAtIso,
+            trigger,
+            userRole: currentAuthState.profile.role,
+            userUid: currentAuthState.profile.uid
+          })
+        );
+        const refreshedDocuments = await synchronizationApi.listLocalDocuments(
+          env,
+          accountQuery
+        );
+
+        setSyncDocuments([...refreshedDocuments]);
+        setLastSyncError(result.status === "FAILED" ? result.message : null);
+
+        return result;
+      } catch (syncError: unknown) {
+        const message = getSynchronizationErrorMessage(syncError);
+
+        setLastSyncError(message);
+
+        return createFailedSynchronizationResult(trigger, message, requestedAtIso);
+      } finally {
+        syncInFlightRef.current = false;
+      }
+    },
+    [deviceId, env, initialFirebaseServicesStatus.ready, synchronizationApi]
+  );
+
+  useEffect(() => {
+    if (authState.status !== "READY") {
+      lastReadySyncUidRef.current = null;
+      setSyncDocuments([]);
+      return;
+    }
+
+    const currentUid = authState.profile.uid;
+    const trigger = !firstReadySyncHandledRef.current
+      ? initialAuthReadyRef.current
+        ? "APP_START"
+        : "AUTH_LOCAL_DATA_READY"
+      : lastReadySyncUidRef.current !== currentUid
+        ? "AUTH_LOCAL_DATA_READY"
+        : null;
+
+    firstReadySyncHandledRef.current = true;
+    lastReadySyncUidRef.current = currentUid;
+
+    if (trigger) {
+      void requestSynchronization(trigger);
+    }
+  }, [authState, requestSynchronization]);
+
+  useEffect(() => {
+    const synchronizeAfterOnline = () => {
+      latestIsOnlineRef.current = true;
+      void requestSynchronization("ONLINE_RESTORED");
+    };
+    const synchronizeAfterActivation = () => {
+      void requestSynchronization("APP_ACTIVATED");
+    };
+    const synchronizeWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        void requestSynchronization("APP_ACTIVATED");
+      }
+    };
+
+    globalThis.addEventListener("online", synchronizeAfterOnline);
+    globalThis.addEventListener("focus", synchronizeAfterActivation);
+    document.addEventListener("visibilitychange", synchronizeWhenVisible);
+
+    return () => {
+      globalThis.removeEventListener("online", synchronizeAfterOnline);
+      globalThis.removeEventListener("focus", synchronizeAfterActivation);
+      document.removeEventListener("visibilitychange", synchronizeWhenVisible);
+    };
+  }, [requestSynchronization]);
 
   useEffect(() => {
     let isMounted = true;
@@ -399,6 +596,13 @@ export function App({
       return currentState;
     });
   };
+  const handleManualSynchronization = useCallback(async () => {
+    const result = await requestSynchronization("MANUAL_RETRY");
+
+    return {
+      message: result.message
+    };
+  }, [requestSynchronization]);
 
   return (
     <div className="app-shell">
@@ -601,7 +805,10 @@ export function App({
             deviceId={deviceId}
             env={env}
             isOnline={isOnline}
+            lastSyncError={lastSyncError}
+            onRetrySync={handleManualSynchronization}
             serviceWorkerStatus={serviceWorkerStatus}
+            syncDocuments={syncDocuments}
           />
         ) : null}
       </main>
@@ -1089,6 +1296,46 @@ function AuthSummaryRow({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+function createSkippedSynchronizationResult(
+  trigger: SynchronizationTrigger,
+  message: string,
+  requestedAtIso: string
+): SynchronizationRunResult {
+  return {
+    finishedAtIso: requestedAtIso,
+    message,
+    requestedAtIso,
+    status: "SKIPPED",
+    trigger
+  };
+}
+
+function createFailedSynchronizationResult(
+  trigger: SynchronizationTrigger,
+  message: string,
+  requestedAtIso: string
+): SynchronizationRunResult {
+  return {
+    finishedAtIso: new Date().toISOString(),
+    message,
+    requestedAtIso,
+    status: "FAILED",
+    trigger
+  };
+}
+
+function getSynchronizationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Nie udalo sie uruchomic synchronizacji.";
+}
+
+function isDocumentVisible(): boolean {
+  return typeof document === "undefined" || document.visibilityState !== "hidden";
 }
 
 function hasAuthenticatedUser(

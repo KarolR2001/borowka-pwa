@@ -36,6 +36,12 @@ import {
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
+export type RetrySynchronizationResult =
+  | {
+      message?: string;
+    }
+  | undefined;
+
 export type ConfigurationCacheApi = {
   read: (input: ReadConfigurationCacheInput) => Promise<ReadConfigurationCacheResult>;
   prepare: (
@@ -97,7 +103,9 @@ export function ConfigurationCachePanel({
   isOnline: boolean;
   lastSyncError?: string | null;
   onEmergencyExport?: (payload: EmergencySyncExportPayload) => Promise<void> | void;
-  onRetrySync?: (model: SyncCenterModel) => Promise<void> | void;
+  onRetrySync?: (
+    model: SyncCenterModel
+  ) => Promise<RetrySynchronizationResult> | RetrySynchronizationResult;
   serviceWorkerStatus: ServiceWorkerStatus;
   syncDocuments?: readonly SyncDocumentMetadataInput[];
 }) {
@@ -296,8 +304,8 @@ export function ConfigurationCachePanel({
     setIsRetrying(true);
 
     try {
-      await onRetrySync(syncCenterModel);
-      setFeedback("Ponowienie synchronizacji zostalo uruchomione.");
+      const result = await onRetrySync(syncCenterModel);
+      setFeedback(result?.message ?? "Ponowienie synchronizacji zostalo uruchomione.");
     } catch (retryError: unknown) {
       setError(getConfigurationCacheErrorMessage(retryError));
     } finally {
@@ -727,6 +735,9 @@ function SyncSafetyInstructions() {
         <li>Nie czysc danych przegladarki przed eksportem awaryjnym.</li>
         <li>Nie wylogowuj sie przed potwierdzeniem zielonego statusu synchronizacji.</li>
         <li>Nie wyplacaj sesji oznaczonych jako lokalne albo oczekujace.</li>
+        <li>
+          Po odzyskaniu internetu ponownie otworz PWA, aby uruchomic synchronizacje.
+        </li>
       </ul>
     </div>
   );

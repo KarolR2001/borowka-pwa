@@ -435,7 +435,7 @@ describe("ConfigurationCachePanel", () => {
       readiness: readyReadiness
     });
     const onRetrySync = vi
-      .fn<(model: SyncCenterModel) => Promise<void>>()
+      .fn<(model: SyncCenterModel) => Promise<undefined>>()
       .mockResolvedValue(undefined);
     const onEmergencyExport = vi
       .fn<(payload: EmergencySyncExportPayload) => Promise<void>>()
