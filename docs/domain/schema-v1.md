@@ -138,3 +138,6 @@ Stage 6.13 synchronization idempotency contract is maintained in
 
 Stage 6.14 offline rate conflict contract is maintained in
 `docs/domain/rate-conflict.md`.
+
+Stage 6.15 closed season conflict contract is maintained in
+`docs/domain/closed-season-conflict.md`.
