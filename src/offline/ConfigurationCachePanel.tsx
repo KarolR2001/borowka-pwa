@@ -15,6 +15,11 @@ import {
   type ReadConfigurationCacheInput,
   type ReadConfigurationCacheResult
 } from "./configurationCache";
+import {
+  evaluateOfflineLayerReadiness,
+  offlineOverallStatusLabel,
+  type OfflineLayerReadiness
+} from "./offlineReadiness";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -93,10 +98,20 @@ export function ConfigurationCachePanel({
     isOnline &&
     !isPreparing;
   const readiness = state.readiness;
-  const statusLabel = readiness
-    ? configurationCacheStatusLabel(readiness)
+  const offlineLayerReadiness = readiness
+    ? evaluateOfflineLayerReadiness({
+        applicationFilesReady: serviceWorkerReady,
+        serviceWorkerSupported: serviceWorkerStatus !== "unsupported",
+        configurationDataReady: readiness.status === "READY",
+        pendingWriteCount: 0,
+        rejectedWriteCount: 0,
+        staleDocumentCount: state.snapshot?.invalidDocumentCount ?? 0
+      })
+    : null;
+  const statusLabel = offlineLayerReadiness
+    ? offlineOverallStatusLabel(offlineLayerReadiness.overallStatus)
     : "Nieprzygotowane";
-  const statusTone = readiness?.status === "READY" ? "ok" : "warn";
+  const statusTone = offlineLayerReadiness?.overallStatus === "READY" ? "ok" : "warn";
   const preparedAtLabel = useMemo(
     () => (state.snapshot ? formatPreparedAt(state.snapshot.preparedAtIso) : "brak"),
     [state.snapshot]
@@ -283,6 +298,18 @@ export function ConfigurationCachePanel({
 
       <div className="configuration-cache__summary">
         <CacheStat label="Status" tone={statusTone} value={statusLabel} />
+        <CacheStat
+          label="Warstwa PWA"
+          tone={
+            offlineLayerReadiness?.applicationLayer.status === "READY" ? "ok" : "warn"
+          }
+          value={offlineLayerReadiness?.applicationLayer.label ?? "Nieodczytana"}
+        />
+        <CacheStat
+          label="Warstwa danych"
+          tone={offlineLayerReadiness?.dataLayer.status === "READY" ? "ok" : "warn"}
+          value={offlineLayerReadiness?.dataLayer.label ?? "Nieodczytana"}
+        />
         <CacheStat label="Ostatnie przygotowanie" value={preparedAtLabel} />
         <CacheStat
           label="Zbieracze offline"
@@ -298,6 +325,10 @@ export function ConfigurationCachePanel({
           value={state.snapshot?.appVersion ?? "brak"}
         />
       </div>
+
+      {offlineLayerReadiness ? (
+        <OfflineLayerDetails readiness={offlineLayerReadiness} />
+      ) : null}
 
       <div className="configuration-cache__requirements">
         <div className="worker-rate-form__heading">
@@ -370,12 +401,51 @@ function CacheStat({
   );
 }
 
-function isServiceWorkerReady(status: ServiceWorkerStatus): boolean {
-  return status === "controlled" || status === "registered";
+function OfflineLayerDetails({ readiness }: { readiness: OfflineLayerReadiness }) {
+  return (
+    <div className="configuration-cache__layers" aria-label="Warstwy offline">
+      <LayerDetail
+        title="Dostepnosc aplikacji"
+        details={readiness.applicationLayer.details}
+      />
+      <LayerDetail
+        title="Trwalosc danych"
+        details={[
+          ...readiness.dataLayer.details,
+          `Statusy danych: ${formatDataSources(readiness)}`
+        ]}
+      />
+    </div>
+  );
 }
 
-function configurationCacheStatusLabel(readiness: ConfigurationCacheReadiness): string {
-  return readiness.status === "READY" ? "Gotowe offline" : "Nieprzygotowane";
+function LayerDetail({ details, title }: { details: readonly string[]; title: string }) {
+  return (
+    <div className="configuration-cache__layer">
+      <h3>{title}</h3>
+      <ul className="worker-profile__list">
+        {details.map((detail) => (
+          <li key={detail}>{detail}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatDataSources(readiness: OfflineLayerReadiness): string {
+  const labels = [
+    readiness.dataLayer.sources.CACHE ? "cache" : null,
+    readiness.dataLayer.sources.PENDING_WRITE ? "oczekujace" : null,
+    readiness.dataLayer.sources.SERVER_CONFIRMED ? "potwierdzone" : null,
+    readiness.dataLayer.sources.REJECTED ? "odrzucone" : null,
+    readiness.dataLayer.sources.STALE ? "nieaktualne" : null
+  ].filter((label): label is string => label !== null);
+
+  return labels.length > 0 ? labels.join(", ") : "brak";
+}
+
+function isServiceWorkerReady(status: ServiceWorkerStatus): boolean {
+  return status === "controlled" || status === "registered";
 }
 
 function formatPreparedAt(value: string): string {

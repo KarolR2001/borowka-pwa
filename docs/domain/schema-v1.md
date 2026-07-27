@@ -96,3 +96,6 @@ Stage 5.18 harvest session and entry Security Rules contract is maintained in
 
 Stage 5.19 harvest query and index contract is maintained in
 `docs/domain/harvest-queries-and-indexes.md`.
+
+Stage 6.1 offline readiness layers contract is maintained in
+`docs/domain/offline-layers.md`.
