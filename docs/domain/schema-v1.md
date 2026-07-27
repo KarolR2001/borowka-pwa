@@ -132,3 +132,6 @@ Stage 6.11 automatic synchronization trigger contract is maintained in
 
 Stage 6.12 business synchronization order contract is maintained in
 `docs/domain/business-synchronization-order.md`.
+
+Stage 6.13 synchronization idempotency contract is maintained in
+`docs/domain/synchronization-idempotency.md`.
