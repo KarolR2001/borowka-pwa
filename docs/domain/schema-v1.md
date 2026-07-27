@@ -123,3 +123,6 @@ Stage 6.8 offline harvest session close contract is maintained in
 
 Stage 6.9 pending write metadata contract is maintained in
 `docs/domain/pending-write-metadata.md`.
+
+Stage 6.10 synchronization center contract is maintained in
+`docs/domain/synchronization-center.md`.

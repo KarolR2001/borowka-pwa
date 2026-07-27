@@ -29,6 +29,7 @@ export type SyncDocumentMetadataInput = {
   sessionId?: string | null;
   workerName?: string | null;
   businessDate?: string | null;
+  businessStatus?: string | null;
   firestoreMetadata?: FirestoreSnapshotSyncMetadata | null;
   pendingSync?: boolean;
   savedLocally?: boolean;
@@ -47,6 +48,7 @@ export type SyncDocumentPresentation = {
   sessionId: string | null;
   workerName: string | null;
   businessDate: string | null;
+  businessStatus: string | null;
   status: SyncDocumentStatus;
   label: string;
   tone: SyncDocumentTone;
@@ -88,6 +90,7 @@ export function evaluateSyncDocumentMetadata(
   const sessionId = normalizeOptionalText(input.sessionId);
   const workerName = normalizeOptionalText(input.workerName);
   const businessDate = normalizeOptionalText(input.businessDate);
+  const businessStatus = normalizeOptionalText(input.businessStatus);
   const remoteDeviceId = normalizeOptionalText(input.remoteDeviceId);
   const currentDeviceId = normalizeOptionalText(input.currentDeviceId);
   const lastLocalWriteIso = normalizeOptionalIso(input.lastLocalWriteIso);
@@ -101,6 +104,7 @@ export function evaluateSyncDocumentMetadata(
       sessionId,
       workerName,
       businessDate,
+      businessStatus,
       status: "REJECTED",
       label: "Odrzucony",
       tone: "error",
@@ -127,6 +131,7 @@ export function evaluateSyncDocumentMetadata(
       sessionId,
       workerName,
       businessDate,
+      businessStatus,
       status: "REMOTE_CHANGED",
       label: "Zmieniony na innym urzadzeniu",
       tone: "warn",
@@ -153,6 +158,7 @@ export function evaluateSyncDocumentMetadata(
       sessionId,
       workerName,
       businessDate,
+      businessStatus,
       status: "PENDING_SYNC",
       label: "Oczekuje synchronizacji",
       tone: "warn",
@@ -176,6 +182,7 @@ export function evaluateSyncDocumentMetadata(
       sessionId,
       workerName,
       businessDate,
+      businessStatus,
       status: "LOCAL_SAVED",
       label: "Zapisany lokalnie",
       tone: "warn",
@@ -201,6 +208,7 @@ export function evaluateSyncDocumentMetadata(
     sessionId,
     workerName,
     businessDate,
+    businessStatus,
     status: "SYNCED",
     label: "Zsynchronizowany",
     tone: "ok",

@@ -10,6 +10,7 @@ import {
   ConfigurationCachePanel,
   type ConfigurationCacheApi
 } from "./ConfigurationCachePanel";
+import type { EmergencySyncExportPayload, SyncCenterModel } from "./syncCenter";
 
 const activeAdminState: AuthSessionState = {
   status: "READY",
@@ -425,5 +426,104 @@ describe("ConfigurationCachePanel", () => {
     expect(
       screen.getByText("Co najmniej jeden zapis lub odczyt wymaga interwencji.")
     ).toBeInTheDocument();
+  });
+
+  it("shows synchronization metadata, pending sessions and safe sync actions", async () => {
+    const user = userEvent.setup();
+    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
+      snapshot,
+      readiness: readyReadiness
+    });
+    const onRetrySync = vi
+      .fn<(model: SyncCenterModel) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    const onEmergencyExport = vi
+      .fn<(payload: EmergencySyncExportPayload) => Promise<void>>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <ConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        lastSyncError="Ostatnia proba synchronizacji zostala przerwana."
+        onEmergencyExport={onEmergencyExport}
+        onRetrySync={onRetrySync}
+        serviceWorkerStatus="registered"
+        syncDocuments={[
+          {
+            id: "session-pending",
+            kind: "HARVEST_SESSION",
+            workerName: "Anna Test",
+            businessDate: "2026-07-17",
+            businessStatus: "OPEN",
+            pendingSync: true
+          },
+          {
+            id: "entry-pending",
+            kind: "HARVEST_ENTRY",
+            sessionId: "session-pending",
+            workerName: "Anna Test",
+            businessDate: "2026-07-17",
+            businessStatus: "OPEN",
+            pendingSync: true
+          },
+          {
+            id: "entry-synced",
+            kind: "HARVEST_ENTRY",
+            sessionId: "session-pending",
+            workerName: "Anna Test",
+            businessDate: "2026-07-17",
+            businessStatus: "OPEN",
+            lastSuccessfulSyncIso: "2026-07-17T10:10:00.000Z"
+          },
+          {
+            id: "entry-rejected",
+            kind: "HARVEST_ENTRY",
+            sessionId: "session-rejected",
+            workerName: "Bartek Test",
+            businessDate: "2026-07-18",
+            businessStatus: "CLOSED",
+            rejectedReason: "Rules odrzucily wpis."
+          }
+        ]}
+      />
+    );
+
+    expect(await screen.findByText("Lokalne zmiany")).toBeInTheDocument();
+    expect(screen.getByText("Sesje z oczekujacymi zmianami")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ostatnia proba synchronizacji zostala przerwana\./)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Anna Test")).toBeInTheDocument();
+    expect(screen.getByText("Bartek Test")).toBeInTheDocument();
+    expect(screen.getByText("Rules odrzucily wpis.")).toBeInTheDocument();
+    expect(screen.getByText("Przejrzyj konflikt")).toBeInTheDocument();
+    expect(screen.queryByText("Usun wszystkie oczekujace dane")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Synchronizuj teraz" }));
+
+    expect(onRetrySync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingSessionCount: 2
+      })
+    );
+
+    await user.click(screen.getByRole("button", { name: "Eksport awaryjny" }));
+
+    expect(onEmergencyExport).toHaveBeenCalledTimes(1);
+
+    const [[exportedPayload]] = onEmergencyExport.mock.calls;
+    expect(exportedPayload.deviceId).toBe("device-1");
+    expect(exportedPayload.summary).toMatchObject({
+      totalDocumentCount: 4,
+      rejectedCount: 1
+    });
   });
 });

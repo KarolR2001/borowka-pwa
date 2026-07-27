@@ -1,4 +1,4 @@
-import { Database, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, Database, Download, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -25,6 +25,14 @@ import {
   type OfflineReadinessIndicator,
   type OfflineReadinessIndicatorTone
 } from "./offlineReadinessIndicator";
+import type { SyncDocumentMetadataInput } from "./pendingWriteMetadata";
+import {
+  buildSyncCenterModel,
+  createEmergencySyncExportPayload,
+  type EmergencySyncExportPayload,
+  type SyncCenterModel,
+  type SyncCenterSessionSummary
+} from "./syncCenter";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -76,21 +84,43 @@ export function ConfigurationCachePanel({
   deviceId,
   env,
   isOnline,
-  serviceWorkerStatus
+  lastSyncError = null,
+  onEmergencyExport,
+  onRetrySync,
+  serviceWorkerStatus,
+  syncDocuments = []
 }: {
   authState: AuthSessionState;
   configurationCacheApi?: ConfigurationCacheApi;
   deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
+  lastSyncError?: string | null;
+  onEmergencyExport?: (payload: EmergencySyncExportPayload) => Promise<void> | void;
+  onRetrySync?: (model: SyncCenterModel) => Promise<void> | void;
   serviceWorkerStatus: ServiceWorkerStatus;
+  syncDocuments?: readonly SyncDocumentMetadataInput[];
 }) {
   const [state, setState] = useState<PanelState>(initialState);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const serviceWorkerReady = isServiceWorkerReady(serviceWorkerStatus);
+  const syncCenterModel = useMemo(
+    () => buildSyncCenterModel(syncDocuments),
+    [syncDocuments]
+  );
+  const syncSummary = syncCenterModel.metadataSummary;
+  const localChangeCount =
+    syncSummary.localSavedCount +
+    syncSummary.pendingSyncCount +
+    syncSummary.rejectedCount +
+    syncSummary.remoteChangedCount;
+  const syncErrorMessage =
+    lastSyncError ?? syncCenterModel.sessions[0]?.lastError ?? null;
   const accountReconfirmationRequired = authStateRequiresOfflineReconfirmation(authState);
   const viewerRole =
     authState.status === "READY" &&
@@ -109,16 +139,20 @@ export function ConfigurationCachePanel({
         applicationFilesReady: serviceWorkerReady,
         serviceWorkerSupported: serviceWorkerStatus !== "unsupported",
         configurationDataReady: readiness.status === "READY",
-        pendingWriteCount: 0,
-        rejectedWriteCount: 0,
-        staleDocumentCount: state.snapshot?.invalidDocumentCount ?? 0
+        pendingWriteCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
+        rejectedWriteCount: syncSummary.rejectedCount,
+        staleDocumentCount:
+          (state.snapshot?.invalidDocumentCount ?? 0) + syncSummary.remoteChangedCount
       })
     : null;
   const readinessIndicator = evaluateOfflineReadinessIndicator({
     isOnline,
     accountReconfirmationRequired,
-    syncError: state.status === "ERROR",
-    pendingWriteCount: 0,
+    syncError:
+      state.status === "ERROR" ||
+      syncSummary.actionableErrorCount > 0 ||
+      lastSyncError !== null,
+    pendingWriteCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
     lastFirestoreContactIso: state.snapshot?.preparedAtIso ?? null,
     layerReadiness: offlineLayerReadiness
   });
@@ -250,6 +284,53 @@ export function ConfigurationCachePanel({
     }
   };
 
+  const handleRetrySync = async () => {
+    setFeedback(null);
+    setError(null);
+
+    if (!onRetrySync) {
+      setError("Ponowienie synchronizacji zostanie podlaczone w runtime synchronizacji.");
+      return;
+    }
+
+    setIsRetrying(true);
+
+    try {
+      await onRetrySync(syncCenterModel);
+      setFeedback("Ponowienie synchronizacji zostalo uruchomione.");
+    } catch (retryError: unknown) {
+      setError(getConfigurationCacheErrorMessage(retryError));
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  const handleEmergencyExport = async () => {
+    setFeedback(null);
+    setError(null);
+    setIsExporting(true);
+
+    try {
+      const payload = createEmergencySyncExportPayload({
+        createdAtIso: new Date().toISOString(),
+        deviceId,
+        model: syncCenterModel
+      });
+
+      if (onEmergencyExport) {
+        await onEmergencyExport(payload);
+      } else {
+        downloadEmergencySyncExport(payload);
+      }
+
+      setFeedback("Eksport awaryjny zostal przygotowany.");
+    } catch (exportError: unknown) {
+      setError(getConfigurationCacheErrorMessage(exportError));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (authState.status !== "READY") {
     return (
       <section className="configuration-cache" aria-label="Centrum synchronizacji">
@@ -298,7 +379,29 @@ export function ConfigurationCachePanel({
             type="button"
           >
             <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
-            <span>Wyczysc cache</span>
+            <span>Wyczysc cache konfiguracji</span>
+          </button>
+          <button
+            className="secondary-action"
+            disabled={isRetrying || !onRetrySync}
+            onClick={() => {
+              void handleRetrySync();
+            }}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>{isRetrying ? "Synchronizacja..." : "Synchronizuj teraz"}</span>
+          </button>
+          <button
+            className="secondary-action"
+            disabled={isExporting || syncSummary.totalDocumentCount === 0}
+            onClick={() => {
+              void handleEmergencyExport();
+            }}
+            type="button"
+          >
+            <Download aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>{isExporting ? "Eksport..." : "Eksport awaryjny"}</span>
           </button>
           <button
             className="primary-action"
@@ -309,12 +412,23 @@ export function ConfigurationCachePanel({
             type="button"
           >
             <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-            <span>{isPreparing ? "Przygotowanie..." : "Przygotuj offline"}</span>
+            <span>
+              {isPreparing
+                ? "Przygotowanie..."
+                : state.snapshot
+                  ? "Odswiez konfiguracje"
+                  : "Przygotuj offline"}
+            </span>
           </button>
         </div>
       </div>
 
       <div className="configuration-cache__summary">
+        <CacheStat
+          label="Polaczenie"
+          tone={isOnline ? "ok" : "warn"}
+          value={isOnline ? "Online" : "Offline"}
+        />
         <CacheStat
           label="Wskaznik gotowosci"
           tone={readinessIndicator.tone}
@@ -333,6 +447,25 @@ export function ConfigurationCachePanel({
           value={offlineLayerReadiness?.dataLayer.label ?? "Nieodczytana"}
         />
         <CacheStat label="Ostatnie przygotowanie" value={preparedAtLabel} />
+        <CacheStat
+          label="Ostatnia synchronizacja"
+          value={
+            syncSummary.lastSuccessfulSyncIso
+              ? formatPreparedAt(syncSummary.lastSuccessfulSyncIso)
+              : "brak"
+          }
+        />
+        <CacheStat
+          label="Lokalne zmiany"
+          tone={localChangeCount > 0 ? "warn" : "ok"}
+          value={String(localChangeCount)}
+        />
+        <CacheStat
+          label="Bledy synchronizacji"
+          tone={syncSummary.actionableErrorCount > 0 ? "error" : "ok"}
+          value={String(syncSummary.actionableErrorCount)}
+        />
+        <CacheStat label="Urzadzenie" value={deviceId} />
         <CacheStat
           label="Zbieracze offline"
           value={String(readiness?.counts.workers ?? 0)}
@@ -357,6 +490,8 @@ export function ConfigurationCachePanel({
       {offlineLayerReadiness ? (
         <OfflineLayerDetails readiness={offlineLayerReadiness} />
       ) : null}
+
+      <SyncCenterDetails lastSyncError={syncErrorMessage} model={syncCenterModel} />
 
       <div className="configuration-cache__requirements">
         <div className="worker-rate-form__heading">
@@ -467,6 +602,136 @@ function OfflineLayerDetails({ readiness }: { readiness: OfflineLayerReadiness }
   );
 }
 
+function SyncCenterDetails({
+  lastSyncError,
+  model
+}: {
+  lastSyncError: string | null;
+  model: SyncCenterModel;
+}) {
+  return (
+    <div className="configuration-cache__sync" aria-label="Szczegoly synchronizacji">
+      <div className="worker-rate-form__heading">
+        <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h3>Oczekujace dokumenty</h3>
+      </div>
+
+      <div className="configuration-cache__sync-summary">
+        <CacheStat
+          label="Dokumenty lokalne"
+          tone={
+            model.metadataSummary.localSavedCount +
+              model.metadataSummary.pendingSyncCount >
+            0
+              ? "warn"
+              : "ok"
+          }
+          value={String(
+            model.metadataSummary.localSavedCount + model.metadataSummary.pendingSyncCount
+          )}
+        />
+        <CacheStat
+          label="Sesje z oczekujacymi zmianami"
+          tone={model.pendingSessionCount > 0 ? "warn" : "ok"}
+          value={String(model.pendingSessionCount)}
+        />
+        <CacheStat
+          label="Dokumenty odrzucone"
+          tone={model.metadataSummary.rejectedCount > 0 ? "error" : "ok"}
+          value={String(model.metadataSummary.rejectedCount)}
+        />
+        <CacheStat
+          label="Zmiany z innych urzadzen"
+          tone={model.metadataSummary.remoteChangedCount > 0 ? "warn" : "ok"}
+          value={String(model.metadataSummary.remoteChangedCount)}
+        />
+      </div>
+
+      {lastSyncError ? (
+        <div className="configuration-cache__sync-error">
+          <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Ostatni blad: {lastSyncError}</span>
+        </div>
+      ) : (
+        <p className="worker-profile__empty">Brak ostatniego bledu synchronizacji.</p>
+      )}
+
+      <SyncSessionList sessions={model.sessions} />
+      <SyncSafetyInstructions />
+    </div>
+  );
+}
+
+function SyncSessionList({
+  sessions
+}: {
+  sessions: readonly SyncCenterSessionSummary[];
+}) {
+  if (sessions.length === 0) {
+    return (
+      <p className="worker-profile__empty">Brak sesji z oczekujacymi dokumentami.</p>
+    );
+  }
+
+  return (
+    <div className="configuration-cache__sessions" aria-label="Sesje oczekujace">
+      {sessions.map((session) => (
+        <article className="configuration-cache__session" key={session.sessionId}>
+          <div>
+            <h4>{session.workerName}</h4>
+            <p>
+              {session.businessDate} · {session.businessStatus}
+            </p>
+          </div>
+          <dl>
+            <div>
+              <dt>Lokalne wpisy</dt>
+              <dd>{session.localEntryCount}</dd>
+            </div>
+            <div>
+              <dt>Potwierdzone wpisy</dt>
+              <dd>{session.confirmedEntryCount}</dd>
+            </div>
+            <div>
+              <dt>Dokumenty oczekujace</dt>
+              <dd>{session.pendingDocumentCount}</dd>
+            </div>
+            <div>
+              <dt>Bledy</dt>
+              <dd>
+                {session.rejectedDocumentCount + session.remoteChangedDocumentCount}
+              </dd>
+            </div>
+          </dl>
+          <p>{session.lastError ?? "Brak bledu dla tej sesji."}</p>
+          <span className="configuration-cache__session-action">
+            {session.actionLabel}
+          </span>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function SyncSafetyInstructions() {
+  return (
+    <div
+      className="configuration-cache__safety"
+      aria-label="Instrukcje przy bledzie synchronizacji"
+    >
+      <div className="worker-rate-form__heading">
+        <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h3>Przy bledzie synchronizacji</h3>
+      </div>
+      <ul className="worker-profile__list">
+        <li>Nie czysc danych przegladarki przed eksportem awaryjnym.</li>
+        <li>Nie wylogowuj sie przed potwierdzeniem zielonego statusu synchronizacji.</li>
+        <li>Nie wyplacaj sesji oznaczonych jako lokalne albo oczekujace.</li>
+      </ul>
+    </div>
+  );
+}
+
 function LayerDetail({ details, title }: { details: readonly string[]; title: string }) {
   return (
     <div className="configuration-cache__layer">
@@ -508,6 +773,27 @@ function formatPreparedAt(value: string): string {
     timeStyle: "short",
     timeZone: "Europe/Warsaw"
   }).format(parsed);
+}
+
+function downloadEmergencySyncExport(payload: EmergencySyncExportPayload): void {
+  if (
+    typeof window === "undefined" ||
+    typeof document === "undefined" ||
+    typeof window.URL.createObjectURL !== "function"
+  ) {
+    throw new Error("Eksport awaryjny wymaga przegladarki z obsluga plikow.");
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json"
+  });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = `borowka-sync-export-${payload.createdAtIso.replace(/[:.]/g, "-")}.json`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
 }
 
 function getConfigurationCacheErrorMessage(error: unknown): string {
