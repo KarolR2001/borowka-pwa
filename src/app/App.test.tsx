@@ -6,6 +6,7 @@ import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
 import type { OperatorHarvestSessionsApi } from "../harvest/OperatorHarvestSessionsPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { ConfigurationCacheApi } from "../offline/ConfigurationCachePanel";
+import type { SynchronizationApi } from "../offline/automaticSynchronization";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -121,7 +122,24 @@ const createAuthSessionApi = (
   ...overrides
 });
 
+const createSynchronizationApi = (
+  overrides: Partial<SynchronizationApi> = {}
+): SynchronizationApi => ({
+  hasLocalData: () => Promise.resolve(false),
+  listLocalDocuments: () => Promise.resolve([]),
+  synchronize: (_env, request) =>
+    Promise.resolve({
+      finishedAtIso: request.requestedAtIso,
+      message: "Synchronizacja przyjeta.",
+      requestedAtIso: request.requestedAtIso,
+      status: "SUCCESS",
+      trigger: request.trigger
+    }),
+  ...overrides
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 
@@ -413,6 +431,212 @@ describe("App shell", () => {
     expect(deviceName.length).toBeGreaterThan(0);
     expect(screen.getByText("Zgoda offline wlaczona.")).toBeInTheDocument();
     expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
+  });
+
+  it("starts synchronization on launch and after online activation when local data exists", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const hasLocalData = vi
+      .fn<SynchronizationApi["hasLocalData"]>()
+      .mockResolvedValue(true);
+    const synchronize = vi
+      .fn<SynchronizationApi["synchronize"]>()
+      .mockImplementation((_env, request) =>
+        Promise.resolve({
+          finishedAtIso: request.requestedAtIso,
+          message: "Synchronizacja przyjeta.",
+          requestedAtIso: request.requestedAtIso,
+          status: "SUCCESS",
+          trigger: request.trigger
+        })
+      );
+    const listLocalDocuments = vi
+      .fn<SynchronizationApi["listLocalDocuments"]>()
+      .mockResolvedValue([
+        {
+          id: "entry-local",
+          kind: "HARVEST_ENTRY",
+          sessionId: "session-1",
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          pendingSync: true
+        }
+      ]);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState)}
+        synchronizationApi={createSynchronizationApi({
+          hasLocalData,
+          listLocalDocuments,
+          synchronize
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(synchronize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          pendingDocumentCount: 1,
+          trigger: "APP_START",
+          userUid: "admin-1"
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(listLocalDocuments).toHaveBeenCalledTimes(2);
+    });
+
+    synchronize.mockClear();
+    globalThis.dispatchEvent(new Event("online"));
+
+    await waitFor(() => {
+      expect(synchronize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          trigger: "ONLINE_RESTORED",
+          userUid: "admin-1"
+        })
+      );
+    });
+    expect(hasLocalData).toHaveBeenCalled();
+  });
+
+  it("starts synchronization after connectivity returns from an offline render", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const onLineSpy = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const listLocalDocuments = vi
+      .fn<SynchronizationApi["listLocalDocuments"]>()
+      .mockResolvedValue([
+        {
+          id: "entry-local",
+          kind: "HARVEST_ENTRY",
+          sessionId: "session-1",
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          pendingSync: true
+        }
+      ]);
+    const synchronize = vi
+      .fn<SynchronizationApi["synchronize"]>()
+      .mockImplementation((_env, request) =>
+        Promise.resolve({
+          finishedAtIso: request.requestedAtIso,
+          message: "Synchronizacja przyjeta.",
+          requestedAtIso: request.requestedAtIso,
+          status: "SUCCESS",
+          trigger: request.trigger
+        })
+      );
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState)}
+        synchronizationApi={createSynchronizationApi({
+          hasLocalData: vi
+            .fn<SynchronizationApi["hasLocalData"]>()
+            .mockResolvedValue(true),
+          listLocalDocuments,
+          synchronize
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(listLocalDocuments).toHaveBeenCalledTimes(1);
+    });
+    expect(synchronize).not.toHaveBeenCalled();
+
+    onLineSpy.mockReturnValue(true);
+    globalThis.dispatchEvent(new Event("online"));
+
+    await waitFor(() => {
+      expect(synchronize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          trigger: "ONLINE_RESTORED",
+          userUid: "admin-1"
+        })
+      );
+    });
+
+    onLineSpy.mockRestore();
+  });
+
+  it("routes manual sync retry from the synchronization center", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const user = userEvent.setup();
+    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
+      snapshot: null,
+      readiness: {
+        status: "NOT_READY",
+        missingRequirements: ["Brak lokalnego snapshotu konfiguracji."],
+        counts: {
+          workers: 0,
+          plans: 0,
+          rateVersions: 0,
+          openSessions: 0
+        }
+      }
+    });
+    const synchronize = vi
+      .fn<SynchronizationApi["synchronize"]>()
+      .mockImplementation((_env, request) =>
+        Promise.resolve({
+          finishedAtIso: request.requestedAtIso,
+          message: "Synchronizacja reczna przyjeta.",
+          requestedAtIso: request.requestedAtIso,
+          status: "SUCCESS",
+          trigger: request.trigger
+        })
+      );
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState)}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        synchronizationApi={createSynchronizationApi({
+          hasLocalData: vi
+            .fn<SynchronizationApi["hasLocalData"]>()
+            .mockResolvedValue(false),
+          synchronize
+        })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /ustawienia/i }));
+    await screen.findByRole("heading", { name: "Centrum synchronizacji" });
+    await user.click(screen.getByRole("button", { name: "Synchronizuj teraz" }));
+
+    await waitFor(() => {
+      expect(synchronize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          pendingDocumentCount: 0,
+          trigger: "MANUAL_RETRY",
+          userUid: "admin-1"
+        })
+      );
+    });
+    expect(screen.getByText("Synchronizacja reczna przyjeta.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Po odzyskaniu internetu ponownie otworz PWA, aby uruchomic synchronizacje."
+      )
+    ).toBeInTheDocument();
   });
 
   it("renders configuration cache center from settings", async () => {
