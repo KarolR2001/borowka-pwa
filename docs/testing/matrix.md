@@ -58,6 +58,7 @@
 - Etap 5.31 / E2E ponowne zamkniecie po korekcie: seeded harvest flow potwierdza adminowe `reopen -> cancel entry -> replacement entry -> reclose -> cancel session`, usuwajac luke przed DEV deployem Etapu 5 w `tests/e2e/harvest-flow.spec.ts` oraz `docs/testing/etap-5-e2e-report.md`.
 - Etap 6.1 / dwie warstwy offline: oddzielenie gotowosci plikow PWA od gotowosci danych domenowych, statusy cache/pending/server/rejected/stale i prezentacja warstw w centrum synchronizacji w `src/offline/offlineReadiness.test.ts`, `src/offline/ConfigurationCachePanel.test.tsx` oraz `docs/domain/offline-layers.md`.
 - Etap 6.2 / zgoda na zaufane urzadzenie: wymagane ostrzezenia przy wlaczeniu trwalego cache, batchowy zapis `users/{uid}.offlineConsent` i `devices/{deviceId}.trustedOfflineStorage` w `src/offline/trustedOfflineConsent.test.ts`, `src/app/App.test.tsx` oraz `docs/domain/trusted-offline-device-consent.md`.
+- Etap 6.3 / przygotowanie urzadzenia do offline: snapshot konfiguracji zawiera aktywny profil, sezon, zbieraczy, plany, stawki i otwarte sesje uzytkownika, a centrum synchronizacji pokazuje liczbe otwartych sesji offline w `src/offline/configurationCache.test.ts`, `src/offline/ConfigurationCachePanel.test.tsx` oraz `docs/domain/offline-device-preparation.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

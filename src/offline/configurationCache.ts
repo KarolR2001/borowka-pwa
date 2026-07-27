@@ -1,4 +1,5 @@
 import { APP_META } from "../config/appMeta";
+import { getFirebaseServices } from "../config/firebaseServices";
 import { listSeasons, type SeasonDirectoryResult } from "../seasons/seasons";
 import type {
   SeasonDocument,
@@ -12,6 +13,12 @@ import {
   type WorkerDirectoryResult,
   type WorkerDirectoryScope
 } from "../workers/workerDirectory";
+import {
+  decodeHarvestSession,
+  type InvalidHarvestDashboardDocument
+} from "../harvest/harvestSessionDashboard";
+import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
+import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -78,6 +85,34 @@ export type CachedWorkerRateVersion = Pick<
   | "supersedesRateId"
 >;
 
+export type CachedOpenHarvestSession = Pick<
+  HarvestSessionDocument,
+  | "id"
+  | "seasonId"
+  | "workerId"
+  | "workerNameSnapshot"
+  | "businessDate"
+  | "status"
+  | "planIdSnapshot"
+  | "planNameSnapshot"
+  | "calculationBasisSnapshot"
+  | "unitLabelSnapshot"
+  | "unitLabelPluralSnapshot"
+  | "rateVersionIdSnapshot"
+  | "rateGroszSnapshot"
+  | "weightRequiredSnapshot"
+  | "quantityPrecisionSnapshot"
+  | "allowBatchQuantitySnapshot"
+  | "totalEntryCount"
+  | "totalQuantityMilli"
+  | "totalWeightG"
+  | "amountDueGrosz"
+  | "calculationVersion"
+  | "createdBy"
+  | "createdDeviceId"
+  | "revision"
+>;
+
 export type ConfigurationCacheSnapshot = {
   id: string;
   version: number;
@@ -93,6 +128,7 @@ export type ConfigurationCacheSnapshot = {
   workers: CachedWorker[];
   plans: CachedSettlementPlan[];
   rateVersions: CachedWorkerRateVersion[];
+  openSessions: CachedOpenHarvestSession[];
   invalidDocumentCount: number;
 };
 
@@ -105,6 +141,7 @@ export type ConfigurationCacheReadiness = {
     workers: number;
     plans: number;
     rateVersions: number;
+    openSessions: number;
   };
 };
 
@@ -140,6 +177,11 @@ export type ClearConfigurationCacheInput = {
   storage?: ConfigurationCacheStorage;
 };
 
+type HarvestSessionDirectoryResult = {
+  openSessions: HarvestSessionDocument[];
+  invalidSessions: InvalidHarvestDashboardDocument[];
+};
+
 export async function prepareConfigurationCache(
   env: FirebaseEnv,
   input: PrepareConfigurationCacheInput
@@ -154,17 +196,21 @@ export async function prepareConfigurationCache(
     throw new Error("Przygotowanie offline wymaga zgody na trwale dane offline.");
   }
 
-  const [seasonDirectory, workerDirectory] = await Promise.all([
+  const [seasonDirectory, workerDirectory, harvestSessionDirectory] = await Promise.all([
     listSeasons(env, {
       viewerRole: input.viewerRole
     }),
     listWorkerDirectory(env, {
       viewerRole: input.viewerRole
+    }),
+    listOpenHarvestSessionsForConfigurationCache(env, {
+      actorProfile: input.actorProfile
     })
   ]);
   const snapshot = buildConfigurationCacheSnapshot({
     account: input.actorProfile,
     deviceId: input.deviceId,
+    harvestSessionDirectory,
     preparedAt: input.preparedAt ?? new Date(),
     seasonDirectory,
     workerDirectory,
@@ -214,9 +260,55 @@ export async function clearConfigurationCache(
   });
 }
 
+export async function listOpenHarvestSessionsForConfigurationCache(
+  env: FirebaseEnv,
+  input: { actorProfile: UserProfile }
+): Promise<HarvestSessionDirectoryResult> {
+  if (input.actorProfile.role === "PICKER") {
+    return {
+      openSessions: [],
+      invalidSessions: []
+    };
+  }
+
+  const { firestore } = await getFirebaseServices(env);
+  const { collection, getDocs, limit, orderBy, query, where } =
+    await import("firebase/firestore/lite");
+  const snapshot = await getDocs(
+    query(
+      collection(firestore, HARVEST_SESSIONS_COLLECTION),
+      where("status", "==", "OPEN"),
+      orderBy("businessDate", "desc"),
+      orderBy("createdAtServer", "desc"),
+      limit(100)
+    )
+  );
+  const openSessions: HarvestSessionDocument[] = [];
+  const invalidSessions: InvalidHarvestDashboardDocument[] = [];
+
+  for (const documentSnapshot of snapshot.docs) {
+    const decoded = decodeHarvestSession(documentSnapshot.id, documentSnapshot.data());
+
+    if (decoded.status === "FOUND" && decoded.session.status === "OPEN") {
+      openSessions.push(decoded.session);
+    } else if (decoded.status === "INVALID") {
+      invalidSessions.push({
+        id: documentSnapshot.id,
+        reason: decoded.reason
+      });
+    }
+  }
+
+  return {
+    openSessions,
+    invalidSessions
+  };
+}
+
 export function buildConfigurationCacheSnapshot({
   account,
   deviceId,
+  harvestSessionDirectory,
   preparedAt,
   seasonDirectory,
   workerDirectory,
@@ -224,6 +316,7 @@ export function buildConfigurationCacheSnapshot({
 }: {
   account: UserProfile;
   deviceId: string;
+  harvestSessionDirectory?: HarvestSessionDirectoryResult;
   preparedAt: Date;
   seasonDirectory: SeasonDirectoryResult;
   workerDirectory: WorkerDirectoryResult;
@@ -271,13 +364,17 @@ export function buildConfigurationCacheSnapshot({
       )
       .map(cacheWorkerRateVersion)
       .sort(compareRateVersions),
+    openSessions: (harvestSessionDirectory?.openSessions ?? [])
+      .map(cacheOpenHarvestSession)
+      .sort(compareOpenHarvestSessions),
     invalidDocumentCount:
       seasonDirectory.invalidSeasons.length +
       workerDirectory.invalidWorkers.length +
       workerDirectory.invalidPlans.length +
       workerDirectory.invalidRateVersions.length +
       workerDirectory.invalidProfiles.length +
-      workerDirectory.invalidAuditEvents.length
+      workerDirectory.invalidAuditEvents.length +
+      (harvestSessionDirectory?.invalidSessions.length ?? 0)
   };
 }
 
@@ -308,7 +405,8 @@ export function evaluateConfigurationCacheReadiness({
       counts: {
         workers: 0,
         plans: 0,
-        rateVersions: 0
+        rateVersions: 0,
+        openSessions: 0
       }
     };
   }
@@ -368,7 +466,8 @@ export function evaluateConfigurationCacheReadiness({
     counts: {
       workers: snapshot.workers.length,
       plans: snapshot.plans.length,
-      rateVersions: snapshot.rateVersions.length
+      rateVersions: snapshot.rateVersions.length,
+      openSessions: snapshot.openSessions.length
     }
   };
 }
@@ -489,6 +588,37 @@ function cacheWorkerRateVersion(
   };
 }
 
+function cacheOpenHarvestSession(
+  session: HarvestSessionDocument
+): CachedOpenHarvestSession {
+  return {
+    id: session.id,
+    seasonId: session.seasonId,
+    workerId: session.workerId,
+    workerNameSnapshot: session.workerNameSnapshot,
+    businessDate: session.businessDate,
+    status: session.status,
+    planIdSnapshot: session.planIdSnapshot,
+    planNameSnapshot: session.planNameSnapshot,
+    calculationBasisSnapshot: session.calculationBasisSnapshot,
+    unitLabelSnapshot: session.unitLabelSnapshot,
+    unitLabelPluralSnapshot: session.unitLabelPluralSnapshot,
+    rateVersionIdSnapshot: session.rateVersionIdSnapshot,
+    rateGroszSnapshot: session.rateGroszSnapshot,
+    weightRequiredSnapshot: session.weightRequiredSnapshot,
+    quantityPrecisionSnapshot: session.quantityPrecisionSnapshot,
+    allowBatchQuantitySnapshot: session.allowBatchQuantitySnapshot,
+    totalEntryCount: session.totalEntryCount,
+    totalQuantityMilli: session.totalQuantityMilli,
+    totalWeightG: session.totalWeightG,
+    amountDueGrosz: session.amountDueGrosz,
+    calculationVersion: session.calculationVersion,
+    createdBy: session.createdBy,
+    createdDeviceId: session.createdDeviceId,
+    revision: session.revision
+  };
+}
+
 function assertCacheRole(role: string): asserts role is WorkerDirectoryScope {
   if (role !== "ADMIN" && role !== "OPERATOR") {
     throw new Error("Cache konfiguracji jest dostepny dla administratora i operatora.");
@@ -513,6 +643,19 @@ function compareRateVersions(
 
   if (validFromDiff !== 0) {
     return validFromDiff;
+  }
+
+  return left.id.localeCompare(right.id, "pl");
+}
+
+function compareOpenHarvestSessions(
+  left: CachedOpenHarvestSession,
+  right: CachedOpenHarvestSession
+): number {
+  const businessDateDiff = right.businessDate.localeCompare(left.businessDate);
+
+  if (businessDateDiff !== 0) {
+    return businessDateDiff;
   }
 
   return left.id.localeCompare(right.id, "pl");

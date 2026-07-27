@@ -321,6 +321,10 @@ export function ConfigurationCachePanel({
           value={String(readiness?.counts.rateVersions ?? 0)}
         />
         <CacheStat
+          label="Otwarte sesje offline"
+          value={String(readiness?.counts.openSessions ?? 0)}
+        />
+        <CacheStat
           label="Wersja aplikacji"
           value={state.snapshot?.appVersion ?? "brak"}
         />

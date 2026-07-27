@@ -425,7 +425,8 @@ describe("App shell", () => {
         counts: {
           workers: 0,
           plans: 0,
-          rateVersions: 0
+          rateVersions: 0,
+          openSessions: 0
         }
       }
     });
