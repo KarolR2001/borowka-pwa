@@ -117,3 +117,6 @@ Stage 6.6 offline harvest session opening contract is maintained in
 
 Stage 6.7 offline harvest entry contract is maintained in
 `docs/domain/offline-harvest-entry.md`.
+
+Stage 6.8 offline harvest session close contract is maintained in
+`docs/domain/offline-close-harvest-session.md`.
