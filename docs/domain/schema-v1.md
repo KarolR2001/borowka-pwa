@@ -141,3 +141,6 @@ Stage 6.14 offline rate conflict contract is maintained in
 
 Stage 6.15 closed season conflict contract is maintained in
 `docs/domain/closed-season-conflict.md`.
+
+Stage 6.16 archived configuration conflict contract is maintained in
+`docs/domain/archived-configuration-conflict.md`.
