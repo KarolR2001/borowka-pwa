@@ -129,3 +129,6 @@ Stage 6.10 synchronization center contract is maintained in
 
 Stage 6.11 automatic synchronization trigger contract is maintained in
 `docs/domain/automatic-synchronization.md`.
+
+Stage 6.12 business synchronization order contract is maintained in
+`docs/domain/business-synchronization-order.md`.
