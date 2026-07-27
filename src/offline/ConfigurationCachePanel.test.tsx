@@ -40,6 +40,16 @@ const signedOutState: AuthSessionState = {
   message: "Uzytkownik nie jest zalogowany."
 };
 
+const profileUnavailableState: AuthSessionState = {
+  status: "PROFILE_UNAVAILABLE",
+  message: "Nie udalo sie potwierdzic profilu.",
+  user: {
+    uid: "admin-1",
+    email: "admin@example.test",
+    displayName: null
+  }
+};
+
 const readyReadiness: ConfigurationCacheReadiness = {
   status: "READY",
   missingRequirements: [],
@@ -203,6 +213,21 @@ describe("ConfigurationCachePanel", () => {
     expect(screen.getByText("Logowanie wymagane")).toBeInTheDocument();
   });
 
+  it("reports account reconfirmation when profile cannot be confirmed", () => {
+    render(
+      <ConfigurationCachePanel
+        authState={profileUnavailableState}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        serviceWorkerStatus="registered"
+      />
+    );
+
+    expect(screen.getByText("Wymagane ponowne potwierdzenie konta")).toBeInTheDocument();
+    expect(screen.getByText("Nie udalo sie potwierdzic profilu.")).toBeInTheDocument();
+  });
+
   it("shows missing consent before offline preparation", async () => {
     const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
       snapshot: null,
@@ -300,7 +325,10 @@ describe("ConfigurationCachePanel", () => {
         serviceWorkerReady: true
       });
     });
-    expect(screen.getByText("Gotowe offline")).toBeInTheDocument();
+    expect(screen.getAllByText("Online, zsynchronizowano")).toHaveLength(2);
+    expect(
+      screen.getByText("Dane wymagane do pracy offline sa gotowe.")
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Cache konfiguracji zostal przygotowany.")
     ).toBeInTheDocument();
@@ -334,7 +362,7 @@ describe("ConfigurationCachePanel", () => {
       />
     );
 
-    await screen.findByText("Czesciowo gotowe");
+    expect(await screen.findAllByText("Offline, brak wymaganych danych")).toHaveLength(2);
 
     expect(screen.getByText("Pliki aplikacji niepotwierdzone")).toBeInTheDocument();
     expect(screen.getByText("Dane gotowe offline")).toBeInTheDocument();
@@ -342,5 +370,60 @@ describe("ConfigurationCachePanel", () => {
       screen.getAllByText("Service worker nie potwierdzil jeszcze cache plikow PWA.")
     ).toHaveLength(2);
     expect(screen.getByText("Statusy danych: cache, potwierdzone")).toBeInTheDocument();
+  });
+
+  it("reports offline ready when cached layers are ready without connectivity", async () => {
+    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
+      snapshot,
+      readiness: readyReadiness
+    });
+
+    render(
+      <ConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={false}
+        serviceWorkerStatus="registered"
+      />
+    );
+
+    expect(await screen.findAllByText("Offline, gotowe")).toHaveLength(2);
+
+    expect(
+      screen.getByText("Aplikacja i dane moga obslugiwac prace bez internetu.")
+    ).toBeInTheDocument();
+  });
+
+  it("reports synchronization errors from failed cache reads", async () => {
+    const read = vi
+      .fn<ConfigurationCacheApi["read"]>()
+      .mockRejectedValue(new Error("Firestore unavailable"));
+
+    render(
+      <ConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        serviceWorkerStatus="registered"
+      />
+    );
+
+    expect(await screen.findAllByText("Blad synchronizacji")).toHaveLength(2);
+
+    expect(
+      screen.getByText("Co najmniej jeden zapis lub odczyt wymaga interwencji.")
+    ).toBeInTheDocument();
   });
 });

@@ -105,3 +105,6 @@ Stage 6.2 trusted offline device consent contract is maintained in
 
 Stage 6.3 offline device preparation contract is maintained in
 `docs/domain/offline-device-preparation.md`.
+
+Stage 6.4 offline readiness indicator contract is maintained in
+`docs/domain/offline-readiness-indicator.md`.

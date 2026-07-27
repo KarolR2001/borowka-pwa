@@ -17,9 +17,14 @@ import {
 } from "./configurationCache";
 import {
   evaluateOfflineLayerReadiness,
-  offlineOverallStatusLabel,
   type OfflineLayerReadiness
 } from "./offlineReadiness";
+import {
+  authStateRequiresOfflineReconfirmation,
+  evaluateOfflineReadinessIndicator,
+  type OfflineReadinessIndicator,
+  type OfflineReadinessIndicatorTone
+} from "./offlineReadinessIndicator";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -86,6 +91,7 @@ export function ConfigurationCachePanel({
   const [isPreparing, setIsPreparing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const serviceWorkerReady = isServiceWorkerReady(serviceWorkerStatus);
+  const accountReconfirmationRequired = authStateRequiresOfflineReconfirmation(authState);
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -108,10 +114,14 @@ export function ConfigurationCachePanel({
         staleDocumentCount: state.snapshot?.invalidDocumentCount ?? 0
       })
     : null;
-  const statusLabel = offlineLayerReadiness
-    ? offlineOverallStatusLabel(offlineLayerReadiness.overallStatus)
-    : "Nieprzygotowane";
-  const statusTone = offlineLayerReadiness?.overallStatus === "READY" ? "ok" : "warn";
+  const readinessIndicator = evaluateOfflineReadinessIndicator({
+    isOnline,
+    accountReconfirmationRequired,
+    syncError: state.status === "ERROR",
+    pendingWriteCount: 0,
+    lastFirestoreContactIso: state.snapshot?.preparedAtIso ?? null,
+    layerReadiness: offlineLayerReadiness
+  });
   const preparedAtLabel = useMemo(
     () => (state.snapshot ? formatPreparedAt(state.snapshot.preparedAtIso) : "brak"),
     [state.snapshot]
@@ -244,8 +254,16 @@ export function ConfigurationCachePanel({
     return (
       <section className="configuration-cache" aria-label="Centrum synchronizacji">
         <CacheNotice
-          title="Logowanie wymagane"
-          message="Przygotowanie offline wymaga aktywnego profilu aplikacji."
+          title={
+            accountReconfirmationRequired
+              ? readinessIndicator.label
+              : "Logowanie wymagane"
+          }
+          message={
+            accountReconfirmationRequired
+              ? authState.message
+              : "Przygotowanie offline wymaga aktywnego profilu aplikacji."
+          }
         />
       </section>
     );
@@ -297,7 +315,11 @@ export function ConfigurationCachePanel({
       </div>
 
       <div className="configuration-cache__summary">
-        <CacheStat label="Status" tone={statusTone} value={statusLabel} />
+        <CacheStat
+          label="Wskaznik gotowosci"
+          tone={readinessIndicator.tone}
+          value={readinessIndicator.label}
+        />
         <CacheStat
           label="Warstwa PWA"
           tone={
@@ -329,6 +351,8 @@ export function ConfigurationCachePanel({
           value={state.snapshot?.appVersion ?? "brak"}
         />
       </div>
+
+      <OfflineIndicatorDetails indicator={readinessIndicator} />
 
       {offlineLayerReadiness ? (
         <OfflineLayerDetails readiness={offlineLayerReadiness} />
@@ -394,13 +418,33 @@ function CacheStat({
   value
 }: {
   label: string;
-  tone?: "ok" | "warn" | "neutral";
+  tone?: OfflineReadinessIndicatorTone | "neutral";
   value: string;
 }) {
   return (
     <div className={`directory-stat configuration-cache__stat--${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function OfflineIndicatorDetails({
+  indicator
+}: {
+  indicator: OfflineReadinessIndicator;
+}) {
+  return (
+    <div className="configuration-cache__indicator" aria-label="Wskaznik gotowosci">
+      <div className="worker-rate-form__heading">
+        <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h3>{indicator.label}</h3>
+      </div>
+      <ul className="worker-profile__list">
+        {indicator.details.map((detail) => (
+          <li key={detail}>{detail}</li>
+        ))}
+      </ul>
     </div>
   );
 }
