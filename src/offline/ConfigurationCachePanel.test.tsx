@@ -46,7 +46,8 @@ const readyReadiness: ConfigurationCacheReadiness = {
   counts: {
     workers: 2,
     plans: 2,
-    rateVersions: 3
+    rateVersions: 3,
+    openSessions: 1
   }
 };
 
@@ -154,6 +155,34 @@ const snapshot: ConfigurationCacheSnapshot = {
       supersedesRateId: "rate-worker-bartek-test-2026-07-01"
     }
   ],
+  openSessions: [
+    {
+      id: "session-open-1",
+      seasonId: "season-2026",
+      workerId: "worker-anna-test",
+      workerNameSnapshot: "Anna Test",
+      businessDate: "2026-07-17",
+      status: "OPEN",
+      planIdSnapshot: "plan-weight-kg",
+      planNameSnapshot: "Za kilogram",
+      calculationBasisSnapshot: "WEIGHT",
+      unitLabelSnapshot: "kilogram",
+      unitLabelPluralSnapshot: "kilogramy",
+      rateVersionIdSnapshot: "rate-worker-anna-test-2026-07-01",
+      rateGroszSnapshot: 1000,
+      weightRequiredSnapshot: true,
+      quantityPrecisionSnapshot: 3,
+      allowBatchQuantitySnapshot: true,
+      totalEntryCount: 2,
+      totalQuantityMilli: 0,
+      totalWeightG: 3000,
+      amountDueGrosz: null,
+      calculationVersion: "calc-0001",
+      createdBy: "operator-1",
+      createdDeviceId: "device-operator-1",
+      revision: 1
+    }
+  ],
   invalidDocumentCount: 0
 };
 
@@ -186,7 +215,8 @@ describe("ConfigurationCachePanel", () => {
         counts: {
           workers: 0,
           plans: 0,
-          rateVersions: 0
+          rateVersions: 0,
+          openSessions: 0
         }
       }
     });
@@ -234,7 +264,8 @@ describe("ConfigurationCachePanel", () => {
         counts: {
           workers: 0,
           plans: 0,
-          rateVersions: 0
+          rateVersions: 0,
+          openSessions: 0
         }
       }
     });
@@ -276,7 +307,9 @@ describe("ConfigurationCachePanel", () => {
     expect(
       screen.getByText("Profil, sezon, zbieracze, plany i stawki sa zapisane w cache.")
     ).toBeInTheDocument();
+    expect(screen.getByText("Otwarte sesje offline")).toBeInTheDocument();
     expect(screen.getAllByText("2")).toHaveLength(2);
+    expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 

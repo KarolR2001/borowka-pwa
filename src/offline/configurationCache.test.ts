@@ -4,6 +4,7 @@ import type {
   WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
+import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
 import type { WorkerDirectoryListItem } from "../workers/workerDirectory";
 import {
   buildConfigurationCacheSnapshot,
@@ -132,6 +133,51 @@ const worker = ({
   };
 };
 
+const openSession = ({
+  id,
+  ...overrides
+}: Partial<HarvestSessionDocument> & { id: string }): HarvestSessionDocument => ({
+  id,
+  seasonId: "season-2026",
+  workerId: "worker-anna-test",
+  workerNameSnapshot: "Anna Test",
+  businessDate: "2026-07-17",
+  status: "OPEN",
+  planIdSnapshot: "plan-weight-kg",
+  planNameSnapshot: "Za kilogram",
+  calculationBasisSnapshot: "WEIGHT",
+  unitLabelSnapshot: "kilogram",
+  unitLabelPluralSnapshot: "kilogramy",
+  rateVersionIdSnapshot: "rate-worker-anna-test-2026-07-01",
+  rateGroszSnapshot: 1000,
+  weightRequiredSnapshot: true,
+  quantityPrecisionSnapshot: 3,
+  allowBatchQuantitySnapshot: true,
+  totalEntryCount: 2,
+  totalQuantityMilli: 0,
+  totalWeightG: 3000,
+  amountDueGrosz: null,
+  calculationVersion: "calc-0001",
+  note: "Notatka sesji nie trafia do cache.",
+  createdBy: "operator-1",
+  createdDeviceId: "device-operator-1",
+  createdAtDevice: "created-device",
+  createdAtServer: "created-server",
+  updatedAtServer: "updated-server",
+  closedAtDevice: null,
+  closedAtServer: null,
+  closedBy: null,
+  paidAt: null,
+  paymentId: null,
+  cancelledAt: null,
+  cancelledBy: null,
+  cancellationReason: null,
+  revision: 1,
+  legacyImport: false,
+  legacySourceRows: [],
+  ...overrides
+});
+
 describe("configurationCache", () => {
   it("builds a ready configuration snapshot for offline preparation", () => {
     const currentWorker = worker({
@@ -164,6 +210,10 @@ describe("configurationCache", () => {
         invalidRateVersions: [],
         invalidProfiles: [],
         invalidAuditEvents: []
+      },
+      harvestSessionDirectory: {
+        openSessions: [openSession({ id: "session-open-1" })],
+        invalidSessions: []
       }
     });
     const readiness = evaluateConfigurationCacheReadiness({
@@ -196,13 +246,24 @@ describe("configurationCache", () => {
     ]);
     expect(snapshot.rateVersions[0]).not.toHaveProperty("note");
     expect(snapshot.workers[0]).not.toHaveProperty("notes");
+    expect(snapshot.openSessions).toEqual([
+      expect.objectContaining({
+        id: "session-open-1",
+        status: "OPEN",
+        workerId: "worker-anna-test",
+        businessDate: "2026-07-17",
+        createdDeviceId: "device-operator-1"
+      })
+    ]);
+    expect(snapshot.openSessions[0]).not.toHaveProperty("note");
     expect(readiness).toMatchObject({
       status: "READY",
       missingRequirements: [],
       counts: {
         workers: 1,
         plans: 1,
-        rateVersions: 1
+        rateVersions: 1,
+        openSessions: 1
       }
     });
   });
