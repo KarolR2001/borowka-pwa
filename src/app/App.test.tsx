@@ -138,6 +138,8 @@ describe("App shell", () => {
 
     expect(screen.getByRole("heading", { name: "Diagnostyka" })).toBeInTheDocument();
     expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
+    expect(screen.getByText("Nazwa urzadzenia")).toBeInTheDocument();
+    expect(screen.getByText("Platforma urzadzenia")).toBeInTheDocument();
   });
 
   it("submits email and password through the auth session API", async () => {
@@ -287,6 +289,7 @@ describe("App shell", () => {
     expect(screen.getByText("Zgoda offline")).toBeInTheDocument();
     expect(screen.getByText("brak zgody")).toBeInTheDocument();
     expect(screen.getByText("Identyfikator urzadzenia")).toBeInTheDocument();
+    expect(screen.getByText("Nazwa urzadzenia")).toBeInTheDocument();
     expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));

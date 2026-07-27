@@ -108,3 +108,6 @@ Stage 6.3 offline device preparation contract is maintained in
 
 Stage 6.4 offline readiness indicator contract is maintained in
 `docs/domain/offline-readiness-indicator.md`.
+
+Stage 6.5 local device identity contract is maintained in
+`docs/domain/local-device-identity.md`.
