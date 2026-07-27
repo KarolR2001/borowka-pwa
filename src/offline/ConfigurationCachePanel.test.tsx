@@ -279,4 +279,35 @@ describe("ConfigurationCachePanel", () => {
     expect(screen.getAllByText("2")).toHaveLength(2);
     expect(screen.getByText("3")).toBeInTheDocument();
   });
+
+  it("separates PWA file readiness from cached domain data readiness", async () => {
+    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
+      snapshot,
+      readiness: readyReadiness
+    });
+
+    render(
+      <ConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        serviceWorkerStatus="not-registered"
+      />
+    );
+
+    await screen.findByText("Czesciowo gotowe");
+
+    expect(screen.getByText("Pliki aplikacji niepotwierdzone")).toBeInTheDocument();
+    expect(screen.getByText("Dane gotowe offline")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Service worker nie potwierdzil jeszcze cache plikow PWA.")
+    ).toHaveLength(2);
+    expect(screen.getByText("Statusy danych: cache, potwierdzone")).toBeInTheDocument();
+  });
 });
