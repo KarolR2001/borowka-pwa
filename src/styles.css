@@ -922,6 +922,19 @@ h2 {
   color: #8a3b12;
 }
 
+.configuration-cache__stat--error strong {
+  color: #b42318;
+}
+
+.configuration-cache__indicator {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #edf2ee;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfdfb;
+}
+
 .configuration-cache__requirements {
   display: grid;
   gap: 10px;
