@@ -157,10 +157,12 @@ function createInput(
   } = {}
 ): PrepareOfflineHarvestSessionInput {
   const actorProfile = overrides.actorProfile ?? operatorProfile;
-  const configurationSnapshot =
-    Object.prototype.hasOwnProperty.call(overrides, "configurationSnapshot")
-      ? (overrides.configurationSnapshot ?? null)
-      : createSnapshot(actorProfile);
+  const configurationSnapshot = Object.prototype.hasOwnProperty.call(
+    overrides,
+    "configurationSnapshot"
+  )
+    ? (overrides.configurationSnapshot ?? null)
+    : createSnapshot(actorProfile);
   const configurationReadiness =
     overrides.configurationReadiness ??
     evaluateConfigurationCacheReadiness({
@@ -391,8 +393,7 @@ describe("offline harvest session preparation", () => {
       cacheSnapshotId: "operator-1:device-1",
       existingOpenSessions: [existingSession],
       canCreateSecondSession: false,
-      message:
-        "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
     });
   });
 

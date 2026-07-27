@@ -63,8 +63,7 @@ export type ExistingOfflineHarvestSessionContinuation = {
 };
 
 export type PrepareOfflineHarvestSessionResult =
-  | PreparedOfflineHarvestSession
-  | ExistingOfflineHarvestSessionContinuation;
+  PreparedOfflineHarvestSession | ExistingOfflineHarvestSessionContinuation;
 
 export function prepareOfflineHarvestSession(
   input: PrepareOfflineHarvestSessionInput
@@ -112,8 +111,7 @@ export function prepareOfflineHarvestSession(
       cacheSnapshotId: snapshot.id,
       existingOpenSessions,
       canCreateSecondSession: input.actorProfile.role === "ADMIN",
-      message:
-        "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
     };
   }
 
@@ -187,7 +185,9 @@ function assertOfflineActorProfile(profile: UserProfile): void {
   const accessState = getIdentityAccessState(profile);
 
   if (accessState.status !== "READY") {
-    throw new Error(`Profil nie jest zatwierdzony do pracy offline: ${accessState.reason}`);
+    throw new Error(
+      `Profil nie jest zatwierdzony do pracy offline: ${accessState.reason}`
+    );
   }
 
   if (profile.role !== "ADMIN" && profile.role !== "OPERATOR") {
