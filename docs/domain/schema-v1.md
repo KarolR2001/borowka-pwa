@@ -111,3 +111,6 @@ Stage 6.4 offline readiness indicator contract is maintained in
 
 Stage 6.5 local device identity contract is maintained in
 `docs/domain/local-device-identity.md`.
+
+Stage 6.6 offline harvest session opening contract is maintained in
+`docs/domain/offline-open-harvest-session.md`.
