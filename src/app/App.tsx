@@ -42,17 +42,18 @@ import {
   initializeFirebaseServicesIfReady
 } from "../config/firebaseServices";
 import {
-  createDefaultDeviceName,
-  readDevicePlatform,
   registerCurrentDevice,
   type RegisterCurrentDeviceInput
 } from "../devices/deviceRegistry";
+import {
+  readCurrentDeviceIdentity,
+  type DeviceIdentity
+} from "../devices/deviceIdentity";
 import {
   AdminDeviceDirectoryPanel,
   defaultDeviceDirectoryApi,
   type DeviceDirectoryApi
 } from "../devices/AdminDeviceDirectoryPanel";
-import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import {
@@ -224,7 +225,8 @@ export function App({
   );
   const latestAuthStateRef = useRef(authState);
   const refreshInFlightRef = useRef(false);
-  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  const deviceIdentity = useMemo(() => readCurrentDeviceIdentity(), []);
+  const deviceId = deviceIdentity.id;
   const panel = panelByNavigation[activeView];
 
   useEffect(() => {
@@ -355,14 +357,15 @@ export function App({
       .register(env, {
         deviceId,
         userUid: authState.profile.uid,
-        deviceName: createDefaultDeviceName(),
-        platform: readDevicePlatform(),
+        deviceName: deviceIdentity.name,
+        platform: deviceIdentity.platform,
         trustedOfflineStorage: authState.profile.offlineConsent
       })
       .catch(() => undefined);
   }, [
     authState,
     deviceId,
+    deviceIdentity,
     deviceRegistryApi,
     env,
     initialFirebaseServicesStatus.ready,
@@ -373,13 +376,15 @@ export function App({
   const diagnostics = useMemo(
     () => ({
       deviceId,
+      deviceName: deviceIdentity.name,
+      devicePlatform: deviceIdentity.platform ?? "brak",
       launchedAt: new Intl.DateTimeFormat("pl-PL", {
         dateStyle: "medium",
         timeStyle: "medium",
         timeZone: "Europe/Warsaw"
       }).format(new Date())
     }),
-    [deviceId]
+    [deviceId, deviceIdentity]
   );
 
   const handleProfileUpdated = (profile: UserProfile) => {
@@ -491,6 +496,11 @@ export function App({
               label="Identyfikator urzadzenia"
               value={diagnostics.deviceId}
             />
+            <DiagnosticRow label="Nazwa urzadzenia" value={diagnostics.deviceName} />
+            <DiagnosticRow
+              label="Platforma urzadzenia"
+              value={diagnostics.devicePlatform}
+            />
             <DiagnosticRow
               label="Service worker"
               value={serviceWorkerStatusLabel[serviceWorkerStatus]}
@@ -528,6 +538,7 @@ export function App({
           <AuthPanel
             authSessionApi={authSessionApi}
             authState={authState}
+            deviceIdentity={deviceIdentity}
             deviceId={diagnostics.deviceId}
             env={env}
             isOnline={isOnline}
@@ -636,6 +647,7 @@ function DiagnosticRow({ label, value }: { label: string; value: string }) {
 function AuthPanel({
   authSessionApi,
   authState,
+  deviceIdentity,
   deviceId,
   env,
   isOnline,
@@ -644,6 +656,7 @@ function AuthPanel({
 }: {
   authSessionApi: AuthSessionApi;
   authState: AuthSessionState;
+  deviceIdentity: DeviceIdentity;
   deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
@@ -783,8 +796,8 @@ function AuthPanel({
         uid: authState.profile.uid,
         offlineConsent,
         deviceId,
-        deviceName: createDefaultDeviceName(),
-        platform: readDevicePlatform()
+        deviceName: deviceIdentity.name,
+        platform: deviceIdentity.platform
       });
       onProfileUpdated(nextProfile);
       setFeedback(
@@ -828,6 +841,7 @@ function AuthPanel({
               </>
             ) : null}
             <AuthSummaryRow label="Identyfikator urzadzenia" value={deviceId} />
+            <AuthSummaryRow label="Nazwa urzadzenia" value={deviceIdentity.name} />
             <AuthSummaryRow label="Wersja aplikacji" value={`v${APP_META.version}`} />
           </dl>
 
