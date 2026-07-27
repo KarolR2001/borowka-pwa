@@ -64,6 +64,7 @@
 - Etap 6.6 / tworzenie sesji offline: domenowy kontrakt `prepareOfflineHarvestSession`, twarde blokady braku przygotowania/cache/profilu/zgody/urzadzenia, lokalny dokument `OPEN` oznaczony jako `LOCAL_PENDING_SYNC` i bez szkicu review w `src/offline/offlineHarvestSession.test.ts` oraz `docs/domain/offline-open-harvest-session.md`.
 - Etap 6.7 / dodawanie wpisu offline: domenowy kontrakt `prepareOfflineHarvestEntry`, UUID przed zapisem, `pendingSync: true`, natychmiastowe lokalne sumy/lista, retry istniejacego UUID bez duplikatu i licznik oczekujacych zapisow w `src/offline/offlineHarvestEntry.test.ts` oraz `docs/domain/offline-harvest-entry.md`.
 - Etap 6.8 / zamkniecie sesji offline: domenowy kontrakt `prepareOfflineHarvestSessionClose`, lokalny status `CLOSED`, wspolne obliczenia kwoty, `LOCAL_CLOSED_PENDING_SYNC`, blokada wpisow i wyplaty do potwierdzenia serwera oraz polityka konfliktu `REVIEW_REQUIRED` w `src/offline/offlineHarvestSessionClose.test.ts` oraz `docs/domain/offline-close-harvest-session.md`.
+- Etap 6.9 / metadane oczekujacych zapisow: model `pendingWriteMetadata` laczy Firestore `hasPendingWrites/fromCache` z lokalnymi flagami i rozroznia `LOCAL_SAVED`, `PENDING_SYNC`, `SYNCED`, `REJECTED`, `REMOTE_CHANGED`, liczac tez ostatnia udana synchronizacje w `src/offline/pendingWriteMetadata.test.ts` oraz `docs/domain/pending-write-metadata.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
