@@ -5,7 +5,7 @@ aplikacji webowej uruchamianej w WSL oraz stabilny smoke test pierwszego ekranu.
 Seeded harvest E2E uruchamia ten sam UI przez kontrolowany harness danych, bez
 sekretow Firebase i bez recznego seedowania DEV. Scenariusz obejmuje tez
 adminowa korekte potwierdzonego wpisu przez anulowanie i dodanie wpisu
-zastepczego.
+zastepczego, ponowne zamkniecie skorygowanej sesji i anulowanie sesji testowej.
 
 ## Pokrycie 8.24
 
@@ -20,7 +20,7 @@ zastepczego.
 | Operator poprawia wpis              | Admin cancel + replacement w seeded E2E; local edit czeka | PARTIAL |
 | Operator zamyka sesje               | Seeded browser E2E + runtime UI                           | OK      |
 | Blokada wpisu po zamknieciu         | Seeded browser E2E potwierdza brak aktywnej sesji         | OK      |
-| Admin reopen, anulowanie i reclose  | Reopen, cancel entry, replacement i cancel session w E2E  | PARTIAL |
+| Admin reopen, anulowanie i reclose  | Reopen, cancel entry, replacement, reclose i cancel       | OK      |
 | Picker widzi wlasna sesje           | Pokryte Rules/integracyjnie; E2E UI do dodania            | TODO    |
 
 ## Uruchamianie lokalne
