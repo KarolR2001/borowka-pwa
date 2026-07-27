@@ -62,6 +62,7 @@
 - Etap 6.4 / wskaznik gotowosci offline: statusy online zsynchronizowano, online oczekujace zapisy, offline gotowe, offline brak danych, blad synchronizacji i ponowne potwierdzenie konta w `src/offline/offlineReadinessIndicator.test.ts`, `src/offline/ConfigurationCachePanel.test.tsx` oraz `docs/domain/offline-readiness-indicator.md`.
 - Etap 6.5 / lokalny identyfikator urzadzenia: stabilny lokalny `deviceId`, przyjazna nazwa/platforma, pokazanie w diagnostyce/profilu oraz uzycie tej samej tozsamosci przy rejestracji urzadzenia i zgodzie offline w `src/devices/deviceIdentity.test.ts`, `src/domain/device.test.ts`, `src/devices/deviceRegistry.test.ts`, `src/app/App.test.tsx` oraz `docs/domain/local-device-identity.md`.
 - Etap 6.6 / tworzenie sesji offline: domenowy kontrakt `prepareOfflineHarvestSession`, twarde blokady braku przygotowania/cache/profilu/zgody/urzadzenia, lokalny dokument `OPEN` oznaczony jako `LOCAL_PENDING_SYNC` i bez szkicu review w `src/offline/offlineHarvestSession.test.ts` oraz `docs/domain/offline-open-harvest-session.md`.
+- Etap 6.7 / dodawanie wpisu offline: domenowy kontrakt `prepareOfflineHarvestEntry`, UUID przed zapisem, `pendingSync: true`, natychmiastowe lokalne sumy/lista, retry istniejacego UUID bez duplikatu i licznik oczekujacych zapisow w `src/offline/offlineHarvestEntry.test.ts` oraz `docs/domain/offline-harvest-entry.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

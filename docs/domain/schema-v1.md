@@ -114,3 +114,6 @@ Stage 6.5 local device identity contract is maintained in
 
 Stage 6.6 offline harvest session opening contract is maintained in
 `docs/domain/offline-open-harvest-session.md`.
+
+Stage 6.7 offline harvest entry contract is maintained in
+`docs/domain/offline-harvest-entry.md`.
