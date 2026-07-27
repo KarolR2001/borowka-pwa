@@ -286,6 +286,18 @@ h2 {
   accent-color: #0d4c2f;
 }
 
+.offline-consent {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #dce6df;
+  padding-top: 18px;
+}
+
+.offline-consent .worker-profile__list {
+  color: #40594d;
+  font-size: 0.95rem;
+}
+
 .icon-button {
   min-height: 46px;
   border: 1px solid #cbd8d0;

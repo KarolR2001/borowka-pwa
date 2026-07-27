@@ -384,15 +384,30 @@ describe("App shell", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    expect(screen.getByText(/Dane moga pozostac na tym urzadzeniu/)).toBeInTheDocument();
+    expect(screen.getByText(/Tryb prywatny przegladarki/)).toBeInTheDocument();
+    expect(screen.getByText(/Wyloguj i wyczysc urzadzenie/)).toBeInTheDocument();
+
     await user.click(screen.getByLabelText("Zgoda na trwale dane offline"));
 
     await waitFor(() => {
-      expect(updateOfflineConsent).toHaveBeenCalledWith(
-        expect.anything(),
-        "admin-1",
-        true
-      );
+      expect(updateOfflineConsent).toHaveBeenCalled();
     });
+    const consentInput = updateOfflineConsent.mock.calls[0]?.[1];
+
+    expect(consentInput).toMatchObject({
+      uid: "admin-1",
+      offlineConsent: true
+    });
+    expect(typeof consentInput.deviceId).toBe("string");
+    expect(consentInput.deviceId.length).toBeGreaterThan(0);
+    const deviceName = consentInput.deviceName;
+
+    expect(typeof deviceName).toBe("string");
+    if (typeof deviceName !== "string") {
+      throw new Error("Expected trusted offline consent to include a device name.");
+    }
+    expect(deviceName.length).toBeGreaterThan(0);
     expect(screen.getByText("Zgoda offline wlaczona.")).toBeInTheDocument();
     expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
   });

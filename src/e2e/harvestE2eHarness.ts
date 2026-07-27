@@ -143,15 +143,15 @@ function createHarvestHarnessState() {
     requestPasswordReset: () => Promise.resolve(),
     register: () => Promise.resolve(),
     refresh: () => Promise.resolve(authState),
-    updateOfflineConsent: (_env: FirebaseEnv, uid, offlineConsent) => {
-      if (authState.status !== "READY" || authState.profile.uid !== uid) {
+    updateOfflineConsent: (_env: FirebaseEnv, input) => {
+      if (authState.status !== "READY" || authState.profile.uid !== input.uid) {
         return Promise.resolve();
       }
 
       emitAuthState(
         readyState({
           ...authState.profile,
-          offlineConsent
+          offlineConsent: input.offlineConsent
         })
       );
       return Promise.resolve();

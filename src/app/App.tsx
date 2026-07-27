@@ -24,7 +24,6 @@ import {
   signInWithEmailPassword,
   signOutCurrentUser,
   subscribeToAuthSession,
-  updateOwnOfflineConsent,
   type AuthenticatedUser,
   type AuthSessionListener,
   type AuthSessionState
@@ -87,6 +86,11 @@ import {
   type ConfigurationCacheApi
 } from "../offline/ConfigurationCachePanel";
 import {
+  TRUSTED_OFFLINE_STORAGE_DISCLOSURE,
+  updateTrustedOfflineConsent,
+  type TrustedOfflineConsentUpdateInput
+} from "../offline/trustedOfflineConsent";
+import {
   defaultOperatorHarvestSessionsApi,
   OperatorHarvestSessionsPanel,
   type OperatorHarvestSessionsApi
@@ -112,8 +116,7 @@ export type AuthSessionApi = {
   refresh: (env: FirebaseEnv) => Promise<AuthSessionState>;
   updateOfflineConsent: (
     env: FirebaseEnv,
-    uid: string,
-    offlineConsent: boolean
+    input: TrustedOfflineConsentUpdateInput
   ) => Promise<void>;
   signOut: (env: FirebaseEnv) => Promise<void>;
 };
@@ -148,7 +151,7 @@ const defaultAuthSessionApi: AuthSessionApi = {
   requestPasswordReset: requestPasswordResetEmail,
   register: registerInvitedUser,
   refresh: refreshCurrentAuthSession,
-  updateOfflineConsent: updateOwnOfflineConsent,
+  updateOfflineConsent: updateTrustedOfflineConsent,
   signOut: signOutCurrentUser
 };
 
@@ -527,6 +530,7 @@ export function App({
             authState={authState}
             deviceId={diagnostics.deviceId}
             env={env}
+            isOnline={isOnline}
             onAuthStateUpdated={setAuthState}
             onProfileUpdated={handleProfileUpdated}
           />
@@ -633,14 +637,16 @@ function AuthPanel({
   authSessionApi,
   authState,
   deviceId,
+  env,
+  isOnline,
   onAuthStateUpdated,
-  onProfileUpdated,
-  env
+  onProfileUpdated
 }: {
   authSessionApi: AuthSessionApi;
   authState: AuthSessionState;
   deviceId: string;
   env: FirebaseEnv;
+  isOnline: boolean;
   onAuthStateUpdated: (state: AuthSessionState) => void;
   onProfileUpdated: (profile: UserProfile) => void;
 }) {
@@ -759,6 +765,12 @@ function AuthPanel({
 
     setFeedback(null);
     setError(null);
+
+    if (!isOnline) {
+      setError("Zmiana zgody offline wymaga polaczenia online.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     const nextProfile = {
@@ -767,11 +779,13 @@ function AuthPanel({
     };
 
     try {
-      await authSessionApi.updateOfflineConsent(
-        env,
-        authState.profile.uid,
-        offlineConsent
-      );
+      await authSessionApi.updateOfflineConsent(env, {
+        uid: authState.profile.uid,
+        offlineConsent,
+        deviceId,
+        deviceName: createDefaultDeviceName(),
+        platform: readDevicePlatform()
+      });
       onProfileUpdated(nextProfile);
       setFeedback(
         offlineConsent ? "Zgoda offline wlaczona." : "Zgoda offline wylaczona."
@@ -818,17 +832,33 @@ function AuthPanel({
           </dl>
 
           {"profile" in authState ? (
-            <label className="checkbox-field">
-              <input
-                checked={authState.profile.offlineConsent}
-                disabled={isSubmitting}
-                onChange={(event) => {
-                  void handleOfflineConsentChange(event.target.checked);
-                }}
-                type="checkbox"
-              />
-              <span>Zgoda na trwale dane offline</span>
-            </label>
+            <div className="offline-consent" aria-label="Zaufane urzadzenie offline">
+              <div className="worker-rate-form__heading">
+                <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+                <h3>Zaufane urzadzenie offline</h3>
+              </div>
+              <ul className="worker-profile__list">
+                {TRUSTED_OFFLINE_STORAGE_DISCLOSURE.map((disclosure) => (
+                  <li key={disclosure}>{disclosure}</li>
+                ))}
+              </ul>
+              <label className="checkbox-field">
+                <input
+                  checked={authState.profile.offlineConsent}
+                  disabled={isSubmitting || !isOnline}
+                  onChange={(event) => {
+                    void handleOfflineConsentChange(event.target.checked);
+                  }}
+                  type="checkbox"
+                />
+                <span>Zgoda na trwale dane offline</span>
+              </label>
+              {!isOnline ? (
+                <p className="worker-form__warning">
+                  Zmiana zgody offline wymaga polaczenia online.
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}

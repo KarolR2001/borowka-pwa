@@ -99,3 +99,6 @@ Stage 5.19 harvest query and index contract is maintained in
 
 Stage 6.1 offline readiness layers contract is maintained in
 `docs/domain/offline-layers.md`.
+
+Stage 6.2 trusted offline device consent contract is maintained in
+`docs/domain/trusted-offline-device-consent.md`.
