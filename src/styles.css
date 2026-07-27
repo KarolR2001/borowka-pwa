@@ -964,6 +964,77 @@ h2 {
   font-size: 1rem;
 }
 
+.configuration-cache__sync {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #edf2ee;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfdfb;
+}
+
+.configuration-cache__sync-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.configuration-cache__sync-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a3b12;
+  font-weight: 800;
+}
+
+.configuration-cache__sessions {
+  display: grid;
+  gap: 10px;
+}
+
+.configuration-cache__session {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.configuration-cache__session h4,
+.configuration-cache__session p {
+  margin: 0;
+}
+
+.configuration-cache__session dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.configuration-cache__session dt {
+  color: #5f6f66;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.configuration-cache__session dd {
+  margin: 0;
+  font-weight: 900;
+}
+
+.configuration-cache__session-action {
+  color: #0f5d3d;
+  font-weight: 900;
+}
+
+.configuration-cache__safety {
+  display: grid;
+  gap: 10px;
+}
+
 .active-session {
   display: grid;
   gap: 16px;
