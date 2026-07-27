@@ -69,6 +69,7 @@
 - Etap 6.11 / automatyczne uruchamianie synchronizacji: polityka triggerow obejmuje start aplikacji, odzyskanie sieci, aktywacje PWA, reczne ponowienie i logowanie do konta z lokalnymi danymi; App przekazuje request do runtime i wymaga ponownego otwarcia PWA po zamknieciu w `src/offline/automaticSynchronization.test.ts`, `src/app/App.test.tsx` oraz `docs/domain/automatic-synchronization.md`.
 - Etap 6.12 / kolejnosc synchronizacji biznesowej: plan per sesja wymusza kolejnosc profil/konfiguracja, utworzenie sesji, wpisy, korekty, zamkniecie, audyt i blokade wejscia do wyplat do czasu potwierdzenia serwera w `src/offline/businessSynchronizationPlan.test.ts` oraz `docs/domain/business-synchronization-order.md`.
 - Etap 6.13 / brak duplikatow: kontrakt `synchronizationIdempotency` klasyfikuje retry lokalnego UUID, pomija dokument juz potwierdzony przez serwer i scala lokalny oraz serwerowy snapshot per `kind:id` w `src/offline/synchronizationIdempotency.test.ts`, istniejacym `src/harvest/harvestEntryIdempotency.test.ts` oraz `docs/domain/synchronization-idempotency.md`.
+- Etap 6.14 / konflikt stawki: kontrakt `rateConflict` zachowuje lokalny snapshot stawki, porownuje go z aktualnymi wersjami serwera, blokuje wyplate i wymaga `REVIEW_REQUIRED` oraz decyzji administratora przy niezgodnosci w `src/offline/rateConflict.test.ts` oraz `docs/domain/rate-conflict.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.

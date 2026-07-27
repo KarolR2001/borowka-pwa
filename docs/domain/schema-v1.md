@@ -135,3 +135,6 @@ Stage 6.12 business synchronization order contract is maintained in
 
 Stage 6.13 synchronization idempotency contract is maintained in
 `docs/domain/synchronization-idempotency.md`.
+
+Stage 6.14 offline rate conflict contract is maintained in
+`docs/domain/rate-conflict.md`.
