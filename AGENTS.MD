@@ -58,8 +58,9 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 6.23: nastepny pakiet to
-  `6.24 - testy Android`.
+- Aktualny kierunek po pakiecie 6.24: pakiet 6.25 dokumentuje odroczenie
+  fizycznego testu iOS, a nastepny przyrost implementacyjny to
+  `6.26 - obowiazkowe scenariusze OFF-T01-OFF-T06`.
 
 ## Testowanie i walidacja
 
@@ -130,12 +131,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `6.23` scalony do `main` w commicie
-  `a488a97`.
+- Punkt startowy tego przyrostu: pakiet `6.24` scalony do `main` w commicie
+  `72c8fff`.
 - Aktualna galaz realizuje pakiet
-  `6.24 - testy Android`.
-- Fizyczny przebieg Android 6.24 zostal odroczony decyzja uzytkownika jako
-  `SKIPPED`; implementacja runtime offline moze przejsc do PR i merge.
-- Po zakonczeniu 6.24 nastepny pakiet to
   `6.25 - testy iOS`.
+- Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
+  uzytkownika jako `SKIPPED`.
+- Po zakonczeniu 6.25 nastepny pakiet to
+  `6.26 - obowiazkowe scenariusze OFF-T01-OFF-T06`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.
