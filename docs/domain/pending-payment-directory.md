@@ -38,5 +38,5 @@ Client-side filters cover season, worker, plan, date range and amount range.
 The summary reports the number of eligible and visible sessions, visible amount
 and sessions excluded because of pending synchronization.
 
-Package 7.1 does not expose a payment command. The complete eligibility check
-and payment action start in package 7.2.
+Package 7.1 does not approve a payment from list data. Package 7.2 adds the
+fresh Firestore eligibility preflight described in `payment-eligibility.md`.

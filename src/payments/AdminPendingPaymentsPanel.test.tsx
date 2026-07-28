@@ -35,6 +35,15 @@ describe("AdminPendingPaymentsPanel", () => {
   it("renders eligible sessions, totals and filters", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
+      checkEligibility: vi.fn().mockResolvedValue({
+        amountDueGrosz: 5000,
+        blockers: [],
+        checkedAtIso: "2026-07-28T12:00:00.000Z",
+        paymentId: "session-a",
+        sessionId: "session-a",
+        sessionRevision: 2,
+        status: "ELIGIBLE"
+      }),
       list: vi.fn().mockResolvedValue({
         excluded: {
           activePaymentCount: 1,
@@ -72,11 +81,21 @@ describe("AdminPendingPaymentsPanel", () => {
       within(screen.getByRole("table")).queryByText("Barbara")
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Sprawdz warunki" }));
+    expect(await screen.findByText("Sesja spelnia warunki wyplaty.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Wyplac" }));
+    expect(screen.getByText("Sesja jest gotowa do potwierdzenia wyplaty.")).toBeVisible();
+    expect(api.checkEligibility).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ sessionId: "session-a" })
+    );
   });
 
   it("reloads and sends current synchronization context", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
+      checkEligibility: vi.fn(),
       list: vi.fn().mockResolvedValue({
         excluded: {
           activePaymentCount: 0,
@@ -118,6 +137,57 @@ describe("AdminPendingPaymentsPanel", () => {
         syncDocuments
       })
     );
+  });
+
+  it("explains every blocker before leaving payment disabled", async () => {
+    const user = userEvent.setup();
+    const api: PendingPaymentsApi = {
+      checkEligibility: vi.fn().mockResolvedValue({
+        amountDueGrosz: 5000,
+        blockers: [
+          {
+            code: "ONLINE_REQUIRED",
+            message: "Wyplata wymaga internetu.",
+            nextStep: "Odzyskaj polaczenie."
+          },
+          {
+            code: "PENDING_SYNCHRONIZATION",
+            message: "Dane oczekuja na synchronizacje.",
+            nextStep: "Uruchom synchronizacje."
+          }
+        ],
+        checkedAtIso: "2026-07-28T12:00:00.000Z",
+        paymentId: "session-a",
+        sessionId: "session-a",
+        sessionRevision: 2,
+        status: "BLOCKED"
+      }),
+      list: vi.fn().mockResolvedValue({
+        excluded: {
+          activePaymentCount: 0,
+          missingAmountCount: 0,
+          pendingSynchronizationCount: 0
+        },
+        invalidDocumentCount: 0,
+        sessions: [pendingSession("session-a", "Anna", 5000)]
+      })
+    };
+
+    render(
+      <AdminPendingPaymentsPanel
+        authState={adminState}
+        env={{}}
+        isOnline={false}
+        pendingPaymentsApi={api}
+        syncDocuments={[]}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Sprawdz warunki" }));
+
+    expect(await screen.findByText(/Wyplata wymaga internetu/)).toBeVisible();
+    expect(screen.getByText(/Dane oczekuja na synchronizacje/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Wyplac" })).toBeDisabled();
   });
 });
 
