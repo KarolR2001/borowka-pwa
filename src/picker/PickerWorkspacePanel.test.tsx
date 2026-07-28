@@ -68,6 +68,21 @@ describe("PickerWorkspacePanel", () => {
       invalidReportCount: 0,
       reports: []
     });
+    const exportLoad = vi.fn().mockResolvedValue({
+      dataSource: "SERVER",
+      enabled: true,
+      invalidPaymentCount: 0,
+      invalidSeasonCount: 0,
+      invalidSessionCount: 0,
+      missingSourceSessionCount: 0,
+      payments: [],
+      refreshedAtIso: "2026-07-29T08:00:00.000Z",
+      seasons: [],
+      sessions: [],
+      sessionSummaries: [],
+      settingUpdatedAtIso: "2026-07-29T08:00:00.000Z",
+      workerId: "worker-anna"
+    });
 
     render(
       <PickerWorkspacePanel
@@ -76,6 +91,7 @@ describe("PickerWorkspacePanel", () => {
         deviceId="device-1"
         env={{}}
         isOnline
+        pickerDataExportApi={{ downloadCsv: vi.fn(), load: exportLoad }}
         pickerDashboardApi={{ load: dashboardLoad }}
         pickerHarvestListApi={{ load: harvestLoad }}
         pickerPaymentListApi={{ load: paymentLoad }}
@@ -119,5 +135,12 @@ describe("PickerWorkspacePanel", () => {
 
     expect(await screen.findByText("Brak wyslanych zgloszen.")).toBeInTheDocument();
     expect(issueList).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("tab", { name: "Eksport CSV" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Eksport CSV" })
+    ).toBeInTheDocument();
+    expect(exportLoad).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,6 +15,11 @@ import { readFileSync } from "node:fs";
 import type { UserProfile } from "../../src/domain/identity";
 import { createIssueReport, listPickerIssueReports } from "../../src/issues/issueReports";
 import { createMemoryFirestoreSyncJournal } from "../../src/offline/firestoreSyncJournal";
+import {
+  createPickerDataExportCsv,
+  filterPickerDataExport,
+  loadPickerDataExport
+} from "../../src/picker/pickerDataExport";
 import { loadPickerDashboard } from "../../src/picker/pickerDashboard";
 import { loadPickerHarvestList } from "../../src/picker/pickerHarvestList";
 import {
@@ -69,12 +74,21 @@ beforeEach(async () => {
     const db = context.firestore();
     await Promise.all([
       setDoc(doc(db, "users", pickerProfile.uid), pickerProfile),
+      setDoc(doc(db, "appSettings", "domain"), domainSettingsDocument()),
       setDoc(doc(db, "workers", "worker-anna"), workerDocument()),
       setDoc(doc(db, "seasons", "season-2026"), seasonDocument()),
       setDoc(doc(db, "devices", "device-picker"), deviceDocument()),
       setDoc(doc(db, "harvestSessions", "session-paid"), sessionDocument()),
       setDoc(doc(db, "harvestEntries", "entry-1"), entryDocument()),
       setDoc(doc(db, "payments", "payment-active"), paymentDocument()),
+      setDoc(doc(db, "payments", "foreign-payment"), {
+        ...paymentDocument(),
+        creationAttemptId: "attempt-foreign-payment",
+        id: "foreign-payment",
+        sessionId: "foreign-session",
+        workerId: "worker-other",
+        workerNameSnapshot: "Obca osoba"
+      }),
       setDoc(doc(db, "issueReports", "report-1"), issueReportDocument()),
       setDoc(doc(db, "harvestSessions", "foreign-session"), {
         ...sessionDocument(),
@@ -130,38 +144,52 @@ describe("picker offline preparation", () => {
     });
     expect(prepared.lastSuccessfulSyncIso).not.toBeNull();
 
+    const serverExport = await loadPickerDataExport(
+      {},
+      { actorProfile: pickerProfile, isOnline: true }
+    );
+    expect(serverExport.dataSource).toBe("SERVER");
+    expect(serverExport.sessions.map((session) => session.sessionId)).toEqual([
+      "session-paid"
+    ]);
+    expect(serverExport.payments.map((payment) => payment.id)).toEqual([
+      "payment-active"
+    ]);
+
     await disableNetwork(firestore);
 
-    const [status, dashboard, harvests, payments, reports, details] = await Promise.all([
-      readPickerOfflineDataStatus(
-        {},
-        {
-          actorProfile: pickerProfile,
-          cacheMode: "PERSISTENT",
-          deviceId: "device-picker",
-          isOnline: false
-        }
-      ),
-      loadPickerDashboard({}, { actorProfile: pickerProfile, isOnline: false }),
-      loadPickerHarvestList(
-        {},
-        {
-          actorProfile: pickerProfile,
-          isOnline: false,
-          syncDocuments: []
-        }
-      ),
-      loadPickerPaymentList({}, { actorProfile: pickerProfile, isOnline: false }),
-      listPickerIssueReports({}, { actorProfile: pickerProfile, isOnline: false }),
-      loadPickerSessionDetails(
-        {},
-        {
-          actorProfile: pickerProfile,
-          isOnline: false,
-          sessionId: "session-paid"
-        }
-      )
-    ]);
+    const [status, dashboard, harvests, payments, reports, details, cachedExport] =
+      await Promise.all([
+        readPickerOfflineDataStatus(
+          {},
+          {
+            actorProfile: pickerProfile,
+            cacheMode: "PERSISTENT",
+            deviceId: "device-picker",
+            isOnline: false
+          }
+        ),
+        loadPickerDashboard({}, { actorProfile: pickerProfile, isOnline: false }),
+        loadPickerHarvestList(
+          {},
+          {
+            actorProfile: pickerProfile,
+            isOnline: false,
+            syncDocuments: []
+          }
+        ),
+        loadPickerPaymentList({}, { actorProfile: pickerProfile, isOnline: false }),
+        listPickerIssueReports({}, { actorProfile: pickerProfile, isOnline: false }),
+        loadPickerSessionDetails(
+          {},
+          {
+            actorProfile: pickerProfile,
+            isOnline: false,
+            sessionId: "session-paid"
+          }
+        ),
+        loadPickerDataExport({}, { actorProfile: pickerProfile, isOnline: false })
+      ]);
 
     expect(status).toEqual({
       code: "READY",
@@ -184,6 +212,18 @@ describe("picker offline preparation", () => {
     expect(JSON.stringify({ dashboard, harvests, payments, reports })).not.toContain(
       "Obca osoba"
     );
+    const cachedCsv = createPickerDataExportCsv({
+      exportedAtIso: "2026-07-28T18:00:00.000Z",
+      filtered: filterPickerDataExport(cachedExport, {
+        fromDate: "",
+        seasonId: "season-2026",
+        toDate: ""
+      }),
+      result: cachedExport
+    });
+    expect(cachedCsv).toContain('"Kompletnosc";"NIEPELNY - DANE Z CACHE"');
+    expect(cachedCsv).not.toContain("Prywatna notatka");
+    expect(cachedCsv).not.toContain("Obca osoba");
 
     const journal = createMemoryFirestoreSyncJournal();
     const queued = await createIssueReport(
@@ -261,6 +301,19 @@ function deviceDocument() {
     platform: "test",
     trustedOfflineStorage: true,
     userUid: pickerProfile.uid
+  };
+}
+
+function domainSettingsDocument() {
+  return {
+    calculationRuleVersion: 1,
+    defaultSeasonId: "season-2026",
+    id: "domain",
+    initializedAt: Timestamp.now(),
+    initializedBy: "admin-1",
+    pickerOwnReportExportEnabled: true,
+    schemaVersion: 1,
+    updatedAt: Timestamp.now()
   };
 }
 

@@ -566,13 +566,38 @@ h2 {
 }
 
 .picker-workspace__tabs {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 4px;
   border: 1px solid #cfdad2;
   border-radius: 8px;
   padding: 4px;
   background: #edf2ee;
+}
+
+.picker-data-export,
+.picker-export-settings {
+  display: grid;
+  gap: 16px;
+}
+
+.picker-data-export__filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.picker-export-settings .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  font-weight: 700;
+}
+
+.picker-export-settings .checkbox-row input {
+  width: 18px;
+  height: 18px;
 }
 
 .picker-workspace__tab {
@@ -2547,6 +2572,7 @@ h2 {
 
   .picker-harvest-filters,
   .picker-payment-filters,
+  .picker-data-export__filters,
   .picker-session-details__facts,
   .picker-session-details__payment dl,
   .picker-session-entry,

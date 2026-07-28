@@ -13,6 +13,7 @@ import { DEVICE_CLEAR_CONFIRMATION } from "../offline/safeSignOut";
 import type { AdminPaymentDirectoryApi } from "../payments/AdminPaymentDirectoryPanel";
 import type { AdminIssueReportsApi } from "../issues/AdminIssueReportsPanel";
 import type { PickerDashboardApi } from "../picker/PickerDashboardPanel";
+import type { PickerExportSettingsApi } from "../picker/AdminPickerExportSettingsPanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -1058,6 +1059,13 @@ describe("App shell", () => {
       invalidReportCount: 0,
       reports: []
     });
+    const readPickerExportSetting = vi
+      .fn<PickerExportSettingsApi["read"]>()
+      .mockResolvedValue({
+        dataSource: "SERVER",
+        enabled: false,
+        updatedAtIso: "2026-07-28T18:00:00.000Z"
+      });
 
     render(
       <App
@@ -1073,6 +1081,10 @@ describe("App shell", () => {
         }}
         authSessionApi={createAuthSessionApi(activeAdminState)}
         deviceDirectoryApi={{ list: listDevices }}
+        pickerExportSettingsApi={{
+          read: readPickerExportSetting,
+          update: vi.fn()
+        }}
         settlementPlansApi={{ list: listSettlementPlans }}
         seasonsApi={{ list: listSeasons }}
         userDirectoryApi={{ list }}
@@ -1095,11 +1107,15 @@ describe("App shell", () => {
       expect(listSettlementPlans).toHaveBeenCalled();
       expect(listPayments).toHaveBeenCalled();
       expect(listIssues).toHaveBeenCalled();
+      expect(readPickerExportSetting).toHaveBeenCalled();
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "ADMIN"
       });
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Eksport danych pickera" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })

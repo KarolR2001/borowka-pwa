@@ -1,6 +1,11 @@
 import { getFirebaseServices } from "../config/firebaseServices";
 import { DEVICES_COLLECTION } from "../devices/deviceRegistry";
-import { SEASONS_COLLECTION, WORKERS_COLLECTION } from "../domain/domainConfiguration";
+import {
+  APP_SETTINGS_COLLECTION,
+  DOMAIN_SETTINGS_DOCUMENT_ID,
+  SEASONS_COLLECTION,
+  WORKERS_COLLECTION
+} from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import {
   HARVEST_ENTRIES_COLLECTION,
@@ -153,6 +158,7 @@ export async function preparePickerOfflineData(
   const [
     profileSnapshot,
     workerSnapshot,
+    settingsSnapshot,
     seasonSnapshot,
     sessionSnapshot,
     entrySnapshot,
@@ -161,6 +167,9 @@ export async function preparePickerOfflineData(
   ] = await Promise.all([
     getDocFromServer(doc(firestore, "users", input.actorProfile.uid)),
     getDocFromServer(doc(firestore, WORKERS_COLLECTION, workerId)),
+    getDocFromServer(
+      doc(firestore, APP_SETTINGS_COLLECTION, DOMAIN_SETTINGS_DOCUMENT_ID)
+    ),
     getDocsFromServer(collection(firestore, SEASONS_COLLECTION)),
     getDocsFromServer(
       query(
@@ -192,7 +201,11 @@ export async function preparePickerOfflineData(
     )
   ]);
 
-  if (!profileSnapshot.exists() || !workerSnapshot.exists()) {
+  if (
+    !profileSnapshot.exists() ||
+    !workerSnapshot.exists() ||
+    !settingsSnapshot.exists()
+  ) {
     throw new Error("Nie mozna przygotowac niepelnych danych profilu pickera.");
   }
 

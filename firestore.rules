@@ -1326,6 +1326,62 @@ service cloud.firestore {
         data.lastSeenAt == request.time;
     }
 
+    function hasDomainSettingsFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'schemaVersion',
+        'calculationRuleVersion',
+        'defaultSeasonId',
+        'pickerOwnReportExportEnabled',
+        'initializedAt',
+        'initializedBy',
+        'updatedAt'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'schemaVersion',
+          'calculationRuleVersion',
+          'defaultSeasonId',
+          'pickerOwnReportExportEnabled',
+          'initializedAt',
+          'initializedBy',
+          'updatedAt'
+        ]);
+    }
+
+    function hasValidDomainSettingsBase(data, settingsId) {
+      return settingsId == 'domain' &&
+        hasDomainSettingsFields(data) &&
+        data.id == settingsId &&
+        data.schemaVersion is int &&
+        data.schemaVersion > 0 &&
+        data.calculationRuleVersion is int &&
+        data.calculationRuleVersion > 0 &&
+        data.defaultSeasonId is string &&
+        data.defaultSeasonId.size() > 0 &&
+        data.pickerOwnReportExportEnabled is bool &&
+        data.initializedAt is timestamp &&
+        data.initializedBy is string &&
+        data.initializedBy.size() > 0 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDomainSettingsUpdate(data, previous, settingsId) {
+      return isAdmin() &&
+        hasValidDomainSettingsBase(data, settingsId) &&
+        data.id == previous.id &&
+        data.schemaVersion == previous.schemaVersion &&
+        data.calculationRuleVersion == previous.calculationRuleVersion &&
+        data.defaultSeasonId == previous.defaultSeasonId &&
+        data.initializedAt == previous.initializedAt &&
+        data.initializedBy == previous.initializedBy &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'pickerOwnReportExportEnabled',
+          'updatedAt'
+        ]) &&
+        data.updatedAt == request.time;
+    }
+
     function canReadHarvestDocument(data) {
       return isAdmin() ||
         isOperator() ||
@@ -2196,6 +2252,17 @@ service cloud.firestore {
         deviceId
       );
       allow delete: if false;
+    }
+
+    match /appSettings/{settingsId} {
+      allow get: if settingsId == 'domain' &&
+        (isAdmin() || isPicker());
+      allow list, create, delete: if false;
+      allow update: if isValidDomainSettingsUpdate(
+        request.resource.data,
+        resource.data,
+        settingsId
+      );
     }
 
     match /seasons/{seasonId} {
