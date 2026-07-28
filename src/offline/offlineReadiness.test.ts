@@ -9,6 +9,7 @@ describe("offlineReadiness", () => {
       applicationFilesReady: true,
       serviceWorkerSupported: true,
       configurationDataReady: true,
+      storageReady: true,
       pendingWriteCount: 0,
       rejectedWriteCount: 0,
       staleDocumentCount: 0
@@ -40,6 +41,7 @@ describe("offlineReadiness", () => {
       applicationFilesReady: true,
       serviceWorkerSupported: true,
       configurationDataReady: false,
+      storageReady: true,
       pendingWriteCount: 0,
       rejectedWriteCount: 0,
       staleDocumentCount: 0
@@ -68,6 +70,7 @@ describe("offlineReadiness", () => {
       applicationFilesReady: false,
       serviceWorkerSupported: true,
       configurationDataReady: true,
+      storageReady: true,
       pendingWriteCount: 2,
       rejectedWriteCount: 1,
       staleDocumentCount: 3
@@ -103,6 +106,7 @@ describe("offlineReadiness", () => {
       applicationFilesReady: false,
       serviceWorkerSupported: false,
       configurationDataReady: true,
+      storageReady: true,
       pendingWriteCount: 0,
       rejectedWriteCount: 0,
       staleDocumentCount: 0
@@ -118,5 +122,36 @@ describe("offlineReadiness", () => {
         status: "READY"
       }
     });
+  });
+
+  it("blocks ready status when persistent local storage is unavailable", () => {
+    const readiness = evaluateOfflineLayerReadiness({
+      applicationFilesReady: true,
+      serviceWorkerSupported: true,
+      configurationDataReady: true,
+      storageReady: false,
+      pendingWriteCount: 0,
+      rejectedWriteCount: 0,
+      staleDocumentCount: 0
+    });
+
+    expect(readiness).toMatchObject({
+      overallStatus: "PARTIAL",
+      applicationLayer: {
+        status: "READY"
+      },
+      dataLayer: {
+        status: "NOT_READY",
+        label: "Dane nieprzygotowane",
+        sources: {
+          CACHE: false,
+          SERVER_CONFIRMED: false
+        }
+      }
+    });
+    expect(readiness.dataLayer.details).toContain(
+      "Trwala pamiec lokalna nie jest gotowa."
+    );
+    expect(offlineOverallStatusLabel(readiness.overallStatus)).not.toBe("Gotowe offline");
   });
 });

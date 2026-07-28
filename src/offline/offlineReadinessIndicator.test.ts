@@ -4,6 +4,7 @@ import {
   authStateRequiresOfflineReconfirmation,
   evaluateOfflineReadinessIndicator
 } from "./offlineReadinessIndicator";
+import type { OfflineStorageHealth } from "./offlineStorageHealth";
 
 const readyLayerReadiness: OfflineLayerReadiness = {
   overallStatus: "READY",
@@ -61,6 +62,19 @@ const baseInput = {
   pendingWriteCount: 0,
   lastFirestoreContactIso: "2026-07-17T10:00:00.000Z",
   layerReadiness: readyLayerReadiness
+};
+
+const unavailableStorageHealth: OfflineStorageHealth = {
+  status: "NOT_READY",
+  label: "Pamiec offline niedostepna",
+  issues: [
+    {
+      code: "LOW_SPACE",
+      message: "Na urzadzeniu jest za malo miejsca na bezpieczna prace offline."
+    }
+  ],
+  persistenceStatus: "GRANTED",
+  quota: null
 };
 
 describe("offlineReadinessIndicator", () => {
@@ -124,6 +138,22 @@ describe("offlineReadinessIndicator", () => {
         layerReadiness: rejectedLayerReadiness
       }).status
     ).toBe("SYNC_ERROR");
+  });
+
+  it("prioritizes unavailable local storage over ready cache data", () => {
+    const indicator = evaluateOfflineReadinessIndicator({
+      ...baseInput,
+      storageHealth: unavailableStorageHealth
+    });
+
+    expect(indicator).toMatchObject({
+      status: "STORAGE_UNAVAILABLE",
+      label: "Pamiec offline niedostepna",
+      tone: "error"
+    });
+    expect(indicator.details).toContain(
+      "Na urzadzeniu jest za malo miejsca na bezpieczna prace offline."
+    );
   });
 
   it("prioritizes account reconfirmation above synchronization state", () => {

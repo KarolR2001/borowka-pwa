@@ -24,6 +24,11 @@ import {
   type OfflineLayerReadiness
 } from "./offlineReadiness";
 import {
+  defaultOfflineStorageHealthApi,
+  type OfflineStorageHealth,
+  type OfflineStorageHealthApi
+} from "./offlineStorageHealth";
+import {
   authStateRequiresOfflineReconfirmation,
   evaluateOfflineReadinessIndicator,
   type OfflineReadinessIndicator,
@@ -102,6 +107,7 @@ export function ConfigurationCachePanel({
   lastSyncError = null,
   onEmergencyExport,
   onRetrySync,
+  offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   serviceWorkerStatus,
   syncDocuments = []
 }: {
@@ -117,6 +123,7 @@ export function ConfigurationCachePanel({
   onRetrySync?: (
     model: SyncCenterModel
   ) => Promise<RetrySynchronizationResult> | RetrySynchronizationResult;
+  offlineStorageHealthApi?: OfflineStorageHealthApi;
   serviceWorkerStatus: ServiceWorkerStatus;
   syncDocuments?: readonly SyncDocumentMetadataInput[];
 }) {
@@ -127,6 +134,7 @@ export function ConfigurationCachePanel({
   const [isClearing, setIsClearing] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [storageHealth, setStorageHealth] = useState<OfflineStorageHealth | null>(null);
   const serviceWorkerReady = isServiceWorkerReady(serviceWorkerStatus);
   const syncCenterModel = useMemo(
     () => buildSyncCenterModel(syncDocuments),
@@ -162,11 +170,16 @@ export function ConfigurationCachePanel({
     isOnline &&
     !isPreparing;
   const readiness = state.readiness;
+  const offlineRequirements = [
+    ...(readiness?.missingRequirements ?? []),
+    ...(storageHealth?.issues.map((issue) => issue.message) ?? [])
+  ];
   const offlineLayerReadiness = readiness
     ? evaluateOfflineLayerReadiness({
         applicationFilesReady: serviceWorkerReady,
         serviceWorkerSupported: serviceWorkerStatus !== "unsupported",
         configurationDataReady: readiness.status === "READY",
+        storageReady: storageHealth?.status === "READY",
         pendingWriteCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
         rejectedWriteCount: syncSummary.rejectedCount,
         staleDocumentCount:
@@ -182,7 +195,8 @@ export function ConfigurationCachePanel({
       lastSyncError !== null,
     pendingWriteCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
     lastFirestoreContactIso: state.snapshot?.preparedAtIso ?? null,
-    layerReadiness: offlineLayerReadiness
+    layerReadiness: offlineLayerReadiness,
+    storageHealth
   });
   const preparedAtLabel = useMemo(
     () => (state.snapshot ? formatPreparedAt(state.snapshot.preparedAtIso) : "brak"),
@@ -194,6 +208,7 @@ export function ConfigurationCachePanel({
 
     if (authState.status !== "READY") {
       setState(initialState);
+      setStorageHealth(null);
       return undefined;
     }
 
@@ -211,16 +226,41 @@ export function ConfigurationCachePanel({
         serviceWorkerReady
       })
       .then((result) => {
-        if (isMounted) {
-          setState({
-            status: "READY",
-            snapshot: result.snapshot,
-            readiness: result.readiness,
-            message: "Cache konfiguracji odczytany."
+        return offlineStorageHealthApi
+          .inspect({
+            configurationReady: result.readiness.status === "READY",
+            deviceId,
+            snapshotPresent: result.snapshot !== null,
+            userUid: authState.profile.uid
+          })
+          .then((health) => {
+            if (isMounted) {
+              setStorageHealth(health);
+              setState({
+                status: "READY",
+                snapshot: result.snapshot,
+                readiness: result.readiness,
+                message: "Cache konfiguracji odczytany."
+              });
+            }
           });
-        }
       })
-      .catch(() => {
+      .catch((readError: unknown) => {
+        void offlineStorageHealthApi
+          .inspect({
+            configurationReady: false,
+            deviceId,
+            operationError: readError,
+            snapshotPresent: false,
+            userUid: authState.profile.uid
+          })
+          .then((health) => {
+            if (isMounted) {
+              setStorageHealth(health);
+            }
+          })
+          .catch(() => undefined);
+
         if (isMounted) {
           setState({
             status: "ERROR",
@@ -234,7 +274,13 @@ export function ConfigurationCachePanel({
     return () => {
       isMounted = false;
     };
-  }, [authState, configurationCacheApi, deviceId, serviceWorkerReady]);
+  }, [
+    authState,
+    configurationCacheApi,
+    deviceId,
+    offlineStorageHealthApi,
+    serviceWorkerReady
+  ]);
 
   const handlePrepare = async () => {
     if (authState.status !== "READY" || viewerRole === null) {
@@ -257,21 +303,65 @@ export function ConfigurationCachePanel({
     setIsPreparing(true);
 
     try {
+      const persistentStorageGranted =
+        await offlineStorageHealthApi.requestPersistentStorage();
+
+      if (!persistentStorageGranted) {
+        const health = await offlineStorageHealthApi.inspect({
+          configurationReady: readiness?.status === "READY",
+          deviceId,
+          snapshotPresent: state.snapshot !== null,
+          userUid: authState.profile.uid
+        });
+
+        setStorageHealth(health);
+        setError("Przegladarka nie zezwolila na trwala pamiec offline.");
+        return;
+      }
+
       const result = await configurationCacheApi.prepare(env, {
         actorProfile: authState.profile,
         viewerRole,
         deviceId,
         serviceWorkerReady
       });
+      await offlineStorageHealthApi.markConfigurationPrepared({
+        deviceId,
+        preparedAtIso: result.snapshot.preparedAtIso,
+        userUid: authState.profile.uid
+      });
+      const health = await offlineStorageHealthApi.inspect({
+        configurationReady: result.readiness.status === "READY",
+        deviceId,
+        snapshotPresent: true,
+        userUid: authState.profile.uid
+      });
 
+      setStorageHealth(health);
       setState({
         status: "READY",
         snapshot: result.snapshot,
         readiness: result.readiness,
         message: "Cache konfiguracji przygotowany."
       });
-      setFeedback("Cache konfiguracji zostal przygotowany.");
+
+      if (health.status === "READY") {
+        setFeedback("Cache konfiguracji zostal przygotowany.");
+      } else {
+        setError(health.issues[0]?.message ?? "Pamiec offline nie jest gotowa.");
+      }
     } catch (prepareError: unknown) {
+      const health = await offlineStorageHealthApi
+        .inspect({
+          configurationReady: false,
+          deviceId,
+          operationError: prepareError,
+          snapshotPresent: state.snapshot !== null,
+          userUid: authState.profile.uid
+        })
+        .catch(() => null);
+
+      setStorageHealth(health);
       setError(getConfigurationCacheErrorMessage(prepareError));
     } finally {
       setIsPreparing(false);
@@ -292,12 +382,23 @@ export function ConfigurationCachePanel({
         actorProfile: authState.profile,
         deviceId
       });
+      await offlineStorageHealthApi.markConfigurationCleared({
+        deviceId,
+        userUid: authState.profile.uid
+      });
       const result = await configurationCacheApi.read({
         actorProfile: authState.profile,
         deviceId,
         serviceWorkerReady
       });
+      const health = await offlineStorageHealthApi.inspect({
+        configurationReady: result.readiness.status === "READY",
+        deviceId,
+        snapshotPresent: result.snapshot !== null,
+        userUid: authState.profile.uid
+      });
 
+      setStorageHealth(health);
       setState({
         status: "READY",
         snapshot: result.snapshot,
@@ -306,6 +407,17 @@ export function ConfigurationCachePanel({
       });
       setFeedback("Cache konfiguracji zostal wyczyszczony.");
     } catch (clearError: unknown) {
+      const health = await offlineStorageHealthApi
+        .inspect({
+          configurationReady: false,
+          deviceId,
+          operationError: clearError,
+          snapshotPresent: state.snapshot !== null,
+          userUid: authState.profile.uid
+        })
+        .catch(() => null);
+
+      setStorageHealth(health);
       setError(getConfigurationCacheErrorMessage(clearError));
     } finally {
       setIsClearing(false);
@@ -500,6 +612,11 @@ export function ConfigurationCachePanel({
           tone={offlineLayerReadiness?.dataLayer.status === "READY" ? "ok" : "warn"}
           value={offlineLayerReadiness?.dataLayer.label ?? "Nieodczytana"}
         />
+        <CacheStat
+          label="Pamiec lokalna"
+          tone={storageHealth?.status === "READY" ? "ok" : "error"}
+          value={storageHealth?.label ?? "Sprawdzanie"}
+        />
         <CacheStat label="Ostatnie przygotowanie" value={preparedAtLabel} />
         <CacheStat
           label="Ostatnia synchronizacja"
@@ -553,9 +670,9 @@ export function ConfigurationCachePanel({
           <h3>Wymagane dane</h3>
         </div>
 
-        {readiness && readiness.missingRequirements.length > 0 ? (
+        {offlineRequirements.length > 0 ? (
           <ul className="worker-profile__list">
-            {readiness.missingRequirements.map((requirement) => (
+            {offlineRequirements.map((requirement) => (
               <li key={requirement}>{requirement}</li>
             ))}
           </ul>
