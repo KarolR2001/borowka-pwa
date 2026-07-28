@@ -11,9 +11,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
   type WriteBatch
 } from "firebase/firestore";
@@ -43,13 +45,52 @@ afterAll(async () => {
 });
 
 describe("payment rules", () => {
-  it("allows active admin read and denies operator read", async () => {
+  it("allows an active admin read and denies anonymous access", async () => {
     await seedBase();
     const adminDb = authenticatedDb("admin-1");
-    const operatorDb = authenticatedDb("operator-1");
+    const anonymousDb = unauthenticatedDb();
 
     await assertSucceeds(getDocs(collection(adminDb, "payments")));
+    await assertFails(getDocs(collection(anonymousDb, "payments")));
+    await assertFails(getDoc(doc(anonymousDb, "payments", paymentId)));
+  });
+
+  it("allows a picker to read only payments for the linked worker", async () => {
+    await seedBase();
+    await seedPaymentsForRead();
+    const pickerDb = authenticatedDb("picker-1");
+
+    await assertSucceeds(getDoc(doc(pickerDb, "payments", paymentId)));
+    await assertFails(getDoc(doc(pickerDb, "payments", "session-2--payment-r3")));
+
+    const ownPayments = await assertSucceeds(
+      getDocs(
+        query(collection(pickerDb, "payments"), where("workerId", "==", "worker-1"))
+      )
+    );
+    expect(ownPayments.docs.map((snapshot) => snapshot.id)).toEqual([paymentId]);
+
+    await assertFails(getDocs(collection(pickerDb, "payments")));
+    await assertFails(
+      getDocs(
+        query(collection(pickerDb, "payments"), where("workerId", "==", "worker-2"))
+      )
+    );
+  });
+
+  it("denies an operator payment reads and creation", async () => {
+    await seedBase();
+    await seedPaymentsForRead();
+    const operatorDb = authenticatedDb("operator-1");
+
     await assertFails(getDocs(collection(operatorDb, "payments")));
+    await assertFails(getDoc(doc(operatorDb, "payments", paymentId)));
+
+    const operatorBatch = writeBatch(operatorDb);
+    queuePaymentWrite(operatorBatch, operatorDb, {
+      actorUid: "operator-1"
+    });
+    await assertFails(operatorBatch.commit());
   });
 
   it("allows an admin to atomically create payment, mark session PAID and append audit", async () => {
@@ -81,6 +122,79 @@ describe("payment rules", () => {
     });
   });
 
+  it("denies payment creation by an inactive administrator", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-inactive");
+    const batch = writeBatch(db);
+    queuePaymentWrite(batch, db, {
+      actorUid: "admin-inactive"
+    });
+
+    await assertFails(batch.commit());
+  });
+
+  it("requires the payment document id to match the session and target revision", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+    const batch = writeBatch(db);
+    queuePaymentWrite(batch, db, {
+      paymentId: "unrelated-payment"
+    });
+
+    await assertFails(batch.commit());
+  });
+
+  it("rejects invalid amount, worker, season, session and worker-name types", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+    const invalidDocuments: Record<string, unknown>[] = [
+      { amountGrosz: "1000" },
+      { workerId: 123 },
+      { seasonId: 123 },
+      { sessionId: 123 },
+      { workerNameSnapshot: 123 }
+    ];
+
+    for (const paymentOverrides of invalidDocuments) {
+      const batch = writeBatch(db);
+      queuePaymentWrite(batch, db, { paymentOverrides });
+      await assertFails(batch.commit());
+    }
+  });
+
+  it("requires an existing CLOSED source session", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+
+    await setSessionWithRulesDisabled(
+      closedSession({
+        amountDueGrosz: null,
+        closedAtDevice: null,
+        closedAtServer: null,
+        closedBy: null,
+        status: "OPEN"
+      })
+    );
+    const openSessionBatch = writeBatch(db);
+    queuePaymentWrite(openSessionBatch, db);
+    await assertFails(openSessionBatch.commit());
+
+    const missingSessionBatch = writeBatch(db);
+    const missingPaymentId = "missing-session--payment-r3";
+    missingSessionBatch.set(
+      doc(db, "payments", missingPaymentId),
+      paymentDocument({
+        id: missingPaymentId,
+        sessionId: "missing-session"
+      })
+    );
+    missingSessionBatch.set(
+      doc(db, "auditEvents", `payment-created-${missingPaymentId}`),
+      paymentAudit("admin-1", missingPaymentId, "missing-session")
+    );
+    await assertFails(missingSessionBatch.commit());
+  });
+
   it("denies standalone payment and standalone PAID session writes", async () => {
     await seedBase();
     const db = authenticatedDb("admin-1");
@@ -101,15 +215,8 @@ describe("payment rules", () => {
     await assertFails(batch.commit());
   });
 
-  it("denies an operator and rejects a modified official amount", async () => {
+  it("rejects a modified official amount", async () => {
     await seedBase();
-    const operatorDb = authenticatedDb("operator-1");
-    const operatorBatch = writeBatch(operatorDb);
-    queuePaymentWrite(operatorBatch, operatorDb, {
-      actorUid: "operator-1"
-    });
-    await assertFails(operatorBatch.commit());
-
     const adminDb = authenticatedDb("admin-1");
     const amountBatch = writeBatch(adminDb);
     queuePaymentWrite(amountBatch, adminDb, {
@@ -160,7 +267,15 @@ describe("payment rules", () => {
         note: "Zmieniona notatka"
       })
     );
+    await assertFails(
+      updateDoc(doc(db, "payments", paymentId), {
+        amountGrosz: 999
+      })
+    );
     await assertFails(deleteDoc(doc(db, "payments", paymentId)));
+
+    const retainedPayment = await assertSucceeds(getDoc(doc(db, "payments", paymentId)));
+    expect(retainedPayment.data()?.amountGrosz).toBe(1000);
   });
 
   it("allows only an atomic admin cancellation with CLOSED session and audit", async () => {
@@ -178,6 +293,12 @@ describe("payment rules", () => {
     const operatorBatch = writeBatch(operatorDb);
     queueCancellation(operatorBatch, operatorDb, "operator-1");
     await assertFails(operatorBatch.commit());
+
+    const changedAmountBatch = writeBatch(db);
+    queueCancellation(changedAmountBatch, db, "admin-1", {
+      amountGrosz: 999
+    });
+    await assertFails(changedAmountBatch.commit());
 
     const cancellationBatch = writeBatch(db);
     queueCancellation(cancellationBatch, db, "admin-1");
@@ -257,6 +378,14 @@ function authenticatedDb(uid: string) {
     .firestore();
 }
 
+function unauthenticatedDb() {
+  if (!testEnv) {
+    throw new Error("Rules test environment was not initialized.");
+  }
+
+  return testEnv.unauthenticatedContext().firestore();
+}
+
 async function seedBase(): Promise<void> {
   if (!testEnv) {
     throw new Error("Rules test environment was not initialized.");
@@ -266,9 +395,61 @@ async function seedBase(): Promise<void> {
     const db = context.firestore();
     await Promise.all([
       setDoc(doc(db, "users", "admin-1"), profile("admin-1", "ADMIN")),
+      setDoc(
+        doc(db, "users", "admin-inactive"),
+        profile("admin-inactive", "ADMIN", {
+          active: false
+        })
+      ),
       setDoc(doc(db, "users", "operator-1"), profile("operator-1", "OPERATOR")),
+      setDoc(
+        doc(db, "users", "picker-1"),
+        profile("picker-1", "PICKER", {
+          workerId: "worker-1"
+        })
+      ),
       setDoc(doc(db, "harvestSessions", "session-1"), closedSession())
     ]);
+  });
+}
+
+async function seedPaymentsForRead(): Promise<void> {
+  if (!testEnv) {
+    throw new Error("Rules test environment was not initialized.");
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await Promise.all([
+      setDoc(
+        doc(db, "payments", paymentId),
+        storedPaymentDocument({
+          id: paymentId,
+          workerId: "worker-1"
+        })
+      ),
+      setDoc(
+        doc(db, "payments", "session-2--payment-r3"),
+        storedPaymentDocument({
+          id: "session-2--payment-r3",
+          sessionId: "session-2",
+          workerId: "worker-2",
+          workerNameSnapshot: "Beata"
+        })
+      )
+    ]);
+  });
+}
+
+async function setSessionWithRulesDisabled(
+  session: Record<string, unknown>
+): Promise<void> {
+  if (!testEnv) {
+    throw new Error("Rules test environment was not initialized.");
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "harvestSessions", "session-1"), session);
   });
 }
 
@@ -277,20 +458,32 @@ function queuePaymentWrite(
   db: ReturnType<typeof authenticatedDb>,
   {
     actorUid = "admin-1",
-    amountGrosz = 1000
+    amountGrosz = 1000,
+    paymentId: targetPaymentId = paymentId,
+    paymentOverrides = {}
   }: {
     actorUid?: string;
     amountGrosz?: number;
+    paymentId?: string;
+    paymentOverrides?: Record<string, unknown>;
   } = {}
 ): void {
   batch.set(
-    doc(db, "payments", paymentId),
-    paymentDocument({ amountGrosz, createdBy: actorUid })
+    doc(db, "payments", targetPaymentId),
+    paymentDocument({
+      amountGrosz,
+      createdBy: actorUid,
+      id: targetPaymentId,
+      ...paymentOverrides
+    })
   );
-  batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
+  batch.update(
+    doc(db, "harvestSessions", "session-1"),
+    paidSessionUpdate({ paymentId: targetPaymentId })
+  );
   batch.set(
-    doc(db, "auditEvents", "payment-created-session-1--payment-r3"),
-    paymentAudit(actorUid)
+    doc(db, "auditEvents", `payment-created-${targetPaymentId}`),
+    paymentAudit(actorUid, targetPaymentId)
   );
 }
 
@@ -317,12 +510,23 @@ function paymentDocument(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function storedPaymentDocument(overrides: Record<string, unknown> = {}) {
+  return {
+    ...paymentDocument(overrides),
+    createdAtServer: Timestamp.now()
+  };
+}
+
 function queueCancellation(
   batch: WriteBatch,
   db: ReturnType<typeof authenticatedDb>,
-  actorUid: string
+  actorUid: string,
+  paymentOverrides: Record<string, unknown> = {}
 ): void {
-  batch.update(doc(db, "payments", paymentId), paymentCancellationUpdate());
+  batch.update(doc(db, "payments", paymentId), {
+    ...paymentCancellationUpdate(),
+    ...paymentOverrides
+  });
   batch.update(doc(db, "harvestSessions", "session-1"), {
     paidAt: null,
     paymentId: null,
@@ -375,25 +579,30 @@ function paymentCancellationAudit(actorUid: string) {
   };
 }
 
-function paidSessionUpdate() {
+function paidSessionUpdate(overrides: Record<string, unknown> = {}) {
   return {
     paidAt: serverTimestamp(),
     paymentId: "session-1--payment-r3",
     revision: 3,
     status: "PAID",
-    updatedAtServer: serverTimestamp()
+    updatedAtServer: serverTimestamp(),
+    ...overrides
   };
 }
 
-function paymentAudit(actorUid: string) {
+function paymentAudit(
+  actorUid: string,
+  targetPaymentId = paymentId,
+  sessionId = "session-1"
+) {
   return {
     action: "HARVEST_SESSION_PAID",
-    actorRoleSnapshot: actorUid === "admin-1" ? "ADMIN" : "OPERATOR",
+    actorRoleSnapshot: actorUid.startsWith("admin-") ? "ADMIN" : "OPERATOR",
     actorUid,
     afterSummary: {
       amountDueGrosz: 1000,
       businessDate: "2026-07-20",
-      paymentId: "session-1--payment-r3",
+      paymentId: targetPaymentId,
       revision: 3,
       seasonId: "season-1",
       status: "PAID",
@@ -412,14 +621,14 @@ function paymentAudit(actorUid: string) {
     createdAtDevice: Timestamp.now(),
     createdAtServer: serverTimestamp(),
     deviceId: "device-admin",
-    entityId: "session-1",
+    entityId: sessionId,
     entityType: "HARVEST_SESSION",
-    id: "payment-created-session-1--payment-r3",
+    id: `payment-created-${targetPaymentId}`,
     reason: null
   };
 }
 
-function closedSession() {
+function closedSession(overrides: Record<string, unknown> = {}) {
   return {
     allowBatchQuantitySnapshot: true,
     amountDueGrosz: 1000,
@@ -458,11 +667,16 @@ function closedSession() {
     updatedAtServer: Timestamp.now(),
     weightRequiredSnapshot: true,
     workerId: "worker-1",
-    workerNameSnapshot: "Anna"
+    workerNameSnapshot: "Anna",
+    ...overrides
   };
 }
 
-function profile(uid: string, role: "ADMIN" | "OPERATOR") {
+function profile(
+  uid: string,
+  role: "ADMIN" | "OPERATOR" | "PICKER",
+  overrides: Record<string, unknown> = {}
+) {
   return {
     active: true,
     displayName: uid,
@@ -471,6 +685,7 @@ function profile(uid: string, role: "ADMIN" | "OPERATOR") {
     registrationStatus: "APPROVED",
     role,
     uid,
-    workerId: null
+    workerId: null,
+    ...overrides
   };
 }

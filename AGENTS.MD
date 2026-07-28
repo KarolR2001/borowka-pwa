@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 7.13: pakiet
-  `7.14 - eksport wlasnych danych pickera`.
+- Aktualny kierunek po pakiecie 7.14: pakiet
+  `7.15 - Security Rules wyplat`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,14 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `7.13` scalony do `main` w commicie
-  `520c097`.
+- Punkt startowy tego przyrostu: pakiet `7.14` scalony do `main` w commicie
+  `e990b26`.
 - Aktualna galaz realizuje pakiet
-  `7.14 - eksport wlasnych danych pickera`.
+  `7.15 - Security Rules wyplat`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 7.14 nastepny pakiet implementacyjny to
-  `7.15 - Security Rules wyplat`.
+- Po zakonczeniu 7.15 nastepny pakiet implementacyjny to
+  `7.16 - testy obliczen podsumowan pickera`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

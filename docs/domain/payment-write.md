@@ -4,10 +4,11 @@ Package 7.4 finalizes an eligible payment as one online Firestore transaction.
 The transaction reads the current session revision and reserved payment ID
 before writing:
 
-- `payments/{sessionId}` with the worker, season and official amount snapshots;
+- `payments/{sessionId}--payment-r{targetRevision}` with the worker, season and
+  official amount snapshots;
 - the source session as `PAID`, with `paymentId`, `paidAt` and incremented
   revision;
-- `auditEvents/payment-created-{sessionId}` with action
+- `auditEvents/payment-created-{paymentId}` with action
   `HARVEST_SESSION_PAID`.
 
 The transaction rejects a stale revision, a non-`CLOSED` session, an occupied
@@ -37,5 +38,6 @@ server time as described in `payment-idempotency.md`.
 Rules use `getAfter` to require the payment and `PAID` session transition in the
 same atomic write. The payment also requires its deterministic audit event.
 Only an active approved administrator can create the immutable `ACTIVE`
-payment. Standalone writes, operators, changed snapshots, changed amounts,
-updates and deletes are denied.
+payment. The document ID must combine the source session ID with the resulting
+session revision. Standalone writes, operators, changed snapshots, changed
+amounts, updates and deletes are denied.

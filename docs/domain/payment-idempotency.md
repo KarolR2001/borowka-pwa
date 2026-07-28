@@ -5,10 +5,16 @@ distinguishes the accepted write from a competing attempt.
 
 ## Identity and ownership
 
-The payment document ID is always the session ID:
-`payments/{sessionId}`. A client cannot choose another UUID for the same
-session. The session points back to that ID and the deterministic audit event is
-`auditEvents/payment-created-{sessionId}`.
+The payment document ID is deterministic for the session revision that becomes
+`PAID`: `payments/{sessionId}--payment-r{targetRevision}`. A client cannot
+choose another UUID for the same session transition. The session points back to
+that ID and the deterministic audit event is
+`auditEvents/payment-created-{paymentId}`.
+
+Two concurrent attempts based on the same `CLOSED` revision therefore target
+the same payment document. After cancellation, the session revision advances
+and a later valid payment receives a new deterministic ID, preserving the
+cancelled record in history while still allowing only one active payment.
 
 New clients also write a unique `creationAttemptId`. It identifies the exact
 submit invocation, not the user or device. A fresh server read is reported as

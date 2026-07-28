@@ -1852,6 +1852,8 @@ service cloud.firestore {
 
     function paymentMatchesPaidSession(payment, session, paymentId) {
       return payment.id == paymentId &&
+        payment.id ==
+          payment.sessionId + '--payment-r' + string(session.revision) &&
         payment.sessionId == session.id &&
         session.status == 'PAID' &&
         session.paymentId == paymentId &&
