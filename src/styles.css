@@ -1717,7 +1717,46 @@ h2 {
 }
 
 .pending-payment-table {
-  min-width: 1380px;
+  min-width: 1520px;
+}
+
+.payment-eligibility-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.payment-eligibility {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.payment-eligibility p {
+  margin: 4px 0 0;
+}
+
+.payment-eligibility ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 20px;
+}
+
+.payment-eligibility--ready {
+  border-color: #b7d9c4;
+  color: #17663f;
+  background: #edf8f0;
+}
+
+.payment-eligibility--blocked {
+  border-color: #e4c6b6;
+  color: #8a3b12;
+  background: #fff3ec;
 }
 
 .directory-table th,

@@ -1,4 +1,4 @@
-import { Banknote, RefreshCw } from "lucide-react";
+import { Banknote, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -9,6 +9,11 @@ import {
   parseDecimalToScaledInteger
 } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import {
+  checkPaymentEligibility,
+  type CheckPaymentEligibilityInput,
+  type PaymentEligibilityResult
+} from "./paymentEligibility";
 import {
   defaultPendingPaymentFilters,
   filterPendingPaymentSessions,
@@ -26,10 +31,15 @@ export type PendingPaymentsApi = {
     env: FirebaseEnv,
     input: PendingPaymentDirectoryInput
   ) => Promise<PendingPaymentDirectoryResult>;
+  checkEligibility: (
+    env: FirebaseEnv,
+    input: CheckPaymentEligibilityInput
+  ) => Promise<PaymentEligibilityResult>;
 };
 
 export const defaultPendingPaymentsApi: PendingPaymentsApi = {
-  list: listPendingPaymentSessions
+  list: listPendingPaymentSessions,
+  checkEligibility: checkPaymentEligibility
 };
 
 type DirectoryState =
@@ -38,6 +48,18 @@ type DirectoryState =
   | { status: "ERROR"; result: PendingPaymentDirectoryResult | null };
 
 const initialState: DirectoryState = { status: "IDLE", result: null };
+
+type EligibilityState =
+  | { status: "IDLE"; sessionId: null; result: null }
+  | { status: "CHECKING"; sessionId: string; result: null }
+  | { status: "READY"; sessionId: string; result: PaymentEligibilityResult }
+  | { status: "ERROR"; sessionId: string; result: null };
+
+const initialEligibilityState: EligibilityState = {
+  status: "IDLE",
+  sessionId: null,
+  result: null
+};
 
 export function AdminPendingPaymentsPanel({
   authState,
@@ -57,6 +79,10 @@ export function AdminPendingPaymentsPanel({
     defaultPendingPaymentFilters
   );
   const [reloadKey, setReloadKey] = useState(0);
+  const [eligibilityState, setEligibilityState] = useState<EligibilityState>(
+    initialEligibilityState
+  );
+  const [preparedSessionId, setPreparedSessionId] = useState<string | null>(null);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -102,6 +128,25 @@ export function AdminPendingPaymentsPanel({
 
   if (!isAdmin) {
     return <AccessNotice message="Lista sesji do wyplaty wymaga administratora." />;
+  }
+
+  const actorProfile = authState.profile;
+
+  async function handleEligibilityCheck(sessionId: string): Promise<void> {
+    setPreparedSessionId(null);
+    setEligibilityState({ status: "CHECKING", sessionId, result: null });
+
+    try {
+      const result = await pendingPaymentsApi.checkEligibility(env, {
+        actorProfile,
+        isOnline,
+        sessionId,
+        syncDocuments
+      });
+      setEligibilityState({ status: "READY", sessionId, result });
+    } catch {
+      setEligibilityState({ status: "ERROR", sessionId, result: null });
+    }
   }
 
   return (
@@ -164,8 +209,14 @@ export function AdminPendingPaymentsPanel({
         <p className="empty-state">Brak sesji spelniajacych filtry.</p>
       ) : null}
       {filteredSessions.length > 0 ? (
-        <PendingPaymentTable sessions={filteredSessions} />
+        <PendingPaymentTable
+          eligibilityState={eligibilityState}
+          onCheckEligibility={handleEligibilityCheck}
+          onPreparePayment={setPreparedSessionId}
+          sessions={filteredSessions}
+        />
       ) : null}
+      <EligibilityPanel preparedSessionId={preparedSessionId} state={eligibilityState} />
     </section>
   );
 }
@@ -244,8 +295,14 @@ function PaymentFilters({
 }
 
 function PendingPaymentTable({
+  eligibilityState,
+  onCheckEligibility,
+  onPreparePayment,
   sessions
 }: {
+  eligibilityState: EligibilityState;
+  onCheckEligibility: (sessionId: string) => Promise<void>;
+  onPreparePayment: (sessionId: string) => void;
   sessions: readonly PendingPaymentSession[];
 }) {
   return (
@@ -261,6 +318,7 @@ function PendingPaymentTable({
             <th scope="col">Zamkniecie</th>
             <th scope="col">Synchronizacja</th>
             <th scope="col">Historia wyplaty</th>
+            <th scope="col">Akcja</th>
           </tr>
         </thead>
         <tbody>
@@ -298,10 +356,125 @@ function PendingPaymentTable({
                   ? "Anulowana wyplata"
                   : "Brak wyplaty"}
               </td>
+              <td>
+                <PaymentAction
+                  eligibilityState={eligibilityState}
+                  onCheckEligibility={onCheckEligibility}
+                  onPreparePayment={onPreparePayment}
+                  sessionId={session.sessionId}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function PaymentAction({
+  eligibilityState,
+  onCheckEligibility,
+  onPreparePayment,
+  sessionId
+}: {
+  eligibilityState: EligibilityState;
+  onCheckEligibility: (sessionId: string) => Promise<void>;
+  onPreparePayment: (sessionId: string) => void;
+  sessionId: string;
+}) {
+  const isCurrent = eligibilityState.sessionId === sessionId;
+  const isChecking = isCurrent && eligibilityState.status === "CHECKING";
+  const result =
+    isCurrent && eligibilityState.status === "READY" ? eligibilityState.result : null;
+
+  if (result?.status === "ELIGIBLE") {
+    return (
+      <button
+        className="primary-button directory-action"
+        onClick={() => {
+          onPreparePayment(sessionId);
+        }}
+        type="button"
+      >
+        <Banknote aria-hidden="true" size={17} />
+        Wyplac
+      </button>
+    );
+  }
+
+  return (
+    <div className="payment-eligibility-actions">
+      <button
+        className="secondary-button directory-action"
+        disabled={isChecking}
+        onClick={() => {
+          void onCheckEligibility(sessionId);
+        }}
+        type="button"
+      >
+        {isChecking ? "Sprawdzanie" : "Sprawdz warunki"}
+      </button>
+      {result?.status === "BLOCKED" ? (
+        <button className="primary-button directory-action" disabled type="button">
+          Wyplac
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function EligibilityPanel({
+  preparedSessionId,
+  state
+}: {
+  preparedSessionId: string | null;
+  state: EligibilityState;
+}) {
+  if (state.status === "IDLE" || state.status === "CHECKING") {
+    return null;
+  }
+
+  if (state.status === "ERROR") {
+    return (
+      <div className="payment-eligibility payment-eligibility--blocked">
+        <ShieldX aria-hidden="true" size={22} />
+        <p>Nie udalo sie wykonac kontroli. Odswiez dane i sprobuj ponownie.</p>
+      </div>
+    );
+  }
+
+  if (state.result.status === "ELIGIBLE") {
+    return (
+      <div className="payment-eligibility payment-eligibility--ready">
+        <ShieldCheck aria-hidden="true" size={22} />
+        <div>
+          <strong>Sesja spelnia warunki wyplaty.</strong>
+          <p>
+            Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}, rewizja{" "}
+            {state.result.sessionRevision}.
+          </p>
+          {preparedSessionId === state.sessionId ? (
+            <p>Sesja jest gotowa do potwierdzenia wyplaty.</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="payment-eligibility payment-eligibility--blocked">
+      <ShieldX aria-hidden="true" size={22} />
+      <div>
+        <strong>Wyplata jest zablokowana.</strong>
+        <ul>
+          {state.result.blockers.map((item) => (
+            <li key={item.code}>
+              {item.message} {item.nextStep}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
