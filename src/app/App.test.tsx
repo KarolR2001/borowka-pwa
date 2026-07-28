@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
@@ -7,6 +7,9 @@ import type { OperatorHarvestSessionsApi } from "../harvest/OperatorHarvestSessi
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { ConfigurationCacheApi } from "../offline/ConfigurationCachePanel";
 import type { SynchronizationApi } from "../offline/automaticSynchronization";
+import type { OfflineStorageHealthApi } from "../offline/offlineStorageHealth";
+import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { DEVICE_CLEAR_CONFIRMATION } from "../offline/safeSignOut";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -125,6 +128,7 @@ const createAuthSessionApi = (
 const createSynchronizationApi = (
   overrides: Partial<SynchronizationApi> = {}
 ): SynchronizationApi => ({
+  clearLocalData: () => Promise.resolve(),
   hasLocalData: () => Promise.resolve(false),
   listLocalDocuments: () => Promise.resolve([]),
   synchronize: (_env, request) =>
@@ -317,6 +321,210 @@ describe("App shell", () => {
     });
   });
 
+  it("blocks sign out and lists sessions while local documents are pending", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const user = userEvent.setup();
+    const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
+    const listLocalDocuments = vi
+      .fn<SynchronizationApi["listLocalDocuments"]>()
+      .mockResolvedValue([
+        {
+          id: "session-local",
+          kind: "HARVEST_SESSION",
+          workerName: "Anna Test",
+          businessDate: "2026-07-28",
+          savedLocally: true
+        }
+      ]);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState, { signOut })}
+        synchronizationApi={createSynchronizationApi({
+          hasLocalData: () => Promise.resolve(true),
+          listLocalDocuments
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(listLocalDocuments).toHaveBeenCalledTimes(2);
+    });
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+
+    expect(signOut).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Najpierw zsynchronizuj dane" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Anna Test")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anuluj wylogowanie" })).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "Wyloguj i wyczysc urzadzenie" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears account-scoped local data only after explicit confirmation", async () => {
+    const user = userEvent.setup();
+    const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
+    const clearLocalData = vi
+      .fn<SynchronizationApi["clearLocalData"]>()
+      .mockResolvedValue(undefined);
+    const clearConfiguration = vi
+      .fn<ConfigurationCacheApi["clear"]>()
+      .mockResolvedValue(undefined);
+    const markConfigurationCleared = vi
+      .fn<OfflineStorageHealthApi["markConfigurationCleared"]>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState, { signOut })}
+        configurationCacheApi={{
+          clear: clearConfiguration,
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          read: vi.fn<ConfigurationCacheApi["read"]>()
+        }}
+        offlineStorageHealthApi={{
+          inspect: vi.fn<OfflineStorageHealthApi["inspect"]>(),
+          markConfigurationCleared,
+          markConfigurationPrepared:
+            vi.fn<OfflineStorageHealthApi["markConfigurationPrepared"]>(),
+          requestPersistentStorage:
+            vi.fn<OfflineStorageHealthApi["requestPersistentStorage"]>()
+        }}
+        synchronizationApi={createSynchronizationApi({ clearLocalData })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Wyloguj i wyczysc urzadzenie" })
+    );
+
+    const finalAction = screen.getByRole("button", {
+      name: "Wyczysc urzadzenie i wyloguj"
+    });
+
+    expect(finalAction).toBeDisabled();
+    await user.type(
+      screen.getByLabelText(`Wpisz ${DEVICE_CLEAR_CONFIRMATION}, aby potwierdzic`),
+      DEVICE_CLEAR_CONFIRMATION
+    );
+    await user.click(finalAction);
+
+    await waitFor(() => {
+      expect(signOut).toHaveBeenCalled();
+    });
+    expect(clearLocalData).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userUid: "admin-1" })
+    );
+    expect(clearConfiguration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorProfile: activeAdminState.profile
+      })
+    );
+    expect(markConfigurationCleared).toHaveBeenCalledWith(
+      expect.objectContaining({ userUid: "admin-1" })
+    );
+  });
+
+  it("does not expose one account's pending documents after switching users", async () => {
+    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const user = userEvent.setup();
+    const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
+    let sessionListener: ((state: AuthSessionState) => void) | null = null;
+    let resolvePickerDocuments!: (
+      documents: readonly SyncDocumentMetadataInput[]
+    ) => void;
+    const pickerDocuments = new Promise<readonly SyncDocumentMetadataInput[]>(
+      (resolve) => {
+        resolvePickerDocuments = resolve;
+      }
+    );
+    const listLocalDocuments = vi
+      .fn<SynchronizationApi["listLocalDocuments"]>()
+      .mockImplementation((_env, input) =>
+        input.userUid === "admin-1"
+          ? Promise.resolve([
+              {
+                id: "admin-entry",
+                kind: "HARVEST_ENTRY" as const,
+                sessionId: "admin-session",
+                workerName: "Dane administratora",
+                pendingSync: true
+              }
+            ])
+          : pickerDocuments
+      );
+    const authSessionApi = createAuthSessionApi(activeAdminState, {
+      signOut,
+      subscribe: (_env, listener) => {
+        sessionListener = listener;
+        listener(activeAdminState);
+        return Promise.resolve(() => undefined);
+      }
+    });
+
+    render(
+      <App
+        authSessionApi={authSessionApi}
+        synchronizationApi={createSynchronizationApi({
+          hasLocalData: () => Promise.resolve(true),
+          listLocalDocuments
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(listLocalDocuments).toHaveBeenCalledTimes(2);
+    });
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    expect(screen.getByText("Dane administratora")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Anuluj wylogowanie" }));
+
+    act(() => {
+      sessionListener?.(activePickerState);
+    });
+    await screen.findByRole("heading", { name: "Picker Test" });
+    expect(screen.queryByText("Dane administratora")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    expect(signOut).not.toHaveBeenCalled();
+    resolvePickerDocuments([]);
+
+    await waitFor(() => {
+      expect(signOut).toHaveBeenCalled();
+    });
+  });
+
+  it("allows a blocked account to sign out when no local data is pending", async () => {
+    const user = userEvent.setup();
+    const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(blockedPickerState, {
+          signOut
+        })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+
+    await waitFor(() => {
+      expect(signOut).toHaveBeenCalled();
+    });
+  });
+
   it("refreshes the active profile on window focus to detect role changes", async () => {
     const refresh = vi
       .fn<AuthSessionApi["refresh"]>()
@@ -407,7 +615,7 @@ describe("App shell", () => {
     await user.click(screen.getByRole("button", { name: /logowanie/i }));
     expect(screen.getByText(/Dane moga pozostac na tym urzadzeniu/)).toBeInTheDocument();
     expect(screen.getByText(/Tryb prywatny przegladarki/)).toBeInTheDocument();
-    expect(screen.getByText(/Wyloguj i wyczysc urzadzenie/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Wyloguj i wyczysc urzadzenie/).length).toBeGreaterThan(0);
 
     await user.click(screen.getByLabelText("Zgoda na trwale dane offline"));
 

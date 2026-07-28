@@ -121,9 +121,10 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `6.19` scalony do `main` w commicie
-  `c72451c`.
-- Aktualna galaz realizuje pakiet `6.20 - brak miejsca i niedostepny cache`.
-- Po zakonczeniu 6.20 nastepny pakiet to
+- Punkt startowy tego przyrostu: pakiet `6.20` scalony do `main` w commicie
+  `bc48fd6`.
+- Aktualna galaz realizuje pakiet
   `6.21 - wylogowanie z oczekujacymi zmianami`.
+- Po zakonczeniu 6.21 nastepny pakiet to
+  `6.22 - aktualizacja PWA podczas pracy offline`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

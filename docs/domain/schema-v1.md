@@ -156,3 +156,6 @@ Stage 6.19 emergency local export contract is maintained in
 
 Stage 6.20 offline storage health contract is maintained in
 `docs/domain/offline-storage-health.md`.
+
+Stage 6.21 safe sign-out contract is maintained in
+`docs/domain/safe-sign-out.md`.

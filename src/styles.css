@@ -315,7 +315,8 @@ h2 {
 }
 
 .primary-action,
-.secondary-action {
+.secondary-action,
+.danger-action {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -339,11 +340,41 @@ h2 {
   background: #f7faf7;
 }
 
+.danger-action {
+  border: 1px solid #9f2f2f;
+  color: #ffffff;
+  background: #9f2f2f;
+}
+
 .primary-action:disabled,
 .secondary-action:disabled,
+.danger-action:disabled,
 .icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+.safe-sign-out {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid #dce6df;
+  padding-top: 18px;
+}
+
+.safe-sign-out__sessions {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.safe-sign-out__sessions li {
+  display: grid;
+  gap: 2px;
+}
+
+.safe-sign-out__sessions span {
+  color: #5f6f66;
 }
 
 .form-message {

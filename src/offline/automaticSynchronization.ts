@@ -65,6 +65,7 @@ export type SynchronizationRunResult = {
 };
 
 export type SynchronizationApi = {
+  clearLocalData: (env: FirebaseEnv, input: SynchronizationAccountQuery) => Promise<void>;
   hasLocalData: (
     env: FirebaseEnv,
     input: SynchronizationAccountQuery
@@ -80,6 +81,7 @@ export type SynchronizationApi = {
 };
 
 export const defaultSynchronizationApi: SynchronizationApi = {
+  clearLocalData: () => Promise.resolve(),
   hasLocalData: () => Promise.resolve(false),
   listLocalDocuments: () => Promise.resolve([]),
   synchronize: (_env, request) =>
