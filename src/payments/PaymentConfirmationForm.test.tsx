@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { PaymentEligibilityResult } from "./paymentEligibility";
 import { PaymentConfirmationForm } from "./PaymentConfirmationForm";
 import type { PendingPaymentSession } from "./pendingPayments";
+import type { PaymentWriteResult } from "./paymentWrite";
 
 const session: PendingPaymentSession = {
   amountDueGrosz: 12_500,
@@ -37,16 +38,44 @@ const eligibility: PaymentEligibilityResult = {
   status: "ELIGIBLE"
 };
 
+const confirmedResult: PaymentWriteResult = {
+  auditId: "payment-created-session-1",
+  confirmationSource: "SERVER_READ_AFTER_COMMIT",
+  message: "Firestore potwierdzil wyplate dla Anna.",
+  payment: {
+    amountGrosz: 12_500,
+    cancellationReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    createdAtServer: "server-time",
+    createdBy: "admin-1",
+    id: "session-1",
+    legacyImport: false,
+    note: "Rozliczenie tygodnia",
+    paidBusinessDate: "2026-07-28",
+    paymentMethod: "BANK_TRANSFER",
+    seasonId: "season-1",
+    sessionId: "session-1",
+    status: "ACTIVE",
+    workerId: "worker-1",
+    workerNameSnapshot: "Anna"
+  },
+  sessionRevision: 4,
+  status: "CONFIRMED"
+};
+
 describe("PaymentConfirmationForm", () => {
-  it("shows immutable session data and prepares only administrator inputs", async () => {
+  it("shows immutable data and confirms the server-accepted payment", async () => {
     const user = userEvent.setup();
-    const onPrepared = vi.fn();
+    const onConfirm = vi.fn().mockResolvedValue(confirmedResult);
+    const onConfirmed = vi.fn();
 
     render(
       <PaymentConfirmationForm
         eligibility={eligibility}
         onCancel={vi.fn()}
-        onPrepared={onPrepared}
+        onConfirm={onConfirm}
+        onConfirmed={onConfirmed}
         session={session}
       />
     );
@@ -61,10 +90,12 @@ describe("PaymentConfirmationForm", () => {
     await user.click(
       screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
     );
-    await user.click(screen.getByRole("button", { name: "Przygotuj wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
 
-    expect(await screen.findByText("Dane wyplaty sa gotowe do zapisu.")).toBeVisible();
-    expect(onPrepared).toHaveBeenCalledWith(
+    expect(
+      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
+    ).toBeVisible();
+    expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({
         amountGrosz: 12_500,
         expectedSessionRevision: 3,
@@ -73,6 +104,8 @@ describe("PaymentConfirmationForm", () => {
         sessionId: "session-1"
       })
     );
+    expect(onConfirmed).toHaveBeenCalledWith(confirmedResult);
+    expect(screen.getByRole("button", { name: "Zapisz wyplate" })).toBeDisabled();
   });
 
   it("requires explicit confirmation and supports cancel", async () => {
@@ -83,14 +116,45 @@ describe("PaymentConfirmationForm", () => {
       <PaymentConfirmationForm
         eligibility={eligibility}
         onCancel={onCancel}
+        onConfirm={vi.fn().mockResolvedValue(confirmedResult)}
         session={session}
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Przygotuj wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
     expect(await screen.findByText("Potwierdz wyplate calej sesji.")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Anuluj" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show success when Firestore cannot confirm the transaction", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <PaymentConfirmationForm
+        eligibility={eligibility}
+        onCancel={vi.fn()}
+        onConfirm={vi
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              "Nie mozna potwierdzic wyniku wyplaty. Po odzyskaniu polaczenia odswiez liste przed ponowieniem."
+            )
+          )}
+        session={session}
+      />
+    );
+
+    await user.click(
+      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+    );
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+
+    expect(await screen.findByText(/Nie mozna potwierdzic wyniku wyplaty/)).toBeVisible();
+    expect(
+      screen.queryByText("Firestore potwierdzil wyplate dla Anna.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zapisz wyplate" })).toBeEnabled();
   });
 });

@@ -6,29 +6,34 @@ import type { PaymentEligibilityResult } from "./paymentEligibility";
 import {
   createInitialPaymentConfirmationDraft,
   preparePaymentConfirmation,
-  type PaymentConfirmationDraft,
-  type PreparedPaymentConfirmation
+  type PaymentConfirmationDraft
 } from "./paymentConfirmation";
 import type { PendingPaymentSession } from "./pendingPayments";
+import type { PaymentWriteResult } from "./paymentWrite";
 
 export function PaymentConfirmationForm({
   eligibility,
   onCancel,
-  onPrepared,
+  onConfirm,
+  onConfirmed,
   session
 }: {
   eligibility: PaymentEligibilityResult;
   onCancel: () => void;
-  onPrepared?: (confirmation: PreparedPaymentConfirmation) => void;
+  onConfirm: (
+    confirmation: ReturnType<typeof preparePaymentConfirmation>
+  ) => Promise<PaymentWriteResult>;
+  onConfirmed?: (result: PaymentWriteResult) => void;
   session: PendingPaymentSession;
 }) {
   const [draft, setDraft] = useState<PaymentConfirmationDraft>(() =>
     createInitialPaymentConfirmationDraft()
   );
   const [error, setError] = useState<string | null>(null);
-  const [prepared, setPrepared] = useState<PreparedPaymentConfirmation | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState<PaymentWriteResult | null>(null);
 
-  function handleSubmit(event: SyntheticEvent<HTMLFormElement>): void {
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     try {
@@ -38,20 +43,30 @@ export function PaymentConfirmationForm({
         session
       });
       setError(null);
-      setPrepared(confirmation);
-      onPrepared?.(confirmation);
+      setConfirmed(null);
+      setIsSubmitting(true);
+      const result = await onConfirm(confirmation);
+      setConfirmed(result);
+      onConfirmed?.(result);
     } catch (caughtError) {
-      setPrepared(null);
+      setConfirmed(null);
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie przygotowac wyplaty."
+          : "Nie udalo sie zapisac wyplaty."
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <form className="payment-confirmation-form" onSubmit={handleSubmit}>
+    <form
+      className="payment-confirmation-form"
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
+    >
       <header className="payment-confirmation-form__header">
         <div>
           <p className="eyebrow">Potwierdzenie wyplaty</p>
@@ -59,6 +74,7 @@ export function PaymentConfirmationForm({
         </div>
         <button
           className="secondary-button icon-button"
+          disabled={isSubmitting}
           onClick={onCancel}
           title="Anuluj potwierdzenie"
           type="button"
@@ -97,12 +113,13 @@ export function PaymentConfirmationForm({
         <label className="field">
           <span>Data biznesowa wyplaty</span>
           <input
+            disabled={isSubmitting || confirmed !== null}
             onChange={(event) => {
               setDraft((current) => ({
                 ...current,
                 paidBusinessDate: event.target.value
               }));
-              setPrepared(null);
+              setConfirmed(null);
             }}
             required
             type="date"
@@ -112,13 +129,14 @@ export function PaymentConfirmationForm({
         <label className="field">
           <span>Metoda</span>
           <select
+            disabled={isSubmitting || confirmed !== null}
             onChange={(event) => {
               setDraft((current) => ({
                 ...current,
                 paymentMethod: event.target
                   .value as PaymentConfirmationDraft["paymentMethod"]
               }));
-              setPrepared(null);
+              setConfirmed(null);
             }}
             value={draft.paymentMethod}
           >
@@ -130,10 +148,11 @@ export function PaymentConfirmationForm({
         <label className="field payment-confirmation-form__note">
           <span>Notatka</span>
           <textarea
+            disabled={isSubmitting || confirmed !== null}
             maxLength={200}
             onChange={(event) => {
               setDraft((current) => ({ ...current, note: event.target.value }));
-              setPrepared(null);
+              setConfirmed(null);
             }}
             rows={3}
             value={draft.note}
@@ -144,12 +163,13 @@ export function PaymentConfirmationForm({
       <label className="checkbox-field payment-confirmation-form__confirmation">
         <input
           checked={draft.confirmed}
+          disabled={isSubmitting || confirmed !== null}
           onChange={(event) => {
             setDraft((current) => ({
               ...current,
               confirmed: event.target.checked
             }));
-            setPrepared(null);
+            setConfirmed(null);
           }}
           type="checkbox"
         />
@@ -157,16 +177,25 @@ export function PaymentConfirmationForm({
       </label>
 
       {error ? <p className="form-message form-message--error">{error}</p> : null}
-      {prepared ? (
-        <p className="form-message form-message--ok">Dane wyplaty sa gotowe do zapisu.</p>
+      {confirmed ? (
+        <p className="form-message form-message--ok">{confirmed.message}</p>
       ) : null}
 
       <div className="payment-confirmation-form__actions">
-        <button className="primary-button" type="submit">
+        <button
+          className="primary-button"
+          disabled={isSubmitting || confirmed !== null}
+          type="submit"
+        >
           <Banknote aria-hidden="true" size={18} />
-          Przygotuj wyplate
+          {isSubmitting ? "Zapisywanie..." : "Zapisz wyplate"}
         </button>
-        <button className="secondary-button" onClick={onCancel} type="button">
+        <button
+          className="secondary-button"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
           Anuluj
         </button>
       </div>

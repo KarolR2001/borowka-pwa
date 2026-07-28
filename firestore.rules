@@ -86,6 +86,7 @@ service cloud.firestore {
         action == 'HARVEST_SESSION_CANCELLED' ||
         action == 'HARVEST_SESSION_MARKED_REVIEW_REQUIRED' ||
         action == 'HARVEST_SESSION_REVIEW_RESOLVED' ||
+        action == 'HARVEST_SESSION_PAID' ||
         action == 'HARVEST_ENTRY_CREATED' ||
         action == 'HARVEST_ENTRY_CANCELLED';
     }
@@ -934,6 +935,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/harvestSessions/$(sessionId);
     }
 
+    function paymentPath(paymentId) {
+      return /databases/$(database)/documents/payments/$(paymentId);
+    }
+
+    function auditEventPath(auditEventId) {
+      return /databases/$(database)/documents/auditEvents/$(auditEventId);
+    }
+
     function hasWorkerFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1594,6 +1603,136 @@ service cloud.firestore {
         ]);
     }
 
+    function isPaymentMethod(paymentMethod) {
+      return paymentMethod == 'CASH' ||
+        paymentMethod == 'BANK_TRANSFER' ||
+        paymentMethod == 'OTHER';
+    }
+
+    function hasPaymentFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'sessionId',
+        'seasonId',
+        'workerId',
+        'workerNameSnapshot',
+        'amountGrosz',
+        'paidBusinessDate',
+        'paymentMethod',
+        'note',
+        'status',
+        'createdBy',
+        'createdAtServer',
+        'cancelledAt',
+        'cancelledBy',
+        'cancellationReason',
+        'legacyImport'
+      ]) && data.keys().hasAll([
+        'id',
+        'sessionId',
+        'seasonId',
+        'workerId',
+        'workerNameSnapshot',
+        'amountGrosz',
+        'paidBusinessDate',
+        'paymentMethod',
+        'note',
+        'status',
+        'createdBy',
+        'createdAtServer',
+        'cancelledAt',
+        'cancelledBy',
+        'cancellationReason',
+        'legacyImport'
+      ]);
+    }
+
+    function paymentMatchesPaidSession(payment, session, paymentId) {
+      return payment.id == paymentId &&
+        payment.sessionId == paymentId &&
+        session.id == paymentId &&
+        session.status == 'PAID' &&
+        session.paymentId == paymentId &&
+        session.paidAt == request.time &&
+        session.seasonId == payment.seasonId &&
+        session.workerId == payment.workerId &&
+        session.workerNameSnapshot == payment.workerNameSnapshot &&
+        session.amountDueGrosz == payment.amountGrosz;
+    }
+
+    function paymentAuditMatchesSession(auditEvent, paymentId) {
+      return auditEvent.id == 'payment-created-' + paymentId &&
+        auditEvent.action == 'HARVEST_SESSION_PAID' &&
+        auditEvent.entityType == 'HARVEST_SESSION' &&
+        auditEvent.entityId == paymentId &&
+        auditEvent.actorUid == request.auth.uid &&
+        auditEvent.createdAtServer == request.time;
+    }
+
+    function isValidPaymentCreate(data, paymentId) {
+      return isAdmin() &&
+        hasPaymentFields(data) &&
+        data.id == paymentId &&
+        data.sessionId == paymentId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        data.workerId is string &&
+        data.workerId.size() > 0 &&
+        data.workerNameSnapshot is string &&
+        data.workerNameSnapshot.size() > 0 &&
+        data.amountGrosz is int &&
+        data.amountGrosz >= 0 &&
+        isBusinessDate(data.paidBusinessDate) &&
+        isPaymentMethod(data.paymentMethod) &&
+        (data.note == null || (data.note is string && data.note.size() <= 200)) &&
+        data.status == 'ACTIVE' &&
+        data.createdBy == request.auth.uid &&
+        data.createdAtServer == request.time &&
+        data.cancelledAt == null &&
+        data.cancelledBy == null &&
+        data.cancellationReason == null &&
+        data.legacyImport == false &&
+        existsAfter(harvestSessionPath(paymentId)) &&
+        paymentMatchesPaidSession(
+          data,
+          getAfter(harvestSessionPath(paymentId)).data,
+          paymentId
+        ) &&
+        existsAfter(auditEventPath('payment-created-' + paymentId)) &&
+        paymentAuditMatchesSession(
+          getAfter(auditEventPath('payment-created-' + paymentId)).data,
+          paymentId
+        );
+    }
+
+    function isHarvestSessionPaidUpdate(data, previous, sessionId) {
+      return isAdmin() &&
+        previous.status == 'CLOSED' &&
+        previous.paymentId == null &&
+        previous.paidAt == null &&
+        data.status == 'PAID' &&
+        data.id == sessionId &&
+        data.paymentId == sessionId &&
+        data.paidAt == request.time &&
+        data.updatedAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'paidAt',
+          'paymentId',
+          'updatedAtServer',
+          'revision'
+        ]) &&
+        existsAfter(paymentPath(sessionId)) &&
+        paymentMatchesPaidSession(
+          getAfter(paymentPath(sessionId)).data,
+          data,
+          sessionId
+        );
+    }
+
     function hasHarvestEntryFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1881,6 +2020,10 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         sessionId
+      ) || isHarvestSessionPaidUpdate(
+        request.resource.data,
+        resource.data,
+        sessionId
       );
       allow delete: if false;
     }
@@ -1898,7 +2041,8 @@ service cloud.firestore {
 
     match /payments/{paymentId} {
       allow get, list: if isAdmin();
-      allow create, update, delete: if false;
+      allow create: if isValidPaymentCreate(request.resource.data, paymentId);
+      allow update, delete: if false;
     }
 
     match /{document=**} {

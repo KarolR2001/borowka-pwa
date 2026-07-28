@@ -15,6 +15,7 @@ import {
   type PaymentEligibilityResult
 } from "./paymentEligibility";
 import { PaymentConfirmationForm } from "./PaymentConfirmationForm";
+import type { PreparedPaymentConfirmation } from "./paymentConfirmation";
 import {
   defaultPendingPaymentFilters,
   filterPendingPaymentSessions,
@@ -24,10 +25,19 @@ import {
   type PendingPaymentFilters,
   type PendingPaymentSession
 } from "./pendingPayments";
+import {
+  createPayment,
+  type CreatePaymentInput,
+  type PaymentWriteResult
+} from "./paymentWrite";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export type PendingPaymentsApi = {
+  createPayment: (
+    env: FirebaseEnv,
+    input: CreatePaymentInput
+  ) => Promise<PaymentWriteResult>;
   list: (
     env: FirebaseEnv,
     input: PendingPaymentDirectoryInput
@@ -39,6 +49,7 @@ export type PendingPaymentsApi = {
 };
 
 export const defaultPendingPaymentsApi: PendingPaymentsApi = {
+  createPayment,
   list: listPendingPaymentSessions,
   checkEligibility: checkPaymentEligibility
 };
@@ -64,12 +75,14 @@ const initialEligibilityState: EligibilityState = {
 
 export function AdminPendingPaymentsPanel({
   authState,
+  deviceId,
   env,
   isOnline,
   pendingPaymentsApi = defaultPendingPaymentsApi,
   syncDocuments
 }: {
   authState: AuthSessionState;
+  deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
   pendingPaymentsApi?: PendingPaymentsApi;
@@ -84,6 +97,9 @@ export function AdminPendingPaymentsPanel({
     initialEligibilityState
   );
   const [preparedSessionId, setPreparedSessionId] = useState<string | null>(null);
+  const [confirmedPayment, setConfirmedPayment] = useState<PaymentWriteResult | null>(
+    null
+  );
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -134,6 +150,7 @@ export function AdminPendingPaymentsPanel({
   const actorProfile = authState.profile;
 
   async function handleEligibilityCheck(sessionId: string): Promise<void> {
+    setConfirmedPayment(null);
     setPreparedSessionId(null);
     setEligibilityState({ status: "CHECKING", sessionId, result: null });
 
@@ -148,6 +165,24 @@ export function AdminPendingPaymentsPanel({
     } catch {
       setEligibilityState({ status: "ERROR", sessionId, result: null });
     }
+  }
+
+  async function handlePaymentConfirmation(
+    confirmation: PreparedPaymentConfirmation
+  ): Promise<PaymentWriteResult> {
+    return pendingPaymentsApi.createPayment(env, {
+      actorProfile,
+      confirmation,
+      deviceId,
+      isOnline
+    });
+  }
+
+  function handlePaymentConfirmed(result: PaymentWriteResult): void {
+    setConfirmedPayment(result);
+    setPreparedSessionId(null);
+    setEligibilityState(initialEligibilityState);
+    setReloadKey((current) => current + 1);
   }
 
   return (
@@ -201,6 +236,9 @@ export function AdminPendingPaymentsPanel({
           Nie udalo sie pobrac listy sesji do wyplaty.
         </p>
       ) : null}
+      {confirmedPayment ? (
+        <p className="form-message form-message--ok">{confirmedPayment.message}</p>
+      ) : null}
       {state.result && state.result.invalidDocumentCount > 0 ? (
         <p className="form-message form-message--error">
           Pominieto nieprawidlowe dokumenty: {state.result.invalidDocumentCount}.
@@ -221,6 +259,8 @@ export function AdminPendingPaymentsPanel({
         onCancelPreparation={() => {
           setPreparedSessionId(null);
         }}
+        onConfirmPayment={handlePaymentConfirmation}
+        onPaymentConfirmed={handlePaymentConfirmed}
         preparedSessionId={preparedSessionId}
         session={
           preparedSessionId
@@ -439,11 +479,17 @@ function PaymentAction({
 
 function EligibilityPanel({
   onCancelPreparation,
+  onConfirmPayment,
+  onPaymentConfirmed,
   preparedSessionId,
   session,
   state
 }: {
   onCancelPreparation: () => void;
+  onConfirmPayment: (
+    confirmation: PreparedPaymentConfirmation
+  ) => Promise<PaymentWriteResult>;
+  onPaymentConfirmed: (result: PaymentWriteResult) => void;
   preparedSessionId: string | null;
   session: PendingPaymentSession | null;
   state: EligibilityState;
@@ -478,6 +524,8 @@ function EligibilityPanel({
           <PaymentConfirmationForm
             eligibility={state.result}
             onCancel={onCancelPreparation}
+            onConfirm={onConfirmPayment}
+            onConfirmed={onPaymentConfirmed}
             session={session}
           />
         ) : null}

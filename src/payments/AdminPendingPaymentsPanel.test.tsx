@@ -35,6 +35,7 @@ describe("AdminPendingPaymentsPanel", () => {
   it("renders eligible sessions, totals and filters", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
+      createPayment: vi.fn().mockResolvedValue(confirmedPaymentResult("session-a")),
       checkEligibility: vi.fn().mockResolvedValue({
         amountDueGrosz: 5000,
         blockers: [],
@@ -61,6 +62,7 @@ describe("AdminPendingPaymentsPanel", () => {
     render(
       <AdminPendingPaymentsPanel
         authState={adminState}
+        deviceId="device-admin"
         env={{}}
         isOnline={true}
         pendingPaymentsApi={api}
@@ -87,6 +89,23 @@ describe("AdminPendingPaymentsPanel", () => {
     await user.click(screen.getByRole("button", { name: "Wyplac" }));
     expect(screen.getByText("Potwierdzenie wyplaty")).toBeVisible();
     expect(screen.getByText("Za kilogram, 10,00 zł / kilogramy")).toBeVisible();
+    await user.click(
+      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+    );
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    expect(
+      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
+    ).toBeVisible();
+    expect(api.createPayment).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.createPayment).mock.calls[0]?.[1]).toMatchObject({
+      actorProfile: adminState.profile,
+      confirmation: {
+        amountGrosz: 5000,
+        sessionId: "session-a"
+      },
+      deviceId: "device-admin",
+      isOnline: true
+    });
     expect(api.checkEligibility).toHaveBeenCalledWith(
       {},
       expect.objectContaining({ sessionId: "session-a" })
@@ -96,6 +115,7 @@ describe("AdminPendingPaymentsPanel", () => {
   it("reloads and sends current synchronization context", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
+      createPayment: vi.fn(),
       checkEligibility: vi.fn(),
       list: vi.fn().mockResolvedValue({
         excluded: {
@@ -118,6 +138,7 @@ describe("AdminPendingPaymentsPanel", () => {
     render(
       <AdminPendingPaymentsPanel
         authState={adminState}
+        deviceId="device-admin"
         env={{}}
         isOnline={false}
         pendingPaymentsApi={api}
@@ -143,6 +164,7 @@ describe("AdminPendingPaymentsPanel", () => {
   it("explains every blocker before leaving payment disabled", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
+      createPayment: vi.fn(),
       checkEligibility: vi.fn().mockResolvedValue({
         amountDueGrosz: 5000,
         blockers: [
@@ -177,6 +199,7 @@ describe("AdminPendingPaymentsPanel", () => {
     render(
       <AdminPendingPaymentsPanel
         authState={adminState}
+        deviceId="device-admin"
         env={{}}
         isOnline={false}
         pendingPaymentsApi={api}
@@ -214,5 +237,33 @@ function pendingSession(sessionId: string, workerName: string, amountDueGrosz: n
     unitLabel: "kilogramy",
     workerId: sessionId === "session-a" ? "worker-a" : "worker-b",
     workerName
+  };
+}
+
+function confirmedPaymentResult(sessionId: string) {
+  return {
+    auditId: `payment-created-${sessionId}`,
+    confirmationSource: "SERVER_READ_AFTER_COMMIT" as const,
+    message: "Firestore potwierdzil wyplate dla Anna.",
+    payment: {
+      amountGrosz: 5000,
+      cancellationReason: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAtServer: "server-time",
+      createdBy: "admin-1",
+      id: sessionId,
+      legacyImport: false,
+      note: null,
+      paidBusinessDate: "2026-07-28",
+      paymentMethod: "CASH" as const,
+      seasonId: "season-2026",
+      sessionId,
+      status: "ACTIVE" as const,
+      workerId: "worker-a",
+      workerNameSnapshot: "Anna"
+    },
+    sessionRevision: 3,
+    status: "CONFIRMED" as const
   };
 }

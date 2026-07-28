@@ -911,6 +911,7 @@ export function App({
           <>
             <AdminPendingPaymentsPanel
               authState={authState}
+              deviceId={deviceId}
               env={env}
               isOnline={isOnline}
               pendingPaymentsApi={pendingPaymentsApi}
