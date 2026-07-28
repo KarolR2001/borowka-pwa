@@ -23,6 +23,7 @@ import {
   createInitialDomainSeedWrites
 } from "../../src/domain/domainConfiguration";
 import type { UserProfile } from "../../src/domain/identity";
+import { addHarvestEntryOnline } from "../../src/harvest/harvestEntryRuntime";
 import {
   createFirestoreSynchronizationApi,
   createSynchronizationRequest
@@ -231,7 +232,253 @@ describe("offline harvest Firestore runtime", () => {
     expect(serverEntries.docs.every((entry) => entry.data().pendingSync === false)).toBe(
       true
     );
+    expect(await countDocumentsWithoutRules("auditEvents")).toBe(12);
   }, 30_000);
+
+  it("retries OFF-T02 with the same UUID after a lost response without a duplicate", async () => {
+    if (!testEnvironment) {
+      throw new Error("Rules test environment was not initialized.");
+    }
+
+    const operatorFirestore = testEnvironment
+      .authenticatedContext(operatorProfile.uid, {
+        email: operatorProfile.email
+      })
+      .firestore();
+    const journal = createMemoryFirestoreSyncJournal();
+
+    firebaseServicesMock.getFirebaseServices.mockResolvedValue({
+      firestore: operatorFirestore
+    });
+
+    await disableNetwork(operatorFirestore);
+
+    const opened = await openHarvestSessionOffline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        seasonId: seed.seasons[0].id,
+        workerId: seed.workers[0].id,
+        businessDate: "2026-07-18",
+        note: "OFF-T02",
+        secondSessionReason: null,
+        isOnline: false,
+        createdDeviceId: deviceId,
+        persistentDataCacheReady: true,
+        serviceWorkerReady: true
+      },
+      {
+        configurationStorage: createMemoryConfigurationCacheStorage([
+          createConfigurationSnapshot()
+        ]),
+        journal
+      }
+    );
+
+    if (opened.status !== "CREATED_OFFLINE") {
+      throw new Error("Expected OFF-T02 offline session.");
+    }
+
+    const identity = {
+      id: "off-t02-stable-entry",
+      sequenceNumber: 1
+    };
+    const first = await addHarvestEntryOffline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        sessionId: opened.session.id,
+        quantityMilli: 1000,
+        weightG: 1000,
+        isOnline: false,
+        createdDeviceId: deviceId,
+        identity
+      },
+      { journal }
+    );
+    const retry = await addHarvestEntryOffline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        sessionId: opened.session.id,
+        quantityMilli: 1000,
+        weightG: 1000,
+        isOnline: false,
+        createdDeviceId: deviceId,
+        identity
+      },
+      { journal }
+    );
+    const pending = await journal.list({
+      deviceId,
+      userUid: operatorProfile.uid
+    });
+
+    expect(retry.entry.id).toBe(first.entry.id);
+    expect(retry.message).toBe("Wpis #1 juz istnieje.");
+    expect(pending).toHaveLength(4);
+
+    const synchronizationResult = await createFirestoreSynchronizationApi(
+      journal
+    ).synchronize(
+      {},
+      createSynchronizationRequest({
+        deviceId,
+        pendingDocumentCount: pending.length,
+        requestedAtIso: new Date().toISOString(),
+        trigger: "MANUAL_RETRY",
+        userRole: operatorProfile.role,
+        userUid: operatorProfile.uid
+      })
+    );
+    const onlineRetry = await addHarvestEntryOnline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        sessionId: opened.session.id,
+        quantityMilli: 1000,
+        weightG: 1000,
+        isOnline: true,
+        createdDeviceId: deviceId,
+        identity
+      }
+    );
+    const serverEntries = await getDocs(
+      query(
+        collection(operatorFirestore, "harvestEntries"),
+        where("sessionId", "==", opened.session.id)
+      )
+    );
+
+    expect(synchronizationResult.status).toBe("SUCCESS");
+    expect(onlineRetry).toMatchObject({
+      entry: {
+        id: identity.id
+      },
+      message: "Wpis #1 juz istnieje."
+    });
+    expect(serverEntries.docs).toHaveLength(1);
+    expect(serverEntries.docs[0]?.id).toBe(identity.id);
+    expect(await countDocumentsWithoutRules("auditEvents")).toBe(2);
+  }, 30_000);
+
+  it("synchronizes OFF-T05 with three sessions and twenty-four unique entries", async () => {
+    if (!testEnvironment) {
+      throw new Error("Rules test environment was not initialized.");
+    }
+
+    const operatorFirestore = testEnvironment
+      .authenticatedContext(operatorProfile.uid, {
+        email: operatorProfile.email
+      })
+      .firestore();
+    const journal = createMemoryFirestoreSyncJournal();
+    const configurationStorage = createMemoryConfigurationCacheStorage([
+      createConfigurationSnapshot()
+    ]);
+
+    firebaseServicesMock.getFirebaseServices.mockResolvedValue({
+      firestore: operatorFirestore
+    });
+
+    await disableNetwork(operatorFirestore);
+
+    const sessionIds: string[] = [];
+    const entryIds: string[] = [];
+
+    for (let sessionIndex = 0; sessionIndex < 3; sessionIndex += 1) {
+      const opened = await openHarvestSessionOffline(
+        {},
+        {
+          actorProfile: operatorProfile,
+          seasonId: seed.seasons[0].id,
+          workerId: seed.workers[0].id,
+          businessDate: `2026-07-${String(19 + sessionIndex).padStart(2, "0")}`,
+          note: "OFF-T05",
+          secondSessionReason: null,
+          isOnline: false,
+          createdDeviceId: deviceId,
+          persistentDataCacheReady: true,
+          serviceWorkerReady: true
+        },
+        { configurationStorage, journal }
+      );
+
+      if (opened.status !== "CREATED_OFFLINE") {
+        throw new Error("Expected OFF-T05 offline session.");
+      }
+
+      sessionIds.push(opened.session.id);
+
+      for (let entryIndex = 0; entryIndex < 8; entryIndex += 1) {
+        const entry = await addHarvestEntryOffline(
+          {},
+          {
+            actorProfile: operatorProfile,
+            sessionId: opened.session.id,
+            quantityMilli: 1000,
+            weightG: 1000,
+            isOnline: false,
+            createdDeviceId: deviceId
+          },
+          { journal }
+        );
+
+        entryIds.push(entry.entry.id);
+      }
+
+      await closeHarvestSessionOffline(
+        {},
+        {
+          actorProfile: operatorProfile,
+          sessionId: opened.session.id,
+          confirmationAccepted: true,
+          isOnline: false,
+          deviceId
+        },
+        { journal }
+      );
+    }
+
+    const pending = await journal.list({
+      deviceId,
+      userUid: operatorProfile.uid
+    });
+    const synchronizationResult = await createFirestoreSynchronizationApi(
+      journal
+    ).synchronize(
+      {},
+      createSynchronizationRequest({
+        deviceId,
+        pendingDocumentCount: pending.length,
+        requestedAtIso: new Date().toISOString(),
+        trigger: "ONLINE_RESTORED",
+        userRole: operatorProfile.role,
+        userUid: operatorProfile.uid
+      })
+    );
+    const serverSessions = await getDocs(
+      collection(operatorFirestore, "harvestSessions")
+    );
+    const serverEntries = await getDocs(collection(operatorFirestore, "harvestEntries"));
+
+    expect(synchronizationResult.status).toBe("SUCCESS");
+    expect(new Set(sessionIds).size).toBe(3);
+    expect(new Set(entryIds).size).toBe(24);
+    expect(
+      serverSessions.docs.filter((session) => sessionIds.includes(session.id))
+    ).toHaveLength(3);
+    expect(
+      serverEntries.docs.filter((entry) => entryIds.includes(entry.id))
+    ).toHaveLength(24);
+    expect(await countDocumentsWithoutRules("auditEvents")).toBe(30);
+    expect(
+      await journal.list({
+        deviceId,
+        userUid: operatorProfile.uid
+      })
+    ).toEqual([]);
+  }, 60_000);
 });
 
 async function seedServerConfiguration(): Promise<void> {
@@ -249,6 +496,22 @@ async function seedServerConfiguration(): Promise<void> {
       setDoc(doc(firestore, "users", operatorProfile.uid), operatorProfile)
     ]);
   });
+}
+
+async function countDocumentsWithoutRules(collectionPath: string): Promise<number> {
+  if (!testEnvironment) {
+    throw new Error("Rules test environment was not initialized.");
+  }
+
+  let documentCount = 0;
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const snapshot = await getDocs(collection(context.firestore(), collectionPath));
+
+    documentCount = snapshot.size;
+  });
+
+  return documentCount;
 }
 
 function createConfigurationSnapshot(): ConfigurationCacheSnapshot {
