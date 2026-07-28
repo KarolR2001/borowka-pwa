@@ -131,7 +131,7 @@ const seedSeasons = async (...seasons: SeasonSeed[]) => {
 };
 
 describe("Firestore season rules", () => {
-  it("rejects season reads for anonymous, blocked and picker users", async () => {
+  it("rejects anonymous and blocked reads while allowing picker metadata", async () => {
     await seedProfiles(
       profile({
         uid: "blocked-1",
@@ -162,8 +162,8 @@ describe("Firestore season rules", () => {
     await assertFails(getDocs(collection(anonymousDb, "seasons")));
     await assertFails(getDoc(doc(blockedDb, "seasons", "season-2026")));
     await assertFails(getDocs(collection(blockedDb, "seasons")));
-    await assertFails(getDoc(doc(pickerDb, "seasons", "season-2026")));
-    await assertFails(getDocs(collection(pickerDb, "seasons")));
+    await assertSucceeds(getDoc(doc(pickerDb, "seasons", "season-2026")));
+    await assertSucceeds(getDocs(collection(pickerDb, "seasons")));
   });
 
   it("allows admin to read seasons and operator to read only open seasons", async () => {

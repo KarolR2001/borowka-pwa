@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 7.6: pakiet
-  `7.7 - anulowanie wyplaty`.
+- Aktualny kierunek po pakiecie 7.7: pakiet
+  `7.8 - pulpit pickera`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,14 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `7.6` scalony do `main` w commicie
-  `bd99eea`.
+- Punkt startowy tego przyrostu: pakiet `7.7` scalony do `main` w commicie
+  `2442f4a`.
 - Aktualna galaz realizuje pakiet
-  `7.7 - anulowanie wyplaty`.
+  `7.8 - pulpit pickera`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 7.7 nastepny pakiet implementacyjny to
-  `7.8 - pulpit pickera`.
+- Po zakonczeniu 7.8 nastepny pakiet implementacyjny to
+  `7.9 - moje zbiory pickera`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.
