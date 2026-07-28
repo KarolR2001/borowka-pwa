@@ -15,10 +15,20 @@ import {
   type AdminPaymentDirectoryResult,
   type PaymentDirectoryFilters
 } from "./paymentDirectory";
+import {
+  cancelPayment,
+  PAYMENT_CANCELLATION_REASON_MAX_LENGTH,
+  type CancelPaymentInput,
+  type PaymentCancellationResult
+} from "./paymentCancellation";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export type AdminPaymentDirectoryApi = {
+  cancel: (
+    env: FirebaseEnv,
+    input: CancelPaymentInput
+  ) => Promise<PaymentCancellationResult>;
   downloadCsv: (content: string, filename: string) => void;
   list: (
     env: FirebaseEnv,
@@ -27,6 +37,7 @@ export type AdminPaymentDirectoryApi = {
 };
 
 export const defaultAdminPaymentDirectoryApi: AdminPaymentDirectoryApi = {
+  cancel: cancelPayment,
   downloadCsv: downloadAdminPaymentCsv,
   list: listAdminPayments
 };
@@ -53,12 +64,16 @@ const initialState: DirectoryState = {
 export function AdminPaymentDirectoryPanel({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   authState,
+  deviceId,
   env,
+  isOnline,
   onRequestCancellation
 }: {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   authState: AuthSessionState;
+  deviceId: string;
   env: FirebaseEnv;
+  isOnline: boolean;
   onRequestCancellation?: (paymentId: string) => void;
 }) {
   const [state, setState] = useState<DirectoryState>(initialState);
@@ -70,6 +85,9 @@ export function AdminPaymentDirectoryPanel({
   const [cancellationTargetId, setCancellationTargetId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationConfirmed, setCancellationConfirmed] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -149,7 +167,44 @@ export function AdminPaymentDirectoryPanel({
 
   function requestCancellation(paymentId: string): void {
     setCancellationTargetId(paymentId);
+    setCancellationReason("");
+    setCancellationConfirmed(false);
     onRequestCancellation?.(paymentId);
+  }
+
+  async function submitCancellation(): Promise<void> {
+    const payment = payments.find((item) => item.id === cancellationTargetId);
+
+    if (!payment?.sourceSession || authState.status !== "READY") {
+      setExportError("Odswiez wyplate i jej sesje zrodlowa przed anulowaniem.");
+      return;
+    }
+
+    setIsCancelling(true);
+    setExportError(null);
+    setFeedback(null);
+
+    try {
+      const result = await adminPaymentDirectoryApi.cancel(env, {
+        actorProfile: authState.profile,
+        confirmed: cancellationConfirmed,
+        deviceId,
+        expectedSessionRevision: payment.sourceSession.revision,
+        isOnline,
+        paymentId: payment.id,
+        reason: cancellationReason
+      });
+      setFeedback(result.message);
+      setCancellationTargetId(null);
+      setSelectedPaymentId(null);
+      setReloadKey((current) => current + 1);
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "Nie udalo sie anulowac wyplaty."
+      );
+    } finally {
+      setIsCancelling(false);
+    }
   }
 
   return (
@@ -213,9 +268,79 @@ export function AdminPaymentDirectoryPanel({
         <p className="form-message form-message--error">{exportError}</p>
       ) : null}
       {cancellationTargetId ? (
-        <p className="form-message form-message--warning">
-          Wybrano wyplate {cancellationTargetId} do anulowania.
-        </p>
+        <form
+          className="payment-cancellation-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitCancellation();
+          }}
+        >
+          <h3>Anulowanie wyplaty</h3>
+          <p>
+            Wyplata pozostanie w historii jako anulowana, a sesja wroci do zamknietych i
+            ponownie pojawi sie na liscie do wyplaty.
+          </p>
+          <label className="field">
+            <span>Powod anulowania</span>
+            <textarea
+              maxLength={PAYMENT_CANCELLATION_REASON_MAX_LENGTH}
+              onChange={(event) => {
+                setCancellationReason(event.target.value);
+              }}
+              required
+              value={cancellationReason}
+            />
+          </label>
+          <label className="confirmation-check">
+            <input
+              checked={cancellationConfirmed}
+              onChange={(event) => {
+                setCancellationConfirmed(event.target.checked);
+              }}
+              type="checkbox"
+            />
+            <span>
+              Potwierdzam anulowanie wyplaty{" "}
+              {formatMoney(
+                payments.find((item) => item.id === cancellationTargetId)?.amountGrosz ??
+                  0
+              )}{" "}
+              dla{" "}
+              {payments.find((item) => item.id === cancellationTargetId)?.workerName ??
+                "wybranej osoby"}
+              .
+            </span>
+          </label>
+          {!isOnline ? (
+            <p className="form-message form-message--warning">
+              Anulowanie wymaga polaczenia z internetem.
+            </p>
+          ) : null}
+          <div className="form-actions">
+            <button
+              disabled={
+                isCancelling ||
+                !isOnline ||
+                !cancellationConfirmed ||
+                cancellationReason.trim().length < 3
+              }
+              type="submit"
+            >
+              <Ban aria-hidden="true" size={18} />
+              {isCancelling ? "Anulowanie..." : "Anuluj wyplate"}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={isCancelling}
+              onClick={() => {
+                setCancellationTargetId(null);
+              }}
+              type="button"
+            >
+              Zachowaj wyplate
+            </button>
+          </div>
+        </form>
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">

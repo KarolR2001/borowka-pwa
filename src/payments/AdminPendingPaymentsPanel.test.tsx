@@ -40,7 +40,7 @@ describe("AdminPendingPaymentsPanel", () => {
         amountDueGrosz: 5000,
         blockers: [],
         checkedAtIso: "2026-07-28T12:00:00.000Z",
-        paymentId: "session-a",
+        paymentId: "session-a--payment-r3",
         sessionId: "session-a",
         sessionRevision: 2,
         status: "ELIGIBLE"
@@ -169,7 +169,7 @@ describe("AdminPendingPaymentsPanel", () => {
         amountDueGrosz: 5000,
         blockers: [],
         checkedAtIso: "2026-07-28T12:00:00.000Z",
-        paymentId: "session-a",
+        paymentId: "session-a--payment-r3",
         sessionId: "session-a",
         sessionRevision: 2,
         status: "ELIGIBLE"
@@ -242,7 +242,7 @@ describe("AdminPendingPaymentsPanel", () => {
           }
         ],
         checkedAtIso: "2026-07-28T12:00:00.000Z",
-        paymentId: "session-a",
+        paymentId: "session-a--payment-r3",
         sessionId: "session-a",
         sessionRevision: 2,
         status: "BLOCKED"
@@ -303,8 +303,10 @@ function pendingSession(sessionId: string, workerName: string, amountDueGrosz: n
 }
 
 function confirmedPaymentResult(sessionId: string) {
+  const paymentId = `${sessionId}--payment-r3`;
+
   return {
-    auditId: `payment-created-${sessionId}`,
+    auditId: `payment-created-${paymentId}`,
     confirmationSource: "SERVER_READ_AFTER_COMMIT" as const,
     message: "Firestore potwierdzil wyplate dla Anna.",
     payment: {
@@ -315,7 +317,7 @@ function confirmedPaymentResult(sessionId: string) {
       creationAttemptId: "attempt-1",
       createdAtServer: "server-time",
       createdBy: "admin-1",
-      id: sessionId,
+      id: paymentId,
       legacyImport: false,
       note: null,
       paidBusinessDate: "2026-07-28",

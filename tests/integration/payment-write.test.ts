@@ -6,6 +6,7 @@ import { Timestamp, collection, doc, getDoc, getDocs, setDoc } from "firebase/fi
 import { readFileSync } from "node:fs";
 
 import type { UserProfile } from "../../src/domain/identity";
+import { cancelPayment } from "../../src/payments/paymentCancellation";
 import type { PreparedPaymentConfirmation } from "../../src/payments/paymentConfirmation";
 import { createPayment } from "../../src/payments/paymentWrite";
 
@@ -43,7 +44,7 @@ const confirmation: PreparedPaymentConfirmation = {
   expectedSessionRevision: 2,
   note: null,
   paidBusinessDate: "2026-07-28",
-  paymentId: "session-1",
+  paymentId: "session-1--payment-r3",
   paymentMethod: "CASH",
   seasonId: "season-1",
   sessionId: "session-1",
@@ -121,7 +122,7 @@ describe("payment write Firestore transaction", () => {
     );
 
     expect(result).toMatchObject({
-      auditId: "payment-created-session-1",
+      auditId: "payment-created-session-1--payment-r3",
       confirmationSource: "SERVER_READ_AFTER_COMMIT",
       sessionRevision: 3,
       status: "CONFIRMED"
@@ -131,9 +132,9 @@ describe("payment write Firestore transaction", () => {
       .authenticatedContext(adminProfile.uid, { email: adminProfile.email })
       .firestore();
     const [paymentSnapshot, sessionSnapshot, auditSnapshot] = await Promise.all([
-      getDoc(doc(db, "payments", "session-1")),
+      getDoc(doc(db, "payments", confirmation.paymentId)),
       getDoc(doc(db, "harvestSessions", "session-1")),
-      getDoc(doc(db, "auditEvents", "payment-created-session-1"))
+      getDoc(doc(db, "auditEvents", "payment-created-session-1--payment-r3"))
     ]);
 
     expect(paymentSnapshot.data()).toMatchObject({
@@ -142,7 +143,7 @@ describe("payment write Firestore transaction", () => {
       status: "ACTIVE"
     });
     expect(sessionSnapshot.data()).toMatchObject({
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       revision: 3,
       status: "PAID"
     });
@@ -211,6 +212,54 @@ describe("payment write Firestore transaction", () => {
     ).toBe("string");
     await expectSinglePaymentEvidence(adminProfile.uid);
   });
+
+  it("cancels a payment and creates a new historical payment for the next revision", async () => {
+    await createPaymentAs(adminProfile, "device-first-payment");
+
+    await expect(
+      cancelPayment(
+        {},
+        {
+          actorProfile: adminProfile,
+          confirmed: true,
+          deviceId: "device-cancellation",
+          expectedSessionRevision: 3,
+          isOnline: true,
+          paymentId: confirmation.paymentId,
+          reason: "Bledna metoda"
+        }
+      )
+    ).resolves.toMatchObject({
+      sessionRevision: 4,
+      status: "CANCELLED"
+    });
+
+    const nextConfirmation: PreparedPaymentConfirmation = {
+      ...confirmation,
+      expectedSessionRevision: 4,
+      paidBusinessDate: "2026-07-29",
+      paymentId: "session-1--payment-r5"
+    };
+    await expect(
+      createPaymentAs(adminProfile, "device-second-payment", nextConfirmation)
+    ).resolves.toMatchObject({
+      sessionRevision: 5,
+      status: "CONFIRMED"
+    });
+
+    if (!testEnvironment) {
+      throw new Error("Rules test environment was not initialized.");
+    }
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const payments = await getDocs(collection(context.firestore(), "payments"));
+      expect(
+        payments.docs
+          .map((snapshot) => String((snapshot.data() as Record<string, unknown>).status))
+          .sort()
+      ).toEqual(["ACTIVE", "CANCELLED"]);
+    });
+  });
 });
 
 function createPaymentAs(
@@ -246,18 +295,20 @@ async function expectSinglePaymentEvidence(
       getDoc(doc(db, "harvestSessions", confirmation.sessionId))
     ]);
 
-    expect(payments.docs.map((snapshot) => snapshot.id)).toEqual(["session-1"]);
+    expect(payments.docs.map((snapshot) => snapshot.id)).toEqual([
+      confirmation.paymentId
+    ]);
     expect(payments.docs[0]?.data()).toMatchObject({
       createdBy: expectedCreatedBy,
-      id: "session-1",
+      id: confirmation.paymentId,
       sessionId: "session-1",
       status: "ACTIVE"
     });
     expect(audits.docs.map((snapshot) => snapshot.id)).toEqual([
-      "payment-created-session-1"
+      "payment-created-session-1--payment-r3"
     ]);
     expect(session.data()).toMatchObject({
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       revision: 3,
       status: "PAID"
     });

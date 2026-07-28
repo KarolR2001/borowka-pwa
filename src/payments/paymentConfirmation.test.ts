@@ -31,7 +31,7 @@ const eligibility: PaymentEligibilityResult = {
   amountDueGrosz: 12_500,
   blockers: [],
   checkedAtIso: "2026-07-28T12:00:00.000Z",
-  paymentId: "session-1",
+  paymentId: "session-1--payment-r4",
   sessionId: "session-1",
   sessionRevision: 3,
   status: "ELIGIBLE"
@@ -55,7 +55,7 @@ describe("payment confirmation", () => {
       expectedSessionRevision: 3,
       note: "wyplata przy wadze",
       paidBusinessDate: "2026-07-28",
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r4",
       paymentMethod: "CASH",
       seasonId: "season-1",
       sessionId: "session-1",

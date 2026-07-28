@@ -1,4 +1,5 @@
 import type { PaymentEligibilityResult } from "./paymentEligibility";
+import { createPaymentId } from "./paymentIdentity";
 import type { PendingPaymentSession } from "./pendingPayments";
 
 export const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "OTHER"] as const;
@@ -57,7 +58,8 @@ export function preparePaymentConfirmation({
 
   if (
     eligibility.sessionId !== session.sessionId ||
-    eligibility.paymentId !== session.sessionId
+    eligibility.paymentId !==
+      createPaymentId(session.sessionId, eligibility.sessionRevision + 1)
   ) {
     throw new Error("Wynik kontroli dotyczy innej sesji.");
   }

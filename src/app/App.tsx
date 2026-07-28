@@ -927,7 +927,9 @@ export function App({
             <AdminPaymentDirectoryPanel
               adminPaymentDirectoryApi={adminPaymentDirectoryApi}
               authState={authState}
+              deviceId={deviceId}
               env={env}
+              isOnline={isOnline}
             />
             <AdminUserDirectoryPanel
               authState={authState}

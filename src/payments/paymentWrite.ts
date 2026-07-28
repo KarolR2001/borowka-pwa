@@ -18,6 +18,7 @@ import {
   type PaymentMethod,
   type PreparedPaymentConfirmation
 } from "./paymentConfirmation";
+import { createPaymentId } from "./paymentIdentity";
 import { PAYMENTS_COLLECTION } from "./pendingPayments";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -129,7 +130,7 @@ export async function createPayment(
     HARVEST_SESSIONS_COLLECTION,
     input.confirmation.sessionId
   );
-  const auditId = createPaymentAuditId(input.confirmation.sessionId);
+  const auditId = createPaymentAuditId(input.confirmation.paymentId);
   const auditRef = doc(firestore, AUDIT_EVENTS_COLLECTION, auditId);
   let transactionError: unknown = null;
 
@@ -298,7 +299,8 @@ export function preparePaymentWrite({
   }
 
   if (
-    confirmation.paymentId !== session.id ||
+    confirmation.paymentId !==
+      createPaymentId(session.id, confirmation.expectedSessionRevision + 1) ||
     confirmation.sessionId !== session.id ||
     confirmation.seasonId !== session.seasonId ||
     confirmation.workerId !== session.workerId ||
@@ -344,7 +346,7 @@ export function preparePaymentWrite({
     creationAttemptId: normalizedCreationAttemptId,
     createdAtServer,
     createdBy: actorUid,
-    id: session.id,
+    id: confirmation.paymentId,
     legacyImport: false,
     note: confirmation.note,
     paidBusinessDate: confirmation.paidBusinessDate,
@@ -440,7 +442,7 @@ export function decodePaymentDocument(
 
   if (
     payment.id !== expectedId ||
-    payment.sessionId !== expectedId ||
+    !payment.sessionId ||
     (data.creationAttemptId !== undefined && !payment.creationAttemptId) ||
     payment.amountGrosz < 0 ||
     !payment.createdBy ||
@@ -458,10 +460,10 @@ export function decodePaymentDocument(
   return payment;
 }
 
-export function createPaymentAuditId(sessionId: string): string {
+export function createPaymentAuditId(paymentId: string): string {
   return `payment-created-${normalizeRequiredText(
-    sessionId,
-    "Audyt wyplaty wymaga identyfikatora sesji."
+    paymentId,
+    "Audyt wyplaty wymaga identyfikatora wyplaty."
   )}`;
 }
 

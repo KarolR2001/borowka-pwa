@@ -87,6 +87,7 @@ service cloud.firestore {
         action == 'HARVEST_SESSION_MARKED_REVIEW_REQUIRED' ||
         action == 'HARVEST_SESSION_REVIEW_RESOLVED' ||
         action == 'HARVEST_SESSION_PAID' ||
+        action == 'PAYMENT_CANCELLED' ||
         action == 'HARVEST_ENTRY_CREATED' ||
         action == 'HARVEST_ENTRY_CANCELLED';
     }
@@ -98,7 +99,8 @@ service cloud.firestore {
         entityType == 'SETTLEMENT_PLAN' ||
         entityType == 'WORKER' ||
         entityType == 'HARVEST_SESSION' ||
-        entityType == 'HARVEST_ENTRY';
+        entityType == 'HARVEST_ENTRY' ||
+        entityType == 'PAYMENT';
     }
 
     function isHarvestSessionStatus(status) {
@@ -482,6 +484,7 @@ service cloud.firestore {
           'totalQuantityMilli',
           'totalWeightG',
           'amountDueGrosz',
+          'amountGrosz',
           'calculationVersion',
           'closedBy',
           'paymentId',
@@ -1650,8 +1653,7 @@ service cloud.firestore {
 
     function paymentMatchesPaidSession(payment, session, paymentId) {
       return payment.id == paymentId &&
-        payment.sessionId == paymentId &&
-        session.id == paymentId &&
+        payment.sessionId == session.id &&
         session.status == 'PAID' &&
         session.paymentId == paymentId &&
         session.paidAt == request.time &&
@@ -1661,11 +1663,11 @@ service cloud.firestore {
         session.amountDueGrosz == payment.amountGrosz;
     }
 
-    function paymentAuditMatchesSession(auditEvent, paymentId) {
+    function paymentAuditMatchesSession(auditEvent, paymentId, sessionId) {
       return auditEvent.id == 'payment-created-' + paymentId &&
         auditEvent.action == 'HARVEST_SESSION_PAID' &&
         auditEvent.entityType == 'HARVEST_SESSION' &&
-        auditEvent.entityId == paymentId &&
+        auditEvent.entityId == sessionId &&
         auditEvent.actorUid == request.auth.uid &&
         auditEvent.createdAtServer == request.time;
     }
@@ -1674,7 +1676,8 @@ service cloud.firestore {
       return isAdmin() &&
         hasPaymentFields(data) &&
         data.id == paymentId &&
-        data.sessionId == paymentId &&
+        data.sessionId is string &&
+        data.sessionId.size() > 0 &&
         data.id is string &&
         data.id.size() > 0 &&
         data.seasonId is string &&
@@ -1703,16 +1706,17 @@ service cloud.firestore {
         data.cancelledBy == null &&
         data.cancellationReason == null &&
         data.legacyImport == false &&
-        existsAfter(harvestSessionPath(paymentId)) &&
+        existsAfter(harvestSessionPath(data.sessionId)) &&
         paymentMatchesPaidSession(
           data,
-          getAfter(harvestSessionPath(paymentId)).data,
+          getAfter(harvestSessionPath(data.sessionId)).data,
           paymentId
         ) &&
         existsAfter(auditEventPath('payment-created-' + paymentId)) &&
         paymentAuditMatchesSession(
           getAfter(auditEventPath('payment-created-' + paymentId)).data,
-          paymentId
+          paymentId,
+          data.sessionId
         );
     }
 
@@ -1723,7 +1727,8 @@ service cloud.firestore {
         previous.paidAt == null &&
         data.status == 'PAID' &&
         data.id == sessionId &&
-        data.paymentId == sessionId &&
+        data.paymentId is string &&
+        data.paymentId.size() > 0 &&
         data.paidAt == request.time &&
         data.updatedAtServer == request.time &&
         data.revision == previous.revision + 1 &&
@@ -1734,11 +1739,113 @@ service cloud.firestore {
           'updatedAtServer',
           'revision'
         ]) &&
-        existsAfter(paymentPath(sessionId)) &&
+        existsAfter(paymentPath(data.paymentId)) &&
         paymentMatchesPaidSession(
-          getAfter(paymentPath(sessionId)).data,
+          getAfter(paymentPath(data.paymentId)).data,
           data,
-          sessionId
+          data.paymentId
+        );
+    }
+
+    function paymentCancellationAuditMatches(
+      auditEvent,
+      paymentId,
+      sessionId,
+      reason
+    ) {
+      return auditEvent.id == 'payment-cancelled-' + paymentId &&
+        auditEvent.action == 'PAYMENT_CANCELLED' &&
+        auditEvent.entityType == 'PAYMENT' &&
+        auditEvent.entityId == paymentId &&
+        auditEvent.actorUid == request.auth.uid &&
+        auditEvent.businessDate is string &&
+        auditEvent.reason == reason &&
+        auditEvent.beforeSummary.paymentId == paymentId &&
+        auditEvent.beforeSummary.sessionId == sessionId &&
+        auditEvent.beforeSummary.status == 'ACTIVE' &&
+        auditEvent.afterSummary.paymentId == paymentId &&
+        auditEvent.afterSummary.sessionId == sessionId &&
+        auditEvent.afterSummary.status == 'CANCELLED' &&
+        auditEvent.createdAtServer == request.time;
+    }
+
+    function paymentMatchesCancellationSession(payment, session, paymentId) {
+      return payment.id == paymentId &&
+        payment.sessionId == session.id &&
+        payment.status == 'CANCELLED' &&
+        payment.cancelledAt == request.time &&
+        payment.cancelledBy == request.auth.uid &&
+        payment.cancellationReason is string &&
+        session.status == 'CLOSED' &&
+        session.paymentId == null &&
+        session.paidAt == null &&
+        session.seasonId == payment.seasonId &&
+        session.workerId == payment.workerId &&
+        session.amountDueGrosz == payment.amountGrosz;
+    }
+
+    function isValidPaymentCancellationUpdate(data, previous, paymentId) {
+      return isAdmin() &&
+        previous.status == 'ACTIVE' &&
+        previous.cancelledAt == null &&
+        previous.cancelledBy == null &&
+        previous.cancellationReason == null &&
+        data.status == 'CANCELLED' &&
+        data.id == paymentId &&
+        data.cancelledAt == request.time &&
+        data.cancelledBy == request.auth.uid &&
+        data.cancellationReason is string &&
+        data.cancellationReason.size() >= 3 &&
+        data.cancellationReason.size() <= 300 &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'cancelledAt',
+          'cancelledBy',
+          'cancellationReason'
+        ]) &&
+        existsAfter(harvestSessionPath(data.sessionId)) &&
+        paymentMatchesCancellationSession(
+          data,
+          getAfter(harvestSessionPath(data.sessionId)).data,
+          paymentId
+        ) &&
+        existsAfter(auditEventPath('payment-cancelled-' + paymentId)) &&
+        paymentCancellationAuditMatches(
+          getAfter(auditEventPath('payment-cancelled-' + paymentId)).data,
+          paymentId,
+          data.sessionId,
+          data.cancellationReason
+        );
+    }
+
+    function isHarvestSessionPaymentCancellationUpdate(
+      data,
+      previous,
+      sessionId
+    ) {
+      return isAdmin() &&
+        previous.status == 'PAID' &&
+        previous.paymentId is string &&
+        previous.paymentId.size() > 0 &&
+        previous.paidAt is timestamp &&
+        data.status == 'CLOSED' &&
+        data.id == sessionId &&
+        data.paymentId == null &&
+        data.paidAt == null &&
+        data.updatedAtServer == request.time &&
+        data.revision == previous.revision + 1 &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'paidAt',
+          'paymentId',
+          'updatedAtServer',
+          'revision'
+        ]) &&
+        existsAfter(paymentPath(previous.paymentId)) &&
+        paymentMatchesCancellationSession(
+          getAfter(paymentPath(previous.paymentId)).data,
+          data,
+          previous.paymentId
         );
     }
 
@@ -2033,6 +2140,10 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         sessionId
+      ) || isHarvestSessionPaymentCancellationUpdate(
+        request.resource.data,
+        resource.data,
+        sessionId
       );
       allow delete: if false;
     }
@@ -2051,7 +2162,12 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow get, list: if isAdmin();
       allow create: if isValidPaymentCreate(request.resource.data, paymentId);
-      allow update, delete: if false;
+      allow update: if isValidPaymentCancellationUpdate(
+        request.resource.data,
+        resource.data,
+        paymentId
+      );
+      allow delete: if false;
     }
 
     match /{document=**} {

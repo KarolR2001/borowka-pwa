@@ -1781,6 +1781,20 @@ h2 {
   background: #ffffff;
 }
 
+.payment-cancellation-form {
+  display: grid;
+  gap: 14px;
+  border: 2px solid #b5473a;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff8f6;
+}
+
+.payment-cancellation-form h3,
+.payment-cancellation-form p {
+  margin: 0;
+}
+
 .payment-directory-details__header {
   display: flex;
   align-items: flex-start;

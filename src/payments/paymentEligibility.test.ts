@@ -43,7 +43,7 @@ describe("payment eligibility", () => {
       amountDueGrosz: 1000,
       blockers: [],
       checkedAtIso: "2026-07-28T12:00:00.000Z",
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       sessionId: "session-1",
       sessionRevision: 2,
       status: "ELIGIBLE"
@@ -135,7 +135,7 @@ describe("payment eligibility", () => {
       serverChecksAvailable: true,
       session: harvestSession({
         amountDueGrosz: 999,
-        paymentId: "session-1",
+        paymentId: "session-1--payment-r3",
         status: "OPEN"
       }),
       sessionId: "session-1",

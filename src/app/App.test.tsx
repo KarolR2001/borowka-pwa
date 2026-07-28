@@ -992,6 +992,7 @@ describe("App shell", () => {
     render(
       <App
         adminPaymentDirectoryApi={{
+          cancel: vi.fn(),
           downloadCsv: vi.fn(),
           list: listPayments
         }}
