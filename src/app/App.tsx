@@ -134,6 +134,15 @@ import {
   type AdminPaymentDirectoryApi
 } from "../payments/AdminPaymentDirectoryPanel";
 import {
+  AdminIssueReportsPanel,
+  defaultAdminIssueReportsApi,
+  type AdminIssueReportsApi
+} from "../issues/AdminIssueReportsPanel";
+import {
+  defaultPickerIssueReportsApi,
+  type PickerIssueReportsApi
+} from "../issues/PickerIssueReportsPanel";
+import {
   defaultPickerDashboardApi,
   type PickerDashboardApi
 } from "../picker/PickerDashboardPanel";
@@ -195,9 +204,11 @@ export type AppProps = {
   harvestSessionsApi?: OperatorHarvestSessionsApi;
   pendingPaymentsApi?: PendingPaymentsApi;
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
+  adminIssueReportsApi?: AdminIssueReportsApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
+  pickerIssueReportsApi?: PickerIssueReportsApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
@@ -275,9 +286,11 @@ export function App({
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
   pendingPaymentsApi = defaultPendingPaymentsApi,
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
+  adminIssueReportsApi = defaultAdminIssueReportsApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerHarvestListApi = defaultPickerHarvestListApi,
   pickerPaymentListApi = defaultPickerPaymentListApi,
+  pickerIssueReportsApi = defaultPickerIssueReportsApi,
   pickerSessionDetailsApi = defaultPickerSessionDetailsApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
@@ -956,6 +969,12 @@ export function App({
               env={env}
               isOnline={isOnline}
             />
+            <AdminIssueReportsPanel
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
+              issueReportsApi={adminIssueReportsApi}
+            />
             <AdminUserDirectoryPanel
               authState={authState}
               env={env}
@@ -1014,6 +1033,7 @@ export function App({
             pickerDashboardApi={pickerDashboardApi}
             pickerHarvestListApi={pickerHarvestListApi}
             pickerPaymentListApi={pickerPaymentListApi}
+            pickerIssueReportsApi={pickerIssueReportsApi}
             pickerSessionDetailsApi={pickerSessionDetailsApi}
             syncDocuments={syncDocuments}
           />

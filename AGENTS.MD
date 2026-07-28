@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 7.10: pakiet
-  `7.11 - moje wyplaty pickera`.
+- Aktualny kierunek po pakiecie 7.11: pakiet
+  `7.12 - zgloszenie niezgodnosci`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,14 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `7.10` scalony do `main` w commicie
-  `ebec29b`.
+- Punkt startowy tego przyrostu: pakiet `7.11` scalony do `main` w commicie
+  `8eb7263`.
 - Aktualna galaz realizuje pakiet
-  `7.11 - moje wyplaty pickera`.
+  `7.12 - zgloszenie niezgodnosci`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 7.11 nastepny pakiet implementacyjny to
-  `7.12 - zgloszenie niezgodnosci`.
+- Po zakonczeniu 7.12 nastepny pakiet implementacyjny to
+  `7.13 - zachowanie widokow pickera offline`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

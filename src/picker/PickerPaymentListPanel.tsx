@@ -45,12 +45,14 @@ export function PickerPaymentListPanel({
   authState,
   env,
   isOnline,
+  onReportIssue,
   pickerPaymentListApi = defaultPickerPaymentListApi,
   pickerSessionDetailsApi
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
+  onReportIssue?: (sessionId: string) => void;
   pickerPaymentListApi?: PickerPaymentListApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
 }) {
@@ -205,7 +207,13 @@ export function PickerPaymentListPanel({
             setSelectedSessionId(null);
             setReportSessionId(null);
           }}
-          onReportIssue={setReportSessionId}
+          onReportIssue={(sessionId) => {
+            if (onReportIssue) {
+              onReportIssue(sessionId);
+            } else {
+              setReportSessionId(sessionId);
+            }
+          }}
           sessionId={selectedSessionId}
         />
       ) : null}

@@ -11,6 +11,7 @@ import type { OfflineStorageHealthApi } from "../offline/offlineStorageHealth";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DEVICE_CLEAR_CONFIRMATION } from "../offline/safeSignOut";
 import type { AdminPaymentDirectoryApi } from "../payments/AdminPaymentDirectoryPanel";
+import type { AdminIssueReportsApi } from "../issues/AdminIssueReportsPanel";
 import type { PickerDashboardApi } from "../picker/PickerDashboardPanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
@@ -1044,9 +1045,18 @@ describe("App shell", () => {
       missingSourceSessionCount: 0,
       payments: []
     });
+    const listIssues = vi.fn<AdminIssueReportsApi["list"]>().mockResolvedValue({
+      invalidReportCount: 0,
+      reports: []
+    });
 
     render(
       <App
+        adminIssueReportsApi={{
+          list: listIssues,
+          loadSource: vi.fn(),
+          resolve: vi.fn()
+        }}
         adminPaymentDirectoryApi={{
           cancel: vi.fn(),
           downloadCsv: vi.fn(),
@@ -1075,12 +1085,16 @@ describe("App shell", () => {
       expect(listSeasons).toHaveBeenCalled();
       expect(listSettlementPlans).toHaveBeenCalled();
       expect(listPayments).toHaveBeenCalled();
+      expect(listIssues).toHaveBeenCalled();
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "ADMIN"
       });
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Konfiguracja sezonow" })
     ).toBeInTheDocument();
