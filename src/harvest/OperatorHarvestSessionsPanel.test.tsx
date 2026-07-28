@@ -122,6 +122,36 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeEnabled();
   });
 
+  it("reports active session and form blockers to the PWA update gate", async () => {
+    const user = userEvent.setup();
+    const onActiveFormChange = vi.fn();
+    const onActiveHarvestSessionChange = vi.fn();
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={createHarvestSessionsApi({
+          list: vi
+            .fn<OperatorHarvestSessionsApi["list"]>()
+            .mockResolvedValue(createDashboardResult())
+        })}
+        isOnline={true}
+        onActiveFormChange={onActiveFormChange}
+        onActiveHarvestSessionChange={onActiveHarvestSessionChange}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onActiveHarvestSessionChange).toHaveBeenLastCalledWith(true);
+    });
+    await user.click(screen.getByRole("button", { name: "Dodaj wpis" }));
+
+    await waitFor(() => {
+      expect(onActiveFormChange).toHaveBeenLastCalledWith(true);
+    });
+  });
+
   it("reloads the dashboard when another open session is selected", async () => {
     const user = userEvent.setup();
     const firstResult = createDashboardResult();

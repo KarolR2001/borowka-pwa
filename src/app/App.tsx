@@ -129,6 +129,7 @@ import {
   serviceWorkerStatusLabel,
   useServiceWorkerStatus
 } from "./useServiceWorkerStatus";
+import { PwaUpdateController } from "../pwa/PwaUpdateNotice";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -262,6 +263,8 @@ export function App({
     ownerUid: null
   });
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [hasActiveForm, setHasActiveForm] = useState(false);
+  const [hasActiveHarvestSession, setHasActiveHarvestSession] = useState(false);
   const latestAuthStateRef = useRef(authState);
   const latestIsOnlineRef = useRef(isOnline);
   const refreshInFlightRef = useRef(false);
@@ -275,6 +278,12 @@ export function App({
   const currentProfileUid = "profile" in authState ? authState.profile.uid : null;
   const syncDocuments =
     currentProfileUid === accountSyncState.ownerUid ? accountSyncState.documents : [];
+  const localDataInspected =
+    currentProfileUid === null || currentProfileUid === accountSyncState.ownerUid;
+  const hasLocalOpenHarvestSession = syncDocuments.some(
+    (document) =>
+      document.kind === "HARVEST_SESSION" && document.businessStatus === "OPEN"
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -345,6 +354,11 @@ export function App({
   useEffect(() => {
     latestIsOnlineRef.current = isOnline;
   }, [isOnline]);
+
+  useEffect(() => {
+    setHasActiveForm(false);
+    setHasActiveHarvestSession(false);
+  }, [currentProfileUid]);
 
   const requestSynchronization = useCallback(
     async (trigger: SynchronizationTrigger): Promise<SynchronizationRunResult> => {
@@ -484,7 +498,27 @@ export function App({
   useEffect(() => {
     if (authState.status !== "READY") {
       lastReadySyncUidRef.current = null;
-      if (authState.status !== "BLOCKED") {
+      if (authState.status === "BLOCKED") {
+        const blockedUserUid = authState.profile.uid;
+
+        void synchronizationApi
+          .listLocalDocuments(env, {
+            deviceId,
+            userUid: blockedUserUid
+          })
+          .then((documents) => {
+            if (
+              "profile" in latestAuthStateRef.current &&
+              latestAuthStateRef.current.profile.uid === blockedUserUid
+            ) {
+              setAccountSyncState({
+                documents: [...documents],
+                ownerUid: blockedUserUid
+              });
+            }
+          })
+          .catch(() => undefined);
+      } else {
         setAccountSyncState({
           documents: [],
           ownerUid: null
@@ -508,7 +542,7 @@ export function App({
     if (trigger) {
       void requestSynchronization(trigger);
     }
-  }, [authState, requestSynchronization]);
+  }, [authState, deviceId, env, requestSynchronization, synchronizationApi]);
 
   useEffect(() => {
     const synchronizeAfterOnline = () => {
@@ -708,6 +742,15 @@ export function App({
         </div>
       </header>
 
+      <PwaUpdateController
+        currentUserUid={currentProfileUid}
+        deviceId={deviceId}
+        hasActiveForm={hasActiveForm}
+        hasActiveHarvestSession={hasActiveHarvestSession || hasLocalOpenHarvestSession}
+        localDataInspected={localDataInspected}
+        syncDocuments={syncDocuments}
+      />
+
       <nav className="nav-tabs" aria-label="Nawigacja glowna">
         {navigationItems.map((item) => {
           const Icon = item.icon;
@@ -837,6 +880,7 @@ export function App({
             deviceId={diagnostics.deviceId}
             env={env}
             isOnline={isOnline}
+            onActiveFormChange={setHasActiveForm}
             onClearLocalAccountData={handleClearLocalAccountData}
             onAuthStateUpdated={setAuthState}
             onInspectLocalData={handleInspectLocalDataBeforeSignOut}
@@ -884,6 +928,8 @@ export function App({
               env={env}
               harvestSessionsApi={harvestSessionsApi}
               isOnline={isOnline}
+              onActiveFormChange={setHasActiveForm}
+              onActiveHarvestSessionChange={setHasActiveHarvestSession}
             />
             <WorkerDirectoryPanel
               authState={authState}
@@ -956,6 +1002,7 @@ function AuthPanel({
   deviceId,
   env,
   isOnline,
+  onActiveFormChange,
   onClearLocalAccountData,
   onAuthStateUpdated,
   onInspectLocalData,
@@ -969,6 +1016,7 @@ function AuthPanel({
   deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
+  onActiveFormChange: (isActive: boolean) => void;
   onClearLocalAccountData: () => Promise<void>;
   onAuthStateUpdated: (state: AuthSessionState) => void;
   onInspectLocalData: () => Promise<readonly SyncDocumentMetadataInput[]>;
@@ -997,6 +1045,22 @@ function AuthPanel({
     authState.status === "CONFIGURATION_REQUIRED" ||
     authState.status === "ERROR" ||
     authState.status === "LOADING";
+  const hasActiveAuthForm =
+    !hasAuthenticatedUser(authState) &&
+    (mode !== "login" ||
+      email.length > 0 ||
+      displayName.length > 0 ||
+      password.length > 0 ||
+      passwordConfirmation.length > 0 ||
+      acceptsPrerelease);
+
+  useEffect(() => {
+    onActiveFormChange(hasActiveAuthForm);
+
+    return () => {
+      onActiveFormChange(false);
+    };
+  }, [hasActiveAuthForm, onActiveFormChange]);
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();

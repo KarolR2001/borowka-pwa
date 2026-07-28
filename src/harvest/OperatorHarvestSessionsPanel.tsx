@@ -190,12 +190,16 @@ export function OperatorHarvestSessionsPanel({
   authState,
   env,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
-  isOnline
+  isOnline,
+  onActiveFormChange,
+  onActiveHarvestSessionChange
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
   isOnline: boolean;
+  onActiveFormChange?: (isActive: boolean) => void;
+  onActiveHarvestSessionChange?: (isActive: boolean) => void;
 }) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [state, setState] = useState<DashboardState>(initialDashboardState);
@@ -226,7 +230,29 @@ export function OperatorHarvestSessionsPanel({
   const [isCancellingEntry, setIsCancellingEntry] = useState(false);
   const [isReopeningSession, setIsReopeningSession] = useState(false);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
+  const [hasUnsavedFormInteraction, setHasUnsavedFormInteraction] = useState(false);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
+  const hasActiveForm =
+    hasUnsavedFormInteraction ||
+    isEntryFormOpen ||
+    isOpeningSession ||
+    isClosingSession ||
+    isCancellingEntry ||
+    isReopeningSession ||
+    isCancellingSession;
+  const hasActiveHarvestSession = (state.result?.openSessions.length ?? 0) > 0;
+
+  useEffect(() => {
+    onActiveHarvestSessionChange?.(hasActiveHarvestSession);
+  }, [hasActiveHarvestSession, onActiveHarvestSessionChange]);
+
+  useEffect(() => {
+    onActiveFormChange?.(hasActiveForm);
+
+    return () => {
+      onActiveFormChange?.(false);
+    };
+  }, [hasActiveForm, onActiveFormChange]);
 
   useEffect(() => {
     let isMounted = true;
@@ -239,6 +265,7 @@ export function OperatorHarvestSessionsPanel({
       setCancelEntryDraft({ entryId: "", reason: "" });
       setSessionFeedback(null);
       setSessionError(null);
+      setHasUnsavedFormInteraction(false);
       return undefined;
     }
 
@@ -420,6 +447,7 @@ export function OperatorHarvestSessionsPanel({
       });
 
       setOpenFeedback(result.message);
+      setHasUnsavedFormInteraction(false);
       setOpenDraft((current) => ({
         ...current,
         note: "",
@@ -513,6 +541,7 @@ export function OperatorHarvestSessionsPanel({
       });
 
       setSessionFeedback(result.message);
+      setHasUnsavedFormInteraction(false);
       setCancelEntryDraft({
         entryId: "",
         reason: ""
@@ -571,6 +600,7 @@ export function OperatorHarvestSessionsPanel({
       });
 
       setSessionFeedback(result.message);
+      setHasUnsavedFormInteraction(false);
       setIsEntryFormOpen(false);
       setSelectedSessionId(result.selectedSessionId);
       await reload(result.selectedSessionId);
@@ -765,7 +795,13 @@ export function OperatorHarvestSessionsPanel({
     null;
 
   return (
-    <section className="operator-sessions" aria-label="Sesje zbioru operatora">
+    <section
+      className="operator-sessions"
+      aria-label="Sesje zbioru operatora"
+      onChange={() => {
+        setHasUnsavedFormInteraction(true);
+      }}
+    >
       <div className="directory-header">
         <div>
           <p className="eyebrow">Sesje online</p>

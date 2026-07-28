@@ -159,3 +159,6 @@ Stage 6.20 offline storage health contract is maintained in
 
 Stage 6.21 safe sign-out contract is maintained in
 `docs/domain/safe-sign-out.md`.
+
+Stage 6.22 safe PWA update contract is maintained in
+`docs/domain/pwa-update-safety.md`.
