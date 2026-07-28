@@ -9,6 +9,7 @@ import type { UserProfile } from "../../src/domain/identity";
 import { cancelPayment } from "../../src/payments/paymentCancellation";
 import type { PreparedPaymentConfirmation } from "../../src/payments/paymentConfirmation";
 import { createPayment } from "../../src/payments/paymentWrite";
+import { buildPickerDashboard } from "../../src/picker/pickerDashboard";
 
 const projectId = "demo-borowka-pwa-payment-write";
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -37,6 +38,17 @@ const secondAdminProfile: UserProfile = {
   displayName: "Second Admin Payment",
   email: "admin-payment-2@example.test",
   uid: "admin-payment-2"
+};
+
+const pickerProfile: UserProfile = {
+  active: true,
+  displayName: "Anna Konto",
+  email: "anna@example.test",
+  offlineConsent: false,
+  registrationStatus: "APPROVED",
+  role: "PICKER",
+  uid: "picker-anna",
+  workerId: "worker-1"
 };
 
 const confirmation: PreparedPaymentConfirmation = {
@@ -312,7 +324,78 @@ async function expectSinglePaymentEvidence(
       revision: 3,
       status: "PAID"
     });
+
+    const dashboard = buildPickerDashboard({
+      actorProfile: pickerProfile,
+      dataSource: "SERVER",
+      paymentDocuments: payments.docs.map((snapshot) => ({
+        data: snapshot.data(),
+        id: snapshot.id
+      })),
+      refreshedAtIso: "2026-07-28T20:00:00.000Z",
+      seasonDocuments: [seasonDocument()],
+      selectedSeasonId: "season-1",
+      sessionDocuments: [
+        {
+          data: session.data(),
+          id: session.id
+        }
+      ],
+      workerDocument: workerDocument()
+    });
+    expect(dashboard).toMatchObject({
+      accruedAmountGrosz: 1000,
+      paidAmountGrosz: 1000,
+      remainingAmountGrosz: 0,
+      sessionCounts: {
+        closed: 0,
+        open: 0,
+        paid: 1
+      }
+    });
   });
+}
+
+function seasonDocument() {
+  return {
+    id: "season-1",
+    data: {
+      closedAt: null,
+      closedBy: null,
+      createdAt: "2026-06-01T00:00:00.000Z",
+      createdBy: "admin-payment",
+      endDate: "2026-09-30",
+      id: "season-1",
+      isDefault: true,
+      name: "Sezon 2026",
+      reopenedAt: null,
+      startDate: "2026-07-01",
+      status: "OPEN"
+    }
+  };
+}
+
+function workerDocument() {
+  return {
+    id: "worker-1",
+    data: {
+      active: true,
+      archivedAt: null,
+      createdAt: "2026-06-01T00:00:00.000Z",
+      createdBy: "admin-payment",
+      currentPlanId: "plan-1",
+      currentRateVersionId: "rate-1",
+      displayName: "Anna",
+      emailContact: null,
+      id: "worker-1",
+      legacyName: null,
+      linkedUserUid: pickerProfile.uid,
+      normalizedName: "anna",
+      notes: null,
+      phone: null,
+      updatedAt: "2026-06-01T00:00:00.000Z"
+    }
+  };
 }
 
 function closedSession() {
