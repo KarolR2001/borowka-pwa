@@ -7,6 +7,7 @@ import {
   listHarvestQueryDefinitions,
   openHarvestSessionsQuery,
   operatorCreatedHarvestSessionsQuery,
+  pickerOwnHarvestEntriesForSessionQuery,
   pickerOwnHarvestSessionsQuery,
   reviewRequiredHarvestSessionsQuery,
   todayHarvestSessionsQuery
@@ -21,6 +22,7 @@ describe("harvest query contract", () => {
       "harvestSessionsForSeason",
       "harvestSessionsByStatus",
       "harvestEntriesForSession",
+      "pickerOwnHarvestEntriesForSession",
       "pickerOwnHarvestSessions",
       "operatorCreatedHarvestSessions",
       "reviewRequiredHarvestSessions"
@@ -82,6 +84,15 @@ describe("harvest query contract", () => {
       listenerScope: "SESSION_DETAIL_ENTRIES"
     });
     expect(
+      pickerOwnHarvestEntriesForSessionQuery(" worker-1 ", " session-1 ")
+    ).toMatchObject({
+      filters: [
+        { fieldPath: "workerId", op: "==", value: "worker-1" },
+        { fieldPath: "sessionId", op: "==", value: "session-1" }
+      ],
+      orderBy: [{ fieldPath: "sequenceNumber", direction: "ASCENDING" }]
+    });
+    expect(
       listHarvestQueryDefinitions()
         .filter((definition) => definition.collection === "harvestEntries")
         .every((definition) =>
@@ -100,7 +111,7 @@ describe("harvest query contract", () => {
         indexedQueryIds.has(definition.id)
       )
     ).toBe(true);
-    expect(HARVEST_QUERY_INDEX_REQUIREMENTS).toHaveLength(7);
+    expect(HARVEST_QUERY_INDEX_REQUIREMENTS).toHaveLength(8);
   });
 
   it("rejects unsafe query inputs", () => {

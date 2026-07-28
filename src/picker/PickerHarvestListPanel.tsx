@@ -1,4 +1,4 @@
-import { CloudOff, Eye, RefreshCw, UserRound, X } from "lucide-react";
+import { CloudOff, Eye, RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -18,6 +18,10 @@ import {
   type PickerHarvestListItem,
   type PickerHarvestListResult
 } from "./pickerHarvestList";
+import {
+  PickerSessionDetailsPanel,
+  type PickerSessionDetailsApi
+} from "./PickerSessionDetailsPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -47,12 +51,14 @@ export function PickerHarvestListPanel({
   env,
   isOnline,
   pickerHarvestListApi = defaultPickerHarvestListApi,
+  pickerSessionDetailsApi,
   syncDocuments
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
   pickerHarvestListApi?: PickerHarvestListApi;
+  pickerSessionDetailsApi?: PickerSessionDetailsApi;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [state, setState] = useState<ListState>(initialState);
@@ -61,6 +67,7 @@ export function PickerHarvestListPanel({
   );
   const [reloadKey, setReloadKey] = useState(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [reportSessionId, setReportSessionId] = useState<string | null>(null);
   const isPicker =
     authState.status === "READY" &&
     authState.profile.role === "PICKER" &&
@@ -175,12 +182,23 @@ export function PickerHarvestListPanel({
         </p>
       ) : null}
       {selectedItem ? (
-        <HarvestSessionPreview
-          item={selectedItem}
+        <PickerSessionDetailsPanel
+          authState={authState}
+          detailsApi={pickerSessionDetailsApi}
+          env={env}
+          isOnline={isOnline}
           onClose={() => {
             setSelectedSessionId(null);
+            setReportSessionId(null);
           }}
+          onReportIssue={setReportSessionId}
+          sessionId={selectedItem.sessionId}
         />
+      ) : null}
+      {reportSessionId ? (
+        <p className="form-message form-message--ok">
+          Sesja zostala wybrana do zgloszenia niezgodnosci.
+        </p>
       ) : null}
       {state.status === "LOADING" && !state.result ? (
         <p className="empty-state">Pobieranie wlasnych sesji zbioru.</p>
@@ -189,7 +207,13 @@ export function PickerHarvestListPanel({
         <p className="empty-state">Brak sesji spelniajacych wybrane filtry.</p>
       ) : null}
       {filteredItems.length > 0 ? (
-        <HarvestTable items={filteredItems} onOpen={setSelectedSessionId} />
+        <HarvestTable
+          items={filteredItems}
+          onOpen={(sessionId) => {
+            setReportSessionId(null);
+            setSelectedSessionId(sessionId);
+          }}
+        />
       ) : null}
     </section>
   );
@@ -336,63 +360,6 @@ function HarvestTable({
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function HarvestSessionPreview({
-  item,
-  onClose
-}: {
-  item: PickerHarvestListItem;
-  onClose: () => void;
-}) {
-  return (
-    <section
-      className="picker-session-preview"
-      aria-labelledby="picker-session-preview-title"
-    >
-      <header>
-        <div>
-          <p className="eyebrow">{item.seasonName}</p>
-          <h3 id="picker-session-preview-title">
-            Sesja z {formatBusinessDate(item.businessDate)}
-          </h3>
-        </div>
-        <button
-          aria-label="Zamknij podglad sesji"
-          className="secondary-button icon-button"
-          onClick={onClose}
-          title="Zamknij podglad sesji"
-          type="button"
-        >
-          <X aria-hidden="true" size={18} />
-        </button>
-      </header>
-      <dl>
-        <PreviewFact label="Plan" value={item.planName} />
-        <PreviewFact label="Wpisy" value={String(item.totalEntryCount)} />
-        <PreviewFact label="Masa" value={formatKilograms(item.totalWeightG)} />
-        <PreviewFact
-          label="Naliczenie"
-          value={
-            item.amountDueGrosz === null
-              ? "Brak oficjalnej kwoty"
-              : formatMoney(item.amountDueGrosz)
-          }
-        />
-        <PreviewFact label="Status" value={harvestSessionStatusLabel(item.status)} />
-        <PreviewFact label="ID sesji" value={item.sessionId} />
-      </dl>
-    </section>
-  );
-}
-
-function PreviewFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
     </div>
   );
 }

@@ -12,6 +12,7 @@ export type HarvestQueryId =
   | "harvestSessionsForSeason"
   | "harvestSessionsByStatus"
   | "harvestEntriesForSession"
+  | "pickerOwnHarvestEntriesForSession"
   | "pickerOwnHarvestSessions"
   | "operatorCreatedHarvestSessions"
   | "reviewRequiredHarvestSessions";
@@ -121,6 +122,15 @@ export const HARVEST_QUERY_INDEX_REQUIREMENTS = [
       { fieldPath: "sequenceNumber", order: "ASCENDING" }
     ],
     queryIds: ["harvestEntriesForSession"]
+  },
+  {
+    collectionGroup: HARVEST_ENTRIES_COLLECTION,
+    fields: [
+      { fieldPath: "workerId", order: "ASCENDING" },
+      { fieldPath: "sessionId", order: "ASCENDING" },
+      { fieldPath: "sequenceNumber", order: "ASCENDING" }
+    ],
+    queryIds: ["pickerOwnHarvestEntriesForSession"]
   }
 ] as const satisfies readonly HarvestQueryIndexRequirement[];
 
@@ -219,6 +229,24 @@ export function harvestEntriesForSessionQuery(
   });
 }
 
+export function pickerOwnHarvestEntriesForSessionQuery(
+  workerId: string,
+  sessionId: string,
+  limit = DEFAULT_ENTRY_LIST_LIMIT
+): HarvestQueryDefinition {
+  return queryDefinition({
+    id: "pickerOwnHarvestEntriesForSession",
+    collection: HARVEST_ENTRIES_COLLECTION,
+    filters: [
+      { fieldPath: "workerId", op: "==", value: normalizeId(workerId) },
+      { fieldPath: "sessionId", op: "==", value: normalizeId(sessionId) }
+    ],
+    orderBy: [{ fieldPath: "sequenceNumber", direction: "ASCENDING" }],
+    defaultLimit: normalizeLimit(limit),
+    listenerScope: "SESSION_DETAIL_ENTRIES"
+  });
+}
+
 export function pickerOwnHarvestSessionsQuery(
   workerId: string,
   limit = DEFAULT_SESSION_LIST_LIMIT
@@ -272,6 +300,7 @@ export function listHarvestQueryDefinitions(): HarvestQueryDefinition[] {
     harvestSessionsForSeasonQuery("season-2026-test"),
     harvestSessionsByStatusQuery("CLOSED"),
     harvestEntriesForSessionQuery("session-1"),
+    pickerOwnHarvestEntriesForSessionQuery("worker-anna-test", "session-1"),
     pickerOwnHarvestSessionsQuery("worker-anna-test"),
     operatorCreatedHarvestSessionsQuery("operator-1"),
     reviewRequiredHarvestSessionsQuery()

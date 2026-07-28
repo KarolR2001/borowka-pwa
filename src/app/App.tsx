@@ -142,6 +142,10 @@ import {
   type PickerHarvestListApi
 } from "../picker/PickerHarvestListPanel";
 import { PickerWorkspacePanel } from "../picker/PickerWorkspacePanel";
+import {
+  defaultPickerSessionDetailsApi,
+  type PickerSessionDetailsApi
+} from "../picker/PickerSessionDetailsPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -189,6 +193,7 @@ export type AppProps = {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
+  pickerSessionDetailsApi?: PickerSessionDetailsApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
@@ -267,6 +272,7 @@ export function App({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerHarvestListApi = defaultPickerHarvestListApi,
+  pickerSessionDetailsApi = defaultPickerSessionDetailsApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
@@ -1001,6 +1007,7 @@ export function App({
             isOnline={isOnline}
             pickerDashboardApi={pickerDashboardApi}
             pickerHarvestListApi={pickerHarvestListApi}
+            pickerSessionDetailsApi={pickerSessionDetailsApi}
             syncDocuments={syncDocuments}
           />
         ) : null}

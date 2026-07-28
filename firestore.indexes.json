@@ -269,6 +269,24 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "harvestEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sessionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sequenceNumber",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
