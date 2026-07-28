@@ -1,8 +1,10 @@
 import {
   AUTOMATIC_SYNC_REOPEN_INSTRUCTION,
+  createFirestoreSynchronizationApi,
   createSynchronizationRequest,
   evaluateSynchronizationTrigger
 } from "./automaticSynchronization";
+import { createMemoryFirestoreSyncJournal } from "./firestoreSyncJournal";
 
 describe("automatic synchronization trigger policy", () => {
   it("starts automatic synchronization when the app is open, online and local data exists", () => {
@@ -114,5 +116,79 @@ describe("automatic synchronization trigger policy", () => {
       userRole: "OPERATOR",
       userUid: "operator-1"
     });
+  });
+
+  it("preserves 100 entries through two interrupted long-offline retries", async () => {
+    const journal = createMemoryFirestoreSyncJournal();
+    const account = {
+      deviceId: "device-long-offline",
+      userUid: "operator-long-offline"
+    };
+
+    for (let sessionIndex = 0; sessionIndex < 4; sessionIndex += 1) {
+      const sessionId = `session-${String(sessionIndex + 1)}`;
+
+      await journal.put({
+        ...account,
+        id: sessionId,
+        kind: "HARVEST_SESSION",
+        localSnapshot: {
+          id: sessionId,
+          status: sessionIndex < 2 ? "CLOSED" : "OPEN"
+        },
+        sessionId,
+        businessStatus: sessionIndex < 2 ? "CLOSED" : "OPEN"
+      });
+
+      for (let entryIndex = 0; entryIndex < 25; entryIndex += 1) {
+        const id = `${sessionId}-entry-${String(entryIndex + 1)}`;
+
+        await journal.put({
+          ...account,
+          id,
+          kind: "HARVEST_ENTRY",
+          localSnapshot: {
+            id,
+            quantityMilli: 1000,
+            weightG: 1000
+          },
+          sessionId
+        });
+      }
+    }
+
+    const flushPendingWrites = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("Slaba siec: przerwanie 1."))
+      .mockRejectedValueOnce(new Error("Slaba siec: przerwanie 2."))
+      .mockResolvedValue(undefined);
+    const confirmRecordOnServer = vi.fn().mockResolvedValue(true);
+    const api = createFirestoreSynchronizationApi(journal, {
+      flushPendingWrites,
+      confirmRecordOnServer,
+      now: () => new Date("2026-07-17T08:00:00.000Z")
+    });
+    const request = createSynchronizationRequest({
+      ...account,
+      pendingDocumentCount: 104,
+      requestedAtIso: "2026-07-17T02:00:00.000Z",
+      trigger: "MANUAL_RETRY",
+      userRole: "OPERATOR"
+    });
+
+    expect((await api.synchronize({}, request)).status).toBe("FAILED");
+    expect(await journal.list(account)).toHaveLength(104);
+    expect((await api.synchronize({}, request)).status).toBe("FAILED");
+    expect(await journal.list(account)).toHaveLength(104);
+
+    const recovered = await api.synchronize({}, request);
+
+    expect(recovered).toMatchObject({
+      status: "SUCCESS",
+      finishedAtIso: "2026-07-17T08:00:00.000Z"
+    });
+    expect(await journal.list(account)).toEqual([]);
+    expect(flushPendingWrites).toHaveBeenCalledTimes(3);
+    expect(confirmRecordOnServer).toHaveBeenCalledTimes(104);
   });
 });

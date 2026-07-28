@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 6.25: pakiet
-  `6.26 - obowiazkowe scenariusze OFF-T01-OFF-T06`.
+- Aktualny kierunek po pakiecie 6.26: pakiet
+  `6.27 - test dlugiego offline`.
 
 ## Testowanie i walidacja
 
@@ -130,12 +130,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `6.25` scalony do `main` w commicie
-  `6ef06b0`.
+- Punkt startowy tego przyrostu: pakiet `6.26` scalony do `main` w commicie
+  `2f8d776`.
 - Aktualna galaz realizuje pakiet
-  `6.26 - obowiazkowe scenariusze OFF-T01-OFF-T06`.
+  `6.27 - test dlugiego offline`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 6.26 nastepny pakiet to
-  `6.27 - test dlugiego offline`.
+- Po zakonczeniu 6.27 nastepny pakiet to
+  `6.28 - test aktualizacji bez utraty danych`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

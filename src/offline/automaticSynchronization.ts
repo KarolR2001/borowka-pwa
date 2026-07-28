@@ -88,8 +88,18 @@ export type SynchronizationApi = {
   ) => Promise<SynchronizationRunResult>;
 };
 
+export type FirestoreSynchronizationDependencies = {
+  confirmRecordOnServer?: (
+    env: FirebaseEnv,
+    record: SyncJournalRecord
+  ) => Promise<boolean>;
+  flushPendingWrites?: (env: FirebaseEnv) => Promise<void>;
+  now?: () => Date;
+};
+
 export function createFirestoreSynchronizationApi(
-  journal: FirestoreSyncJournal = defaultFirestoreSyncJournal
+  journal: FirestoreSyncJournal = defaultFirestoreSyncJournal,
+  dependencies: FirestoreSynchronizationDependencies = {}
 ): SynchronizationApi {
   return {
     clearLocalData: async (env, input) => {
@@ -100,7 +110,8 @@ export function createFirestoreSynchronizationApi(
     hasLocalData: async (_env, input) => (await journal.list(input)).length > 0,
     listLocalDocuments: async (_env, input) =>
       (await journal.list(input)).map(toSyncDocumentMetadata),
-    synchronize: (env, request) => synchronizeFirestoreJournal(env, request, journal)
+    synchronize: (env, request) =>
+      synchronizeFirestoreJournal(env, request, journal, dependencies)
   };
 }
 
@@ -110,7 +121,8 @@ export const defaultSynchronizationApi: SynchronizationApi =
 async function synchronizeFirestoreJournal(
   env: FirebaseEnv,
   request: SynchronizationRequest,
-  journal: FirestoreSyncJournal
+  journal: FirestoreSyncJournal,
+  dependencies: FirestoreSynchronizationDependencies
 ): Promise<SynchronizationRunResult> {
   const account = {
     deviceId: request.deviceId,
@@ -120,7 +132,7 @@ async function synchronizeFirestoreJournal(
 
   if (before.length === 0) {
     return {
-      finishedAtIso: new Date().toISOString(),
+      finishedAtIso: getNowIso(dependencies),
       message: "Brak lokalnych dokumentow wymagajacych synchronizacji.",
       requestedAtIso: request.requestedAtIso,
       status: "SKIPPED",
@@ -128,20 +140,11 @@ async function synchronizeFirestoreJournal(
     };
   }
 
-  const { firestore } = await getFirebaseServices(env);
-  const { enableNetwork, waitForPendingWrites } = await import("firebase/firestore");
-
-  await enableNetwork(firestore);
-
   try {
-    await withTimeout(
-      waitForPendingWrites(firestore),
-      30_000,
-      "Firestore nie potwierdzil zapisow w wyznaczonym czasie."
-    );
+    await (dependencies.flushPendingWrites ?? flushFirestorePendingWrites)(env);
   } catch (error: unknown) {
     return {
-      finishedAtIso: new Date().toISOString(),
+      finishedAtIso: getNowIso(dependencies),
       message: getSynchronizationFailureMessage(error),
       requestedAtIso: request.requestedAtIso,
       status: "FAILED",
@@ -149,12 +152,18 @@ async function synchronizeFirestoreJournal(
     };
   }
 
-  await reconcileJournalWithServer(env, account, before, journal);
+  await reconcileJournalWithServer(
+    env,
+    account,
+    before,
+    journal,
+    dependencies.confirmRecordOnServer ?? isJournalRecordConfirmedOnServer
+  );
   const remaining = await journal.list(account);
   const rejectedCount = remaining.filter((record) => record.rejectedReason).length;
 
   return {
-    finishedAtIso: new Date().toISOString(),
+    finishedAtIso: getNowIso(dependencies),
     message:
       remaining.length === 0
         ? `Zsynchronizowano ${String(before.length)} lokalnych dokumentow.`
@@ -169,7 +178,8 @@ async function reconcileJournalWithServer(
   env: FirebaseEnv,
   account: SynchronizationAccountQuery,
   records: readonly SyncJournalRecord[],
-  journal: FirestoreSyncJournal
+  journal: FirestoreSyncJournal,
+  confirmRecordOnServer: (env: FirebaseEnv, record: SyncJournalRecord) => Promise<boolean>
 ): Promise<void> {
   const businessRecords = records.filter(
     (record) => record.kind === "HARVEST_SESSION" || record.kind === "HARVEST_ENTRY"
@@ -178,7 +188,7 @@ async function reconcileJournalWithServer(
 
   for (const record of businessRecords) {
     try {
-      if (await isJournalRecordConfirmedOnServer(env, record)) {
+      if (await confirmRecordOnServer(env, record)) {
         await journal.removeIfCurrent(account, record.kind, record.id, record.writeId);
       } else {
         hasRejectedBusinessRecord = true;
@@ -215,6 +225,22 @@ async function reconcileJournalWithServer(
       await journal.removeIfCurrent(account, record.kind, record.id, record.writeId);
     }
   }
+}
+
+async function flushFirestorePendingWrites(env: FirebaseEnv): Promise<void> {
+  const { firestore } = await getFirebaseServices(env);
+  const { enableNetwork, waitForPendingWrites } = await import("firebase/firestore");
+
+  await enableNetwork(firestore);
+  await withTimeout(
+    waitForPendingWrites(firestore),
+    30_000,
+    "Firestore nie potwierdzil zapisow w wyznaczonym czasie."
+  );
+}
+
+function getNowIso(dependencies: FirestoreSynchronizationDependencies): string {
+  return (dependencies.now?.() ?? new Date()).toISOString();
 }
 
 async function isJournalRecordConfirmedOnServer(

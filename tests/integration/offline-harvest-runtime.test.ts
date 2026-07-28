@@ -362,7 +362,7 @@ describe("offline harvest Firestore runtime", () => {
     expect(await countDocumentsWithoutRules("auditEvents")).toBe(2);
   }, 30_000);
 
-  it("synchronizes OFF-T05 with three sessions and twenty-four unique entries", async () => {
+  it("synchronizes a long OFF-T05 run with four sessions and one hundred entries", async () => {
     if (!testEnvironment) {
       throw new Error("Rules test environment was not initialized.");
     }
@@ -386,7 +386,7 @@ describe("offline harvest Firestore runtime", () => {
     const sessionIds: string[] = [];
     const entryIds: string[] = [];
 
-    for (let sessionIndex = 0; sessionIndex < 3; sessionIndex += 1) {
+    for (let sessionIndex = 0; sessionIndex < 4; sessionIndex += 1) {
       const opened = await openHarvestSessionOffline(
         {},
         {
@@ -410,7 +410,7 @@ describe("offline harvest Firestore runtime", () => {
 
       sessionIds.push(opened.session.id);
 
-      for (let entryIndex = 0; entryIndex < 8; entryIndex += 1) {
+      for (let entryIndex = 0; entryIndex < 25; entryIndex += 1) {
         const entry = await addHarvestEntryOffline(
           {},
           {
@@ -427,25 +427,31 @@ describe("offline harvest Firestore runtime", () => {
         entryIds.push(entry.entry.id);
       }
 
-      await closeHarvestSessionOffline(
-        {},
-        {
-          actorProfile: operatorProfile,
-          sessionId: opened.session.id,
-          confirmationAccepted: true,
-          isOnline: false,
-          deviceId
-        },
-        { journal }
-      );
+      if (sessionIndex < 2) {
+        await closeHarvestSessionOffline(
+          {},
+          {
+            actorProfile: operatorProfile,
+            sessionId: opened.session.id,
+            confirmationAccepted: true,
+            isOnline: false,
+            deviceId
+          },
+          { journal }
+        );
+      }
     }
 
     const pending = await journal.list({
       deviceId,
       userUid: operatorProfile.uid
     });
+
+    expect(pending).toHaveLength(210);
+
+    const restartedJournal = createMemoryFirestoreSyncJournal(pending);
     const synchronizationResult = await createFirestoreSynchronizationApi(
-      journal
+      restartedJournal
     ).synchronize(
       {},
       createSynchronizationRequest({
@@ -463,22 +469,37 @@ describe("offline harvest Firestore runtime", () => {
     const serverEntries = await getDocs(collection(operatorFirestore, "harvestEntries"));
 
     expect(synchronizationResult.status).toBe("SUCCESS");
-    expect(new Set(sessionIds).size).toBe(3);
-    expect(new Set(entryIds).size).toBe(24);
+    expect(new Set(sessionIds).size).toBe(4);
+    expect(new Set(entryIds).size).toBe(100);
     expect(
       serverSessions.docs.filter((session) => sessionIds.includes(session.id))
-    ).toHaveLength(3);
+    ).toHaveLength(4);
     expect(
       serverEntries.docs.filter((entry) => entryIds.includes(entry.id))
-    ).toHaveLength(24);
-    expect(await countDocumentsWithoutRules("auditEvents")).toBe(30);
+    ).toHaveLength(100);
     expect(
-      await journal.list({
+      serverSessions.docs.filter(
+        (session) => sessionIds.includes(session.id) && session.data().status === "CLOSED"
+      )
+    ).toHaveLength(2);
+    expect(
+      serverSessions.docs.filter(
+        (session) => sessionIds.includes(session.id) && session.data().status === "OPEN"
+      )
+    ).toHaveLength(2);
+    expect(
+      serverEntries.docs
+        .filter((entry) => entryIds.includes(entry.id))
+        .reduce((sum, entry) => sum + Number(entry.data().quantityMilli), 0)
+    ).toBe(100_000);
+    expect(await countDocumentsWithoutRules("auditEvents")).toBe(106);
+    expect(
+      await restartedJournal.list({
         deviceId,
         userUid: operatorProfile.uid
       })
     ).toEqual([]);
-  }, 60_000);
+  }, 120_000);
 });
 
 async function seedServerConfiguration(): Promise<void> {
