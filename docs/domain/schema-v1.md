@@ -147,3 +147,6 @@ Stage 6.16 archived configuration conflict contract is maintained in
 
 Stage 6.17 two device harvest conflict contract is maintained in
 `docs/domain/device-conflict.md`.
+
+Stage 6.18 blocked account with pending local data contract is maintained in
+`docs/domain/blocked-account-pending-data.md`.

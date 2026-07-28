@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import type { ServiceWorkerStatus } from "../app/useServiceWorkerStatus";
 import {
+  evaluateBlockedAccountPendingData,
+  type BlockedAccountPendingDataAdminHandoff
+} from "./blockedAccountPendingData";
+import {
   clearConfigurationCache,
   prepareConfigurationCache,
   readConfigurationCache,
@@ -130,6 +134,14 @@ export function ConfigurationCachePanel({
   const syncErrorMessage =
     lastSyncError ?? syncCenterModel.sessions[0]?.lastError ?? null;
   const accountReconfirmationRequired = authStateRequiresOfflineReconfirmation(authState);
+  const blockedAccountPendingData =
+    authState.status === "BLOCKED"
+      ? evaluateBlockedAccountPendingData({
+          currentDeviceId: deviceId,
+          model: syncCenterModel,
+          profile: authState.profile
+        })
+      : null;
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -340,6 +352,23 @@ export function ConfigurationCachePanel({
   };
 
   if (authState.status !== "READY") {
+    if (blockedAccountPendingData?.status === "BLOCKED_ACCOUNT_PENDING_DATA") {
+      return (
+        <section className="configuration-cache" aria-label="Centrum synchronizacji">
+          <BlockedAccountPendingDataNotice
+            handoff={blockedAccountPendingData.adminHandoff}
+            isExporting={isExporting}
+            message={blockedAccountPendingData.message}
+            onEmergencyExport={() => {
+              void handleEmergencyExport();
+            }}
+          />
+          {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+          {error ? <p className="form-message form-message--error">{error}</p> : null}
+        </section>
+      );
+    }
+
     return (
       <section className="configuration-cache" aria-label="Centrum synchronizacji">
         <CacheNotice
@@ -538,6 +567,51 @@ export function ConfigurationCachePanel({
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
     </section>
+  );
+}
+
+function BlockedAccountPendingDataNotice({
+  handoff,
+  isExporting,
+  message,
+  onEmergencyExport
+}: {
+  handoff: BlockedAccountPendingDataAdminHandoff;
+  isExporting: boolean;
+  message: string;
+  onEmergencyExport: () => void;
+}) {
+  return (
+    <div className="configuration-cache__sync" aria-label="Zablokowane konto">
+      <div className="worker-rate-form__heading">
+        <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+        <h3>Konto zablokowane, dane lokalne zachowane</h3>
+      </div>
+      <p className="panel-detail">{message}</p>
+      <div className="configuration-cache__sync-summary">
+        <CacheStat label="Urzadzenie" tone="warn" value={handoff.deviceId} />
+        <CacheStat
+          label="Dokumenty lokalne"
+          tone="warn"
+          value={String(handoff.pendingDocumentCount)}
+        />
+        <CacheStat
+          label="Sesje dla administratora"
+          tone="warn"
+          value={handoff.sessionIds.join(", ")}
+        />
+        <CacheStat label="Konto" tone="warn" value={handoff.email} />
+      </div>
+      <button
+        className="secondary-action"
+        disabled={isExporting}
+        onClick={onEmergencyExport}
+        type="button"
+      >
+        <Download aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>{isExporting ? "Eksport..." : "Eksport awaryjny"}</span>
+      </button>
+    </div>
   );
 }
 

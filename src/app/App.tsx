@@ -446,7 +446,9 @@ export function App({
   useEffect(() => {
     if (authState.status !== "READY") {
       lastReadySyncUidRef.current = null;
-      setSyncDocuments([]);
+      if (authState.status !== "BLOCKED") {
+        setSyncDocuments([]);
+      }
       return;
     }
 
