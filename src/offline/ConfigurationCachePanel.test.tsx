@@ -51,6 +51,30 @@ const profileUnavailableState: AuthSessionState = {
   }
 };
 
+const blockedOperatorState: AuthSessionState = {
+  status: "BLOCKED",
+  message: "Konto jest zablokowane.",
+  user: {
+    uid: "operator-1",
+    email: "operator@example.test",
+    displayName: null
+  },
+  profile: {
+    uid: "operator-1",
+    email: "operator@example.test",
+    displayName: "Operator Test",
+    role: "OPERATOR",
+    workerId: null,
+    active: false,
+    registrationStatus: "BLOCKED",
+    offlineConsent: true
+  },
+  access: {
+    status: "BLOCKED",
+    reason: "Konto jest zablokowane."
+  }
+};
+
 const readyReadiness: ConfigurationCacheReadiness = {
   status: "READY",
   missingRequirements: [],
@@ -227,6 +251,68 @@ describe("ConfigurationCachePanel", () => {
 
     expect(screen.getByText("Wymagane ponowne potwierdzenie konta")).toBeInTheDocument();
     expect(screen.getByText("Nie udalo sie potwierdzic profilu.")).toBeInTheDocument();
+  });
+
+  it("keeps emergency export available when a blocked account has pending local data", async () => {
+    const user = userEvent.setup();
+    const onEmergencyExport = vi
+      .fn<(payload: EmergencySyncExportPayload) => Promise<void>>()
+      .mockResolvedValue(undefined);
+
+    render(
+      <ConfigurationCachePanel
+        authState={blockedOperatorState}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        onEmergencyExport={onEmergencyExport}
+        onRetrySync={vi.fn()}
+        serviceWorkerStatus="registered"
+        syncDocuments={[
+          {
+            id: "session-pending",
+            kind: "HARVEST_SESSION",
+            workerName: "Anna Test",
+            businessDate: "2026-07-17",
+            businessStatus: "OPEN",
+            pendingSync: true
+          },
+          {
+            id: "entry-rejected",
+            kind: "HARVEST_ENTRY",
+            sessionId: "session-pending",
+            workerName: "Anna Test",
+            businessDate: "2026-07-17",
+            businessStatus: "OPEN",
+            rejectedReason: "permission-denied: Konto jest zablokowane."
+          }
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByText("Konto zablokowane, dane lokalne zachowane")
+    ).toBeInTheDocument();
+    expect(screen.getByText("session-pending")).toBeInTheDocument();
+    expect(screen.getByText("operator@example.test")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Synchronizuj teraz" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Eksport awaryjny" }));
+
+    expect(onEmergencyExport).toHaveBeenCalledTimes(1);
+    expect(onEmergencyExport.mock.calls[0]?.[0]).toMatchObject({
+      deviceId: "device-1",
+      summary: {
+        pendingSyncCount: 1,
+        rejectedCount: 1
+      },
+      sessions: [
+        {
+          sessionId: "session-pending",
+          pendingDocumentCount: 2
+        }
+      ]
+    });
   });
 
   it("shows missing consent before offline preparation", async () => {
