@@ -162,6 +162,194 @@ describe("picker dashboard", () => {
     });
   });
 
+  it("does not accrue an OPEN session and accrues a CLOSED session as outstanding", () => {
+    const openResult = dashboardFor({
+      sessions: [
+        sessionDocument("session-status", {
+          amountDueGrosz: null,
+          status: "OPEN"
+        })
+      ]
+    });
+    const closedResult = dashboardFor({
+      sessions: [
+        sessionDocument("session-status", {
+          amountDueGrosz: 4500,
+          status: "CLOSED"
+        })
+      ]
+    });
+
+    expect(openResult).toMatchObject({
+      accruedAmountGrosz: 0,
+      paidAmountGrosz: 0,
+      remainingAmountGrosz: 0
+    });
+    expect(closedResult).toMatchObject({
+      accruedAmountGrosz: 4500,
+      paidAmountGrosz: 0,
+      remainingAmountGrosz: 4500
+    });
+  });
+
+  it("moves a PAID session amount between paid and outstanding when payment is cancelled", () => {
+    const sessions = [
+      sessionDocument("session-paid", {
+        amountDueGrosz: 6000,
+        paymentId: "session-paid--payment-r3",
+        status: "PAID"
+      })
+    ];
+    const activeResult = dashboardFor({
+      payments: [
+        paymentDocument("session-paid--payment-r3", {
+          amountGrosz: 6000,
+          sessionId: "session-paid",
+          status: "ACTIVE"
+        })
+      ],
+      sessions
+    });
+    const cancelledResult = dashboardFor({
+      payments: [
+        paymentDocument("session-paid--payment-r3", {
+          amountGrosz: 6000,
+          cancellationReason: "Korekta",
+          cancelledAt: "2026-07-29T10:00:00.000Z",
+          cancelledBy: "admin-1",
+          sessionId: "session-paid",
+          status: "CANCELLED"
+        })
+      ],
+      sessions: [
+        sessionDocument("session-paid", {
+          amountDueGrosz: 6000,
+          status: "CLOSED"
+        })
+      ]
+    });
+
+    expect(activeResult).toMatchObject({
+      accruedAmountGrosz: 6000,
+      paidAmountGrosz: 6000,
+      remainingAmountGrosz: 0
+    });
+    expect(cancelledResult).toMatchObject({
+      accruedAmountGrosz: 6000,
+      paidAmountGrosz: 0,
+      remainingAmountGrosz: 6000
+    });
+  });
+
+  it("excludes CANCELLED sessions and sessions from another season", () => {
+    const result = dashboardFor({
+      sessions: [
+        sessionDocument("session-current", {
+          amountDueGrosz: 2500,
+          status: "CLOSED"
+        }),
+        sessionDocument("session-cancelled", {
+          amountDueGrosz: 7000,
+          status: "CANCELLED"
+        }),
+        sessionDocument("session-other-season", {
+          amountDueGrosz: 9000,
+          seasonId: "season-2025",
+          status: "CLOSED"
+        })
+      ]
+    });
+
+    expect(result).toMatchObject({
+      accruedAmountGrosz: 2500,
+      remainingAmountGrosz: 2500,
+      sessionCounts: {
+        closed: 1,
+        open: 0,
+        paid: 0
+      }
+    });
+  });
+
+  it("keeps different quantity units separate even for the same plan", () => {
+    const result = dashboardFor({
+      sessions: [
+        sessionDocument("session-crates", {
+          amountDueGrosz: 1000,
+          calculationBasisSnapshot: "QUANTITY",
+          planIdSnapshot: "plan-piecework",
+          planNameSnapshot: "Akord",
+          status: "CLOSED",
+          totalQuantityMilli: 2000,
+          unitLabelPluralSnapshot: "skrzynki",
+          unitLabelSnapshot: "skrzynka"
+        }),
+        sessionDocument("session-baskets", {
+          amountDueGrosz: 1500,
+          calculationBasisSnapshot: "QUANTITY",
+          planIdSnapshot: "plan-piecework",
+          planNameSnapshot: "Akord",
+          status: "CLOSED",
+          totalQuantityMilli: 3000,
+          unitLabelPluralSnapshot: "ubianki",
+          unitLabelSnapshot: "ubianka"
+        })
+      ]
+    });
+
+    expect(result.quantities).toHaveLength(2);
+    expect(
+      result.quantities.map(({ totalQuantityMilli, unitLabelPlural }) => ({
+        totalQuantityMilli,
+        unitLabelPlural
+      }))
+    ).toEqual([
+      {
+        totalQuantityMilli: 2000,
+        unitLabelPlural: "skrzynki"
+      },
+      {
+        totalQuantityMilli: 3000,
+        unitLabelPlural: "ubianki"
+      }
+    ]);
+  });
+
+  it("uses the stored historical amount for an imported session", () => {
+    const result = dashboardFor({
+      sessions: [
+        sessionDocument("session-imported", {
+          amountDueGrosz: 12_345,
+          legacyImport: true,
+          legacySourceRows: ["Arkusz1:42"],
+          rateGroszSnapshot: 1000,
+          status: "CLOSED",
+          totalQuantityMilli: 1000
+        })
+      ]
+    });
+
+    expect(result).toMatchObject({
+      accruedAmountGrosz: 12_345,
+      remainingAmountGrosz: 12_345
+    });
+  });
+
+  it("rejects an approved picker without workerId instead of returning data", async () => {
+    await expect(
+      loadPickerDashboard(
+        {},
+        {
+          actorProfile: {
+            ...pickerProfile,
+            workerId: null
+          },
+          isOnline: true
+        }
+      )
+    ).rejects.toThrow("Pulpit zbieracza wymaga aktywnego profilu z workerId.");
+  });
+
   it("rejects a profile other than an approved picker before Firebase initialization", async () => {
     await expect(
       loadPickerDashboard(
@@ -178,6 +366,31 @@ describe("picker dashboard", () => {
     ).rejects.toThrow("Pulpit zbieracza wymaga aktywnego profilu z workerId.");
   });
 });
+
+function dashboardFor({
+  payments = [],
+  sessions
+}: {
+  payments?: ReturnType<typeof paymentDocument>[];
+  sessions: ReturnType<typeof sessionDocument>[];
+}) {
+  return buildPickerDashboard({
+    actorProfile: pickerProfile,
+    dataSource: "SERVER",
+    paymentDocuments: payments,
+    refreshedAtIso: "2026-07-28T18:30:00.000Z",
+    seasonDocuments: [
+      seasonDocument("season-2026", { isDefault: true }),
+      seasonDocument("season-2025", {
+        name: "Sezon 2025",
+        startDate: "2025-07-01",
+        status: "CLOSED"
+      })
+    ],
+    sessionDocuments: sessions,
+    workerDocument: workerDocument()
+  });
+}
 
 function seasonDocument(id: string, overrides: Record<string, unknown> = {}) {
   return {
