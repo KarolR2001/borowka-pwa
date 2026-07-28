@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -83,6 +84,46 @@ describe("picker dashboard rules", () => {
     await assertSucceeds(getDocs(collection(pickerDb, "seasons")));
   });
 
+  it("allows picker session details only for own worker and selected session", async () => {
+    await seedDashboard();
+    const pickerDb = authenticatedDb("picker-anna");
+
+    await assertSucceeds(getDoc(doc(pickerDb, "harvestSessions", "session-anna")));
+    await assertSucceeds(getDoc(doc(pickerDb, "payments", "payment-anna")));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(pickerDb, "harvestEntries"),
+          where("workerId", "==", "worker-anna"),
+          where("sessionId", "==", "session-anna"),
+          orderBy("sequenceNumber", "asc")
+        )
+      )
+    );
+
+    await assertFails(
+      getDocs(
+        query(
+          collection(pickerDb, "harvestEntries"),
+          where("sessionId", "==", "session-anna"),
+          orderBy("sequenceNumber", "asc")
+        )
+      )
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(pickerDb, "harvestEntries"),
+          where("workerId", "==", "worker-bartek"),
+          where("sessionId", "==", "session-bartek"),
+          orderBy("sequenceNumber", "asc")
+        )
+      )
+    );
+    await assertFails(getDoc(doc(pickerDb, "harvestSessions", "session-bartek")));
+    await assertFails(getDoc(doc(pickerDb, "payments", "payment-bartek")));
+  });
+
   it("does not grant picker writes and preserves admin access", async () => {
     await seedDashboard();
     const pickerDb = authenticatedDb("picker-anna");
@@ -154,6 +195,16 @@ async function seedDashboard(): Promise<void> {
         workerId: "worker-anna"
       }),
       setDoc(doc(db, "payments", "payment-bartek"), {
+        workerId: "worker-bartek"
+      }),
+      setDoc(doc(db, "harvestEntries", "entry-anna"), {
+        sequenceNumber: 1,
+        sessionId: "session-anna",
+        workerId: "worker-anna"
+      }),
+      setDoc(doc(db, "harvestEntries", "entry-bartek"), {
+        sequenceNumber: 1,
+        sessionId: "session-bartek",
         workerId: "worker-bartek"
       })
     ]);

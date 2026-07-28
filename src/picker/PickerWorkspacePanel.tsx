@@ -8,6 +8,7 @@ import {
   PickerHarvestListPanel,
   type PickerHarvestListApi
 } from "./PickerHarvestListPanel";
+import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 type PickerView = "SUMMARY" | "HARVESTS";
@@ -18,6 +19,7 @@ export function PickerWorkspacePanel({
   isOnline,
   pickerDashboardApi,
   pickerHarvestListApi,
+  pickerSessionDetailsApi,
   syncDocuments
 }: {
   authState: AuthSessionState;
@@ -25,6 +27,7 @@ export function PickerWorkspacePanel({
   isOnline: boolean;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
+  pickerSessionDetailsApi?: PickerSessionDetailsApi;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [activeView, setActiveView] = useState<PickerView>("SUMMARY");
@@ -66,6 +69,7 @@ export function PickerWorkspacePanel({
           env={env}
           isOnline={isOnline}
           pickerHarvestListApi={pickerHarvestListApi}
+          pickerSessionDetailsApi={pickerSessionDetailsApi}
           syncDocuments={syncDocuments}
         />
       )}

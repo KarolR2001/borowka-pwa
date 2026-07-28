@@ -40,6 +40,7 @@ describe("PickerHarvestListPanel", () => {
         env={{}}
         isOnline={false}
         pickerHarvestListApi={{ load }}
+        pickerSessionDetailsApi={{ load: vi.fn().mockResolvedValue(detailsResult()) }}
         syncDocuments={[]}
       />
     );
@@ -55,7 +56,7 @@ describe("PickerHarvestListPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Sesja z 29.07.2026" })
     ).toBeInTheDocument();
-    expect(screen.getByText("session-open")).toBeInTheDocument();
+    expect(screen.getAllByText("W toku").length).toBeGreaterThan(1);
     expect(load).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
@@ -143,6 +144,30 @@ function listResult(): PickerHarvestListResult {
       { id: "season-2026", name: "Sezon 2026" },
       { id: "season-2025", name: "Sezon 2025" }
     ]
+  };
+}
+
+function detailsResult() {
+  return {
+    activeEntryCount: 1,
+    amountDueGrosz: null,
+    businessDate: "2026-07-29",
+    calculationBasis: "QUANTITY" as const,
+    dataSource: "CACHE" as const,
+    entries: [],
+    invalidEntryCount: 0,
+    invalidPayment: false,
+    payment: null,
+    planName: "Za ubianke",
+    quantityPrecision: 1,
+    rateGrosz: 1500,
+    seasonId: "season-2026",
+    sessionId: "session-open",
+    status: "OPEN" as const,
+    totalQuantityMilli: 2000,
+    totalWeightG: 8000,
+    unitLabel: "ubianka",
+    unitLabelPlural: "ubianki"
   };
 }
 
