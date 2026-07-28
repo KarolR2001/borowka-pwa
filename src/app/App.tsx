@@ -6,7 +6,9 @@ import {
   EyeOff,
   LogIn,
   LogOut,
+  RefreshCw,
   RotateCcw,
+  Trash2,
   UserRound,
   Wifi,
   type LucideIcon
@@ -108,6 +110,15 @@ import {
 } from "../offline/automaticSynchronization";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import {
+  defaultOfflineStorageHealthApi,
+  type OfflineStorageHealthApi
+} from "../offline/offlineStorageHealth";
+import {
+  DEVICE_CLEAR_CONFIRMATION,
+  buildSafeSignOutModel,
+  canConfirmDeviceClear
+} from "../offline/safeSignOut";
+import {
   defaultOperatorHarvestSessionsApi,
   OperatorHarvestSessionsPanel,
   type OperatorHarvestSessionsApi
@@ -153,6 +164,7 @@ export type AppProps = {
   registrationInvitationsApi?: RegistrationInvitationsApi;
   configurationCacheApi?: ConfigurationCacheApi;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
+  offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
 
@@ -226,6 +238,7 @@ export function App({
   registrationInvitationsApi = defaultRegistrationInvitationsApi,
   configurationCacheApi = defaultConfigurationCacheApi,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
+  offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
   const env = import.meta.env as FirebaseEnv;
@@ -241,7 +254,13 @@ export function App({
   const [firebaseServicesStatus, setFirebaseServicesStatus] = useState(
     initialFirebaseServicesStatus
   );
-  const [syncDocuments, setSyncDocuments] = useState<SyncDocumentMetadataInput[]>([]);
+  const [accountSyncState, setAccountSyncState] = useState<{
+    documents: SyncDocumentMetadataInput[];
+    ownerUid: string | null;
+  }>({
+    documents: [],
+    ownerUid: null
+  });
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const latestAuthStateRef = useRef(authState);
   const latestIsOnlineRef = useRef(isOnline);
@@ -253,6 +272,9 @@ export function App({
   const deviceIdentity = useMemo(() => readCurrentDeviceIdentity(), []);
   const deviceId = deviceIdentity.id;
   const panel = panelByNavigation[activeView];
+  const currentProfileUid = "profile" in authState ? authState.profile.uid : null;
+  const syncDocuments =
+    currentProfileUid === accountSyncState.ownerUid ? accountSyncState.documents : [];
 
   useEffect(() => {
     let isMounted = true;
@@ -337,20 +359,6 @@ export function App({
         );
       }
 
-      if (!initialFirebaseServicesStatus.ready) {
-        const result = createSkippedSynchronizationResult(
-          trigger,
-          "Synchronizacja wymaga poprawnej konfiguracji Firebase.",
-          requestedAtIso
-        );
-
-        if (trigger === "MANUAL_RETRY") {
-          setLastSyncError(result.message);
-        }
-
-        return result;
-      }
-
       if (syncInFlightRef.current) {
         const decision = evaluateSynchronizationTrigger({
           authReady: true,
@@ -394,7 +402,29 @@ export function App({
           trigger
         });
 
-        setSyncDocuments([...currentDocuments]);
+        if (
+          "profile" in latestAuthStateRef.current &&
+          latestAuthStateRef.current.profile.uid === currentAuthState.profile.uid
+        ) {
+          setAccountSyncState({
+            documents: [...currentDocuments],
+            ownerUid: currentAuthState.profile.uid
+          });
+        }
+
+        if (!initialFirebaseServicesStatus.ready) {
+          const result = createSkippedSynchronizationResult(
+            trigger,
+            "Synchronizacja wymaga poprawnej konfiguracji Firebase.",
+            requestedAtIso
+          );
+
+          if (trigger === "MANUAL_RETRY") {
+            setLastSyncError(result.message);
+          }
+
+          return result;
+        }
 
         if (!decision.shouldRun) {
           if (decision.reason === "NO_LOCAL_DATA") {
@@ -426,7 +456,15 @@ export function App({
           accountQuery
         );
 
-        setSyncDocuments([...refreshedDocuments]);
+        if (
+          "profile" in latestAuthStateRef.current &&
+          latestAuthStateRef.current.profile.uid === currentAuthState.profile.uid
+        ) {
+          setAccountSyncState({
+            documents: [...refreshedDocuments],
+            ownerUid: currentAuthState.profile.uid
+          });
+        }
         setLastSyncError(result.status === "FAILED" ? result.message : null);
 
         return result;
@@ -447,7 +485,10 @@ export function App({
     if (authState.status !== "READY") {
       lastReadySyncUidRef.current = null;
       if (authState.status !== "BLOCKED") {
-        setSyncDocuments([]);
+        setAccountSyncState({
+          documents: [],
+          ownerUid: null
+        });
       }
       return;
     }
@@ -605,6 +646,54 @@ export function App({
       message: result.message
     };
   }, [requestSynchronization]);
+  const handleInspectLocalDataBeforeSignOut = useCallback(async () => {
+    const currentAuthState = latestAuthStateRef.current;
+
+    if (!("profile" in currentAuthState)) {
+      throw new Error("Sprawdzenie danych lokalnych wymaga profilu konta.");
+    }
+
+    const documents = await synchronizationApi.listLocalDocuments(env, {
+      deviceId,
+      userUid: currentAuthState.profile.uid
+    });
+
+    if (
+      "profile" in latestAuthStateRef.current &&
+      latestAuthStateRef.current.profile.uid === currentAuthState.profile.uid
+    ) {
+      setAccountSyncState({
+        documents: [...documents],
+        ownerUid: currentAuthState.profile.uid
+      });
+    }
+
+    return documents;
+  }, [deviceId, env, synchronizationApi]);
+  const handleClearLocalAccountData = useCallback(async () => {
+    const currentAuthState = latestAuthStateRef.current;
+
+    if (currentAuthState.status !== "READY") {
+      throw new Error("Czyszczenie urzadzenia wymaga aktywnego profilu.");
+    }
+
+    const accountQuery = {
+      deviceId,
+      userUid: currentAuthState.profile.uid
+    };
+
+    await synchronizationApi.clearLocalData(env, accountQuery);
+    await configurationCacheApi.clear({
+      actorProfile: currentAuthState.profile,
+      deviceId
+    });
+    await offlineStorageHealthApi.markConfigurationCleared(accountQuery);
+    setAccountSyncState({
+      documents: [],
+      ownerUid: null
+    });
+    setLastSyncError(null);
+  }, [configurationCacheApi, deviceId, env, offlineStorageHealthApi, synchronizationApi]);
 
   return (
     <div className="app-shell">
@@ -748,8 +837,12 @@ export function App({
             deviceId={diagnostics.deviceId}
             env={env}
             isOnline={isOnline}
+            onClearLocalAccountData={handleClearLocalAccountData}
             onAuthStateUpdated={setAuthState}
+            onInspectLocalData={handleInspectLocalDataBeforeSignOut}
             onProfileUpdated={handleProfileUpdated}
+            onSynchronizeBeforeSignOut={handleManualSynchronization}
+            syncDocuments={syncDocuments}
           />
         ) : null}
 
@@ -811,6 +904,7 @@ export function App({
             isOnline={isOnline}
             lastSyncError={lastSyncError}
             onRetrySync={handleManualSynchronization}
+            offlineStorageHealthApi={offlineStorageHealthApi}
             serviceWorkerStatus={serviceWorkerStatus}
             syncDocuments={syncDocuments}
           />
@@ -862,8 +956,12 @@ function AuthPanel({
   deviceId,
   env,
   isOnline,
+  onClearLocalAccountData,
   onAuthStateUpdated,
-  onProfileUpdated
+  onInspectLocalData,
+  onProfileUpdated,
+  onSynchronizeBeforeSignOut,
+  syncDocuments
 }: {
   authSessionApi: AuthSessionApi;
   authState: AuthSessionState;
@@ -871,8 +969,12 @@ function AuthPanel({
   deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
+  onClearLocalAccountData: () => Promise<void>;
   onAuthStateUpdated: (state: AuthSessionState) => void;
+  onInspectLocalData: () => Promise<readonly SyncDocumentMetadataInput[]>;
   onProfileUpdated: (profile: UserProfile) => void;
+  onSynchronizeBeforeSignOut: () => Promise<{ message?: string } | undefined>;
+  syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [mode, setMode] = useState<"login" | "reset" | "register">("login");
   const [email, setEmail] = useState("");
@@ -884,6 +986,13 @@ function AuthPanel({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSignOutReviewOpen, setIsSignOutReviewOpen] = useState(false);
+  const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
+  const [clearConfirmation, setClearConfirmation] = useState("");
+  const safeSignOutModel = buildSafeSignOutModel(
+    syncDocuments,
+    "profile" in authState ? authState.profile.role : "PICKER"
+  );
   const isUnavailable =
     authState.status === "CONFIGURATION_REQUIRED" ||
     authState.status === "ERROR" ||
@@ -967,16 +1076,129 @@ function AuthPanel({
     }
   };
 
-  const handleSignOut = async () => {
+  useEffect(() => {
+    setIsSignOutReviewOpen(false);
+    setIsClearConfirmationOpen(false);
+    setClearConfirmation("");
+  }, ["user" in authState ? authState.user.uid : null]);
+
+  useEffect(() => {
+    if (isSignOutReviewOpen && safeSignOutModel.canSignOut) {
+      setIsSignOutReviewOpen(false);
+      setFeedback("Wszystkie lokalne zmiany zostaly rozliczone. Mozesz sie wylogowac.");
+    }
+  }, [isSignOutReviewOpen, safeSignOutModel.canSignOut]);
+
+  const handleSignOutRequest = async () => {
     setFeedback(null);
     setError(null);
     setIsSubmitting(true);
 
     try {
+      const currentDocuments = await onInspectLocalData();
+      const currentModel = buildSafeSignOutModel(
+        currentDocuments,
+        "profile" in authState ? authState.profile.role : "PICKER"
+      );
+
+      if (!currentModel.canSignOut) {
+        setIsClearConfirmationOpen(false);
+        setIsSignOutReviewOpen(true);
+        return;
+      }
+
       await authSessionApi.signOut(env);
       setFeedback("Wylogowano z aplikacji.");
     } catch {
-      setError("Nie udalo sie wylogowac. Sprobuj ponownie.");
+      setError(
+        "Nie udalo sie sprawdzic danych lokalnych albo wylogowac. Wylogowanie pozostaje zablokowane."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenClearConfirmation = async () => {
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const currentDocuments = await onInspectLocalData();
+      const currentModel = buildSafeSignOutModel(
+        currentDocuments,
+        "profile" in authState ? authState.profile.role : "PICKER"
+      );
+
+      if (!currentModel.canClearDevice) {
+        setIsClearConfirmationOpen(false);
+        setIsSignOutReviewOpen(true);
+        setError(
+          "Urzadzenia nie mozna wyczysc, dopoki lokalne dane nie zostana zsynchronizowane."
+        );
+        return;
+      }
+
+      setIsSignOutReviewOpen(false);
+      setIsClearConfirmationOpen(true);
+    } catch {
+      setError(
+        "Nie udalo sie sprawdzic danych lokalnych. Czyszczenie urzadzenia pozostaje zablokowane."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSynchronizationBeforeSignOut = async () => {
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const result = await onSynchronizeBeforeSignOut();
+      setFeedback(result?.message ?? "Synchronizacja zakonczona.");
+    } catch {
+      setError(
+        "Nie udalo sie zsynchronizowac danych. Wylogowanie pozostaje zablokowane."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClearDeviceAndSignOut = async () => {
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const currentDocuments = await onInspectLocalData();
+      const currentModel = buildSafeSignOutModel(
+        currentDocuments,
+        "profile" in authState ? authState.profile.role : "PICKER"
+      );
+
+      if (!canConfirmDeviceClear(currentModel, clearConfirmation)) {
+        if (!currentModel.canClearDevice) {
+          setIsClearConfirmationOpen(false);
+          setIsSignOutReviewOpen(true);
+          setError(
+            "Pojawily sie lokalne dane oczekujace. Czyszczenie i wylogowanie zostalo zablokowane."
+          );
+        } else {
+          setError(`Wpisz dokladnie: ${DEVICE_CLEAR_CONFIRMATION}.`);
+        }
+        return;
+      }
+
+      await onClearLocalAccountData();
+      await authSessionApi.signOut(env);
+      setFeedback("Dane lokalne urzadzenia zostaly wyczyszczone. Wylogowano.");
+    } catch {
+      setError(
+        "Nie udalo sie bezpiecznie wyczyscic urzadzenia i wylogowac. Sprobuj ponownie."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1089,17 +1311,151 @@ function AuthPanel({
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
           {error ? <p className="form-message form-message--error">{error}</p> : null}
 
-          <button
-            className="primary-action"
-            disabled={isSubmitting}
-            onClick={() => {
-              void handleSignOut();
-            }}
-            type="button"
-          >
-            <LogOut aria-hidden="true" size={18} strokeWidth={2.2} />
-            <span>Wyloguj</span>
-          </button>
+          {isSignOutReviewOpen ? (
+            <div
+              className="safe-sign-out"
+              aria-label="Oczekujace dane przed wylogowaniem"
+            >
+              <div className="worker-rate-form__heading">
+                <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+                <h3>Najpierw zsynchronizuj dane</h3>
+              </div>
+              <p className="panel-detail">
+                Na tym urzadzeniu sa {safeSignOutModel.pendingDocumentCount} lokalne
+                dokumenty nalezace do konta {authState.user.email ?? authState.user.uid}.
+                Wylogowanie jest zablokowane, aby nie pozostawic ich nastepnemu
+                uzytkownikowi.
+              </p>
+              {safeSignOutModel.sessions.length > 0 ? (
+                <ul className="safe-sign-out__sessions">
+                  {safeSignOutModel.sessions.map((session) => (
+                    <li key={session.sessionId}>
+                      <strong>{session.workerName}</strong>
+                      <span>
+                        {session.businessDate} - {session.pendingDocumentCount} dokumentow
+                      </span>
+                      {session.lastError ? <span>{session.lastError}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {safeSignOutModel.unassignedPendingDocumentCount > 0 ? (
+                <p className="panel-detail">
+                  Poza sesjami: {safeSignOutModel.unassignedPendingDocumentCount}
+                  dokumentow.
+                </p>
+              ) : null}
+              {!isOnline ? (
+                <p className="worker-form__warning">
+                  Synchronizacja wymaga polaczenia z internetem.
+                </p>
+              ) : null}
+              <div className="auth-actions">
+                <button
+                  className="primary-action"
+                  disabled={isSubmitting || !isOnline}
+                  onClick={() => {
+                    void handleSynchronizationBeforeSignOut();
+                  }}
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
+                  <span>{isSubmitting ? "Synchronizacja..." : "Synchronizuj teraz"}</span>
+                </button>
+                <button
+                  className="secondary-action"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setIsSignOutReviewOpen(false);
+                  }}
+                  type="button"
+                >
+                  Anuluj wylogowanie
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isClearConfirmationOpen ? (
+            <div
+              className="safe-sign-out"
+              aria-label="Potwierdzenie czyszczenia urzadzenia"
+            >
+              <div className="worker-rate-form__heading">
+                <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
+                <h3>Wyczysc lokalne dane urzadzenia</h3>
+              </div>
+              <p className="worker-form__warning">
+                Operacja usunie lokalna konfiguracje i kopie danych tego konta z tego
+                urzadzenia. Dane zsynchronizowane na serwerze pozostana bez zmian.
+              </p>
+              <label className="field">
+                <span>Wpisz {DEVICE_CLEAR_CONFIRMATION}, aby potwierdzic</span>
+                <input
+                  autoComplete="off"
+                  disabled={isSubmitting}
+                  onChange={(event) => {
+                    setClearConfirmation(event.target.value);
+                  }}
+                  value={clearConfirmation}
+                />
+              </label>
+              <div className="auth-actions">
+                <button
+                  className="danger-action"
+                  disabled={
+                    isSubmitting ||
+                    !canConfirmDeviceClear(safeSignOutModel, clearConfirmation)
+                  }
+                  onClick={() => {
+                    void handleClearDeviceAndSignOut();
+                  }}
+                  type="button"
+                >
+                  <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
+                  <span>Wyczysc urzadzenie i wyloguj</span>
+                </button>
+                <button
+                  className="secondary-action"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setIsClearConfirmationOpen(false);
+                    setClearConfirmation("");
+                  }}
+                  type="button"
+                >
+                  Anuluj
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="auth-actions">
+            <button
+              className="primary-action"
+              disabled={isSubmitting}
+              onClick={() => {
+                void handleSignOutRequest();
+              }}
+              type="button"
+            >
+              <LogOut aria-hidden="true" size={18} strokeWidth={2.2} />
+              <span>Wyloguj</span>
+            </button>
+            {safeSignOutModel.canClearDevice ? (
+              <button
+                className="secondary-action"
+                disabled={isSubmitting}
+                onClick={() => {
+                  void handleOpenClearConfirmation();
+                }}
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
+                <span>Wyloguj i wyczysc urzadzenie</span>
+              </button>
+            ) : null}
+          </div>
         </div>
       </section>
     );

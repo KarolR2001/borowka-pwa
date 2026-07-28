@@ -12,7 +12,7 @@ export const TRUSTED_OFFLINE_STORAGE_DISCLOSURE = [
   "Wyczyszczenie danych przegladarki moze usunac niezsynchronizowane rekordy.",
   "Tryb prywatny przegladarki nie nadaje sie do pracy terenowej.",
   "Przed wylogowaniem zsynchronizuj oczekujace dane.",
-  "Wyloguj i wyczysc urzadzenie: wyczysc cache w centrum synchronizacji, a potem uzyj Wyloguj."
+  "Wyloguj i wyczysc urzadzenie wymaga braku oczekujacych zapisow oraz dodatkowego potwierdzenia."
 ] as const;
 
 export type TrustedOfflineConsentUpdateInput = {
