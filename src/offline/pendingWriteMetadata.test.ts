@@ -12,6 +12,10 @@ describe("pending write metadata", () => {
       sessionId: "session-local",
       workerName: "Anna Test",
       businessDate: "2026-07-17",
+      localSnapshot: {
+        id: "session-local",
+        rateGroszSnapshot: 650
+      },
       savedLocally: true,
       lastLocalWriteIso: "2026-07-17T10:00:00.000Z"
     });
@@ -19,6 +23,10 @@ describe("pending write metadata", () => {
     expect(result).toMatchObject({
       id: "session-local",
       kind: "HARVEST_SESSION",
+      localSnapshot: {
+        id: "session-local",
+        rateGroszSnapshot: 650
+      },
       sessionId: "session-local",
       workerName: "Anna Test",
       businessDate: "2026-07-17",

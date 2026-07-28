@@ -805,6 +805,8 @@ export function App({
             authState={authState}
             configurationCacheApi={configurationCacheApi}
             deviceId={deviceId}
+            deviceName={deviceIdentity.name}
+            devicePlatform={deviceIdentity.platform}
             env={env}
             isOnline={isOnline}
             lastSyncError={lastSyncError}

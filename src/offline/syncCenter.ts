@@ -174,24 +174,3 @@ function compareDocuments(
 ): number {
   return left.kind.localeCompare(right.kind) || left.id.localeCompare(right.id);
 }
-
-export function createEmergencySyncExportPayload({
-  createdAtIso,
-  deviceId,
-  model
-}: {
-  createdAtIso: string;
-  deviceId: string;
-  model: SyncCenterModel;
-}) {
-  return {
-    createdAtIso,
-    deviceId,
-    summary: model.metadataSummary,
-    sessions: model.sessions
-  };
-}
-
-export type EmergencySyncExportPayload = ReturnType<
-  typeof createEmergencySyncExportPayload
->;

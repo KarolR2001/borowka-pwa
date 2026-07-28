@@ -10,7 +10,8 @@ import {
   ConfigurationCachePanel,
   type ConfigurationCacheApi
 } from "./ConfigurationCachePanel";
-import type { EmergencySyncExportPayload, SyncCenterModel } from "./syncCenter";
+import type { EmergencyLocalExportPayload } from "./emergencyLocalExport";
+import type { SyncCenterModel } from "./syncCenter";
 
 const activeAdminState: AuthSessionState = {
   status: "READY",
@@ -256,13 +257,15 @@ describe("ConfigurationCachePanel", () => {
   it("keeps emergency export available when a blocked account has pending local data", async () => {
     const user = userEvent.setup();
     const onEmergencyExport = vi
-      .fn<(payload: EmergencySyncExportPayload) => Promise<void>>()
+      .fn<(payload: EmergencyLocalExportPayload) => Promise<void>>()
       .mockResolvedValue(undefined);
 
     render(
       <ConfigurationCachePanel
         authState={blockedOperatorState}
         deviceId="device-1"
+        deviceName="Telefon operatora"
+        devicePlatform="Android"
         env={env}
         isOnline={true}
         onEmergencyExport={onEmergencyExport}
@@ -301,17 +304,24 @@ describe("ConfigurationCachePanel", () => {
 
     expect(onEmergencyExport).toHaveBeenCalledTimes(1);
     expect(onEmergencyExport.mock.calls[0]?.[0]).toMatchObject({
-      deviceId: "device-1",
+      device: {
+        id: "device-1",
+        name: "Telefon operatora",
+        platform: "Android"
+      },
+      format: {
+        automaticProductionImportAllowed: false
+      },
       summary: {
         pendingSyncCount: 1,
-        rejectedCount: 1
+        rejectedCount: 1,
+        sessionCount: 1,
+        entryCount: 1
       },
-      sessions: [
-        {
-          sessionId: "session-pending",
-          pendingDocumentCount: 2
-        }
-      ]
+      user: {
+        registrationStatus: "BLOCKED",
+        uid: "operator-1"
+      }
     });
   });
 
@@ -524,7 +534,7 @@ describe("ConfigurationCachePanel", () => {
       .fn<(model: SyncCenterModel) => Promise<undefined>>()
       .mockResolvedValue(undefined);
     const onEmergencyExport = vi
-      .fn<(payload: EmergencySyncExportPayload) => Promise<void>>()
+      .fn<(payload: EmergencyLocalExportPayload) => Promise<void>>()
       .mockResolvedValue(undefined);
 
     render(
@@ -536,6 +546,8 @@ describe("ConfigurationCachePanel", () => {
           clear: vi.fn<ConfigurationCacheApi["clear"]>()
         }}
         deviceId="device-1"
+        deviceName="Telefon administratora"
+        devicePlatform="Android"
         env={env}
         isOnline={true}
         lastSyncError="Ostatnia proba synchronizacji zostala przerwana."
@@ -546,6 +558,11 @@ describe("ConfigurationCachePanel", () => {
           {
             id: "session-pending",
             kind: "HARVEST_SESSION",
+            localSnapshot: {
+              id: "session-pending",
+              planIdSnapshot: "plan-weight",
+              rateGroszSnapshot: 650
+            },
             workerName: "Anna Test",
             businessDate: "2026-07-17",
             businessStatus: "OPEN",
@@ -554,6 +571,11 @@ describe("ConfigurationCachePanel", () => {
           {
             id: "entry-pending",
             kind: "HARVEST_ENTRY",
+            localSnapshot: {
+              id: "entry-pending",
+              quantityMilli: 1000,
+              weightG: 1250
+            },
             sessionId: "session-pending",
             workerName: "Anna Test",
             businessDate: "2026-07-17",
@@ -606,10 +628,40 @@ describe("ConfigurationCachePanel", () => {
     expect(onEmergencyExport).toHaveBeenCalledTimes(1);
 
     const [[exportedPayload]] = onEmergencyExport.mock.calls;
-    expect(exportedPayload.deviceId).toBe("device-1");
+    expect(exportedPayload.device).toEqual({
+      id: "device-1",
+      name: "Telefon administratora",
+      platform: "Android"
+    });
+    expect(exportedPayload.user).toMatchObject({
+      email: "admin@example.test",
+      role: "ADMIN",
+      uid: "admin-1"
+    });
+    expect(exportedPayload.format).toMatchObject({
+      automaticProductionImportAllowed: false,
+      name: "BOROWKA_EMERGENCY_LOCAL_EXPORT",
+      productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED"
+    });
     expect(exportedPayload.summary).toMatchObject({
+      entryCount: 3,
       totalDocumentCount: 4,
-      rejectedCount: 1
+      rejectedCount: 1,
+      sessionCount: 1
+    });
+    expect(exportedPayload.data.sessions[0]).toMatchObject({
+      documentUuid: "session-pending",
+      localStatus: "PENDING_SYNC",
+      snapshot: {
+        planIdSnapshot: "plan-weight",
+        rateGroszSnapshot: 650
+      }
+    });
+    expect(exportedPayload.data.entries[0]).toMatchObject({
+      documentUuid: "entry-rejected",
+      synchronization: {
+        rejectedReason: "Rules odrzucily wpis."
+      }
     });
   });
 });
