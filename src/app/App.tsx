@@ -135,9 +135,13 @@ import {
 } from "../payments/AdminPaymentDirectoryPanel";
 import {
   defaultPickerDashboardApi,
-  PickerDashboardPanel,
   type PickerDashboardApi
 } from "../picker/PickerDashboardPanel";
+import {
+  defaultPickerHarvestListApi,
+  type PickerHarvestListApi
+} from "../picker/PickerHarvestListPanel";
+import { PickerWorkspacePanel } from "../picker/PickerWorkspacePanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -184,6 +188,7 @@ export type AppProps = {
   pendingPaymentsApi?: PendingPaymentsApi;
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   pickerDashboardApi?: PickerDashboardApi;
+  pickerHarvestListApi?: PickerHarvestListApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
@@ -261,6 +266,7 @@ export function App({
   pendingPaymentsApi = defaultPendingPaymentsApi,
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   pickerDashboardApi = defaultPickerDashboardApi,
+  pickerHarvestListApi = defaultPickerHarvestListApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
@@ -989,11 +995,13 @@ export function App({
         ) : null}
 
         {activeView === "picker" ? (
-          <PickerDashboardPanel
+          <PickerWorkspacePanel
             authState={authState}
             env={env}
             isOnline={isOnline}
             pickerDashboardApi={pickerDashboardApi}
+            pickerHarvestListApi={pickerHarvestListApi}
+            syncDocuments={syncDocuments}
           />
         ) : null}
 

@@ -505,10 +505,49 @@ h2 {
 .pending-payment-directory,
 .payment-directory,
 .picker-dashboard,
+.picker-harvest-list,
 .operator-sessions {
   display: grid;
   gap: 18px;
   margin-top: 20px;
+}
+
+.picker-workspace {
+  margin-top: 20px;
+}
+
+.picker-workspace__tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 4px;
+  border: 1px solid #cfdad2;
+  border-radius: 8px;
+  padding: 4px;
+  background: #edf2ee;
+}
+
+.picker-workspace__tab {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  color: #3f5449;
+  font-weight: 800;
+}
+
+.picker-workspace__tab:hover {
+  background: #ffffff;
+}
+
+.picker-workspace__tab.is-active {
+  background: #ffffff;
+  color: #173129;
+  box-shadow: 0 1px 2px rgb(23 49 41 / 12%);
 }
 
 .directory-header {
@@ -584,6 +623,103 @@ h2 {
   margin: 0;
   color: #5f6f66;
   font-size: 0.82rem;
+}
+
+.picker-harvest-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.picker-harvest-table {
+  min-width: 1260px;
+}
+
+.picker-session-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid #cfdad2;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #f7faf7;
+  color: #40554a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.picker-session-status--OPEN {
+  border-color: #8fbda0;
+  background: #eaf6ed;
+  color: #205d35;
+}
+
+.picker-session-status--CLOSED {
+  border-color: #aab7af;
+  background: #f1f4f2;
+}
+
+.picker-session-status--PAID {
+  border-color: #84b8bf;
+  background: #e8f5f6;
+  color: #155a63;
+}
+
+.picker-session-status--CANCELLED,
+.picker-session-status--REVIEW_REQUIRED {
+  border-color: #d8b46f;
+  background: #fff7e8;
+  color: #76510f;
+}
+
+.picker-session-preview {
+  border: 1px solid #cfdad2;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.picker-session-preview header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.picker-session-preview h3 {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+}
+
+.picker-session-preview dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.picker-session-preview dl div {
+  min-width: 0;
+  border-top: 1px solid #edf2ee;
+  padding-top: 10px;
+}
+
+.picker-session-preview dt {
+  color: #5f6f66;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.picker-session-preview dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-weight: 800;
 }
 
 .directory-filters {
@@ -2137,6 +2273,11 @@ h2 {
   }
 
   .picker-dashboard__status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .picker-harvest-filters,
+  .picker-session-preview dl {
     grid-template-columns: 1fr;
   }
 
