@@ -7,6 +7,7 @@ function readStringEnv(value: unknown, fallback: string): string {
 export const APP_META = {
   name: "Borowka PWA",
   version: "0.1.0",
+  buildId: readStringEnv(viteEnv.VITE_BUILD_ID, "local"),
   schemaVersion: "schema-0001",
   calculationVersion: "calc-0001",
   buildDate: "2026-07-15",

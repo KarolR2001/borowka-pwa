@@ -186,6 +186,7 @@ describe("OperatorHarvestSessionsPanel", () => {
 
   it("opens a new session from the runtime form and refreshes the dashboard", async () => {
     const user = userEvent.setup();
+    const onLocalDocumentsChanged = vi.fn().mockResolvedValue(undefined);
     const createdSession = createSession("session-new");
     const list = vi
       .fn<OperatorHarvestSessionsApi["list"]>()
@@ -210,6 +211,7 @@ describe("OperatorHarvestSessionsPanel", () => {
         env={env}
         harvestSessionsApi={api}
         isOnline={true}
+        onLocalDocumentsChanged={onLocalDocumentsChanged}
       />
     );
 
@@ -242,6 +244,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       selectedSessionId: "session-new",
       isOnline: true
     });
+    expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
   });
 
   it("shows duplicate same-day session warning before opening another session", async () => {
@@ -272,6 +275,7 @@ describe("OperatorHarvestSessionsPanel", () => {
 
   it("adds a weight entry to the selected session and refreshes the dashboard", async () => {
     const user = userEvent.setup();
+    const onLocalDocumentsChanged = vi.fn().mockResolvedValue(undefined);
     const session = createSession("session-1");
     const list = vi
       .fn<OperatorHarvestSessionsApi["list"]>()
@@ -297,6 +301,7 @@ describe("OperatorHarvestSessionsPanel", () => {
         env={env}
         harvestSessionsApi={api}
         isOnline={true}
+        onLocalDocumentsChanged={onLocalDocumentsChanged}
       />
     );
 
@@ -326,10 +331,12 @@ describe("OperatorHarvestSessionsPanel", () => {
       selectedSessionId: "session-1",
       isOnline: true
     });
+    expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
   });
 
   it("closes the selected session after confirmation and refreshes the dashboard", async () => {
     const user = userEvent.setup();
+    const onLocalDocumentsChanged = vi.fn().mockResolvedValue(undefined);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const session = createSession("session-1");
     const list = vi
@@ -374,6 +381,7 @@ describe("OperatorHarvestSessionsPanel", () => {
           env={env}
           harvestSessionsApi={api}
           isOnline={true}
+          onLocalDocumentsChanged={onLocalDocumentsChanged}
         />
       );
 
@@ -400,6 +408,7 @@ describe("OperatorHarvestSessionsPanel", () => {
         selectedSessionId: null,
         isOnline: true
       });
+      expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
     } finally {
       confirmSpy.mockRestore();
     }

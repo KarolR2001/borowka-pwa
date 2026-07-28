@@ -27,6 +27,7 @@ describe("firebase services", () => {
     const status = getFirebaseServicesStatus(completeEnv);
 
     expect(status).toMatchObject({
+      cacheMode: "MEMORY",
       ready: true,
       initialized: false,
       mode: "development"

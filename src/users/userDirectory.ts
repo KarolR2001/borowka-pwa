@@ -42,7 +42,7 @@ export const defaultUserDirectoryFilters: UserDirectoryFilters = {
 
 export async function listUserDirectory(env: FirebaseEnv): Promise<UserDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs } = await import("firebase/firestore/lite");
+  const { collection, getDocs } = await import("firebase/firestore");
   const snapshot = await getDocs(collection(firestore, "users"));
   const documents = snapshot.docs.map((documentSnapshot) => ({
     id: documentSnapshot.id,

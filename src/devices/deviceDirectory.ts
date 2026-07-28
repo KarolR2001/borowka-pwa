@@ -27,7 +27,7 @@ export async function listDeviceDirectory(
   env: FirebaseEnv
 ): Promise<DeviceDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs } = await import("firebase/firestore/lite");
+  const { collection, getDocs } = await import("firebase/firestore");
   const snapshot = await getDocs(collection(firestore, DEVICES_COLLECTION));
   const devices: DeviceRecord[] = [];
   const invalidDevices: InvalidDeviceRecord[] = [];

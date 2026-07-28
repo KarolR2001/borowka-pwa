@@ -11,6 +11,10 @@ export const serviceWorkerStatusLabel: Record<ServiceWorkerStatus, string> = {
   error: "blad odczytu"
 };
 
+export function isServiceWorkerReady(status: ServiceWorkerStatus): boolean {
+  return status === "controlled" || status === "registered";
+}
+
 export function useServiceWorkerStatus(): ServiceWorkerStatus {
   const [status, setStatus] = useState<ServiceWorkerStatus>("unsupported");
 

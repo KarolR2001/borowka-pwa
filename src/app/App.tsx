@@ -126,6 +126,7 @@ import {
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
+  isServiceWorkerReady,
   serviceWorkerStatusLabel,
   useServiceWorkerStatus
 } from "./useServiceWorkerStatus";
@@ -302,6 +303,7 @@ export function App({
         if (isMounted) {
           setFirebaseServicesStatus({
             ...initialFirebaseServicesStatus,
+            cacheMode: "MEMORY",
             ready: false,
             initialized: false,
             message: "Nie udalo sie uruchomic uslug Firebase."
@@ -680,7 +682,7 @@ export function App({
       message: result.message
     };
   }, [requestSynchronization]);
-  const handleInspectLocalDataBeforeSignOut = useCallback(async () => {
+  const readAndStoreLocalDocuments = useCallback(async () => {
     const currentAuthState = latestAuthStateRef.current;
 
     if (!("profile" in currentAuthState)) {
@@ -704,6 +706,13 @@ export function App({
 
     return documents;
   }, [deviceId, env, synchronizationApi]);
+  const handleLocalDocumentsChanged = useCallback(async () => {
+    try {
+      await readAndStoreLocalDocuments();
+    } catch (error: unknown) {
+      setLastSyncError(getSynchronizationErrorMessage(error));
+    }
+  }, [readAndStoreLocalDocuments]);
   const handleClearLocalAccountData = useCallback(async () => {
     const currentAuthState = latestAuthStateRef.current;
 
@@ -827,6 +836,7 @@ export function App({
           <section className="diagnostics" aria-label="Diagnostyka">
             <DiagnosticRow label="Srodowisko" value={APP_META.environment} />
             <DiagnosticRow label="Wersja aplikacji" value={APP_META.version} />
+            <DiagnosticRow label="Identyfikator buildu" value={APP_META.buildId} />
             <DiagnosticRow label="Wersja schematu" value={APP_META.schemaVersion} />
             <DiagnosticRow label="Regula obliczen" value={APP_META.calculationVersion} />
             <DiagnosticRow label="Ostatnie uruchomienie" value={diagnostics.launchedAt} />
@@ -883,7 +893,7 @@ export function App({
             onActiveFormChange={setHasActiveForm}
             onClearLocalAccountData={handleClearLocalAccountData}
             onAuthStateUpdated={setAuthState}
-            onInspectLocalData={handleInspectLocalDataBeforeSignOut}
+            onInspectLocalData={readAndStoreLocalDocuments}
             onProfileUpdated={handleProfileUpdated}
             onSynchronizeBeforeSignOut={handleManualSynchronization}
             syncDocuments={syncDocuments}
@@ -926,10 +936,13 @@ export function App({
             <OperatorHarvestSessionsPanel
               authState={authState}
               env={env}
+              firestoreCacheMode={firebaseServicesStatus.cacheMode}
               harvestSessionsApi={harvestSessionsApi}
               isOnline={isOnline}
               onActiveFormChange={setHasActiveForm}
               onActiveHarvestSessionChange={setHasActiveHarvestSession}
+              onLocalDocumentsChanged={handleLocalDocumentsChanged}
+              serviceWorkerReady={isServiceWorkerReady(serviceWorkerStatus)}
             />
             <WorkerDirectoryPanel
               authState={authState}
@@ -947,6 +960,7 @@ export function App({
             deviceName={deviceIdentity.name}
             devicePlatform={deviceIdentity.platform}
             env={env}
+            firestoreCacheMode={firebaseServicesStatus.cacheMode}
             isOnline={isOnline}
             lastSyncError={lastSyncError}
             onRetrySync={handleManualSynchronization}
@@ -1298,7 +1312,9 @@ function AuthPanel({
       });
       onProfileUpdated(nextProfile);
       setFeedback(
-        offlineConsent ? "Zgoda offline wlaczona." : "Zgoda offline wylaczona."
+        offlineConsent
+          ? "Zgoda offline wlaczona. Uruchom ponownie PWA przed przygotowaniem offline."
+          : "Zgoda offline wylaczona. Wyczysc urzadzenie, aby usunac trwaly cache."
       );
     } catch (updateError: unknown) {
       setError(getOfflineConsentUpdateErrorMessage(updateError));

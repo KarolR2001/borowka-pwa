@@ -70,7 +70,7 @@ vi.mock("../config/firebaseServices", () => ({
   getFirebaseServices: firestoreServiceMock.getFirebaseServices
 }));
 
-vi.mock("firebase/firestore/lite", () => firestoreLiteMock);
+vi.mock("firebase/firestore", () => firestoreLiteMock);
 
 const createdAt = "2026-07-17T10:00:00.000Z";
 const seed = createInitialDomainSeed({ createdAt });

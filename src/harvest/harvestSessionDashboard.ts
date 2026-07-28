@@ -101,10 +101,11 @@ export async function listOperatorHarvestSessionDashboard(
   assertHarvestDashboardRole(input.actorProfile);
 
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs, limit, orderBy, query, where } =
-    await import("firebase/firestore/lite");
+  const { collection, getDocs, getDocsFromCache, limit, orderBy, query, where } =
+    await import("firebase/firestore");
+  const readQuery = input.isOnline ? getDocs : getDocsFromCache;
   const sessionQueries = [
-    getDocs(
+    readQuery(
       query(
         collection(firestore, HARVEST_SESSIONS_COLLECTION),
         where("status", "==", "OPEN"),
@@ -117,7 +118,7 @@ export async function listOperatorHarvestSessionDashboard(
 
   if (input.actorProfile.role === "ADMIN") {
     sessionQueries.push(
-      getDocs(
+      readQuery(
         query(
           collection(firestore, HARVEST_SESSIONS_COLLECTION),
           where("status", "==", "CLOSED"),
@@ -131,19 +132,19 @@ export async function listOperatorHarvestSessionDashboard(
 
   const [sessionsSnapshots, seasonsSnapshot] = await Promise.all([
     Promise.all(sessionQueries),
-    getDocs(
+    readQuery(
       query(collection(firestore, SEASONS_COLLECTION), where("status", "==", "OPEN"))
     )
   ]);
   const sessionDocuments = sessionsSnapshots.flatMap((snapshot) =>
     snapshot.docs.map((documentSnapshot) => ({
       id: documentSnapshot.id,
-      data: documentSnapshot.data()
+      data: documentSnapshot.data({ serverTimestamps: "estimate" })
     }))
   );
   const seasonDocuments = seasonsSnapshot.docs.map((documentSnapshot) => ({
     id: documentSnapshot.id,
-    data: documentSnapshot.data()
+    data: documentSnapshot.data({ serverTimestamps: "estimate" })
   }));
   const withoutEntries = buildHarvestSessionDashboard({
     sessionDocuments,
@@ -159,7 +160,7 @@ export async function listOperatorHarvestSessionDashboard(
     return withoutEntries;
   }
 
-  const entriesSnapshot = await getDocs(
+  const entriesSnapshot = await readQuery(
     query(
       collection(firestore, HARVEST_ENTRIES_COLLECTION),
       where("sessionId", "==", selectedSessionId),
@@ -172,7 +173,12 @@ export async function listOperatorHarvestSessionDashboard(
     sessionDocuments,
     entryDocuments: entriesSnapshot.docs.map((documentSnapshot) => ({
       id: documentSnapshot.id,
-      data: documentSnapshot.data()
+      data: {
+        ...documentSnapshot.data({ serverTimestamps: "estimate" }),
+        pendingSync:
+          documentSnapshot.metadata.hasPendingWrites ||
+          documentSnapshot.data().pendingSync === true
+      }
     })),
     seasonDocuments,
     selectedSessionId,
@@ -570,7 +576,8 @@ function createActiveSessionView({
     isOnline,
     canAddEntry: canActorAddEntry(actorProfile, session),
     canCloseSession:
-      canActorCloseSession(actorProfile, session) && pendingWriteCount === 0,
+      canActorCloseSession(actorProfile, session) &&
+      (!isOnline || pendingWriteCount === 0),
     statusNotice: null
   };
 }

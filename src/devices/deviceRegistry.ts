@@ -42,7 +42,7 @@ export async function registerCurrentDevice(
 ): Promise<void> {
   const { firestore } = await getFirebaseServices(env);
   const { doc, getDoc, serverTimestamp, setDoc, updateDoc } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const deviceRef = doc(
     firestore,
     DEVICES_COLLECTION,

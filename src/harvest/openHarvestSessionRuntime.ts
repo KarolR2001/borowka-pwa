@@ -46,6 +46,7 @@ export type OpenHarvestSessionConfigurationResult = {
 
 export type ListOpenHarvestSessionConfigurationInput = {
   actorProfile: UserProfile;
+  isOnline?: boolean;
 };
 
 export type OpenHarvestSessionOnlineInput = {
@@ -57,11 +58,13 @@ export type OpenHarvestSessionOnlineInput = {
   secondSessionReason?: string | null;
   isOnline: boolean;
   createdDeviceId: string;
+  persistentDataCacheReady?: boolean;
+  serviceWorkerReady?: boolean;
 };
 
 export type OpenHarvestSessionOnlineResult =
   | {
-      status: "CREATED";
+      status: "CREATED" | "CREATED_OFFLINE";
       session: HarvestSessionDocument;
       selectedSessionId: string;
       message: string;
@@ -88,8 +91,9 @@ export async function listOpenHarvestSessionConfiguration(
   assertOpenHarvestSessionActor(input.actorProfile);
 
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs, limit, orderBy, query, where } =
-    await import("firebase/firestore/lite");
+  const { collection, getDocs, getDocsFromCache, limit, orderBy, query, where } =
+    await import("firebase/firestore");
+  const readQuery = input.isOnline === false ? getDocsFromCache : getDocs;
   const [
     seasonsSnapshot,
     workersSnapshot,
@@ -97,25 +101,25 @@ export async function listOpenHarvestSessionConfiguration(
     rateVersionsSnapshot,
     sessionsSnapshot
   ] = await Promise.all([
-    getDocs(
+    readQuery(
       query(collection(firestore, SEASONS_COLLECTION), where("status", "==", "OPEN"))
     ),
-    getDocs(
+    readQuery(
       query(collection(firestore, WORKERS_COLLECTION), where("active", "==", true))
     ),
-    getDocs(
+    readQuery(
       query(
         collection(firestore, SETTLEMENT_PLANS_COLLECTION),
         where("active", "==", true)
       )
     ),
-    getDocs(
+    readQuery(
       query(
         collection(firestore, WORKER_RATE_VERSIONS_COLLECTION),
         where("active", "==", true)
       )
     ),
-    getDocs(
+    readQuery(
       query(
         collection(firestore, HARVEST_SESSIONS_COLLECTION),
         where("status", "==", "OPEN"),
@@ -158,11 +162,12 @@ export async function openHarvestSessionOnline(
 
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const createdAtDevice = Timestamp.now();
   const createdAtServer = serverTimestamp();
   const configuration = await listOpenHarvestSessionConfiguration(env, {
-    actorProfile: input.actorProfile
+    actorProfile: input.actorProfile,
+    isOnline: input.isOnline
   });
   const prepared = prepareRuntimeOpenHarvestSession(configuration, {
     ...input,

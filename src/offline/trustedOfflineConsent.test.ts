@@ -2,6 +2,10 @@ import {
   TRUSTED_OFFLINE_STORAGE_DISCLOSURE,
   updateTrustedOfflineConsent
 } from "./trustedOfflineConsent";
+import {
+  FIRESTORE_PERSISTENCE_PREFERENCE_KEY,
+  readFirestoreCacheMode
+} from "./firestorePersistencePreference";
 
 const firestoreServiceMock = vi.hoisted(() => ({
   firestore: { name: "firestore-mock" },
@@ -28,9 +32,10 @@ vi.mock("../config/firebaseServices", () => ({
   getFirebaseServices: firestoreServiceMock.getFirebaseServices
 }));
 
-vi.mock("firebase/firestore/lite", () => firestoreLiteMock);
+vi.mock("firebase/firestore", () => firestoreLiteMock);
 
 beforeEach(() => {
+  localStorage.clear();
   firestoreServiceMock.getFirebaseServices.mockResolvedValue({
     firestore: firestoreServiceMock.firestore
   });
@@ -79,6 +84,7 @@ describe("trusted offline consent", () => {
       })
     );
     expect(firestoreLiteMock.batch.commit).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(FIRESTORE_PERSISTENCE_PREFERENCE_KEY)).toBe("enabled");
   });
 
   it("updates an existing device when consent changes", async () => {
@@ -107,6 +113,7 @@ describe("trusted offline consent", () => {
       }
     );
     expect(firestoreLiteMock.batch.set).not.toHaveBeenCalled();
+    expect(readFirestoreCacheMode()).toBe("MEMORY");
   });
 
   it("contains the required disclosure points for trusted offline storage", () => {

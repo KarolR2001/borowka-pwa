@@ -102,7 +102,7 @@ export async function listSeasons(
   input: SeasonDirectoryListInput = { viewerRole: "ADMIN" }
 ): Promise<SeasonDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs, query, where } = await import("firebase/firestore/lite");
+  const { collection, getDocs, query, where } = await import("firebase/firestore");
   const seasonsCollection = collection(firestore, SEASONS_COLLECTION);
   const seasonsQuery =
     input.viewerRole === "ADMIN"
@@ -123,7 +123,7 @@ export async function createSeason(
 ): Promise<PreparedSeasonCreate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, collection, doc, getDocs, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const currentSeasons = await listSeasons(env);
   const seasonId = createSeasonId(input.name, input.startDate);
   const prepared = prepareSeasonCreate(currentSeasons.seasons, {
@@ -174,7 +174,7 @@ export async function updateSeasonStatus(
 ): Promise<PreparedSeasonStatusUpdate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, collection, doc, getDocs, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const prepared = prepareSeasonStatusUpdate({
     ...input,
     changedAt: serverTimestamp()

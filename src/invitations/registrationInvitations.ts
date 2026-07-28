@@ -89,7 +89,7 @@ export async function listRegistrationInvitations(
   env: FirebaseEnv
 ): Promise<RegistrationInvitationDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs } = await import("firebase/firestore/lite");
+  const { collection, getDocs } = await import("firebase/firestore");
   const snapshot = await getDocs(
     collection(firestore, REGISTRATION_INVITATIONS_COLLECTION)
   );
@@ -106,7 +106,7 @@ export async function createRegistrationInvitation(
   input: CreateRegistrationInvitationInput
 ): Promise<RegistrationInvitationDocument> {
   const { firestore } = await getFirebaseServices(env);
-  const { Timestamp, doc, setDoc } = await import("firebase/firestore/lite");
+  const { Timestamp, doc, setDoc } = await import("firebase/firestore");
   const id = createRegistrationInvitationId();
   const invitation = createRegistrationInvitationDraft({
     id,
@@ -129,7 +129,7 @@ export async function cancelRegistrationInvitation(
   invitationId: string
 ): Promise<void> {
   const { firestore } = await getFirebaseServices(env);
-  const { doc, updateDoc } = await import("firebase/firestore/lite");
+  const { doc, updateDoc } = await import("firebase/firestore");
 
   await updateDoc(doc(firestore, REGISTRATION_INVITATIONS_COLLECTION, invitationId), {
     status: "CANCELLED"
