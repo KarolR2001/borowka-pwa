@@ -32,12 +32,22 @@ import {
   createMemoryConfigurationCacheStorage,
   type ConfigurationCacheSnapshot
 } from "../../src/offline/configurationCache";
-import { createMemoryFirestoreSyncJournal } from "../../src/offline/firestoreSyncJournal";
+import {
+  createMemoryFirestoreSyncJournal,
+  toSyncDocumentMetadata
+} from "../../src/offline/firestoreSyncJournal";
 import {
   addHarvestEntryOffline,
   closeHarvestSessionOffline,
   openHarvestSessionOffline
 } from "../../src/offline/offlineHarvestFirestoreRuntime";
+import {
+  createPwaUpdateRecoveryBaseline,
+  evaluatePwaUpdateActivationGate,
+  verifyPwaUpdateCompletion,
+  type PwaUpdateRecoveryDocument
+} from "../../src/pwa/pwaUpdateRecovery";
+import { evaluatePwaUpdateDecision } from "../../src/pwa/pwaUpdatePolicy";
 
 const projectId = "demo-borowka-pwa-offline-runtime";
 const deviceId = "device-offline-integration-1";
@@ -362,6 +372,190 @@ describe("offline harvest Firestore runtime", () => {
     expect(await countDocumentsWithoutRules("auditEvents")).toBe(2);
   }, 30_000);
 
+  it("synchronizes version A before activating version B without loss or duplicates", async () => {
+    if (!testEnvironment) {
+      throw new Error("Rules test environment was not initialized.");
+    }
+
+    const operatorFirestore = testEnvironment
+      .authenticatedContext(operatorProfile.uid, {
+        email: operatorProfile.email
+      })
+      .firestore();
+    const journal = createMemoryFirestoreSyncJournal();
+
+    firebaseServicesMock.getFirebaseServices.mockResolvedValue({
+      firestore: operatorFirestore
+    });
+
+    await disableNetwork(operatorFirestore);
+
+    const opened = await openHarvestSessionOffline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        seasonId: seed.seasons[0].id,
+        workerId: seed.workers[0].id,
+        businessDate: "2026-07-19",
+        note: "PWA-UPDATE-A-TO-B",
+        secondSessionReason: null,
+        isOnline: false,
+        createdDeviceId: deviceId,
+        persistentDataCacheReady: true,
+        serviceWorkerReady: true
+      },
+      {
+        configurationStorage: createMemoryConfigurationCacheStorage([
+          createConfigurationSnapshot()
+        ]),
+        journal
+      }
+    );
+
+    if (opened.status !== "CREATED_OFFLINE") {
+      throw new Error("Expected an offline session created by version A.");
+    }
+
+    for (let entryIndex = 0; entryIndex < 3; entryIndex += 1) {
+      await addHarvestEntryOffline(
+        {},
+        {
+          actorProfile: operatorProfile,
+          sessionId: opened.session.id,
+          quantityMilli: 1000,
+          weightG: 1000,
+          isOnline: false,
+          createdDeviceId: deviceId
+        },
+        { journal }
+      );
+    }
+
+    await closeHarvestSessionOffline(
+      {},
+      {
+        actorProfile: operatorProfile,
+        sessionId: opened.session.id,
+        confirmationAccepted: true,
+        isOnline: false,
+        deviceId
+      },
+      { journal }
+    );
+
+    const pending = await journal.list({
+      deviceId,
+      userUid: operatorProfile.uid
+    });
+    const pendingMetadata = pending.map(toSyncDocumentMetadata);
+    const baseline = createPwaUpdateRecoveryBaseline({
+      createdAt: new Date("2026-07-19T12:00:00.000Z"),
+      pendingDocuments: pendingMetadata,
+      sourceVersion: "6.28-a",
+      targetVersion: "6.28-b"
+    });
+    const blockedDecision = evaluatePwaUpdateDecision({
+      hasActiveForm: false,
+      hasActiveHarvestSession: false,
+      syncDocuments: pendingMetadata
+    });
+    const blockedGate = evaluatePwaUpdateActivationGate({
+      baseline,
+      confirmedServerDocuments: [],
+      currentSyncDocuments: pendingMetadata,
+      decision: blockedDecision,
+      synchronizationStatus: "FAILED",
+      updateAvailable: true
+    });
+
+    expect(pending).toHaveLength(9);
+    expect(blockedDecision.status).toBe("DEFER_REQUIRED");
+    expect(blockedGate.status).toBe("BLOCKED");
+
+    const synchronizationResult = await createFirestoreSynchronizationApi(
+      journal
+    ).synchronize(
+      {},
+      createSynchronizationRequest({
+        deviceId,
+        pendingDocumentCount: pending.length,
+        requestedAtIso: new Date().toISOString(),
+        trigger: "ONLINE_RESTORED",
+        userRole: operatorProfile.role,
+        userUid: operatorProfile.uid
+      })
+    );
+    const remaining = await journal.list({
+      deviceId,
+      userUid: operatorProfile.uid
+    });
+    const serverSession = await getDoc(
+      doc(operatorFirestore, "harvestSessions", opened.session.id)
+    );
+    const serverEntries = await getDocs(
+      query(
+        collection(operatorFirestore, "harvestEntries"),
+        where("sessionId", "==", opened.session.id)
+      )
+    );
+    const serverAuditIds = await listDocumentIdsWithoutRules("auditEvents");
+    const confirmedServerDocuments: PwaUpdateRecoveryDocument[] = [
+      ...(serverSession.exists()
+        ? [{ id: serverSession.id, kind: "HARVEST_SESSION" as const }]
+        : []),
+      ...serverEntries.docs.map((entry) => ({
+        id: entry.id,
+        kind: "HARVEST_ENTRY" as const
+      })),
+      ...serverAuditIds.map((id) => ({
+        id,
+        kind: "AUDIT_EVENT" as const
+      }))
+    ];
+    const readyDecision = evaluatePwaUpdateDecision({
+      hasActiveForm: false,
+      hasActiveHarvestSession: false,
+      syncDocuments: remaining.map(toSyncDocumentMetadata)
+    });
+    const readyGate = evaluatePwaUpdateActivationGate({
+      baseline,
+      confirmedServerDocuments,
+      currentSyncDocuments: remaining.map(toSyncDocumentMetadata),
+      decision: readyDecision,
+      synchronizationStatus: synchronizationResult.status,
+      updateAvailable: true
+    });
+    const completion = verifyPwaUpdateCompletion({
+      activeVersion: "6.28-b",
+      baseline,
+      gate: readyGate
+    });
+
+    expect(synchronizationResult.status).toBe("SUCCESS");
+    expect(remaining).toEqual([]);
+    expect(serverSession.data()).toMatchObject({
+      status: "CLOSED",
+      totalEntryCount: 3
+    });
+    expect(serverEntries.docs).toHaveLength(3);
+    expect(new Set(serverEntries.docs.map((entry) => entry.id)).size).toBe(3);
+    expect(serverAuditIds).toHaveLength(5);
+    expect(confirmedServerDocuments).toHaveLength(baseline.expectedDocuments.length);
+    expect(readyGate).toMatchObject({
+      blockers: [],
+      canActivate: true,
+      expectedDocumentCount: 9,
+      status: "READY"
+    });
+    expect(completion).toMatchObject({
+      activeVersion: "6.28-b",
+      issues: [],
+      sourceVersion: "6.28-a",
+      status: "PASS",
+      targetVersion: "6.28-b"
+    });
+  }, 30_000);
+
   it("synchronizes a long OFF-T05 run with four sessions and one hundred entries", async () => {
     if (!testEnvironment) {
       throw new Error("Rules test environment was not initialized.");
@@ -520,19 +714,23 @@ async function seedServerConfiguration(): Promise<void> {
 }
 
 async function countDocumentsWithoutRules(collectionPath: string): Promise<number> {
+  return (await listDocumentIdsWithoutRules(collectionPath)).length;
+}
+
+async function listDocumentIdsWithoutRules(collectionPath: string): Promise<string[]> {
   if (!testEnvironment) {
     throw new Error("Rules test environment was not initialized.");
   }
 
-  let documentCount = 0;
+  let documentIds: string[] = [];
 
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const snapshot = await getDocs(collection(context.firestore(), collectionPath));
 
-    documentCount = snapshot.size;
+    documentIds = snapshot.docs.map((document) => document.id);
   });
 
-  return documentCount;
+  return documentIds;
 }
 
 function createConfigurationSnapshot(): ConfigurationCacheSnapshot {
