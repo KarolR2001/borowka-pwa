@@ -133,6 +133,11 @@ import {
   defaultAdminPaymentDirectoryApi,
   type AdminPaymentDirectoryApi
 } from "../payments/AdminPaymentDirectoryPanel";
+import {
+  defaultPickerDashboardApi,
+  PickerDashboardPanel,
+  type PickerDashboardApi
+} from "../picker/PickerDashboardPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -178,6 +183,7 @@ export type AppProps = {
   harvestSessionsApi?: OperatorHarvestSessionsApi;
   pendingPaymentsApi?: PendingPaymentsApi;
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
+  pickerDashboardApi?: PickerDashboardApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
@@ -226,8 +232,8 @@ const panelByNavigation: Record<NavigationKey, PanelState> = {
   },
   picker: {
     title: "Pulpit zbieracza",
-    status: "Brak przypisanego profilu",
-    detail: "Prywatny widok zostanie połączony z workerId."
+    status: "Prywatne podsumowanie",
+    detail: "Zbiory i rozliczenia sa ograniczone do powiazanego workerId."
   },
   settings: {
     title: "Ustawienia",
@@ -254,6 +260,7 @@ export function App({
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
   pendingPaymentsApi = defaultPendingPaymentsApi,
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
+  pickerDashboardApi = defaultPickerDashboardApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
@@ -979,6 +986,15 @@ export function App({
               workerDirectoryApi={workerDirectoryApi}
             />
           </>
+        ) : null}
+
+        {activeView === "picker" ? (
+          <PickerDashboardPanel
+            authState={authState}
+            env={env}
+            isOnline={isOnline}
+            pickerDashboardApi={pickerDashboardApi}
+          />
         ) : null}
 
         {activeView === "settings" ? (

@@ -226,7 +226,7 @@ const seedWorkerRateChangeState = async () => {
 };
 
 describe("Firestore worker rules", () => {
-  it("rejects worker reads for anonymous, blocked and picker users", async () => {
+  it("allows picker to read only the worker linked to their profile", async () => {
     await seedProfiles(
       profile({
         uid: "blocked-1",
@@ -240,6 +240,11 @@ describe("Firestore worker rules", () => {
       })
     );
     await seedWorkers();
+    await testEnv?.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), "workers", "worker-1"), {
+        linkedUserUid: "picker-1"
+      });
+    });
     expect(testEnv).toBeDefined();
     if (!testEnv) {
       return;
@@ -255,7 +260,8 @@ describe("Firestore worker rules", () => {
 
     await assertFails(getDoc(doc(anonymousDb, "workers", "worker-1")));
     await assertFails(getDoc(doc(blockedDb, "workers", "worker-1")));
-    await assertFails(getDoc(doc(pickerDb, "workers", "worker-1")));
+    await assertSucceeds(getDoc(doc(pickerDb, "workers", "worker-1")));
+    await assertFails(getDoc(doc(pickerDb, "workers", "worker-archived")));
     await assertFails(getDocs(collection(pickerDb, "workers")));
   });
 

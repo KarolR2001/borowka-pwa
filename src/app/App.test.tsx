@@ -11,6 +11,7 @@ import type { OfflineStorageHealthApi } from "../offline/offlineStorageHealth";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DEVICE_CLEAR_CONFIRMATION } from "../offline/safeSignOut";
 import type { AdminPaymentDirectoryApi } from "../payments/AdminPaymentDirectoryPanel";
+import type { PickerDashboardApi } from "../picker/PickerDashboardPanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -610,6 +611,61 @@ describe("App shell", () => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
     expect(screen.getByText("Konto: zablokowane")).toBeInTheDocument();
+  });
+
+  it("opens the private picker dashboard from the application shell", async () => {
+    const user = userEvent.setup();
+    const load = vi.fn<PickerDashboardApi["load"]>().mockResolvedValue({
+      accruedAmountGrosz: 5000,
+      dataSource: "SERVER",
+      invalidPaymentCount: 0,
+      invalidSeasonCount: 0,
+      invalidSessionCount: 0,
+      invalidWorker: false,
+      paidAmountGrosz: 2000,
+      quantities: [],
+      refreshedAtIso: "2026-07-28T18:30:00.000Z",
+      remainingAmountGrosz: 3000,
+      seasons: [
+        {
+          id: "season-2026",
+          isDefault: true,
+          name: "Sezon 2026",
+          startDate: "2026-07-01",
+          status: "OPEN"
+        }
+      ],
+      selectedSeasonId: "season-2026",
+      selectedSeasonName: "Sezon 2026",
+      sessionCounts: {
+        closed: 1,
+        open: 0,
+        paid: 1
+      },
+      totalWeightG: 12_500,
+      userName: "Picker Test",
+      workerId: "worker-1",
+      workerName: "Anna Zbieracz"
+    });
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activePickerState)}
+        pickerDashboardApi={{ load }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Zbieracz" }));
+
+    expect(await screen.findByText("12,500 kg")).toBeInTheDocument();
+    expect(screen.getByText("Picker Test / Anna Zbieracz")).toBeInTheDocument();
+    expect(load).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        actorProfile: activePickerState.profile,
+        selectedSeasonId: null
+      })
+    );
   });
 
   it("registers the current device for an active profile", async () => {

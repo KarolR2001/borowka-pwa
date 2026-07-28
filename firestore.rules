@@ -772,6 +772,7 @@ service cloud.firestore {
 
     function canReadSeasonConfiguration(data) {
       return isAdmin() ||
+        isPicker() ||
         (
           isOperator() &&
           data.status == 'OPEN'
@@ -783,6 +784,16 @@ service cloud.firestore {
         (
           isOperator() &&
           data.active == true
+        );
+    }
+
+    function canReadWorkerConfiguration(data) {
+      return canReadActiveConfiguration(data) ||
+        (
+          isPicker() &&
+          profile(request.auth.uid).workerId is string &&
+          profile(request.auth.uid).workerId == data.id &&
+          data.linkedUserUid == request.auth.uid
         );
     }
 
@@ -1314,6 +1325,15 @@ service cloud.firestore {
     function canReadHarvestDocument(data) {
       return isAdmin() ||
         isOperator() ||
+        (
+          isPicker() &&
+          profile(request.auth.uid).workerId is string &&
+          profile(request.auth.uid).workerId == data.workerId
+        );
+    }
+
+    function canReadPaymentDocument(data) {
+      return isAdmin() ||
         (
           isPicker() &&
           profile(request.auth.uid).workerId is string &&
@@ -2086,7 +2106,7 @@ service cloud.firestore {
     }
 
     match /workers/{workerId} {
-      allow get, list: if canReadActiveConfiguration(resource.data);
+      allow get, list: if canReadWorkerConfiguration(resource.data);
       allow create: if isValidWorkerCreate(request.resource.data, workerId);
       allow update: if (
         isWorkerArchiveWrite(request.resource.data, resource.data) &&
@@ -2160,7 +2180,7 @@ service cloud.firestore {
     }
 
     match /payments/{paymentId} {
-      allow get, list: if isAdmin();
+      allow get, list: if canReadPaymentDocument(resource.data);
       allow create: if isValidPaymentCreate(request.resource.data, paymentId);
       allow update: if isValidPaymentCancellationUpdate(
         request.resource.data,
