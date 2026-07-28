@@ -52,6 +52,17 @@ describe("PickerWorkspacePanel", () => {
       refreshedAtIso: "2026-07-29T08:00:00.000Z",
       seasons: []
     });
+    const paymentLoad = vi.fn().mockResolvedValue({
+      dataSource: "SERVER",
+      invalidPaymentCount: 0,
+      invalidSeasonCount: 0,
+      invalidSessionCount: 0,
+      missingSourceSessionCount: 0,
+      payments: [],
+      refreshedAtIso: "2026-07-29T08:00:00.000Z",
+      seasons: [],
+      sessions: []
+    });
 
     render(
       <PickerWorkspacePanel
@@ -60,12 +71,14 @@ describe("PickerWorkspacePanel", () => {
         isOnline
         pickerDashboardApi={{ load: dashboardLoad }}
         pickerHarvestListApi={{ load: harvestLoad }}
+        pickerPaymentListApi={{ load: paymentLoad }}
         syncDocuments={[]}
       />
     );
 
     expect(await screen.findByText("Anna Konto / Anna Zbieracz")).toBeInTheDocument();
     expect(harvestLoad).not.toHaveBeenCalled();
+    expect(paymentLoad).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("tab", { name: "Moje zbiory" }));
 
@@ -73,5 +86,13 @@ describe("PickerWorkspacePanel", () => {
       await screen.findByText("Brak sesji spelniajacych wybrane filtry.")
     ).toBeInTheDocument();
     expect(harvestLoad).toHaveBeenCalledTimes(1);
+    expect(paymentLoad).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("tab", { name: "Moje wyplaty" }));
+
+    expect(
+      await screen.findByText("Brak wyplat spelniajacych wybrane filtry.")
+    ).toBeInTheDocument();
+    expect(paymentLoad).toHaveBeenCalledTimes(1);
   });
 });

@@ -54,7 +54,11 @@ describe("picker dashboard rules", () => {
     );
     await assertSucceeds(
       getDocs(
-        query(collection(pickerDb, "payments"), where("workerId", "==", "worker-anna"))
+        query(
+          collection(pickerDb, "payments"),
+          where("workerId", "==", "worker-anna"),
+          orderBy("paidBusinessDate", "desc")
+        )
       )
     );
 
@@ -192,9 +196,11 @@ async function seedDashboard(): Promise<void> {
         workerId: "worker-bartek"
       }),
       setDoc(doc(db, "payments", "payment-anna"), {
+        paidBusinessDate: "2026-07-29",
         workerId: "worker-anna"
       }),
       setDoc(doc(db, "payments", "payment-bartek"), {
+        paidBusinessDate: "2026-07-29",
         workerId: "worker-bartek"
       }),
       setDoc(doc(db, "harvestEntries", "entry-anna"), {

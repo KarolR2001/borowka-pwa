@@ -787,6 +787,36 @@ h2 {
   margin: 0;
 }
 
+.picker-payment-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.picker-payment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid #84b8bf;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #e8f5f6;
+  color: #155a63;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.picker-payment-status--CANCELLED {
+  border-color: #d8b46f;
+  background: #fff7e8;
+  color: #76510f;
+}
+
 .directory-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 0.6fr));
@@ -2342,6 +2372,7 @@ h2 {
   }
 
   .picker-harvest-filters,
+  .picker-payment-filters,
   .picker-session-details__facts,
   .picker-session-details__payment dl,
   .picker-session-entry,
