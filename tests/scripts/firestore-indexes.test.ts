@@ -38,6 +38,7 @@ const expectedCompositeIndexes = [
     "validFrom:DESCENDING"
   ],
   ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"],
+  ["payments", "workerId:ASCENDING", "paidBusinessDate:DESCENDING"],
   ...HARVEST_QUERY_INDEX_REQUIREMENTS.map((requirement) => [
     requirement.collectionGroup,
     ...requirement.fields.map((field) => `${field.fieldPath}:${field.order}`)
@@ -99,7 +100,7 @@ function indexKey(index: FirestoreIndex) {
 }
 
 describe("firestore indexes", () => {
-  it("keeps required stage 4 and stage 5.19 composite indexes in the manifest", () => {
+  it("keeps required domain query indexes in the manifest", () => {
     const indexManifest = readIndexManifest();
     const manifestKeys = new Set(indexManifest.indexes.map(indexKey));
 

@@ -1,4 +1,4 @@
-import { LayoutDashboard, List } from "lucide-react";
+import { Banknote, LayoutDashboard, List } from "lucide-react";
 import { useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -8,10 +8,14 @@ import {
   PickerHarvestListPanel,
   type PickerHarvestListApi
 } from "./PickerHarvestListPanel";
+import {
+  PickerPaymentListPanel,
+  type PickerPaymentListApi
+} from "./PickerPaymentListPanel";
 import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS";
+type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS";
 
 export function PickerWorkspacePanel({
   authState,
@@ -19,6 +23,7 @@ export function PickerWorkspacePanel({
   isOnline,
   pickerDashboardApi,
   pickerHarvestListApi,
+  pickerPaymentListApi,
   pickerSessionDetailsApi,
   syncDocuments
 }: {
@@ -27,6 +32,7 @@ export function PickerWorkspacePanel({
   isOnline: boolean;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
+  pickerPaymentListApi?: PickerPaymentListApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
@@ -55,6 +61,14 @@ export function PickerWorkspacePanel({
             setActiveView("HARVESTS");
           }}
         />
+        <WorkspaceTab
+          active={activeView === "PAYMENTS"}
+          icon={Banknote}
+          label="Moje wyplaty"
+          onClick={() => {
+            setActiveView("PAYMENTS");
+          }}
+        />
       </div>
       {activeView === "SUMMARY" ? (
         <PickerDashboardPanel
@@ -63,7 +77,7 @@ export function PickerWorkspacePanel({
           isOnline={isOnline}
           pickerDashboardApi={pickerDashboardApi}
         />
-      ) : (
+      ) : activeView === "HARVESTS" ? (
         <PickerHarvestListPanel
           authState={authState}
           env={env}
@@ -71,6 +85,14 @@ export function PickerWorkspacePanel({
           pickerHarvestListApi={pickerHarvestListApi}
           pickerSessionDetailsApi={pickerSessionDetailsApi}
           syncDocuments={syncDocuments}
+        />
+      ) : (
+        <PickerPaymentListPanel
+          authState={authState}
+          env={env}
+          isOnline={isOnline}
+          pickerPaymentListApi={pickerPaymentListApi}
+          pickerSessionDetailsApi={pickerSessionDetailsApi}
         />
       )}
     </section>

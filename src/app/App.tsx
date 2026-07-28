@@ -146,6 +146,10 @@ import {
   defaultPickerSessionDetailsApi,
   type PickerSessionDetailsApi
 } from "../picker/PickerSessionDetailsPanel";
+import {
+  defaultPickerPaymentListApi,
+  type PickerPaymentListApi
+} from "../picker/PickerPaymentListPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -193,6 +197,7 @@ export type AppProps = {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
+  pickerPaymentListApi?: PickerPaymentListApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
@@ -272,6 +277,7 @@ export function App({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerHarvestListApi = defaultPickerHarvestListApi,
+  pickerPaymentListApi = defaultPickerPaymentListApi,
   pickerSessionDetailsApi = defaultPickerSessionDetailsApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
@@ -1007,6 +1013,7 @@ export function App({
             isOnline={isOnline}
             pickerDashboardApi={pickerDashboardApi}
             pickerHarvestListApi={pickerHarvestListApi}
+            pickerPaymentListApi={pickerPaymentListApi}
             pickerSessionDetailsApi={pickerSessionDetailsApi}
             syncDocuments={syncDocuments}
           />
