@@ -14,6 +14,7 @@ import {
   type CheckPaymentEligibilityInput,
   type PaymentEligibilityResult
 } from "./paymentEligibility";
+import { PaymentConfirmationForm } from "./PaymentConfirmationForm";
 import {
   defaultPendingPaymentFilters,
   filterPendingPaymentSessions,
@@ -216,7 +217,19 @@ export function AdminPendingPaymentsPanel({
           sessions={filteredSessions}
         />
       ) : null}
-      <EligibilityPanel preparedSessionId={preparedSessionId} state={eligibilityState} />
+      <EligibilityPanel
+        onCancelPreparation={() => {
+          setPreparedSessionId(null);
+        }}
+        preparedSessionId={preparedSessionId}
+        session={
+          preparedSessionId
+            ? (sessions.find((session) => session.sessionId === preparedSessionId) ??
+              null)
+            : null
+        }
+        state={eligibilityState}
+      />
     </section>
   );
 }
@@ -425,10 +438,14 @@ function PaymentAction({
 }
 
 function EligibilityPanel({
+  onCancelPreparation,
   preparedSessionId,
+  session,
   state
 }: {
+  onCancelPreparation: () => void;
   preparedSessionId: string | null;
+  session: PendingPaymentSession | null;
   state: EligibilityState;
 }) {
   if (state.status === "IDLE" || state.status === "CHECKING") {
@@ -446,19 +463,25 @@ function EligibilityPanel({
 
   if (state.result.status === "ELIGIBLE") {
     return (
-      <div className="payment-eligibility payment-eligibility--ready">
-        <ShieldCheck aria-hidden="true" size={22} />
-        <div>
-          <strong>Sesja spelnia warunki wyplaty.</strong>
-          <p>
-            Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}, rewizja{" "}
-            {state.result.sessionRevision}.
-          </p>
-          {preparedSessionId === state.sessionId ? (
-            <p>Sesja jest gotowa do potwierdzenia wyplaty.</p>
-          ) : null}
+      <>
+        <div className="payment-eligibility payment-eligibility--ready">
+          <ShieldCheck aria-hidden="true" size={22} />
+          <div>
+            <strong>Sesja spelnia warunki wyplaty.</strong>
+            <p>
+              Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}, rewizja{" "}
+              {state.result.sessionRevision}.
+            </p>
+          </div>
         </div>
-      </div>
+        {preparedSessionId === state.sessionId && session ? (
+          <PaymentConfirmationForm
+            eligibility={state.result}
+            onCancel={onCancelPreparation}
+            session={session}
+          />
+        ) : null}
+      </>
     );
   }
 

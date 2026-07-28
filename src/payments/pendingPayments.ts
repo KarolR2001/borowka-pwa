@@ -31,6 +31,7 @@ export type PendingPaymentSession = {
   paymentHistory: "NONE" | "CANCELLED";
   planId: string;
   planName: string;
+  rateGrosz: number;
   seasonId: string;
   seasonName: string;
   sessionId: string;
@@ -207,6 +208,7 @@ export function buildPendingPaymentDirectory({
         : "NONE",
       planId: session.planIdSnapshot,
       planName: session.planNameSnapshot,
+      rateGrosz: session.rateGroszSnapshot,
       seasonId: session.seasonId,
       seasonName:
         seasons.find((season) => season.id === session.seasonId)?.name ??

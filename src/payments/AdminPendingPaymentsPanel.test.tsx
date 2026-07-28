@@ -85,7 +85,8 @@ describe("AdminPendingPaymentsPanel", () => {
     await user.click(screen.getByRole("button", { name: "Sprawdz warunki" }));
     expect(await screen.findByText("Sesja spelnia warunki wyplaty.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Wyplac" }));
-    expect(screen.getByText("Sesja jest gotowa do potwierdzenia wyplaty.")).toBeVisible();
+    expect(screen.getByText("Potwierdzenie wyplaty")).toBeVisible();
+    expect(screen.getByText("Za kilogram, 10,00 zł / kilogramy")).toBeVisible();
     expect(api.checkEligibility).toHaveBeenCalledWith(
       {},
       expect.objectContaining({ sessionId: "session-a" })
@@ -202,6 +203,7 @@ function pendingSession(sessionId: string, workerName: string, amountDueGrosz: n
       sessionId === "session-a" ? ("CANCELLED" as const) : ("NONE" as const),
     planId: "plan-a",
     planName: "Za kilogram",
+    rateGrosz: 1000,
     seasonId: "season-2026",
     seasonName: "Sezon 2026",
     sessionId,
