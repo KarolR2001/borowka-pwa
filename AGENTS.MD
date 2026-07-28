@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 7.2: pakiet
-  `7.3 - ekran potwierdzenia wyplaty`.
+- Aktualny kierunek po pakiecie 7.3: pakiet
+  `7.4 - utworzenie wyplaty i zmiana statusu sesji`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,14 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `7.2` scalony do `main` w commicie
-  `fc68e50`.
+- Punkt startowy tego przyrostu: pakiet `7.3` scalony do `main` w commicie
+  `0998f6b`.
 - Aktualna galaz realizuje pakiet
-  `7.3 - ekran potwierdzenia wyplaty`.
+  `7.4 - utworzenie wyplaty i zmiana statusu sesji`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 7.3 nastepny pakiet implementacyjny to
-  `7.4 - utworzenie wyplaty i zmiana statusu sesji`.
+- Po zakonczeniu 7.4 nastepny pakiet implementacyjny to
+  `7.5 - ochrona przed podwojna wyplata`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

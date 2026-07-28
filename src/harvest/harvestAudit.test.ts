@@ -86,6 +86,7 @@ describe("harvest operation audit contract", () => {
       "HARVEST_SESSION_CANCELLED",
       "HARVEST_SESSION_MARKED_REVIEW_REQUIRED",
       "HARVEST_SESSION_REVIEW_RESOLVED",
+      "HARVEST_SESSION_PAID",
       "HARVEST_ENTRY_CREATED",
       "HARVEST_ENTRY_CANCELLED"
     ]);

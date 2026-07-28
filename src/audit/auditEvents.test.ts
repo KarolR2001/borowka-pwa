@@ -64,6 +64,7 @@ describe("audit events", () => {
     expect(isAuditAction("HARVEST_SESSION_CANCELLED")).toBe(true);
     expect(isAuditAction("HARVEST_SESSION_MARKED_REVIEW_REQUIRED")).toBe(true);
     expect(isAuditAction("HARVEST_SESSION_REVIEW_RESOLVED")).toBe(true);
+    expect(isAuditAction("HARVEST_SESSION_PAID")).toBe(true);
     expect(isAuditAction("HARVEST_ENTRY_CREATED")).toBe(true);
     expect(isAuditAction("HARVEST_ENTRY_CANCELLED")).toBe(true);
     expect(isAuditAction("UNKNOWN")).toBe(false);

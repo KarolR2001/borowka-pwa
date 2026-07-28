@@ -28,11 +28,12 @@ The administrator can provide only:
 - explicit confirmation that the payment covers the whole session.
 
 The prepared payload retains the session ID as payment ID, season and worker
-snapshots, official amount and expected session revision. These values form the
-input for the transactional write in package 7.4.
+snapshots, official amount and expected session revision. Package 7.4 passes
+these values to the transactional write described in `payment-write.md`.
 
 ## Boundary
 
-Preparing the form does not write to Firestore and does not change the session
-status. Cancelling returns to the successful eligibility result. A discrepancy
-requires session correction and a new preflight; the amount is never editable.
+Form validation alone does not change Firestore. The final submit writes the
+payment transaction and shows success only after fresh server confirmation.
+Cancelling returns to the successful eligibility result. A discrepancy requires
+session correction and a new preflight; the amount is never editable.
