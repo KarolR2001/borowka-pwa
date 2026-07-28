@@ -525,6 +525,39 @@ describe("App shell", () => {
     });
   });
 
+  it("loads blocked-account local data for integrity without starting sync", async () => {
+    const listLocalDocuments = vi
+      .fn<SynchronizationApi["listLocalDocuments"]>()
+      .mockResolvedValue([
+        {
+          id: "blocked-entry",
+          kind: "HARVEST_ENTRY",
+          pendingSync: true
+        }
+      ]);
+    const synchronize = vi.fn<SynchronizationApi["synchronize"]>();
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(blockedPickerState)}
+        synchronizationApi={createSynchronizationApi({
+          listLocalDocuments,
+          synchronize
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(listLocalDocuments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          userUid: "picker-1"
+        })
+      );
+    });
+    expect(synchronize).not.toHaveBeenCalled();
+  });
+
   it("refreshes the active profile on window focus to detect role changes", async () => {
     const refresh = vi
       .fn<AuthSessionApi["refresh"]>()
