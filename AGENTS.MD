@@ -56,7 +56,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 6.18: nastepny pakiet to `6.19 - awaryjny eksport lokalny`.
+- Aktualny kierunek po pakiecie 6.23: nastepny pakiet to
+  `6.24 - testy Android`.
 
 ## Testowanie i walidacja
 
@@ -121,10 +122,10 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `6.22` scalony do `main` w commicie
-  `59bb13d`.
+- Punkt startowy tego przyrostu: pakiet `6.23` scalony do `main` w commicie
+  `a488a97`.
 - Aktualna galaz realizuje pakiet
-  `6.23 - zgodnosc starego klienta z nowymi Rules`.
-- Po zakonczeniu 6.23 nastepny pakiet to
   `6.24 - testy Android`.
+- Po zakonczeniu 6.24 nastepny pakiet to
+  `6.25 - testy iOS`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.
