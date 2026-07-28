@@ -150,3 +150,6 @@ Stage 6.17 two device harvest conflict contract is maintained in
 
 Stage 6.18 blocked account with pending local data contract is maintained in
 `docs/domain/blocked-account-pending-data.md`.
+
+Stage 6.19 emergency local export contract is maintained in
+`docs/domain/emergency-local-export.md`.

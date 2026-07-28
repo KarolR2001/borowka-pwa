@@ -25,6 +25,7 @@ export type FirestoreSnapshotSyncMetadata = {
 export type SyncDocumentMetadataInput = {
   id: string;
   kind: SyncDocumentKind;
+  localSnapshot?: unknown;
   businessKey?: string | null;
   sessionId?: string | null;
   workerName?: string | null;
@@ -44,6 +45,7 @@ export type SyncDocumentMetadataInput = {
 export type SyncDocumentPresentation = {
   id: string;
   kind: SyncDocumentKind;
+  localSnapshot: unknown;
   businessKey: string | null;
   sessionId: string | null;
   workerName: string | null;
@@ -80,6 +82,7 @@ export function evaluateSyncDocumentMetadata(
 ): SyncDocumentPresentation {
   const id = normalizeRequiredText(input.id, "Dokument synchronizacji wymaga ID.");
   const kind = input.kind;
+  const localSnapshot = input.localSnapshot ?? null;
   const firestoreMetadata = input.firestoreMetadata ?? null;
   const rejectedReason = normalizeOptionalText(input.rejectedReason);
   const savedLocally = input.savedLocally === true;
@@ -100,6 +103,7 @@ export function evaluateSyncDocumentMetadata(
     return createPresentation({
       id,
       kind,
+      localSnapshot,
       businessKey,
       sessionId,
       workerName,
@@ -127,6 +131,7 @@ export function evaluateSyncDocumentMetadata(
     return createPresentation({
       id,
       kind,
+      localSnapshot,
       businessKey,
       sessionId,
       workerName,
@@ -154,6 +159,7 @@ export function evaluateSyncDocumentMetadata(
     return createPresentation({
       id,
       kind,
+      localSnapshot,
       businessKey,
       sessionId,
       workerName,
@@ -178,6 +184,7 @@ export function evaluateSyncDocumentMetadata(
     return createPresentation({
       id,
       kind,
+      localSnapshot,
       businessKey,
       sessionId,
       workerName,
@@ -204,6 +211,7 @@ export function evaluateSyncDocumentMetadata(
   return createPresentation({
     id,
     kind,
+    localSnapshot,
     businessKey,
     sessionId,
     workerName,

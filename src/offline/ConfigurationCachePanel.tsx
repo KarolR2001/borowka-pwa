@@ -29,11 +29,14 @@ import {
   type OfflineReadinessIndicator,
   type OfflineReadinessIndicatorTone
 } from "./offlineReadinessIndicator";
+import {
+  createEmergencyLocalExportFilename,
+  createEmergencyLocalExportPayload,
+  type EmergencyLocalExportPayload
+} from "./emergencyLocalExport";
 import type { SyncDocumentMetadataInput } from "./pendingWriteMetadata";
 import {
   buildSyncCenterModel,
-  createEmergencySyncExportPayload,
-  type EmergencySyncExportPayload,
   type SyncCenterModel,
   type SyncCenterSessionSummary
 } from "./syncCenter";
@@ -92,6 +95,8 @@ export function ConfigurationCachePanel({
   authState,
   configurationCacheApi = defaultConfigurationCacheApi,
   deviceId,
+  deviceName = "Nieznane urzadzenie",
+  devicePlatform = null,
   env,
   isOnline,
   lastSyncError = null,
@@ -103,10 +108,12 @@ export function ConfigurationCachePanel({
   authState: AuthSessionState;
   configurationCacheApi?: ConfigurationCacheApi;
   deviceId: string;
+  deviceName?: string;
+  devicePlatform?: string | null;
   env: FirebaseEnv;
   isOnline: boolean;
   lastSyncError?: string | null;
-  onEmergencyExport?: (payload: EmergencySyncExportPayload) => Promise<void> | void;
+  onEmergencyExport?: (payload: EmergencyLocalExportPayload) => Promise<void> | void;
   onRetrySync?: (
     model: SyncCenterModel
   ) => Promise<RetrySynchronizationResult> | RetrySynchronizationResult;
@@ -142,6 +149,7 @@ export function ConfigurationCachePanel({
           profile: authState.profile
         })
       : null;
+  const emergencyExportProfile = "profile" in authState ? authState.profile : null;
   const viewerRole =
     authState.status === "READY" &&
     (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR")
@@ -331,10 +339,19 @@ export function ConfigurationCachePanel({
     setIsExporting(true);
 
     try {
-      const payload = createEmergencySyncExportPayload({
-        createdAtIso: new Date().toISOString(),
-        deviceId,
-        model: syncCenterModel
+      if (!emergencyExportProfile) {
+        throw new Error("Eksport awaryjny wymaga profilu uzytkownika.");
+      }
+
+      const payload = createEmergencyLocalExportPayload({
+        device: {
+          id: deviceId,
+          name: deviceName,
+          platform: devicePlatform
+        },
+        exportedAtIso: new Date().toISOString(),
+        model: syncCenterModel,
+        user: emergencyExportProfile
       });
 
       if (onEmergencyExport) {
@@ -860,7 +877,7 @@ function formatPreparedAt(value: string): string {
   }).format(parsed);
 }
 
-function downloadEmergencySyncExport(payload: EmergencySyncExportPayload): void {
+function downloadEmergencySyncExport(payload: EmergencyLocalExportPayload): void {
   if (
     typeof window === "undefined" ||
     typeof document === "undefined" ||
@@ -876,7 +893,7 @@ function downloadEmergencySyncExport(payload: EmergencySyncExportPayload): void 
   const anchor = document.createElement("a");
 
   anchor.href = url;
-  anchor.download = `borowka-sync-export-${payload.createdAtIso.replace(/[:.]/g, "-")}.json`;
+  anchor.download = createEmergencyLocalExportFilename(payload.exportedAtIso);
   anchor.click();
   window.URL.revokeObjectURL(url);
 }

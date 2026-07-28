@@ -1,4 +1,4 @@
-import { buildSyncCenterModel, createEmergencySyncExportPayload } from "./syncCenter";
+import { buildSyncCenterModel } from "./syncCenter";
 
 describe("sync center model", () => {
   it("groups pending and problematic documents by harvest session", () => {
@@ -109,39 +109,5 @@ describe("sync center model", () => {
         actionLabel: "Przejrzyj konflikt"
       })
     ]);
-  });
-
-  it("builds an emergency export payload without dropping pending details", () => {
-    const model = buildSyncCenterModel([
-      {
-        id: "entry-pending",
-        kind: "HARVEST_ENTRY",
-        sessionId: "session-1",
-        workerName: "Anna Test",
-        businessDate: "2026-07-17",
-        pendingSync: true
-      }
-    ]);
-    const payload = createEmergencySyncExportPayload({
-      createdAtIso: "2026-07-17T12:00:00.000Z",
-      deviceId: "device-1",
-      model
-    });
-
-    expect(payload).toMatchObject({
-      createdAtIso: "2026-07-17T12:00:00.000Z",
-      deviceId: "device-1",
-      summary: {
-        pendingSyncCount: 1,
-        totalDocumentCount: 1
-      },
-      sessions: [
-        {
-          sessionId: "session-1",
-          workerName: "Anna Test",
-          pendingDocumentCount: 1
-        }
-      ]
-    });
   });
 });
