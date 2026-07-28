@@ -9,6 +9,7 @@ export type OfflineLayerReadinessInput = {
   applicationFilesReady: boolean;
   serviceWorkerSupported: boolean;
   configurationDataReady: boolean;
+  storageReady: boolean;
   pendingWriteCount: number;
   rejectedWriteCount: number;
   staleDocumentCount: number;
@@ -80,16 +81,21 @@ function evaluateApplicationLayer(input: OfflineLayerReadinessInput) {
 
 function evaluateDataLayer(input: OfflineLayerReadinessInput) {
   const details: string[] = [];
+  const cacheReady = input.configurationDataReady && input.storageReady;
   const sources: Record<OfflineDataSourceStatus, boolean> = {
-    CACHE: input.configurationDataReady,
+    CACHE: cacheReady,
     PENDING_WRITE: input.pendingWriteCount > 0,
-    SERVER_CONFIRMED: input.configurationDataReady && input.pendingWriteCount === 0,
+    SERVER_CONFIRMED: cacheReady && input.pendingWriteCount === 0,
     REJECTED: input.rejectedWriteCount > 0,
     STALE: input.staleDocumentCount > 0
   };
 
   if (!input.configurationDataReady) {
     details.push("Brak gotowego lokalnego snapshotu danych domenowych.");
+  }
+
+  if (!input.storageReady) {
+    details.push("Trwala pamiec lokalna nie jest gotowa.");
   }
 
   if (input.pendingWriteCount > 0) {
@@ -127,8 +133,8 @@ function evaluateDataLayer(input: OfflineLayerReadinessInput) {
   }
 
   return {
-    status: input.configurationDataReady ? ("READY" as const) : ("NOT_READY" as const),
-    label: input.configurationDataReady ? "Dane gotowe offline" : "Dane nieprzygotowane",
+    status: cacheReady ? ("READY" as const) : ("NOT_READY" as const),
+    label: cacheReady ? "Dane gotowe offline" : "Dane nieprzygotowane",
     details,
     sources
   };

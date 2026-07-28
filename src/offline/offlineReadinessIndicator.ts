@@ -1,11 +1,13 @@
 import type { AuthSessionState } from "../auth/authSession";
 import type { OfflineLayerReadiness } from "./offlineReadiness";
+import type { OfflineStorageHealth } from "./offlineStorageHealth";
 
 export type OfflineReadinessIndicatorStatus =
   | "ONLINE_SYNCED"
   | "ONLINE_PENDING_WRITES"
   | "OFFLINE_READY"
   | "OFFLINE_MISSING_DATA"
+  | "STORAGE_UNAVAILABLE"
   | "SYNC_ERROR"
   | "REAUTH_REQUIRED";
 
@@ -18,6 +20,7 @@ export type OfflineReadinessIndicatorInput = {
   pendingWriteCount: number;
   lastFirestoreContactIso: string | null;
   layerReadiness: OfflineLayerReadiness | null;
+  storageHealth?: OfflineStorageHealth | null;
 };
 
 export type OfflineReadinessIndicator = {
@@ -42,6 +45,15 @@ export function evaluateOfflineReadinessIndicator(
         "Odnow sesje lub potwierdz status konta przed dalsza synchronizacja.",
         ...details
       ]
+    });
+  }
+
+  if (input.storageHealth?.status === "NOT_READY") {
+    return createIndicator(input, {
+      status: "STORAGE_UNAVAILABLE",
+      label: input.storageHealth.label,
+      tone: "error",
+      details: [...input.storageHealth.issues.map((issue) => issue.message), ...details]
     });
   }
 

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import type {
@@ -11,6 +12,10 @@ import {
   type ConfigurationCacheApi
 } from "./ConfigurationCachePanel";
 import type { EmergencyLocalExportPayload } from "./emergencyLocalExport";
+import type {
+  OfflineStorageHealth,
+  OfflineStorageHealthApi
+} from "./offlineStorageHealth";
 import type { SyncCenterModel } from "./syncCenter";
 
 const activeAdminState: AuthSessionState = {
@@ -86,6 +91,37 @@ const readyReadiness: ConfigurationCacheReadiness = {
     openSessions: 1
   }
 };
+
+const healthyStorageHealth: OfflineStorageHealth = {
+  status: "READY",
+  label: "Pamiec offline gotowa",
+  issues: [],
+  persistenceStatus: "GRANTED",
+  quota: {
+    availableBytes: 900 * 1024 * 1024,
+    quotaBytes: 1024 * 1024 * 1024,
+    usageBytes: 124 * 1024 * 1024,
+    usageRatio: 124 / 1024
+  }
+};
+
+const healthyStorageHealthApi: OfflineStorageHealthApi = {
+  inspect: () => Promise.resolve(healthyStorageHealth),
+  markConfigurationCleared: () => Promise.resolve(),
+  markConfigurationPrepared: () => Promise.resolve(),
+  requestPersistentStorage: () => Promise.resolve(true)
+};
+
+function TestConfigurationCachePanel(
+  props: ComponentProps<typeof ConfigurationCachePanel>
+) {
+  return (
+    <ConfigurationCachePanel
+      offlineStorageHealthApi={healthyStorageHealthApi}
+      {...props}
+    />
+  );
+}
 
 const snapshot: ConfigurationCacheSnapshot = {
   id: "admin-1:device-1",
@@ -227,7 +263,7 @@ const env = {};
 describe("ConfigurationCachePanel", () => {
   it("requires an active profile", () => {
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={signedOutState}
         deviceId="device-1"
         env={env}
@@ -241,7 +277,7 @@ describe("ConfigurationCachePanel", () => {
 
   it("reports account reconfirmation when profile cannot be confirmed", () => {
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={profileUnavailableState}
         deviceId="device-1"
         env={env}
@@ -261,7 +297,7 @@ describe("ConfigurationCachePanel", () => {
       .mockResolvedValue(undefined);
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={blockedOperatorState}
         deviceId="device-1"
         deviceName="Telefon operatora"
@@ -345,7 +381,7 @@ describe("ConfigurationCachePanel", () => {
     const prepare = vi.fn<ConfigurationCacheApi["prepare"]>();
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={{
           ...activeAdminState,
           profile: {
@@ -397,7 +433,7 @@ describe("ConfigurationCachePanel", () => {
     });
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={activeAdminState}
         configurationCacheApi={{
           read,
@@ -445,7 +481,7 @@ describe("ConfigurationCachePanel", () => {
     });
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={activeAdminState}
         configurationCacheApi={{
           read,
@@ -476,7 +512,7 @@ describe("ConfigurationCachePanel", () => {
     });
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={activeAdminState}
         configurationCacheApi={{
           read,
@@ -497,13 +533,138 @@ describe("ConfigurationCachePanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("never reports offline ready when local storage health has blockers", async () => {
+    const unavailableStorageHealth: OfflineStorageHealth = {
+      status: "NOT_READY",
+      label: "Pamiec offline niedostepna",
+      issues: [
+        {
+          code: "PERSISTENT_STORAGE_UNAVAILABLE",
+          message: "Trwala pamiec offline nie jest dostepna albo nie zostala wlaczona."
+        },
+        {
+          code: "PRIVATE_MODE_SUSPECTED",
+          message: "Tryb prywatny albo ustawienia przegladarki blokuja lokalna pamiec."
+        },
+        {
+          code: "LOCAL_WRITE_FAILED",
+          message: "Zapis lub odczyt lokalnego cache nie powiodl sie."
+        },
+        {
+          code: "LOW_SPACE",
+          message: "Na urzadzeniu jest za malo miejsca na bezpieczna prace offline."
+        },
+        {
+          code: "STORAGE_CLEARED",
+          message:
+            "Wczesniej przygotowany cache zniknal. Pamiec mogla zostac wyczyszczona przez system lub uzytkownika."
+        },
+        {
+          code: "CONFIGURATION_INCOMPLETE",
+          message: "Konfiguracja offline jest niekompletna."
+        }
+      ],
+      persistenceStatus: "NOT_GRANTED",
+      quota: null
+    };
+
+    render(
+      <TestConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read: () =>
+            Promise.resolve({
+              snapshot,
+              readiness: readyReadiness
+            }),
+          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={false}
+        offlineStorageHealthApi={{
+          ...healthyStorageHealthApi,
+          inspect: () => Promise.resolve(unavailableStorageHealth)
+        }}
+        serviceWorkerStatus="registered"
+      />
+    );
+
+    expect(
+      (await screen.findAllByText("Pamiec offline niedostepna")).length
+    ).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("Offline, gotowe")).not.toBeInTheDocument();
+
+    for (const issue of unavailableStorageHealth.issues) {
+      expect(screen.getAllByText(issue.message).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not prepare offline data when persistent storage is denied", async () => {
+    const user = userEvent.setup();
+    const prepare = vi.fn<ConfigurationCacheApi["prepare"]>();
+    const inspect = vi.fn<OfflineStorageHealthApi["inspect"]>().mockResolvedValue({
+      status: "NOT_READY",
+      label: "Pamiec offline niedostepna",
+      issues: [
+        {
+          code: "PERSISTENT_STORAGE_UNAVAILABLE",
+          message: "Trwala pamiec offline nie jest dostepna albo nie zostala wlaczona."
+        },
+        {
+          code: "CONFIGURATION_INCOMPLETE",
+          message: "Konfiguracja offline jest niekompletna."
+        }
+      ],
+      persistenceStatus: "NOT_GRANTED",
+      quota: null
+    });
+
+    render(
+      <TestConfigurationCachePanel
+        authState={activeAdminState}
+        configurationCacheApi={{
+          read: () =>
+            Promise.resolve({
+              snapshot: null,
+              readiness: {
+                ...readyReadiness,
+                status: "NOT_READY",
+                missingRequirements: ["Brak lokalnego snapshotu konfiguracji."]
+              }
+            }),
+          prepare,
+          clear: vi.fn<ConfigurationCacheApi["clear"]>()
+        }}
+        deviceId="device-1"
+        env={env}
+        isOnline={true}
+        offlineStorageHealthApi={{
+          ...healthyStorageHealthApi,
+          inspect,
+          requestPersistentStorage: () => Promise.resolve(false)
+        }}
+        serviceWorkerStatus="registered"
+      />
+    );
+
+    await screen.findByText("Brak lokalnego snapshotu konfiguracji.");
+    await user.click(screen.getByRole("button", { name: "Przygotuj offline" }));
+
+    expect(prepare).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("Przegladarka nie zezwolila na trwala pamiec offline.")
+    ).toBeInTheDocument();
+  });
+
   it("reports synchronization errors from failed cache reads", async () => {
     const read = vi
       .fn<ConfigurationCacheApi["read"]>()
       .mockRejectedValue(new Error("Firestore unavailable"));
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={activeAdminState}
         configurationCacheApi={{
           read,
@@ -538,7 +699,7 @@ describe("ConfigurationCachePanel", () => {
       .mockResolvedValue(undefined);
 
     render(
-      <ConfigurationCachePanel
+      <TestConfigurationCachePanel
         authState={activeAdminState}
         configurationCacheApi={{
           read,
