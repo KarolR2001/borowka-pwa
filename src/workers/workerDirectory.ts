@@ -242,7 +242,7 @@ export async function listWorkerDirectory(
   input: WorkerDirectoryListInput
 ): Promise<WorkerDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs, query, where } = await import("firebase/firestore/lite");
+  const { collection, getDocs, query, where } = await import("firebase/firestore");
 
   const workersQuery =
     input.viewerRole === "ADMIN"
@@ -313,7 +313,7 @@ export async function createWorkerWithInitialRate(
 ): Promise<PreparedWorkerCreate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const directory = await listWorkerDirectory(env, {
     viewerRole: "ADMIN"
   });
@@ -360,7 +360,7 @@ export async function createWorkerRateVersion(
 ): Promise<PreparedWorkerRateVersionCreate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, runTransaction, serverTimestamp } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const directory = await listWorkerDirectory(env, {
     viewerRole: "ADMIN"
   });
@@ -478,7 +478,7 @@ export async function updateWorkerAccountLink(
 ): Promise<PreparedWorkerAccountLinkUpdate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, runTransaction, serverTimestamp } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const directory = await listWorkerDirectory(env, {
     viewerRole: "ADMIN"
   });
@@ -585,7 +585,7 @@ export async function archiveWorker(
 ): Promise<PreparedWorkerArchive> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, runTransaction, serverTimestamp } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const directory = await listWorkerDirectory(env, {
     viewerRole: "ADMIN"
   });

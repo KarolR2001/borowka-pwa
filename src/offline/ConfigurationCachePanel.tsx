@@ -2,7 +2,10 @@ import { AlertTriangle, Database, Download, RefreshCw, Trash2 } from "lucide-rea
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
-import type { ServiceWorkerStatus } from "../app/useServiceWorkerStatus";
+import {
+  isServiceWorkerReady,
+  type ServiceWorkerStatus
+} from "../app/useServiceWorkerStatus";
 import {
   evaluateBlockedAccountPendingData,
   type BlockedAccountPendingDataAdminHandoff
@@ -39,6 +42,7 @@ import {
   createEmergencyLocalExportPayload,
   type EmergencyLocalExportPayload
 } from "./emergencyLocalExport";
+import type { FirestoreCacheMode } from "./firestorePersistencePreference";
 import type { SyncDocumentMetadataInput } from "./pendingWriteMetadata";
 import {
   buildSyncCenterModel,
@@ -103,6 +107,7 @@ export function ConfigurationCachePanel({
   deviceName = "Nieznane urzadzenie",
   devicePlatform = null,
   env,
+  firestoreCacheMode = "PERSISTENT",
   isOnline,
   lastSyncError = null,
   onEmergencyExport,
@@ -117,6 +122,7 @@ export function ConfigurationCachePanel({
   deviceName?: string;
   devicePlatform?: string | null;
   env: FirebaseEnv;
+  firestoreCacheMode?: FirestoreCacheMode;
   isOnline: boolean;
   lastSyncError?: string | null;
   onEmergencyExport?: (payload: EmergencyLocalExportPayload) => Promise<void> | void;
@@ -136,6 +142,7 @@ export function ConfigurationCachePanel({
   const [isExporting, setIsExporting] = useState(false);
   const [storageHealth, setStorageHealth] = useState<OfflineStorageHealth | null>(null);
   const serviceWorkerReady = isServiceWorkerReady(serviceWorkerStatus);
+  const persistentDataCacheReady = firestoreCacheMode === "PERSISTENT";
   const syncCenterModel = useMemo(
     () => buildSyncCenterModel(syncDocuments),
     [syncDocuments]
@@ -167,6 +174,7 @@ export function ConfigurationCachePanel({
     authState.status === "READY" &&
     viewerRole !== null &&
     authState.profile.offlineConsent &&
+    persistentDataCacheReady &&
     isOnline &&
     !isPreparing;
   const readiness = state.readiness;
@@ -223,6 +231,7 @@ export function ConfigurationCachePanel({
       .read({
         actorProfile: authState.profile,
         deviceId,
+        persistentDataCacheReady,
         serviceWorkerReady
       })
       .then((result) => {
@@ -279,6 +288,7 @@ export function ConfigurationCachePanel({
     configurationCacheApi,
     deviceId,
     offlineStorageHealthApi,
+    persistentDataCacheReady,
     serviceWorkerReady
   ]);
 
@@ -297,6 +307,13 @@ export function ConfigurationCachePanel({
 
     if (!isOnline) {
       setError("Przygotowanie konfiguracji wymaga polaczenia online.");
+      return;
+    }
+
+    if (!persistentDataCacheReady) {
+      setError(
+        "Uruchom ponownie PWA po wlaczeniu zgody, aby aktywowac trwaly cache Firestore."
+      );
       return;
     }
 
@@ -323,6 +340,7 @@ export function ConfigurationCachePanel({
         actorProfile: authState.profile,
         viewerRole,
         deviceId,
+        persistentDataCacheReady,
         serviceWorkerReady
       });
       await offlineStorageHealthApi.markConfigurationPrepared({
@@ -389,6 +407,7 @@ export function ConfigurationCachePanel({
       const result = await configurationCacheApi.read({
         actorProfile: authState.profile,
         deviceId,
+        persistentDataCacheReady,
         serviceWorkerReady
       });
       const health = await offlineStorageHealthApi.inspect({
@@ -974,10 +993,6 @@ function formatDataSources(readiness: OfflineLayerReadiness): string {
   ].filter((label): label is string => label !== null);
 
   return labels.length > 0 ? labels.join(", ") : "brak";
-}
-
-function isServiceWorkerReady(status: ServiceWorkerStatus): boolean {
-  return status === "controlled" || status === "registered";
 }
 
 function formatPreparedAt(value: string): string {

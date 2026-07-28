@@ -160,6 +160,7 @@ describe("App shell", () => {
 
     expect(screen.getByRole("heading", { name: "Diagnostyka" })).toBeInTheDocument();
     expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
+    expect(screen.getByText("Identyfikator buildu")).toBeInTheDocument();
     expect(screen.getByText("Nazwa urzadzenia")).toBeInTheDocument();
     expect(screen.getByText("Platforma urzadzenia")).toBeInTheDocument();
   });
@@ -299,7 +300,12 @@ describe("App shell", () => {
     const user = userEvent.setup();
     const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
 
-    render(<App authSessionApi={createAuthSessionApi(activeAdminState, { signOut })} />);
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(activeAdminState, { signOut })}
+        synchronizationApi={createSynchronizationApi()}
+      />
+    );
 
     await user.click(screen.getByRole("button", { name: /logowanie/i }));
 
@@ -514,6 +520,7 @@ describe("App shell", () => {
         authSessionApi={createAuthSessionApi(blockedPickerState, {
           signOut
         })}
+        synchronizationApi={createSynchronizationApi()}
       />
     );
 
@@ -670,7 +677,11 @@ describe("App shell", () => {
       throw new Error("Expected trusted offline consent to include a device name.");
     }
     expect(deviceName.length).toBeGreaterThan(0);
-    expect(screen.getByText("Zgoda offline wlaczona.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Zgoda offline wlaczona. Uruchom ponownie PWA przed przygotowaniem offline."
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
   });
 
@@ -1099,7 +1110,8 @@ describe("App shell", () => {
       });
     });
     expect(listOpeningConfiguration).toHaveBeenCalledWith(expect.anything(), {
-      actorProfile: activeOperatorState.profile
+      actorProfile: activeOperatorState.profile,
+      isOnline: true
     });
     expect(
       screen.getByRole("heading", { name: "Otwarte sesje zbioru" })

@@ -110,8 +110,7 @@ export async function createAuditEvent(
   input: CreateAuditEventInput
 ): Promise<AuditEventDocument> {
   const { firestore } = await getFirebaseServices(env);
-  const { Timestamp, doc, serverTimestamp, setDoc } =
-    await import("firebase/firestore/lite");
+  const { Timestamp, doc, serverTimestamp, setDoc } = await import("firebase/firestore");
   const id = createAuditEventId();
   const event = createAuditEventDraft({
     id,

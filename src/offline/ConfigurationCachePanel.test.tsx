@@ -455,6 +455,7 @@ describe("ConfigurationCachePanel", () => {
         actorProfile: activeAdminState.profile,
         viewerRole: "ADMIN",
         deviceId: "device-1",
+        persistentDataCacheReady: true,
         serviceWorkerReady: true
       });
     });

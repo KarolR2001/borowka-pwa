@@ -149,6 +149,7 @@ export type PrepareConfigurationCacheInput = {
   actorProfile: UserProfile;
   viewerRole: WorkerDirectoryScope;
   deviceId: string;
+  persistentDataCacheReady?: boolean;
   serviceWorkerReady: boolean;
   preparedAt?: Date;
   storage?: ConfigurationCacheStorage;
@@ -162,6 +163,7 @@ export type PrepareConfigurationCacheResult = {
 export type ReadConfigurationCacheInput = {
   actorProfile: UserProfile;
   deviceId: string;
+  persistentDataCacheReady?: boolean;
   serviceWorkerReady: boolean;
   storage?: ConfigurationCacheStorage;
 };
@@ -223,6 +225,7 @@ export async function prepareConfigurationCache(
   return {
     snapshot,
     readiness: evaluateConfigurationCacheReadiness({
+      persistentDataCacheReady: input.persistentDataCacheReady,
       profile: input.actorProfile,
       serviceWorkerReady: input.serviceWorkerReady,
       snapshot
@@ -242,6 +245,7 @@ export async function readConfigurationCache(
   return {
     snapshot,
     readiness: evaluateConfigurationCacheReadiness({
+      persistentDataCacheReady: input.persistentDataCacheReady,
       profile: input.actorProfile,
       serviceWorkerReady: input.serviceWorkerReady,
       snapshot
@@ -273,7 +277,7 @@ export async function listOpenHarvestSessionsForConfigurationCache(
 
   const { firestore } = await getFirebaseServices(env);
   const { collection, getDocs, limit, orderBy, query, where } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const snapshot = await getDocs(
     query(
       collection(firestore, HARVEST_SESSIONS_COLLECTION),
@@ -379,15 +383,23 @@ export function buildConfigurationCacheSnapshot({
 }
 
 export function evaluateConfigurationCacheReadiness({
+  persistentDataCacheReady = true,
   profile,
   serviceWorkerReady,
   snapshot
 }: {
+  persistentDataCacheReady?: boolean;
   profile: UserProfile;
   serviceWorkerReady: boolean;
   snapshot: ConfigurationCacheSnapshot | null;
 }): ConfigurationCacheReadiness {
   const missingRequirements: string[] = [];
+
+  if (!persistentDataCacheReady) {
+    missingRequirements.push(
+      "Trwaly cache Firestore nie jest aktywny. Uruchom ponownie PWA po wlaczeniu zgody."
+    );
+  }
 
   if (!profile.offlineConsent) {
     missingRequirements.push("Brak zgody na trwale dane offline.");

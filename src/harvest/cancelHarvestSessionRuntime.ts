@@ -65,7 +65,7 @@ export async function cancelHarvestSessionOnline(
     serverTimestamp,
     where,
     writeBatch
-  } = await import("firebase/firestore/lite");
+  } = await import("firebase/firestore");
   const sessionSnapshot = await getDoc(
     doc(firestore, HARVEST_SESSIONS_COLLECTION, input.sessionId)
   );

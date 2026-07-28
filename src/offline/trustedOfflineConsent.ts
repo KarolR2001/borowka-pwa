@@ -3,6 +3,7 @@ import {
   createDefaultDeviceName,
   createDeviceRecordDraft
 } from "../devices/deviceRegistry";
+import { writeFirestorePersistencePreference } from "./firestorePersistencePreference";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -28,8 +29,7 @@ export async function updateTrustedOfflineConsent(
   input: TrustedOfflineConsentUpdateInput
 ): Promise<void> {
   const { firestore } = await getFirebaseServices(env);
-  const { doc, getDoc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+  const { doc, getDoc, serverTimestamp, writeBatch } = await import("firebase/firestore");
   const uid = normalizeRequiredText(
     input.uid,
     "Identyfikator uzytkownika jest wymagany."
@@ -73,6 +73,7 @@ export async function updateTrustedOfflineConsent(
   }
 
   await batch.commit();
+  writeFirestorePersistencePreference(input.offlineConsent);
 }
 
 function normalizeRequiredText(value: string, message: string): string {

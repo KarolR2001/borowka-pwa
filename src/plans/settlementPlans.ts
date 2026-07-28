@@ -152,7 +152,7 @@ export async function listSettlementPlansDirectory(
   env: FirebaseEnv
 ): Promise<SettlementPlansDirectoryResult> {
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs } = await import("firebase/firestore/lite");
+  const { collection, getDocs } = await import("firebase/firestore");
   const [plansSnapshot, rateVersionsSnapshot] = await Promise.all([
     getDocs(collection(firestore, SETTLEMENT_PLANS_COLLECTION)),
     getDocs(collection(firestore, WORKER_RATE_VERSIONS_COLLECTION))
@@ -176,7 +176,7 @@ export async function createSettlementPlan(
 ): Promise<PreparedSettlementPlanCreate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const currentDirectory = await listSettlementPlansDirectory(env);
   const prepared = prepareSettlementPlanCreate(currentDirectory.plans, {
     ...input,
@@ -215,7 +215,7 @@ export async function updateSettlementPlan(
 ): Promise<PreparedSettlementPlanUpdate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const currentDirectory = await listSettlementPlansDirectory(env);
   const currentPlan = findSettlementPlanOrThrow(currentDirectory.plans, input.planId);
   const prepared = prepareSettlementPlanUpdate(currentPlan, input);
@@ -252,7 +252,7 @@ export async function archiveSettlementPlan(
 ): Promise<PreparedSettlementPlanArchive> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const currentDirectory = await listSettlementPlansDirectory(env);
   const currentPlan = findSettlementPlanOrThrow(currentDirectory.plans, input.planId);
   const archivedAt = serverTimestamp();

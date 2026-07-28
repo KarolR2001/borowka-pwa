@@ -13,6 +13,12 @@ import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
+import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
+import {
+  addHarvestEntryOffline,
+  closeHarvestSessionOffline,
+  openHarvestSessionOffline
+} from "../offline/offlineHarvestFirestoreRuntime";
 import {
   ActiveHarvestSessionPanel,
   type ActiveHarvestSessionEntryItem
@@ -69,7 +75,7 @@ export type OperatorHarvestSessionsApi = {
   ) => Promise<HarvestSessionDashboardResult>;
   listOpeningConfiguration: (
     env: FirebaseEnv,
-    input: { actorProfile: UserProfile }
+    input: { actorProfile: UserProfile; isOnline?: boolean }
   ) => Promise<OpenHarvestSessionConfigurationResult>;
   open: (
     env: FirebaseEnv,
@@ -100,10 +106,19 @@ export type OperatorHarvestSessionsApi = {
 export const defaultOperatorHarvestSessionsApi: OperatorHarvestSessionsApi = {
   list: listOperatorHarvestSessionDashboard,
   listOpeningConfiguration: listOpenHarvestSessionConfiguration,
-  open: openHarvestSessionOnline,
-  addEntry: addHarvestEntryOnline,
+  open: (env, input) =>
+    input.isOnline
+      ? openHarvestSessionOnline(env, input)
+      : openHarvestSessionOffline(env, input),
+  addEntry: (env, input) =>
+    input.isOnline
+      ? addHarvestEntryOnline(env, input)
+      : addHarvestEntryOffline(env, input),
   cancelEntry: cancelHarvestEntryOnline,
-  close: closeHarvestSessionOnline,
+  close: (env, input) =>
+    input.isOnline
+      ? closeHarvestSessionOnline(env, input)
+      : closeHarvestSessionOffline(env, input),
   reopen: reopenHarvestSessionOnline,
   cancel: cancelHarvestSessionOnline
 };
@@ -190,16 +205,22 @@ export function OperatorHarvestSessionsPanel({
   authState,
   env,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
+  firestoreCacheMode = "PERSISTENT",
   isOnline,
   onActiveFormChange,
-  onActiveHarvestSessionChange
+  onActiveHarvestSessionChange,
+  onLocalDocumentsChanged,
+  serviceWorkerReady = true
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
+  firestoreCacheMode?: FirestoreCacheMode;
   isOnline: boolean;
+  serviceWorkerReady?: boolean;
   onActiveFormChange?: (isActive: boolean) => void;
   onActiveHarvestSessionChange?: (isActive: boolean) => void;
+  onLocalDocumentsChanged?: () => Promise<void>;
 }) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [state, setState] = useState<DashboardState>(initialDashboardState);
@@ -323,7 +344,8 @@ export function OperatorHarvestSessionsPanel({
 
     void harvestSessionsApi
       .listOpeningConfiguration(env, {
-        actorProfile: viewerProfile
+        actorProfile: viewerProfile,
+        isOnline
       })
       .then((result) => {
         if (isMounted) {
@@ -348,7 +370,7 @@ export function OperatorHarvestSessionsPanel({
     return () => {
       isMounted = false;
     };
-  }, [env, harvestSessionsApi, viewerProfile]);
+  }, [env, harvestSessionsApi, isOnline, viewerProfile]);
 
   const reload = async (overrideSelectedSessionId?: string | null) => {
     if (!viewerProfile) {
@@ -400,7 +422,8 @@ export function OperatorHarvestSessionsPanel({
 
     try {
       const result = await harvestSessionsApi.listOpeningConfiguration(env, {
-        actorProfile: viewerProfile
+        actorProfile: viewerProfile,
+        isOnline
       });
 
       setOpeningConfigurationState({
@@ -426,11 +449,6 @@ export function OperatorHarvestSessionsPanel({
     setOpenFeedback(null);
     setOpenError(null);
 
-    if (!isOnline) {
-      setOpenError("Otwarcie sesji wymaga polaczenia online.");
-      return;
-    }
-
     setIsOpeningSession(true);
 
     try {
@@ -443,7 +461,9 @@ export function OperatorHarvestSessionsPanel({
         secondSessionReason:
           viewerProfile.role === "ADMIN" ? openDraft.secondSessionReason : null,
         isOnline,
-        createdDeviceId: getOrCreateDeviceId()
+        createdDeviceId: getOrCreateDeviceId(),
+        persistentDataCacheReady: firestoreCacheMode === "PERSISTENT",
+        serviceWorkerReady
       });
 
       setOpenFeedback(result.message);
@@ -454,6 +474,7 @@ export function OperatorHarvestSessionsPanel({
         secondSessionReason: ""
       }));
 
+      await onLocalDocumentsChanged?.();
       await reload(result.selectedSessionId);
       await reloadOpeningConfiguration();
     } catch (error: unknown) {
@@ -474,10 +495,6 @@ export function OperatorHarvestSessionsPanel({
       throw new Error("Wybierz otwarta sesje przed dodaniem wpisu.");
     }
 
-    if (!isOnline) {
-      throw new Error("Dodanie wpisu online wymaga polaczenia.");
-    }
-
     const result = await harvestSessionsApi.addEntry(env, {
       actorProfile: viewerProfile,
       sessionId: selectedSessionId,
@@ -487,6 +504,7 @@ export function OperatorHarvestSessionsPanel({
       createdDeviceId: getOrCreateDeviceId()
     });
 
+    await onLocalDocumentsChanged?.();
     await reload(result.selectedSessionId);
   };
 
@@ -573,11 +591,6 @@ export function OperatorHarvestSessionsPanel({
       return;
     }
 
-    if (!isOnline) {
-      setSessionError("Zamkniecie sesji wymaga polaczenia online.");
-      return;
-    }
-
     const confirmed = window.confirm(
       `Zamknac sesje ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedSession.businessDate
@@ -603,6 +616,7 @@ export function OperatorHarvestSessionsPanel({
       setHasUnsavedFormInteraction(false);
       setIsEntryFormOpen(false);
       setSelectedSessionId(result.selectedSessionId);
+      await onLocalDocumentsChanged?.();
       await reload(result.selectedSessionId);
       await reloadOpeningConfiguration();
     } catch (error: unknown) {
@@ -804,7 +818,7 @@ export function OperatorHarvestSessionsPanel({
     >
       <div className="directory-header">
         <div>
-          <p className="eyebrow">Sesje online</p>
+          <p className="eyebrow">{isOnline ? "Sesje online" : "Sesje offline"}</p>
           <h3>Otwarte sesje zbioru</h3>
           <p>{state.message}</p>
         </div>
@@ -829,7 +843,6 @@ export function OperatorHarvestSessionsPanel({
         error={openError}
         existingOpenSessionsCount={existingOpenSessionsForDraft.length}
         feedback={openFeedback}
-        isOnline={isOnline}
         isSubmitting={isOpeningSession}
         onChange={setOpenDraft}
         onSubmit={() => {
@@ -933,7 +946,7 @@ export function OperatorHarvestSessionsPanel({
           className="operator-sessions__entry-form"
         >
           <HarvestEntryForm
-            disabled={!isOnline}
+            disabled={false}
             onSubmit={handleAddEntry}
             session={selectedSessionView.session}
             lastQuantityMilli={findLastActiveQuantity(selectedSessionView.entries)}
@@ -1306,7 +1319,6 @@ function OpenHarvestSessionForm({
   error,
   existingOpenSessionsCount,
   feedback,
-  isOnline,
   isSubmitting,
   onChange,
   onSubmit
@@ -1318,14 +1330,13 @@ function OpenHarvestSessionForm({
   error: string | null;
   existingOpenSessionsCount: number;
   feedback: string | null;
-  isOnline: boolean;
   isSubmitting: boolean;
   onChange: (draft: OpenSessionDraft) => void;
   onSubmit: () => void;
 }) {
   const workers = configuration?.workers ?? [];
   const seasons = configuration?.seasons ?? [];
-  const isDisabled = isSubmitting || !configuration || !isOnline;
+  const isDisabled = isSubmitting || !configuration;
   const canSubmit = Boolean(draft.workerId && draft.seasonId && draft.businessDate);
 
   return (

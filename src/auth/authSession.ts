@@ -1,5 +1,5 @@
 import type { User as FirebaseAuthUser } from "firebase/auth";
-import type { Firestore } from "firebase/firestore/lite";
+import type { Firestore } from "firebase/firestore";
 
 import {
   getFirebaseServices,
@@ -257,7 +257,7 @@ export async function updateOwnOfflineConsent(
   offlineConsent: boolean
 ): Promise<void> {
   const { firestore } = await getReadyFirebaseServices(env);
-  const { doc, updateDoc } = await import("firebase/firestore/lite");
+  const { doc, updateDoc } = await import("firebase/firestore");
 
   await updateDoc(doc(firestore, "users", uid), {
     offlineConsent
@@ -268,7 +268,7 @@ export async function readUserProfile(
   firestore: Firestore,
   uid: string
 ): Promise<UserProfileReadResult> {
-  const { doc, getDoc } = await import("firebase/firestore/lite");
+  const { doc, getDoc } = await import("firebase/firestore");
   const snapshot = await getDoc(doc(firestore, "users", uid));
 
   if (!snapshot.exists()) {

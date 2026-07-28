@@ -65,7 +65,7 @@ export async function claimRegistrationInvitationForUser(
 ): Promise<RegistrationInvitationDocument> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, collection, doc, getDocs, limit, query, where, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const email = normalizeEmail(user.email);
   const invitationsQuery = query(
     collection(firestore, REGISTRATION_INVITATIONS_COLLECTION),

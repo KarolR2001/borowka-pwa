@@ -81,7 +81,7 @@ export async function updateUserRoleAndWorker(
 ): Promise<PreparedUserRoleAndWorkerUpdate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const userRef = doc(firestore, "users", input.targetUid);
   const snapshot = await getDoc(userRef);
 
@@ -157,7 +157,7 @@ export async function updateUserActivation(
 ): Promise<PreparedUserActivationUpdate> {
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } =
-    await import("firebase/firestore/lite");
+    await import("firebase/firestore");
   const userRef = doc(firestore, "users", input.targetUid);
   const snapshot = await getDoc(userRef);
 

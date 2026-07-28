@@ -1,7 +1,11 @@
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
-import type { Firestore } from "firebase/firestore/lite";
+import type { Firestore } from "firebase/firestore";
 
+import {
+  readFirestoreCacheMode,
+  type FirestoreCacheMode
+} from "../offline/firestorePersistencePreference";
 import {
   getFirebaseClientConfig,
   getFirebaseClientConfigStatus
@@ -17,6 +21,7 @@ export type FirebaseServices = {
 };
 
 export type FirebaseServicesStatus = {
+  cacheMode: FirestoreCacheMode;
   ready: boolean;
   initialized: boolean;
   mode: FirebaseRuntimeMode;
@@ -25,13 +30,16 @@ export type FirebaseServicesStatus = {
 };
 
 const emulatorConnections = new Set<string>();
+const firestoreInstances = new Map<string, Firestore>();
 
 export function getFirebaseServicesStatus(env: FirebaseEnv): FirebaseServicesStatus {
   const clientStatus = getFirebaseClientConfigStatus(env);
   const runtimeStatus = getFirebaseRuntimeStatus(env);
+  const cacheMode = readFirestoreCacheMode();
 
   if (!clientStatus.ready) {
     return {
+      cacheMode,
       ready: false,
       initialized: false,
       mode: runtimeStatus.mode,
@@ -41,6 +49,7 @@ export function getFirebaseServicesStatus(env: FirebaseEnv): FirebaseServicesSta
   }
 
   return {
+    cacheMode,
     ready: runtimeStatus.warnings.length === 0,
     initialized: false,
     mode: runtimeStatus.mode,
@@ -77,12 +86,31 @@ export async function getFirebaseServices(env: FirebaseEnv): Promise<FirebaseSer
     await Promise.all([
       import("firebase/app"),
       import("firebase/auth"),
-      import("firebase/firestore/lite")
+      import("firebase/firestore")
     ]);
-  const { connectFirestoreEmulator, getFirestore } = firestoreSdk;
+  const {
+    connectFirestoreEmulator,
+    initializeFirestore,
+    memoryLocalCache,
+    persistentLocalCache,
+    persistentMultipleTabManager
+  } = firestoreSdk;
   const app = getApps()[0] ?? initializeApp(config);
   const auth = getAuth(app);
-  const firestore = getFirestore(app);
+  const cacheMode = readFirestoreCacheMode();
+  let firestore = firestoreInstances.get(app.name);
+
+  if (!firestore) {
+    firestore = initializeFirestore(app, {
+      localCache:
+        cacheMode === "PERSISTENT"
+          ? persistentLocalCache({
+              tabManager: persistentMultipleTabManager()
+            })
+          : memoryLocalCache()
+    });
+    firestoreInstances.set(app.name, firestore);
+  }
 
   if (runtimeStatus.useEmulators) {
     const connectionKey = [
@@ -112,4 +140,13 @@ export async function getFirebaseServices(env: FirebaseEnv): Promise<FirebaseSer
     auth,
     firestore
   };
+}
+
+export async function clearFirestoreLocalData(env: FirebaseEnv): Promise<void> {
+  const { app, firestore } = await getFirebaseServices(env);
+  const { clearIndexedDbPersistence, terminate } = await import("firebase/firestore");
+
+  await terminate(firestore);
+  await clearIndexedDbPersistence(firestore);
+  firestoreInstances.delete(app.name);
 }
