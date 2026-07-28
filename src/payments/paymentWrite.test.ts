@@ -1,7 +1,12 @@
 import type { UserProfile } from "../domain/identity";
 import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
 import type { PreparedPaymentConfirmation } from "./paymentConfirmation";
-import { createPayment, createPaymentAuditId, preparePaymentWrite } from "./paymentWrite";
+import {
+  createPayment,
+  createPaymentAuditId,
+  paymentTimestampToIso,
+  preparePaymentWrite
+} from "./paymentWrite";
 
 const firestoreServiceMock = vi.hoisted(() => ({
   firestore: { name: "firestore-mock" },
@@ -54,8 +59,11 @@ const confirmation: PreparedPaymentConfirmation = {
   workerId: "worker-1",
   workerNameSnapshot: "Anna"
 };
+const paymentAttemptId = "00000000-0000-4000-8000-000000000001";
+const randomUuidMock = vi.spyOn(globalThis.crypto, "randomUUID");
 
 beforeEach(() => {
+  randomUuidMock.mockReturnValue(paymentAttemptId);
   firestoreServiceMock.getFirebaseServices.mockClear();
   firestoreServiceMock.getFirebaseServices.mockResolvedValue({
     firestore: firestoreServiceMock.firestore
@@ -70,6 +78,10 @@ beforeEach(() => {
   firestoreMock.transaction.update.mockClear();
 });
 
+afterAll(() => {
+  randomUuidMock.mockRestore();
+});
+
 describe("payment write", () => {
   it("prepares one payment, PAID session update and audit event", () => {
     const session = closedSession();
@@ -77,6 +89,7 @@ describe("payment write", () => {
       actorProfile: adminProfile,
       auditId: createPaymentAuditId(session.id),
       confirmation,
+      creationAttemptId: paymentAttemptId,
       createdAtDevice: "device-time",
       createdAtServer: "server-time",
       deviceId: "device-admin",
@@ -90,6 +103,7 @@ describe("payment write", () => {
       cancellationReason: null,
       cancelledAt: null,
       cancelledBy: null,
+      creationAttemptId: paymentAttemptId,
       createdAtServer: "server-time",
       createdBy: "admin-1",
       id: "session-1",
@@ -133,6 +147,7 @@ describe("payment write", () => {
         actorProfile: adminProfile,
         auditId: "payment-created-session-1",
         confirmation: { ...confirmation, expectedSessionRevision: 2 },
+        creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
         createdAtServer: "server-time",
         deviceId: "device-admin",
@@ -147,6 +162,7 @@ describe("payment write", () => {
         actorProfile: adminProfile,
         auditId: "payment-created-session-1",
         confirmation,
+        creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
         createdAtServer: "server-time",
         deviceId: "device-admin",
@@ -161,6 +177,7 @@ describe("payment write", () => {
         actorProfile: adminProfile,
         auditId: "payment-created-session-1",
         confirmation: { ...confirmation, amountGrosz: 1 },
+        creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
         createdAtServer: "server-time",
         deviceId: "device-admin",
@@ -169,6 +186,24 @@ describe("payment write", () => {
         session: closedSession()
       })
     ).toThrow("nie odpowiada oficjalnej naleznosci");
+
+    expect(() =>
+      preparePaymentWrite({
+        actorProfile: adminProfile,
+        auditId: "payment-created-session-1",
+        confirmation: {
+          ...confirmation,
+          paymentId: "random-payment-id"
+        },
+        creationAttemptId: paymentAttemptId,
+        createdAtDevice: "device-time",
+        createdAtServer: "server-time",
+        deviceId: "device-admin",
+        isOnline: true,
+        paidAt: "server-time",
+        session: closedSession()
+      })
+    ).toThrow("Dane potwierdzenia nie odpowiadaja aktualnej sesji");
   });
 
   it("confirms the transaction only after fresh server reads", async () => {
@@ -236,6 +271,36 @@ describe("payment write", () => {
     });
   });
 
+  it("returns the existing author and server time after losing a concurrent attempt", async () => {
+    const session = closedSession();
+    const createdAtServer = {
+      toDate: () => new Date("2026-07-28T14:30:00.000Z")
+    };
+    configureExistingPaymentTransaction(session, {
+      createdAtServer,
+      createdBy: "admin-2"
+    });
+
+    const result = await createPayment(
+      {},
+      {
+        actorProfile: adminProfile,
+        confirmation,
+        deviceId: "device-admin",
+        isOnline: true
+      }
+    );
+
+    expect(result).toMatchObject({
+      confirmationSource: "SERVER_EXISTING_PAYMENT",
+      existingPaymentCreatedAtIso: "2026-07-28T14:30:00.000Z",
+      existingPaymentCreatedBy: "admin-2",
+      status: "ALREADY_PAID"
+    });
+    expect(result.message).toContain("admin-2");
+    expect(paymentTimestampToIso(createdAtServer)).toBe("2026-07-28T14:30:00.000Z");
+  });
+
   it("does not start a Firestore transaction while offline", async () => {
     await expect(
       createPayment(
@@ -268,29 +333,40 @@ function configureSuccessfulTransaction(session: HarvestSessionDocument): void {
   configureServerConfirmation(session);
 }
 
-function configureServerConfirmation(session: HarvestSessionDocument): void {
-  const paidSession = {
-    ...session,
-    paidAt: "server-time",
-    paymentId: "session-1",
-    revision: 4,
-    status: "PAID",
-    updatedAtServer: "server-time"
-  };
-  const payment = {
-    ...confirmation,
-    cancellationReason: null,
-    cancelledAt: null,
-    cancelledBy: null,
-    createdAtServer: "server-time",
-    createdBy: "admin-1",
-    id: "session-1",
-    legacyImport: false,
-    status: "ACTIVE"
-  };
+function configureExistingPaymentTransaction(
+  session: HarvestSessionDocument,
+  paymentOverrides: Record<string, unknown>
+): void {
+  const existingPayment = serverPayment(paymentOverrides);
+  firestoreMock.transaction.get.mockImplementation((reference: { path: string }) => {
+    if (reference.path === "harvestSessions/session-1") {
+      return existingSnapshot("session-1", paidSession(session));
+    }
+
+    if (reference.path === "payments/session-1") {
+      return existingSnapshot("session-1", existingPayment);
+    }
+
+    return missingSnapshot(reference.path);
+  });
+  firestoreMock.runTransaction.mockImplementation(
+    async (_firestore: unknown, callback: (transaction: unknown) => Promise<void>) => {
+      await callback(firestoreMock.transaction);
+    }
+  );
+  configureServerConfirmation(session, paymentOverrides);
+}
+
+function configureServerConfirmation(
+  session: HarvestSessionDocument,
+  paymentOverrides: Record<string, unknown> = {}
+): void {
+  const payment = serverPayment(paymentOverrides);
   const audit = {
     action: "HARVEST_SESSION_PAID",
-    entityId: "session-1"
+    actorUid: payment.createdBy,
+    entityId: "session-1",
+    entityType: "HARVEST_SESSION"
   };
 
   firestoreMock.getDocFromServer.mockImplementation((reference: { path: string }) => {
@@ -298,13 +374,47 @@ function configureServerConfirmation(session: HarvestSessionDocument): void {
       case "payments/session-1":
         return existingSnapshot("session-1", payment);
       case "harvestSessions/session-1":
-        return existingSnapshot("session-1", paidSession);
+        return existingSnapshot("session-1", paidSession(session));
       case "auditEvents/payment-created-session-1":
         return existingSnapshot("payment-created-session-1", audit);
       default:
         return missingSnapshot(reference.path);
     }
   });
+}
+
+function paidSession(session: HarvestSessionDocument) {
+  return {
+    ...session,
+    paidAt: "server-time",
+    paymentId: "session-1",
+    revision: 4,
+    status: "PAID",
+    updatedAtServer: "server-time"
+  };
+}
+
+function serverPayment(overrides: Record<string, unknown> = {}) {
+  return {
+    amountGrosz: confirmation.amountGrosz,
+    cancellationReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    creationAttemptId: paymentAttemptId,
+    createdAtServer: "server-time",
+    createdBy: "admin-1",
+    id: "session-1",
+    legacyImport: false,
+    note: confirmation.note,
+    paidBusinessDate: confirmation.paidBusinessDate,
+    paymentMethod: confirmation.paymentMethod,
+    seasonId: confirmation.seasonId,
+    sessionId: confirmation.sessionId,
+    status: "ACTIVE",
+    workerId: confirmation.workerId,
+    workerNameSnapshot: confirmation.workerNameSnapshot,
+    ...overrides
+  };
 }
 
 function closedSession(): HarvestSessionDocument {

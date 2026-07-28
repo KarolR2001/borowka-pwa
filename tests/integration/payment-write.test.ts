@@ -2,7 +2,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment
 } from "@firebase/rules-unit-testing";
-import { Timestamp, doc, getDoc, setDoc } from "firebase/firestore";
+import { Timestamp, collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
 import type { UserProfile } from "../../src/domain/identity";
@@ -10,6 +10,7 @@ import type { PreparedPaymentConfirmation } from "../../src/payments/paymentConf
 import { createPayment } from "../../src/payments/paymentWrite";
 
 const projectId = "demo-borowka-pwa-payment-write";
+type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 const firebaseServicesMock = vi.hoisted(() => ({
   getFirebaseServices: vi.fn()
@@ -28,6 +29,13 @@ const adminProfile: UserProfile = {
   role: "ADMIN",
   uid: "admin-payment",
   workerId: null
+};
+
+const secondAdminProfile: UserProfile = {
+  ...adminProfile,
+  displayName: "Second Admin Payment",
+  email: "admin-payment-2@example.test",
+  uid: "admin-payment-2"
 };
 
 const confirmation: PreparedPaymentConfirmation = {
@@ -68,16 +76,27 @@ beforeEach(async () => {
     await Promise.all([
       setDoc(doc(context.firestore(), "users", adminProfile.uid), adminProfile),
       setDoc(
+        doc(context.firestore(), "users", secondAdminProfile.uid),
+        secondAdminProfile
+      ),
+      setDoc(
         doc(context.firestore(), "harvestSessions", confirmation.sessionId),
         closedSession()
       )
     ]);
   });
 
-  firebaseServicesMock.getFirebaseServices.mockResolvedValue({
-    firestore: testEnvironment
-      .authenticatedContext(adminProfile.uid, { email: adminProfile.email })
-      .firestore()
+  firebaseServicesMock.getFirebaseServices.mockImplementation((env: FirebaseEnv) => {
+    const profile =
+      env.VITE_TEST_PAYMENT_ACTOR === secondAdminProfile.uid
+        ? secondAdminProfile
+        : adminProfile;
+
+    return {
+      firestore: testEnvironment
+        ?.authenticatedContext(profile.uid, { email: profile.email })
+        .firestore()
+    };
   });
 });
 
@@ -132,7 +151,118 @@ describe("payment write Firestore transaction", () => {
       entityId: "session-1"
     });
   });
+
+  it("lets only one of two browser tabs pay the same session", async () => {
+    const results = await Promise.all([
+      createPaymentAs(adminProfile, "device-tab-1"),
+      createPaymentAs(adminProfile, "device-tab-2")
+    ]);
+
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "ALREADY_PAID",
+      "CONFIRMED"
+    ]);
+    expect(results.find((result) => result.status === "ALREADY_PAID")).toMatchObject({
+      confirmationSource: "SERVER_EXISTING_PAYMENT",
+      existingPaymentCreatedBy: adminProfile.uid
+    });
+    await expectSinglePaymentEvidence(adminProfile.uid);
+  });
+
+  it("lets only one of two administrators pay the same session", async () => {
+    const results = await Promise.all([
+      createPaymentAs(adminProfile, "device-admin-1"),
+      createPaymentAs(secondAdminProfile, "device-admin-2", {
+        ...confirmation,
+        note: "Druga rownolegla proba"
+      })
+    ]);
+    const confirmed = results.find((result) => result.status === "CONFIRMED");
+    const rejected = results.find((result) => result.status === "ALREADY_PAID");
+
+    if (!confirmed || !rejected) {
+      throw new Error("Expected one confirmed and one rejected payment.");
+    }
+
+    expect(rejected).toMatchObject({
+      confirmationSource: "SERVER_EXISTING_PAYMENT",
+      existingPaymentCreatedBy: confirmed.payment.createdBy
+    });
+    expect(typeof rejected.existingPaymentCreatedAtIso).toBe("string");
+    await expectSinglePaymentEvidence(confirmed.payment.createdBy);
+  });
+
+  it("reconciles a stale client after another device already paid", async () => {
+    await expect(createPaymentAs(adminProfile, "device-current")).resolves.toMatchObject({
+      status: "CONFIRMED"
+    });
+
+    const staleResult = await createPaymentAs(secondAdminProfile, "device-stale");
+
+    expect(staleResult).toMatchObject({
+      confirmationSource: "SERVER_EXISTING_PAYMENT",
+      existingPaymentCreatedBy: adminProfile.uid,
+      status: "ALREADY_PAID"
+    });
+    expect(
+      staleResult.status === "ALREADY_PAID"
+        ? typeof staleResult.existingPaymentCreatedAtIso
+        : null
+    ).toBe("string");
+    await expectSinglePaymentEvidence(adminProfile.uid);
+  });
 });
+
+function createPaymentAs(
+  profile: UserProfile,
+  deviceId: string,
+  paymentConfirmation: PreparedPaymentConfirmation = confirmation
+) {
+  return createPayment(
+    {
+      VITE_TEST_PAYMENT_ACTOR: profile.uid
+    },
+    {
+      actorProfile: profile,
+      confirmation: paymentConfirmation,
+      deviceId,
+      isOnline: true
+    }
+  );
+}
+
+async function expectSinglePaymentEvidence(
+  expectedCreatedBy: string | undefined
+): Promise<void> {
+  if (!testEnvironment || !expectedCreatedBy) {
+    throw new Error("Expected payment evidence is unavailable.");
+  }
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const [payments, audits, session] = await Promise.all([
+      getDocs(collection(db, "payments")),
+      getDocs(collection(db, "auditEvents")),
+      getDoc(doc(db, "harvestSessions", confirmation.sessionId))
+    ]);
+
+    expect(payments.docs.map((snapshot) => snapshot.id)).toEqual(["session-1"]);
+    expect(payments.docs[0]?.data()).toMatchObject({
+      createdBy: expectedCreatedBy,
+      id: "session-1",
+      sessionId: "session-1",
+      status: "ACTIVE"
+    });
+    expect(audits.docs.map((snapshot) => snapshot.id)).toEqual([
+      "payment-created-session-1"
+    ]);
+    expect(session.data()).toMatchObject({
+      paymentId: "session-1",
+      revision: 3,
+      status: "PAID"
+    });
+  });
+}
 
 function closedSession() {
   return {

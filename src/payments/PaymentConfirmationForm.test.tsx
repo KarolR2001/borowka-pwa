@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { PaymentEligibilityResult } from "./paymentEligibility";
@@ -47,6 +47,7 @@ const confirmedResult: PaymentWriteResult = {
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,
+    creationAttemptId: "attempt-1",
     createdAtServer: "server-time",
     createdBy: "admin-1",
     id: "session-1",
@@ -62,6 +63,20 @@ const confirmedResult: PaymentWriteResult = {
   },
   sessionRevision: 4,
   status: "CONFIRMED"
+};
+
+const alreadyPaidResult: PaymentWriteResult = {
+  ...confirmedResult,
+  confirmationSource: "SERVER_EXISTING_PAYMENT",
+  existingPaymentCreatedAtIso: "2026-07-28T14:30:00.000Z",
+  existingPaymentCreatedBy: "admin-2",
+  message:
+    "Ta sesja zostala juz wyplacona przez admin-2 28.07.2026, 16:30. Lista zostala odswiezona.",
+  payment: {
+    ...confirmedResult.payment,
+    createdBy: "admin-2"
+  },
+  status: "ALREADY_PAID"
 };
 
 describe("PaymentConfirmationForm", () => {
@@ -156,5 +171,61 @@ describe("PaymentConfirmationForm", () => {
       screen.queryByText("Firestore potwierdzil wyplate dla Anna.")
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zapisz wyplate" })).toBeEnabled();
+  });
+
+  it("submits only once after a fast double click", async () => {
+    const user = userEvent.setup();
+    let resolvePayment: (result: PaymentWriteResult) => void = () => undefined;
+    const pendingPayment = new Promise<PaymentWriteResult>((resolve) => {
+      resolvePayment = resolve;
+    });
+    const onConfirm = vi.fn().mockReturnValue(pendingPayment);
+
+    render(
+      <PaymentConfirmationForm
+        eligibility={eligibility}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+        session={session}
+      />
+    );
+
+    await user.click(
+      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+    );
+    await user.dblClick(screen.getByRole("button", { name: "Zapisz wyplate" }));
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Zapisywanie..." })).toBeDisabled();
+
+    await act(async () => {
+      resolvePayment(confirmedResult);
+      await pendingPayment;
+    });
+    expect(
+      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
+    ).toBeVisible();
+  });
+
+  it("shows the existing author and time as a conflict, not a new success", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <PaymentConfirmationForm
+        eligibility={eligibility}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn().mockResolvedValue(alreadyPaidResult)}
+        session={session}
+      />
+    );
+
+    await user.click(
+      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+    );
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+
+    const conflict = await screen.findByText(/juz wyplacona przez admin-2/);
+    expect(conflict).toHaveClass("form-message--warning");
+    expect(conflict).toHaveTextContent("28.07.2026, 16:30");
   });
 });

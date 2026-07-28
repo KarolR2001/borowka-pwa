@@ -1622,6 +1622,7 @@ service cloud.firestore {
         'note',
         'status',
         'createdBy',
+        'creationAttemptId',
         'createdAtServer',
         'cancelledAt',
         'cancelledBy',
@@ -1689,6 +1690,14 @@ service cloud.firestore {
         (data.note == null || (data.note is string && data.note.size() <= 200)) &&
         data.status == 'ACTIVE' &&
         data.createdBy == request.auth.uid &&
+        (
+          !('creationAttemptId' in data) ||
+          (
+            data.creationAttemptId is string &&
+            data.creationAttemptId.size() > 0 &&
+            data.creationAttemptId.size() <= 128
+          )
+        ) &&
         data.createdAtServer == request.time &&
         data.cancelledAt == null &&
         data.cancelledBy == null &&

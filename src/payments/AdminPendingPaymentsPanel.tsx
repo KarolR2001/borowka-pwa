@@ -237,7 +237,15 @@ export function AdminPendingPaymentsPanel({
         </p>
       ) : null}
       {confirmedPayment ? (
-        <p className="form-message form-message--ok">{confirmedPayment.message}</p>
+        <p
+          className={`form-message ${
+            confirmedPayment.status === "CONFIRMED"
+              ? "form-message--ok"
+              : "form-message--warning"
+          }`}
+        >
+          {confirmedPayment.message}
+        </p>
       ) : null}
       {state.result && state.result.invalidDocumentCount > 0 ? (
         <p className="form-message form-message--error">

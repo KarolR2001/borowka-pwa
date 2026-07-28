@@ -26,6 +26,12 @@ reported as `SERVER_RECONCILIATION`. If the server cannot be reached, the UI
 reports an uncertain result and requires refreshing the payment list after
 connectivity returns.
 
+Package 7.5 adds a unique `creationAttemptId` to new payments. Reconciliation
+therefore confirms the exact submit invocation instead of treating an
+identical concurrent request by the same administrator as its own success.
+Competing and stale clients receive `ALREADY_PAID`, the accepted author and
+server time as described in `payment-idempotency.md`.
+
 ## Security Rules
 
 Rules use `getAfter` to require the payment and `PAID` session transition in the
