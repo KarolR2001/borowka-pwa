@@ -10,6 +10,7 @@ import type { SynchronizationApi } from "../offline/automaticSynchronization";
 import type { OfflineStorageHealthApi } from "../offline/offlineStorageHealth";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DEVICE_CLEAR_CONFIRMATION } from "../offline/safeSignOut";
+import type { AdminPaymentDirectoryApi } from "../payments/AdminPaymentDirectoryPanel";
 import type { SettlementPlansApi } from "../plans/AdminSettlementPlansPanel";
 import type { SeasonsApi } from "../seasons/AdminSeasonsPanel";
 import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
@@ -980,9 +981,20 @@ describe("App shell", () => {
       invalidProfiles: [],
       invalidAuditEvents: []
     });
+    const listPayments = vi.fn<AdminPaymentDirectoryApi["list"]>().mockResolvedValue({
+      invalidPaymentCount: 0,
+      invalidSeasonCount: 0,
+      invalidSessionCount: 0,
+      missingSourceSessionCount: 0,
+      payments: []
+    });
 
     render(
       <App
+        adminPaymentDirectoryApi={{
+          downloadCsv: vi.fn(),
+          list: listPayments
+        }}
         authSessionApi={createAuthSessionApi(activeAdminState)}
         deviceDirectoryApi={{ list: listDevices }}
         settlementPlansApi={{ list: listSettlementPlans }}
@@ -1005,11 +1017,13 @@ describe("App shell", () => {
       expect(listDevices).toHaveBeenCalled();
       expect(listSeasons).toHaveBeenCalled();
       expect(listSettlementPlans).toHaveBeenCalled();
+      expect(listPayments).toHaveBeenCalled();
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "ADMIN"
       });
     });
     expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Konfiguracja sezonow" })
     ).toBeInTheDocument();

@@ -503,6 +503,7 @@ h2 {
 .season-directory,
 .settlement-plan-directory,
 .pending-payment-directory,
+.payment-directory,
 .operator-sessions {
   display: grid;
   gap: 18px;
@@ -613,6 +614,22 @@ h2 {
 
 .pending-payment-filters {
   grid-template-columns: repeat(3, minmax(150px, 1fr)) repeat(4, minmax(130px, 0.75fr));
+}
+
+.payment-directory-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.payment-directory__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .season-form,
@@ -1726,6 +1743,91 @@ h2 {
   min-width: 1520px;
 }
 
+.payment-directory-table {
+  min-width: 1180px;
+}
+
+.payment-directory-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border: 1px solid #dccb86;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #684f00;
+  background: #fff9df;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.status-badge--active {
+  border-color: #b7d9c4;
+  color: #17663f;
+  background: #edf8f0;
+}
+
+.payment-directory-details {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #b7d9c4;
+  border-radius: 8px;
+  padding: 20px;
+  background: #ffffff;
+}
+
+.payment-directory-details__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.payment-directory-details__header h3,
+.payment-directory-source-session h4 {
+  margin: 2px 0 0;
+}
+
+.payment-directory-details__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  background: #dce6df;
+}
+
+.payment-directory-details__grid div {
+  min-width: 0;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.payment-directory-details__grid dt {
+  color: #5f6f66;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.payment-directory-details__grid dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-weight: 800;
+}
+
+.payment-directory-source-session {
+  display: grid;
+  gap: 10px;
+}
+
 .payment-eligibility-actions {
   display: grid;
   gap: 8px;
@@ -1954,6 +2056,7 @@ h2 {
   }
 
   .directory-filters,
+  .payment-directory-filters,
   .active-session__header,
   .active-session__summary,
   .active-session__facts,
@@ -1975,6 +2078,7 @@ h2 {
   .worker-profile__grid,
   .payment-confirmation-summary,
   .payment-confirmation-fields,
+  .payment-directory-details__grid,
   .directory-summary {
     grid-template-columns: 1fr;
   }
@@ -2048,6 +2152,12 @@ h2 {
   .configuration-cache__actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .payment-directory__header-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
   }
 
   .active-session {
