@@ -136,6 +136,74 @@ describe("PwaUpdateNotice", () => {
       expect(storage.read()).toBeNull();
     });
   });
+
+  it("keeps version B blocked until version A data is synchronized, then verifies reload", async () => {
+    const user = userEvent.setup();
+    const storage = createBrowserPwaUpdateIntentStorage(localStorage);
+    const updateServiceWorker = vi.fn().mockResolvedValue(undefined);
+    const pendingDocuments = [
+      {
+        id: "entry-version-a",
+        kind: "HARVEST_ENTRY" as const,
+        pendingSync: true
+      }
+    ];
+    const view = render(
+      <PwaUpdateNotice
+        currentUserUid="operator-1"
+        deviceId="device-1"
+        hasActiveForm={false}
+        hasActiveHarvestSession={false}
+        intentStorage={storage}
+        localDataInspected={true}
+        registration={createRegistration({ updateServiceWorker })}
+        syncDocuments={pendingDocuments}
+      />
+    );
+
+    expect(screen.getByText(/Najpierw rozlicz 1 lokalnych dokumentow/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Zaktualizuj teraz" })).toBeDisabled();
+
+    view.rerender(
+      <PwaUpdateNotice
+        currentUserUid="operator-1"
+        deviceId="device-1"
+        hasActiveForm={false}
+        hasActiveHarvestSession={false}
+        intentStorage={storage}
+        localDataInspected={true}
+        registration={createRegistration({ updateServiceWorker })}
+        syncDocuments={[]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Zaktualizuj teraz" }));
+
+    expect(updateServiceWorker).toHaveBeenCalledTimes(1);
+    expect(storage.read()).toMatchObject({
+      expectedLocalDocumentIds: []
+    });
+
+    view.unmount();
+
+    render(
+      <PwaUpdateNotice
+        currentUserUid="operator-1"
+        deviceId="device-1"
+        hasActiveForm={false}
+        hasActiveHarvestSession={false}
+        intentStorage={storage}
+        localDataInspected={true}
+        registration={createRegistration({ needRefresh: false })}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("Kontrola po aktualizacji zakonczona")).toBeVisible();
+    await waitFor(() => {
+      expect(storage.read()).toBeNull();
+    });
+  });
 });
 
 function createRegistration(
