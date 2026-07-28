@@ -163,6 +163,15 @@ import {
   defaultPickerOfflineDataApi,
   type PickerOfflineDataApi
 } from "../picker/PickerOfflineDataPanel";
+import {
+  AdminPickerExportSettingsPanel,
+  defaultPickerExportSettingsApi,
+  type PickerExportSettingsApi
+} from "../picker/AdminPickerExportSettingsPanel";
+import {
+  defaultPickerDataExportApi,
+  type PickerDataExportApi
+} from "../picker/PickerDataExportPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -210,6 +219,8 @@ export type AppProps = {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   adminIssueReportsApi?: AdminIssueReportsApi;
   pickerDashboardApi?: PickerDashboardApi;
+  pickerDataExportApi?: PickerDataExportApi;
+  pickerExportSettingsApi?: PickerExportSettingsApi;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
   pickerIssueReportsApi?: PickerIssueReportsApi;
@@ -293,6 +304,8 @@ export function App({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   adminIssueReportsApi = defaultAdminIssueReportsApi,
   pickerDashboardApi = defaultPickerDashboardApi,
+  pickerDataExportApi = defaultPickerDataExportApi,
+  pickerExportSettingsApi = defaultPickerExportSettingsApi,
   pickerHarvestListApi = defaultPickerHarvestListApi,
   pickerPaymentListApi = defaultPickerPaymentListApi,
   pickerIssueReportsApi = defaultPickerIssueReportsApi,
@@ -960,6 +973,12 @@ export function App({
 
         {activeView === "admin" ? (
           <>
+            <AdminPickerExportSettingsPanel
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
+              settingsApi={pickerExportSettingsApi}
+            />
             <AdminPendingPaymentsPanel
               authState={authState}
               deviceId={deviceId}
@@ -1039,6 +1058,7 @@ export function App({
             env={env}
             isOnline={isOnline}
             onLocalDocumentsChanged={handleLocalDocumentsChanged}
+            pickerDataExportApi={pickerDataExportApi}
             pickerDashboardApi={pickerDashboardApi}
             pickerHarvestListApi={pickerHarvestListApi}
             pickerPaymentListApi={pickerPaymentListApi}

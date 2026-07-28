@@ -1,4 +1,4 @@
-import { Banknote, Flag, LayoutDashboard, List } from "lucide-react";
+import { Banknote, FileSpreadsheet, Flag, LayoutDashboard, List } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -8,6 +8,7 @@ import {
 } from "../issues/PickerIssueReportsPanel";
 import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { PickerDataExportPanel, type PickerDataExportApi } from "./PickerDataExportPanel";
 import { PickerDashboardPanel, type PickerDashboardApi } from "./PickerDashboardPanel";
 import {
   PickerHarvestListPanel,
@@ -24,7 +25,7 @@ import {
 } from "./PickerOfflineDataPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES";
+type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "EXPORT";
 
 export function PickerWorkspacePanel({
   authState,
@@ -32,6 +33,7 @@ export function PickerWorkspacePanel({
   deviceId,
   env,
   isOnline,
+  pickerDataExportApi,
   pickerDashboardApi,
   pickerHarvestListApi,
   pickerPaymentListApi,
@@ -46,6 +48,7 @@ export function PickerWorkspacePanel({
   deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
+  pickerDataExportApi?: PickerDataExportApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
@@ -112,6 +115,14 @@ export function PickerWorkspacePanel({
             setActiveView("PAYMENTS");
           }}
         />
+        <WorkspaceTab
+          active={activeView === "EXPORT"}
+          icon={FileSpreadsheet}
+          label="Eksport CSV"
+          onClick={() => {
+            setActiveView("EXPORT");
+          }}
+        />
       </div>
       {activeView === "SUMMARY" ? (
         <PickerDashboardPanel
@@ -139,7 +150,7 @@ export function PickerWorkspacePanel({
           pickerPaymentListApi={pickerPaymentListApi}
           pickerSessionDetailsApi={pickerSessionDetailsApi}
         />
-      ) : (
+      ) : activeView === "ISSUES" ? (
         <PickerIssueReportsPanel
           authState={authState}
           deviceId={deviceId}
@@ -150,6 +161,13 @@ export function PickerWorkspacePanel({
           onLocalDocumentsChanged={onLocalDocumentsChanged}
           onInitialSessionHandled={handleInitialSessionHandled}
           sessionDetailsApi={pickerSessionDetailsApi}
+        />
+      ) : (
+        <PickerDataExportPanel
+          authState={authState}
+          env={env}
+          exportApi={pickerDataExportApi}
+          isOnline={isOnline}
         />
       )}
     </section>
