@@ -116,6 +116,6 @@ async function loginAs(page: Page, email: string, expectedDisplayName: string) {
 
 async function signOut(page: Page) {
   await page.getByRole("button", { name: "Logowanie" }).click();
-  await page.getByRole("button", { name: "Wyloguj" }).click();
+  await page.getByRole("button", { name: "Wyloguj", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Zaloguj sie" })).toBeVisible();
 }
