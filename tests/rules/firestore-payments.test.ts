@@ -20,6 +20,7 @@ import {
 import { readFileSync } from "node:fs";
 
 const projectId = "demo-borowka-pwa-payments";
+const paymentId = "session-1--payment-r3";
 let testEnv: RulesTestEnvironment | undefined;
 
 beforeAll(async () => {
@@ -60,9 +61,9 @@ describe("payment rules", () => {
     await assertSucceeds(batch.commit());
 
     const [paymentSnapshot, sessionSnapshot, auditSnapshot] = await Promise.all([
-      getDoc(doc(db, "payments", "session-1")),
+      getDoc(doc(db, "payments", paymentId)),
       getDoc(doc(db, "harvestSessions", "session-1")),
-      getDoc(doc(db, "auditEvents", "payment-created-session-1"))
+      getDoc(doc(db, "auditEvents", "payment-created-session-1--payment-r3"))
     ]);
     expect(paymentSnapshot.data()).toMatchObject({
       amountGrosz: 1000,
@@ -70,7 +71,7 @@ describe("payment rules", () => {
       status: "ACTIVE"
     });
     expect(sessionSnapshot.data()).toMatchObject({
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       revision: 3,
       status: "PAID"
     });
@@ -84,7 +85,7 @@ describe("payment rules", () => {
     await seedBase();
     const db = authenticatedDb("admin-1");
 
-    await assertFails(setDoc(doc(db, "payments", "session-1"), paymentDocument()));
+    await assertFails(setDoc(doc(db, "payments", paymentId), paymentDocument()));
     await assertFails(
       updateDoc(doc(db, "harvestSessions", "session-1"), paidSessionUpdate())
     );
@@ -94,7 +95,7 @@ describe("payment rules", () => {
     await seedBase();
     const db = authenticatedDb("admin-1");
     const batch = writeBatch(db);
-    batch.set(doc(db, "payments", "session-1"), paymentDocument());
+    batch.set(doc(db, "payments", paymentId), paymentDocument());
     batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
 
     await assertFails(batch.commit());
@@ -123,10 +124,10 @@ describe("payment rules", () => {
     const batch = writeBatch(db);
     const legacyPayment = paymentDocument();
     Reflect.deleteProperty(legacyPayment, "creationAttemptId");
-    batch.set(doc(db, "payments", "session-1"), legacyPayment);
+    batch.set(doc(db, "payments", paymentId), legacyPayment);
     batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
     batch.set(
-      doc(db, "auditEvents", "payment-created-session-1"),
+      doc(db, "auditEvents", "payment-created-session-1--payment-r3"),
       paymentAudit("admin-1")
     );
 
@@ -137,13 +138,10 @@ describe("payment rules", () => {
     await seedBase();
     const db = authenticatedDb("admin-1");
     const batch = writeBatch(db);
-    batch.set(
-      doc(db, "payments", "session-1"),
-      paymentDocument({ creationAttemptId: "" })
-    );
+    batch.set(doc(db, "payments", paymentId), paymentDocument({ creationAttemptId: "" }));
     batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
     batch.set(
-      doc(db, "auditEvents", "payment-created-session-1"),
+      doc(db, "auditEvents", "payment-created-session-1--payment-r3"),
       paymentAudit("admin-1")
     );
 
@@ -158,11 +156,92 @@ describe("payment rules", () => {
     await assertSucceeds(batch.commit());
 
     await assertFails(
-      updateDoc(doc(db, "payments", "session-1"), {
+      updateDoc(doc(db, "payments", paymentId), {
         note: "Zmieniona notatka"
       })
     );
-    await assertFails(deleteDoc(doc(db, "payments", "session-1")));
+    await assertFails(deleteDoc(doc(db, "payments", paymentId)));
+  });
+
+  it("allows only an atomic admin cancellation with CLOSED session and audit", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+    const paymentBatch = writeBatch(db);
+    queuePaymentWrite(paymentBatch, db);
+    await assertSucceeds(paymentBatch.commit());
+
+    const standalone = writeBatch(db);
+    standalone.update(doc(db, "payments", paymentId), paymentCancellationUpdate());
+    await assertFails(standalone.commit());
+
+    const operatorDb = authenticatedDb("operator-1");
+    const operatorBatch = writeBatch(operatorDb);
+    queueCancellation(operatorBatch, operatorDb, "operator-1");
+    await assertFails(operatorBatch.commit());
+
+    const cancellationBatch = writeBatch(db);
+    queueCancellation(cancellationBatch, db, "admin-1");
+    await assertSucceeds(cancellationBatch.commit());
+
+    const [paymentSnapshot, sessionSnapshot, auditSnapshot] = await Promise.all([
+      getDoc(doc(db, "payments", paymentId)),
+      getDoc(doc(db, "harvestSessions", "session-1")),
+      getDoc(doc(db, "auditEvents", `payment-cancelled-${paymentId}`))
+    ]);
+    expect(paymentSnapshot.data()).toMatchObject({
+      cancellationReason: "Bledna metoda",
+      status: "CANCELLED"
+    });
+    expect(sessionSnapshot.data()).toMatchObject({
+      paidAt: null,
+      paymentId: null,
+      revision: 4,
+      status: "CLOSED"
+    });
+    expect(auditSnapshot.data()).toMatchObject({
+      action: "PAYMENT_CANCELLED",
+      entityId: paymentId
+    });
+
+    const nextPaymentId = "session-1--payment-r5";
+    const nextPaymentBatch = writeBatch(db);
+    nextPaymentBatch.set(
+      doc(db, "payments", nextPaymentId),
+      paymentDocument({
+        creationAttemptId: "attempt-2",
+        id: nextPaymentId,
+        paidBusinessDate: "2026-07-29"
+      })
+    );
+    nextPaymentBatch.update(doc(db, "harvestSessions", "session-1"), {
+      paidAt: serverTimestamp(),
+      paymentId: nextPaymentId,
+      revision: 5,
+      status: "PAID",
+      updatedAtServer: serverTimestamp()
+    });
+    nextPaymentBatch.set(doc(db, "auditEvents", `payment-created-${nextPaymentId}`), {
+      ...paymentAudit("admin-1"),
+      afterSummary: {
+        ...paymentAudit("admin-1").afterSummary,
+        paymentId: nextPaymentId,
+        revision: 5
+      },
+      beforeSummary: {
+        ...paymentAudit("admin-1").beforeSummary,
+        revision: 4
+      },
+      businessDate: "2026-07-29",
+      id: `payment-created-${nextPaymentId}`
+    });
+    await assertSucceeds(nextPaymentBatch.commit());
+
+    const paymentHistory = await getDocs(collection(db, "payments"));
+    expect(
+      paymentHistory.docs
+        .map((snapshot) => String((snapshot.data() as Record<string, unknown>).status))
+        .sort()
+    ).toEqual(["ACTIVE", "CANCELLED"]);
   });
 });
 
@@ -205,11 +284,14 @@ function queuePaymentWrite(
   } = {}
 ): void {
   batch.set(
-    doc(db, "payments", "session-1"),
+    doc(db, "payments", paymentId),
     paymentDocument({ amountGrosz, createdBy: actorUid })
   );
   batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
-  batch.set(doc(db, "auditEvents", "payment-created-session-1"), paymentAudit(actorUid));
+  batch.set(
+    doc(db, "auditEvents", "payment-created-session-1--payment-r3"),
+    paymentAudit(actorUid)
+  );
 }
 
 function paymentDocument(overrides: Record<string, unknown> = {}) {
@@ -221,7 +303,7 @@ function paymentDocument(overrides: Record<string, unknown> = {}) {
     creationAttemptId: "attempt-1",
     createdAtServer: serverTimestamp(),
     createdBy: "admin-1",
-    id: "session-1",
+    id: paymentId,
     legacyImport: false,
     note: null,
     paidBusinessDate: "2026-07-28",
@@ -235,10 +317,68 @@ function paymentDocument(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function queueCancellation(
+  batch: WriteBatch,
+  db: ReturnType<typeof authenticatedDb>,
+  actorUid: string
+): void {
+  batch.update(doc(db, "payments", paymentId), paymentCancellationUpdate());
+  batch.update(doc(db, "harvestSessions", "session-1"), {
+    paidAt: null,
+    paymentId: null,
+    revision: 4,
+    status: "CLOSED",
+    updatedAtServer: serverTimestamp()
+  });
+  batch.set(
+    doc(db, "auditEvents", `payment-cancelled-${paymentId}`),
+    paymentCancellationAudit(actorUid)
+  );
+}
+
+function paymentCancellationUpdate() {
+  return {
+    cancellationReason: "Bledna metoda",
+    cancelledAt: serverTimestamp(),
+    cancelledBy: "admin-1",
+    status: "CANCELLED"
+  };
+}
+
+function paymentCancellationAudit(actorUid: string) {
+  return {
+    action: "PAYMENT_CANCELLED",
+    actorRoleSnapshot: actorUid === "admin-1" ? "ADMIN" : "OPERATOR",
+    actorUid,
+    afterSummary: {
+      amountGrosz: 1000,
+      paymentId,
+      sessionId: "session-1",
+      status: "CANCELLED",
+      workerId: "worker-1"
+    },
+    beforeSummary: {
+      amountGrosz: 1000,
+      paymentId,
+      sessionId: "session-1",
+      status: "ACTIVE",
+      workerId: "worker-1"
+    },
+    businessDate: "2026-07-28",
+    createdAtDevice: Timestamp.now(),
+    createdAtServer: serverTimestamp(),
+    deviceId: "device-admin",
+    entityId: paymentId,
+    entityType: "PAYMENT",
+    id: `payment-cancelled-${paymentId}`,
+    reason: "Bledna metoda"
+  };
+}
+
 function paidSessionUpdate() {
   return {
     paidAt: serverTimestamp(),
-    paymentId: "session-1",
+    paymentId: "session-1--payment-r3",
     revision: 3,
     status: "PAID",
     updatedAtServer: serverTimestamp()
@@ -253,7 +393,7 @@ function paymentAudit(actorUid: string) {
     afterSummary: {
       amountDueGrosz: 1000,
       businessDate: "2026-07-20",
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       revision: 3,
       seasonId: "season-1",
       status: "PAID",
@@ -274,7 +414,7 @@ function paymentAudit(actorUid: string) {
     deviceId: "device-admin",
     entityId: "session-1",
     entityType: "HARVEST_SESSION",
-    id: "payment-created-session-1",
+    id: "payment-created-session-1--payment-r3",
     reason: null
   };
 }

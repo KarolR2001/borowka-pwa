@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = [
   "HARVEST_SESSION_MARKED_REVIEW_REQUIRED",
   "HARVEST_SESSION_REVIEW_RESOLVED",
   "HARVEST_SESSION_PAID",
+  "PAYMENT_CANCELLED",
   "HARVEST_ENTRY_CREATED",
   "HARVEST_ENTRY_CANCELLED"
 ] as const;
@@ -42,7 +43,8 @@ export const AUDIT_ENTITY_TYPES = [
   "SETTLEMENT_PLAN",
   "WORKER",
   "HARVEST_SESSION",
-  "HARVEST_ENTRY"
+  "HARVEST_ENTRY",
+  "PAYMENT"
 ] as const;
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;

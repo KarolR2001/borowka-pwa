@@ -32,14 +32,14 @@ const eligibility: PaymentEligibilityResult = {
   amountDueGrosz: 12_500,
   blockers: [],
   checkedAtIso: "2026-07-28T12:00:00.000Z",
-  paymentId: "session-1",
+  paymentId: "session-1--payment-r4",
   sessionId: "session-1",
   sessionRevision: 3,
   status: "ELIGIBLE"
 };
 
 const confirmedResult: PaymentWriteResult = {
-  auditId: "payment-created-session-1",
+  auditId: "payment-created-session-1--payment-r4",
   confirmationSource: "SERVER_READ_AFTER_COMMIT",
   message: "Firestore potwierdzil wyplate dla Anna.",
   payment: {

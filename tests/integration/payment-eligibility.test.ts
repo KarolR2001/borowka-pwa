@@ -93,7 +93,7 @@ describe("payment eligibility Firestore preflight", () => {
     expect(eligible).toMatchObject({
       amountDueGrosz: 1000,
       blockers: [],
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r3",
       sessionRevision: 2,
       status: "ELIGIBLE"
     });

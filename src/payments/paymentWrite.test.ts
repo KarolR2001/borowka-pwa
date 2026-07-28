@@ -52,7 +52,7 @@ const confirmation: PreparedPaymentConfirmation = {
   expectedSessionRevision: 3,
   note: "Rozliczenie tygodnia",
   paidBusinessDate: "2026-07-28",
-  paymentId: "session-1",
+  paymentId: "session-1--payment-r4",
   paymentMethod: "BANK_TRANSFER",
   seasonId: "season-1",
   sessionId: "session-1",
@@ -106,7 +106,7 @@ describe("payment write", () => {
       creationAttemptId: paymentAttemptId,
       createdAtServer: "server-time",
       createdBy: "admin-1",
-      id: "session-1",
+      id: "session-1--payment-r4",
       legacyImport: false,
       note: "Rozliczenie tygodnia",
       paidBusinessDate: "2026-07-28",
@@ -119,7 +119,7 @@ describe("payment write", () => {
     });
     expect(prepared.sessionUpdate).toEqual({
       paidAt: "server-time",
-      paymentId: "session-1",
+      paymentId: "session-1--payment-r4",
       revision: 4,
       status: "PAID",
       updatedAtServer: "server-time"
@@ -134,7 +134,7 @@ describe("payment write", () => {
         status: "CLOSED"
       },
       afterSummary: {
-        paymentId: "session-1",
+        paymentId: "session-1--payment-r4",
         revision: 4,
         status: "PAID"
       }
@@ -145,7 +145,7 @@ describe("payment write", () => {
     expect(() =>
       preparePaymentWrite({
         actorProfile: adminProfile,
-        auditId: "payment-created-session-1",
+        auditId: "payment-created-session-1--payment-r4",
         confirmation: { ...confirmation, expectedSessionRevision: 2 },
         creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
@@ -160,7 +160,7 @@ describe("payment write", () => {
     expect(() =>
       preparePaymentWrite({
         actorProfile: adminProfile,
-        auditId: "payment-created-session-1",
+        auditId: "payment-created-session-1--payment-r4",
         confirmation,
         creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
@@ -175,7 +175,7 @@ describe("payment write", () => {
     expect(() =>
       preparePaymentWrite({
         actorProfile: adminProfile,
-        auditId: "payment-created-session-1",
+        auditId: "payment-created-session-1--payment-r4",
         confirmation: { ...confirmation, amountGrosz: 1 },
         creationAttemptId: paymentAttemptId,
         createdAtDevice: "device-time",
@@ -190,7 +190,7 @@ describe("payment write", () => {
     expect(() =>
       preparePaymentWrite({
         actorProfile: adminProfile,
-        auditId: "payment-created-session-1",
+        auditId: "payment-created-session-1--payment-r4",
         confirmation: {
           ...confirmation,
           paymentId: "random-payment-id"
@@ -225,20 +225,23 @@ describe("payment write", () => {
       expect.any(Function)
     );
     expect(firestoreMock.transaction.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "payments/session-1" }),
-      expect.objectContaining({ id: "session-1", status: "ACTIVE" })
+      expect.objectContaining({ path: "payments/session-1--payment-r4" }),
+      expect.objectContaining({
+        id: "session-1--payment-r4",
+        status: "ACTIVE"
+      })
     );
     expect(firestoreMock.transaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: "harvestSessions/session-1" }),
       expect.objectContaining({
-        paymentId: "session-1",
+        paymentId: "session-1--payment-r4",
         revision: 4,
         status: "PAID"
       })
     );
     expect(firestoreMock.transaction.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        path: "auditEvents/payment-created-session-1"
+        path: "auditEvents/payment-created-session-1--payment-r4"
       }),
       expect.objectContaining({ action: "HARVEST_SESSION_PAID" })
     );
@@ -343,8 +346,8 @@ function configureExistingPaymentTransaction(
       return existingSnapshot("session-1", paidSession(session));
     }
 
-    if (reference.path === "payments/session-1") {
-      return existingSnapshot("session-1", existingPayment);
+    if (reference.path === "payments/session-1--payment-r4") {
+      return existingSnapshot("session-1--payment-r4", existingPayment);
     }
 
     return missingSnapshot(reference.path);
@@ -371,12 +374,12 @@ function configureServerConfirmation(
 
   firestoreMock.getDocFromServer.mockImplementation((reference: { path: string }) => {
     switch (reference.path) {
-      case "payments/session-1":
-        return existingSnapshot("session-1", payment);
+      case "payments/session-1--payment-r4":
+        return existingSnapshot("session-1--payment-r4", payment);
       case "harvestSessions/session-1":
         return existingSnapshot("session-1", paidSession(session));
-      case "auditEvents/payment-created-session-1":
-        return existingSnapshot("payment-created-session-1", audit);
+      case "auditEvents/payment-created-session-1--payment-r4":
+        return existingSnapshot("payment-created-session-1--payment-r4", audit);
       default:
         return missingSnapshot(reference.path);
     }
@@ -387,7 +390,7 @@ function paidSession(session: HarvestSessionDocument) {
   return {
     ...session,
     paidAt: "server-time",
-    paymentId: "session-1",
+    paymentId: "session-1--payment-r4",
     revision: 4,
     status: "PAID",
     updatedAtServer: "server-time"
@@ -403,7 +406,7 @@ function serverPayment(overrides: Record<string, unknown> = {}) {
     creationAttemptId: paymentAttemptId,
     createdAtServer: "server-time",
     createdBy: "admin-1",
-    id: "session-1",
+    id: "session-1--payment-r4",
     legacyImport: false,
     note: confirmation.note,
     paidBusinessDate: confirmation.paidBusinessDate,

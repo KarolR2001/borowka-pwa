@@ -26,6 +26,7 @@ import {
   decodePaymentSummary,
   type PaymentSummary
 } from "./pendingPayments";
+import { createPaymentId } from "./paymentIdentity";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -178,7 +179,12 @@ export async function checkPaymentEligibility(
       ),
       getDocFromServer(doc(firestore, SEASONS_COLLECTION, session.seasonId)),
       getDocFromServer(doc(firestore, WORKERS_COLLECTION, session.workerId)),
-      getDocFromServer(doc(firestore, PAYMENTS_COLLECTION, session.id))
+      getDocsFromServer(
+        query(
+          collection(firestore, PAYMENTS_COLLECTION),
+          where("sessionId", "==", session.id)
+        )
+      )
     ]);
   const entries: HarvestEntryDocument[] = [];
   let invalidEntryCount = 0;
@@ -215,7 +221,7 @@ export async function checkPaymentEligibility(
     entries,
     invalidEntryCount,
     isOnline: true,
-    paymentState: decodePaymentDocumentState(paymentSnapshot),
+    paymentState: decodePaymentDocumentsState(paymentSnapshot.docs),
     season: decodedSeason?.status === "FOUND" ? decodedSeason.season : null,
     serverChecksAvailable: true,
     session,
@@ -302,7 +308,10 @@ export function evaluatePaymentEligibility({
     amountDueGrosz: session?.amountDueGrosz ?? null,
     blockers,
     checkedAtIso: checkedAt.toISOString(),
-    paymentId: sessionId,
+    paymentId:
+      session && session.revision < Number.MAX_SAFE_INTEGER
+        ? createPaymentId(sessionId, session.revision + 1)
+        : sessionId,
     sessionId,
     sessionRevision: session?.revision ?? null,
     status: blockers.length === 0 ? "ELIGIBLE" : "BLOCKED"
@@ -467,30 +476,39 @@ function isSessionAmountCurrent(
   }
 }
 
-function decodePaymentDocumentState(snapshot: {
-  data: (options?: { serverTimestamps?: "estimate" }) => unknown;
-  exists: () => boolean;
-  id: string;
-}): PaymentDocumentState {
-  if (!snapshot.exists()) {
+function decodePaymentDocumentsState(
+  snapshots: readonly {
+    data: (options?: { serverTimestamps?: "estimate" }) => unknown;
+    id: string;
+  }[]
+): PaymentDocumentState {
+  if (snapshots.length === 0) {
     return { status: "MISSING" };
   }
 
-  const data = snapshot.data({ serverTimestamps: "estimate" });
-  const payment = decodePaymentSummary(snapshot.id, data);
+  let invalidState: Extract<PaymentDocumentState, { status: "INVALID" }> | null = null;
 
-  if (payment) {
-    return { status: "VALID", payment };
+  for (const snapshot of snapshots) {
+    const data = snapshot.data({ serverTimestamps: "estimate" });
+    const payment = decodePaymentSummary(snapshot.id, data);
+
+    if (payment?.status === "ACTIVE") {
+      return { status: "VALID", payment };
+    }
+
+    if (!payment) {
+      invalidState = {
+        status: "INVALID",
+        active: isRecord(data) && data.status === "ACTIVE",
+        referencedSessionId:
+          isRecord(data) && typeof data.sessionId === "string"
+            ? data.sessionId.trim() || null
+            : null
+      };
+    }
   }
 
-  return {
-    status: "INVALID",
-    active: isRecord(data) && data.status === "ACTIVE",
-    referencedSessionId:
-      isRecord(data) && typeof data.sessionId === "string"
-        ? data.sessionId.trim() || null
-        : null
-  };
+  return invalidState ?? { status: "MISSING" };
 }
 
 function hasPendingSessionDocuments(

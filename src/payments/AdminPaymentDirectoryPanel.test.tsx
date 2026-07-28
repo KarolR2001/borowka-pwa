@@ -39,7 +39,15 @@ describe("AdminPaymentDirectoryPanel", () => {
   it("shows active totals, details, export and cancellation entry", async () => {
     const user = userEvent.setup();
     const result = directoryResult();
+    const cancel = vi.fn<AdminPaymentDirectoryApi["cancel"]>().mockResolvedValue({
+      auditId: "payment-cancelled-session-active",
+      cancelledPayment: {} as never,
+      message: "Anulowano wyplate dla Anna.",
+      sessionRevision: 5,
+      status: "CANCELLED"
+    });
     const api: AdminPaymentDirectoryApi = {
+      cancel,
       downloadCsv: vi.fn(),
       list: vi.fn().mockResolvedValue(result)
     };
@@ -49,7 +57,9 @@ describe("AdminPaymentDirectoryPanel", () => {
       <AdminPaymentDirectoryPanel
         adminPaymentDirectoryApi={api}
         authState={adminState}
+        deviceId="device-admin"
         env={{}}
+        isOnline
         onRequestCancellation={onRequestCancellation}
       />
     );
@@ -71,9 +81,25 @@ describe("AdminPaymentDirectoryPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
     expect(onRequestCancellation).toHaveBeenCalledWith("session-active");
-    expect(
-      screen.getByText("Wybrano wyplate session-active do anulowania.")
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Anulowanie wyplaty" })).toBeVisible();
+    await user.type(screen.getByLabelText("Powod anulowania"), "Bledna metoda");
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /Potwierdzam anulowanie wyplaty/
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Anuluj wyplate" }));
+    expect(cancel).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        confirmed: true,
+        deviceId: "device-admin",
+        expectedSessionRevision: 3,
+        isOnline: true,
+        paymentId: "session-active",
+        reason: "Bledna metoda"
+      })
+    );
 
     await user.click(screen.getByRole("button", { name: "Eksport CSV" }));
     expect(api.downloadCsv).toHaveBeenCalledTimes(1);
@@ -88,6 +114,7 @@ describe("AdminPaymentDirectoryPanel", () => {
   it("filters cancelled and imported payments without changing the source total", async () => {
     const user = userEvent.setup();
     const api: AdminPaymentDirectoryApi = {
+      cancel: vi.fn(),
       downloadCsv: vi.fn(),
       list: vi.fn().mockResolvedValue(directoryResult())
     };
@@ -96,7 +123,9 @@ describe("AdminPaymentDirectoryPanel", () => {
       <AdminPaymentDirectoryPanel
         adminPaymentDirectoryApi={api}
         authState={adminState}
+        deviceId="device-admin"
         env={{}}
+        isOnline
       />
     );
 
@@ -118,6 +147,7 @@ describe("AdminPaymentDirectoryPanel", () => {
 
   it("does not load financial data for a non-admin", async () => {
     const api: AdminPaymentDirectoryApi = {
+      cancel: vi.fn(),
       downloadCsv: vi.fn(),
       list: vi.fn()
     };
@@ -136,7 +166,9 @@ describe("AdminPaymentDirectoryPanel", () => {
             role: "OPERATOR"
           }
         }}
+        deviceId="device-operator"
         env={{}}
+        isOnline
       />
     );
 
