@@ -50,6 +50,7 @@ export function PickerHarvestListPanel({
   authState,
   env,
   isOnline,
+  onReportIssue,
   pickerHarvestListApi = defaultPickerHarvestListApi,
   pickerSessionDetailsApi,
   syncDocuments
@@ -57,6 +58,7 @@ export function PickerHarvestListPanel({
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
+  onReportIssue?: (sessionId: string) => void;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   syncDocuments: readonly SyncDocumentMetadataInput[];
@@ -191,7 +193,13 @@ export function PickerHarvestListPanel({
             setSelectedSessionId(null);
             setReportSessionId(null);
           }}
-          onReportIssue={setReportSessionId}
+          onReportIssue={(sessionId) => {
+            if (onReportIssue) {
+              onReportIssue(sessionId);
+            } else {
+              setReportSessionId(sessionId);
+            }
+          }}
           sessionId={selectedItem.sessionId}
         />
       ) : null}

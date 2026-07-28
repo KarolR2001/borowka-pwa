@@ -39,6 +39,7 @@ const expectedCompositeIndexes = [
   ],
   ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"],
   ["payments", "workerId:ASCENDING", "paidBusinessDate:DESCENDING"],
+  ["issueReports", "workerId:ASCENDING", "createdAt:DESCENDING"],
   ...HARVEST_QUERY_INDEX_REQUIREMENTS.map((requirement) => [
     requirement.collectionGroup,
     ...requirement.fields.map((field) => `${field.fieldPath}:${field.order}`)

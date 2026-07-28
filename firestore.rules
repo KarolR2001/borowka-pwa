@@ -949,6 +949,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/harvestSessions/$(sessionId);
     }
 
+    function harvestEntryPath(entryId) {
+      return /databases/$(database)/documents/harvestEntries/$(entryId);
+    }
+
     function paymentPath(paymentId) {
       return /databases/$(database)/documents/payments/$(paymentId);
     }
@@ -1341,6 +1345,15 @@ service cloud.firestore {
         );
     }
 
+    function canReadIssueReport(data) {
+      return isAdmin() ||
+        (
+          isPicker() &&
+          profile(request.auth.uid).workerId is string &&
+          profile(request.auth.uid).workerId == data.workerId
+        );
+    }
+
     function hasHarvestSessionFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1630,6 +1643,116 @@ service cloud.firestore {
       return paymentMethod == 'CASH' ||
         paymentMethod == 'BANK_TRANSFER' ||
         paymentMethod == 'OTHER';
+    }
+
+    function isIssueReportSubject(subject) {
+      return subject == 'SESSION' ||
+        subject == 'ENTRY' ||
+        subject == 'AMOUNT' ||
+        subject == 'PAYMENT_STATUS';
+    }
+
+    function isIssueReportResolutionStatus(status) {
+      return status == 'RESOLVED' || status == 'REJECTED';
+    }
+
+    function hasIssueReportFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'reporterUid',
+        'workerId',
+        'seasonId',
+        'sessionId',
+        'entryId',
+        'subject',
+        'message',
+        'status',
+        'createdAt',
+        'resolvedAt',
+        'resolvedBy',
+        'resolutionNote'
+      ]) && data.keys().hasAll([
+        'id',
+        'reporterUid',
+        'workerId',
+        'seasonId',
+        'sessionId',
+        'entryId',
+        'subject',
+        'message',
+        'status',
+        'createdAt',
+        'resolvedAt',
+        'resolvedBy',
+        'resolutionNote'
+      ]);
+    }
+
+    function issueReportSessionMatches(data) {
+      return exists(harvestSessionPath(data.sessionId)) &&
+        get(harvestSessionPath(data.sessionId)).data.workerId == data.workerId &&
+        get(harvestSessionPath(data.sessionId)).data.seasonId == data.seasonId;
+    }
+
+    function issueReportEntryMatches(data) {
+      return (
+        data.subject == 'ENTRY' &&
+        data.entryId is string &&
+        data.entryId.size() > 0 &&
+        exists(harvestEntryPath(data.entryId)) &&
+        get(harvestEntryPath(data.entryId)).data.workerId == data.workerId &&
+        get(harvestEntryPath(data.entryId)).data.seasonId == data.seasonId &&
+        get(harvestEntryPath(data.entryId)).data.sessionId == data.sessionId
+      ) || (
+        data.subject != 'ENTRY' &&
+        data.entryId == null
+      );
+    }
+
+    function isValidIssueReportCreate(data, reportId) {
+      return isPicker() &&
+        hasIssueReportFields(data) &&
+        data.id == reportId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.reporterUid == request.auth.uid &&
+        data.workerId is string &&
+        data.workerId.size() > 0 &&
+        data.workerId == profile(request.auth.uid).workerId &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        data.sessionId is string &&
+        data.sessionId.size() > 0 &&
+        isIssueReportSubject(data.subject) &&
+        data.message is string &&
+        data.message.size() >= 5 &&
+        data.message.size() <= 500 &&
+        data.status == 'OPEN' &&
+        data.createdAt == request.time &&
+        data.resolvedAt == null &&
+        data.resolvedBy == null &&
+        data.resolutionNote == null &&
+        issueReportSessionMatches(data) &&
+        issueReportEntryMatches(data);
+    }
+
+    function isValidIssueReportResolution(data, previous, reportId) {
+      return isAdmin() &&
+        hasIssueReportFields(data) &&
+        previous.status == 'OPEN' &&
+        data.id == reportId &&
+        isIssueReportResolutionStatus(data.status) &&
+        data.resolvedAt == request.time &&
+        data.resolvedBy == request.auth.uid &&
+        data.resolutionNote is string &&
+        data.resolutionNote.size() >= 3 &&
+        data.resolutionNote.size() <= 1000 &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'resolvedAt',
+          'resolvedBy',
+          'resolutionNote'
+        ]);
     }
 
     function hasPaymentFields(data) {
@@ -2186,6 +2309,20 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         paymentId
+      );
+      allow delete: if false;
+    }
+
+    match /issueReports/{reportId} {
+      allow get, list: if canReadIssueReport(resource.data);
+      allow create: if isValidIssueReportCreate(
+        request.resource.data,
+        reportId
+      );
+      allow update: if isValidIssueReportResolution(
+        request.resource.data,
+        resource.data,
+        reportId
       );
       allow delete: if false;
     }

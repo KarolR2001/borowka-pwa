@@ -63,6 +63,11 @@ describe("PickerWorkspacePanel", () => {
       seasons: [],
       sessions: []
     });
+    const issueList = vi.fn().mockResolvedValue({
+      dataSource: "SERVER",
+      invalidReportCount: 0,
+      reports: []
+    });
 
     render(
       <PickerWorkspacePanel
@@ -72,6 +77,10 @@ describe("PickerWorkspacePanel", () => {
         pickerDashboardApi={{ load: dashboardLoad }}
         pickerHarvestListApi={{ load: harvestLoad }}
         pickerPaymentListApi={{ load: paymentLoad }}
+        pickerIssueReportsApi={{
+          create: vi.fn(),
+          list: issueList
+        }}
         syncDocuments={[]}
       />
     );
@@ -94,5 +103,10 @@ describe("PickerWorkspacePanel", () => {
       await screen.findByText("Brak wyplat spelniajacych wybrane filtry.")
     ).toBeInTheDocument();
     expect(paymentLoad).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("tab", { name: "Moje zgloszenia" }));
+
+    expect(await screen.findByText("Brak wyslanych zgloszen.")).toBeInTheDocument();
+    expect(issueList).toHaveBeenCalledTimes(1);
   });
 });

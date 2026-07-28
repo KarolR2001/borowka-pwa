@@ -1,7 +1,11 @@
-import { Banknote, LayoutDashboard, List } from "lucide-react";
-import { useState } from "react";
+import { Banknote, Flag, LayoutDashboard, List } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import {
+  PickerIssueReportsPanel,
+  type PickerIssueReportsApi
+} from "../issues/PickerIssueReportsPanel";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { PickerDashboardPanel, type PickerDashboardApi } from "./PickerDashboardPanel";
 import {
@@ -15,7 +19,7 @@ import {
 import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS";
+type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES";
 
 export function PickerWorkspacePanel({
   authState,
@@ -24,6 +28,7 @@ export function PickerWorkspacePanel({
   pickerDashboardApi,
   pickerHarvestListApi,
   pickerPaymentListApi,
+  pickerIssueReportsApi,
   pickerSessionDetailsApi,
   syncDocuments
 }: {
@@ -33,10 +38,19 @@ export function PickerWorkspacePanel({
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
+  pickerIssueReportsApi?: PickerIssueReportsApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [activeView, setActiveView] = useState<PickerView>("SUMMARY");
+  const [reportSessionId, setReportSessionId] = useState<string | null>(null);
+  const handleReportIssue = useCallback((sessionId: string) => {
+    setReportSessionId(sessionId);
+    setActiveView("ISSUES");
+  }, []);
+  const handleInitialSessionHandled = useCallback(() => {
+    setReportSessionId(null);
+  }, []);
 
   return (
     <section className="picker-workspace" aria-label="Strefa zbieracza">
@@ -51,6 +65,14 @@ export function PickerWorkspacePanel({
           label="Podsumowanie"
           onClick={() => {
             setActiveView("SUMMARY");
+          }}
+        />
+        <WorkspaceTab
+          active={activeView === "ISSUES"}
+          icon={Flag}
+          label="Moje zgloszenia"
+          onClick={() => {
+            setActiveView("ISSUES");
           }}
         />
         <WorkspaceTab
@@ -82,17 +104,29 @@ export function PickerWorkspacePanel({
           authState={authState}
           env={env}
           isOnline={isOnline}
+          onReportIssue={handleReportIssue}
           pickerHarvestListApi={pickerHarvestListApi}
           pickerSessionDetailsApi={pickerSessionDetailsApi}
           syncDocuments={syncDocuments}
         />
-      ) : (
+      ) : activeView === "PAYMENTS" ? (
         <PickerPaymentListPanel
           authState={authState}
           env={env}
           isOnline={isOnline}
+          onReportIssue={handleReportIssue}
           pickerPaymentListApi={pickerPaymentListApi}
           pickerSessionDetailsApi={pickerSessionDetailsApi}
+        />
+      ) : (
+        <PickerIssueReportsPanel
+          authState={authState}
+          env={env}
+          initialSessionId={reportSessionId}
+          isOnline={isOnline}
+          issueReportsApi={pickerIssueReportsApi}
+          onInitialSessionHandled={handleInitialSessionHandled}
+          sessionDetailsApi={pickerSessionDetailsApi}
         />
       )}
     </section>

@@ -504,6 +504,7 @@ h2 {
 .settlement-plan-directory,
 .pending-payment-directory,
 .payment-directory,
+.issue-report-directory,
 .picker-dashboard,
 .picker-harvest-list,
 .operator-sessions {
@@ -2049,6 +2050,32 @@ h2 {
   gap: 6px;
 }
 
+.segmented-control {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  border: 1px solid #cfdad2;
+  border-radius: 8px;
+  padding: 4px;
+  background: #edf2ee;
+}
+
+.segmented-control button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 14px;
+  color: #3f5449;
+  background: transparent;
+  font-weight: 800;
+}
+
+.segmented-control button.is-active {
+  color: #173129;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(23 49 41 / 12%);
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -2066,6 +2093,105 @@ h2 {
   border-color: #b7d9c4;
   color: #17663f;
   background: #edf8f0;
+}
+
+.status-badge--rejected {
+  border-color: #e3b8b1;
+  color: #8a3026;
+  background: #fff3f1;
+}
+
+.issue-report-form,
+.issue-resolution-form,
+.issue-report-source {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #b7d9c4;
+  border-radius: 8px;
+  padding: 20px;
+  background: #ffffff;
+}
+
+.issue-report-form h3,
+.issue-resolution-form h3,
+.issue-report-source h3,
+.issue-report-form p,
+.issue-resolution-form p,
+.issue-report-source p {
+  margin: 0;
+}
+
+.issue-report-source > header,
+.issue-report-list__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.issue-report-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue-report-list > li {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.issue-report-list p {
+  margin: 0;
+}
+
+.issue-report-list__response {
+  border-left: 3px solid #4c8b62;
+  padding-left: 10px;
+  color: #29483a;
+}
+
+.issue-report-directory__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #45564e;
+  font-weight: 700;
+}
+
+.issue-report-table {
+  min-width: 1120px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #b5473a;
+  border-radius: 8px;
+  padding: 9px 14px;
+  color: #8a3026;
+  background: #fff3f1;
+  font-weight: 800;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .payment-directory-details {
