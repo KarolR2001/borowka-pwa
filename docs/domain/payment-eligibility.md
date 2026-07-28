@@ -44,5 +44,6 @@ step. The payment queue first offers `Sprawdz warunki`. A blocked result shows
 all reasons and keeps `Wyplac` disabled. An eligible result exposes `Wyplac`
 and records the selected session as ready for the confirmation screen.
 
-Package 7.2 does not create or update payment documents. The immutable summary
-and administrator input form are the scope of package 7.3.
+Package 7.2 does not create or update payment documents. Package 7.3 consumes
+the eligible result in the immutable summary and administrator input form
+described in `payment-confirmation.md`.

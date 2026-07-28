@@ -1759,6 +1759,79 @@ h2 {
   background: #fff3ec;
 }
 
+.payment-confirmation-form {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #b7d9c4;
+  border-radius: 8px;
+  padding: 20px;
+  background: #ffffff;
+}
+
+.payment-confirmation-form__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.payment-confirmation-form__header h3 {
+  margin: 2px 0 0;
+}
+
+.payment-confirmation-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  background: #dce6df;
+}
+
+.payment-confirmation-summary div {
+  min-width: 0;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.payment-confirmation-summary dt {
+  color: #5f6f66;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.payment-confirmation-summary dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-weight: 800;
+}
+
+.payment-confirmation-fields {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 0.7fr) minmax(180px, 0.8fr)
+    minmax(240px, 1.5fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.payment-confirmation-form__note textarea {
+  resize: vertical;
+}
+
+.payment-confirmation-form__confirmation {
+  justify-self: start;
+}
+
+.payment-confirmation-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .directory-table th,
 .directory-table td {
   padding: 12px 14px;
@@ -1894,6 +1967,8 @@ h2 {
   .worker-archive-form,
   .worker-rate-consistency__checks li,
   .worker-profile__grid,
+  .payment-confirmation-summary,
+  .payment-confirmation-fields,
   .directory-summary {
     grid-template-columns: 1fr;
   }
