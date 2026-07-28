@@ -1,15 +1,26 @@
 # Etap 6 - raport testow Android
 
-Raport realizuje pakiet 6.24 i scenariusz OFF-T01 z PRD. Wynik mozna oznaczyc
-jako zakonczony tylko po wykonaniu calego przebiegu na co najmniej jednym
-fizycznym telefonie z Androidem. Emulator nie spelnia tego kryterium.
+Raport realizuje pakiet 6.24 i scenariusz OFF-T01 z PRD. Pelne zaliczenie
+wymaga wykonania calego przebiegu na co najmniej jednym fizycznym telefonie
+z Androidem. Emulator nie spelnia tego kryterium.
 
 ## Status
 
-- Wynik: `BLOCKED`
-- Powod: Android SDK widzi tylko emulator, bez fizycznego telefonu.
-- Ostatnie sprawdzenie: 2026-07-28, `adb devices -l` zwrocilo wylacznie
-  `emulator-5554` (`sdk_gphone16k_x86_64`).
+- Wynik: `SKIPPED`
+- Powod: fizyczny telefon nie jest obecnie dostepny.
+- Decyzja: 2026-07-28 wlasciciel produktu jawnie odroczyl testy na fizycznym
+  telefonie i zezwolil na kontynuowanie implementacji.
+- Zakres: AND-01 do AND-17 pozostaja `NOT RUN`; status `SKIPPED` nie jest
+  rownowazny z `PASS`.
+
+## Ryzyko odchylenia
+
+Na fizycznym Androidzie nie potwierdzono instalacji standalone, zachowania po
+zamknieciu aplikacji i restarcie telefonu, trwalosci danych, aktualizacji PWA,
+czyszczenia danych ani zachowania przy malej ilosci miejsca. Scenariusz trzeba
+wykonac przed pilotazem terenowym lub wdrozeniem produkcyjnym. Merge pakietu
+6.24 opiera sie na walidacji automatycznej runtime offline i na jawnej decyzji
+wlasciciela produktu, a nie na zaliczeniu testu urzadzeniowego.
 
 ## Walidacja pomocnicza emulatora
 
@@ -124,5 +135,7 @@ momencie.
 - po czyszczeniu nie pozostaly dane poprzedniego konta;
 - raport zawiera metryke urzadzenia i dowody bez sekretow.
 
-Jakikolwiek `FAIL` blokuje merge pakietu 6.24 i wymaga osobnej poprawki oraz
-powtorzenia dotknietej czesci scenariusza.
+Jakikolwiek `FAIL` wymaga osobnej poprawki oraz powtorzenia dotknietej czesci
+scenariusza. Jawne odroczenie opisane w tym raporcie dopuszcza merge
+implementacji 6.24 ze statusem `SKIPPED`, ale nie spelnia bramki gotowosci do
+pilotazu ani produkcji.

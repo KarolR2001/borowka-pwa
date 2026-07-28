@@ -31,6 +31,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Commity rob granularnie: jeden commit powinien opisywac konkretny przyrost.
 - PR tworz po zakonczeniu pakietu.
 - Po zielonym CI i `mergeStateStatus: CLEAN` mozesz scalic PR bez dodatkowego pytania.
+- Uzytkownik zezwolil na push galezi, tworzenie PR i scalanie po zielonym CI
+  dla pakietu 6.21 i wszystkich kolejnych pakietow.
 - Po merge zaktualizuj lokalny `main`.
 - Nie przepisuj historii.
 - Nie revertuj cudzych zmian bez wyraznej zgody uzytkownika.
@@ -72,6 +74,12 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Pelniejsza walidacje wykonuje CI na GitHubie.
 - Deploy nie zastepuje testow.
 - Jesli nie mozesz uruchomic istotnego testu, zapisz powod w odpowiedzi i w `postep.md`.
+- Na obecnym etapie nie uruchamiaj testow Android przez emulator ani ADB.
+- Testy na fizycznych telefonach sa odroczone z powodu braku urzadzenia.
+  Oznaczaj je jako `SKIPPED`, nigdy jako `PASS`, zapisz ryzyko rezydualne
+  i kontynuuj kolejne pakiety implementacyjne.
+- Odroczone testy fizyczne pozostaja wymagane przed pilotazem terenowym lub
+  wdrozeniem produkcyjnym.
 
 ## Deploy
 
@@ -126,6 +134,8 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `a488a97`.
 - Aktualna galaz realizuje pakiet
   `6.24 - testy Android`.
+- Fizyczny przebieg Android 6.24 zostal odroczony decyzja uzytkownika jako
+  `SKIPPED`; implementacja runtime offline moze przejsc do PR i merge.
 - Po zakonczeniu 6.24 nastepny pakiet to
   `6.25 - testy iOS`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.
