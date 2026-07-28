@@ -128,6 +128,11 @@ import {
   defaultPendingPaymentsApi,
   type PendingPaymentsApi
 } from "../payments/AdminPendingPaymentsPanel";
+import {
+  AdminPaymentDirectoryPanel,
+  defaultAdminPaymentDirectoryApi,
+  type AdminPaymentDirectoryApi
+} from "../payments/AdminPaymentDirectoryPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -172,6 +177,7 @@ export type AppProps = {
   configurationCacheApi?: ConfigurationCacheApi;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
   pendingPaymentsApi?: PendingPaymentsApi;
+  adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
@@ -247,6 +253,7 @@ export function App({
   configurationCacheApi = defaultConfigurationCacheApi,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
   pendingPaymentsApi = defaultPendingPaymentsApi,
+  adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
@@ -916,6 +923,11 @@ export function App({
               isOnline={isOnline}
               pendingPaymentsApi={pendingPaymentsApi}
               syncDocuments={syncDocuments}
+            />
+            <AdminPaymentDirectoryPanel
+              adminPaymentDirectoryApi={adminPaymentDirectoryApi}
+              authState={authState}
+              env={env}
             />
             <AdminUserDirectoryPanel
               authState={authState}
