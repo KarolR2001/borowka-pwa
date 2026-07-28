@@ -43,6 +43,7 @@ describe("PickerIssueReportsPanel", () => {
     render(
       <PickerIssueReportsPanel
         authState={pickerState}
+        deviceId="device-1"
         env={{}}
         initialSessionId="session-1"
         isOnline
@@ -79,35 +80,83 @@ describe("PickerIssueReportsPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps a prepared form but prevents offline submission", async () => {
-    const create = vi.fn<PickerIssueReportsApi["create"]>();
+  it("queues a prepared report offline", async () => {
+    const user = userEvent.setup();
+    const onLocalDocumentsChanged = vi.fn().mockResolvedValue(undefined);
+    const create = vi.fn<PickerIssueReportsApi["create"]>().mockResolvedValue({
+      id: "report-offline",
+      message: "Zgloszenie zapisano lokalnie. Zostanie wyslane po odzyskaniu polaczenia.",
+      status: "QUEUED"
+    });
+    const list = vi
+      .fn<PickerIssueReportsApi["list"]>()
+      .mockResolvedValueOnce({
+        dataSource: "CACHE",
+        invalidReportCount: 0,
+        reports: []
+      })
+      .mockResolvedValue({
+        dataSource: "CACHE",
+        invalidReportCount: 0,
+        reports: [
+          {
+            createdAtIso: "2026-07-29T08:00:00.000Z",
+            entryId: null,
+            id: "report-offline",
+            message: "Status wyplaty wymaga sprawdzenia.",
+            pendingSync: true,
+            resolutionNote: null,
+            resolvedAtIso: null,
+            seasonId: "season-2026",
+            sessionId: "session-1",
+            status: "OPEN",
+            subject: "SESSION"
+          }
+        ]
+      });
 
     render(
       <PickerIssueReportsPanel
         authState={pickerState}
+        deviceId="device-1"
         env={{}}
         initialSessionId="session-1"
         isOnline={false}
         issueReportsApi={{
           create,
-          list: vi.fn().mockResolvedValue({
-            dataSource: "CACHE",
-            invalidReportCount: 0,
-            reports: []
-          })
+          list
         }}
         onInitialSessionHandled={() => undefined}
+        onLocalDocumentsChanged={onLocalDocumentsChanged}
         sessionDetailsApi={{ load: vi.fn().mockResolvedValue(sessionDetails()) }}
       />
     );
 
     expect(
       await screen.findByText(
-        "Formularz pozostaje przygotowany. Wyslij go po odzyskaniu polaczenia."
+        "Zgloszenie zostanie zapisane lokalnie i wyslane po odzyskaniu polaczenia."
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Wyslij zgloszenie" })).toBeDisabled();
-    expect(create).not.toHaveBeenCalled();
+    await user.type(
+      screen.getByLabelText("Krotki opis"),
+      "Status wyplaty wymaga sprawdzenia."
+    );
+    await user.click(screen.getByRole("button", { name: "Wyslij zgloszenie" }));
+
+    expect(create).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        isOnline: false,
+        sessionId: "session-1"
+      })
+    );
+    expect(
+      await screen.findByText(
+        "Zgloszenie zapisano lokalnie. Zostanie wyslane po odzyskaniu polaczenia."
+      )
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Oczekuje na synchronizacje")).toBeInTheDocument();
+    expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
   });
 });
 

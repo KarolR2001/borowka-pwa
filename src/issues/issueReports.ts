@@ -8,10 +8,15 @@ import {
   HARVEST_ENTRIES_COLLECTION,
   HARVEST_SESSIONS_COLLECTION
 } from "../harvest/harvestSessionState";
+import {
+  defaultFirestoreSyncJournal,
+  type FirestoreSyncJournal
+} from "../offline/firestoreSyncJournal";
+import { queueOfflineFirestoreBatch } from "../offline/offlineFirestoreQueue";
 import { paymentTimestampToIso } from "../payments/paymentWrite";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type RawDocument = { data: unknown; id: string };
+type RawDocument = { data: unknown; id: string; pendingSync: boolean };
 
 export const ISSUE_REPORTS_COLLECTION = "issueReports";
 export const ISSUE_REPORT_SUBJECTS = [
@@ -43,6 +48,7 @@ export type IssueReportDocument = {
 
 export type CreateIssueReportInput = {
   actorProfile: UserProfile;
+  deviceId: string;
   entryId: string | null;
   isOnline: boolean;
   message: string;
@@ -53,7 +59,11 @@ export type CreateIssueReportInput = {
 export type CreateIssueReportResult = {
   id: string;
   message: string;
-  status: "CREATED";
+  status: "CREATED" | "QUEUED";
+};
+
+export type IssueReportDependencies = {
+  journal?: FirestoreSyncJournal;
 };
 
 export type PickerIssueReportItem = {
@@ -61,6 +71,7 @@ export type PickerIssueReportItem = {
   entryId: string | null;
   id: string;
   message: string;
+  pendingSync: boolean;
   resolutionNote: string | null;
   resolvedAtIso: string | null;
   seasonId: string;
@@ -115,13 +126,11 @@ export type IssueReportSource = {
 
 export async function createIssueReport(
   env: FirebaseEnv,
-  input: CreateIssueReportInput
+  input: CreateIssueReportInput,
+  dependencies: IssueReportDependencies = {}
 ): Promise<CreateIssueReportResult> {
   const workerId = assertPicker(input.actorProfile);
-
-  if (!input.isOnline) {
-    throw new Error("Zgloszenie jest przygotowane. Wyslij je po odzyskaniu polaczenia.");
-  }
+  const deviceId = normalizeId(input.deviceId, "Urzadzenie");
 
   const sessionId = normalizeId(input.sessionId, "Sesja");
   const message = normalizeMessage(input.message, 5, 500, "Opis zgloszenia");
@@ -133,8 +142,10 @@ export async function createIssueReport(
         ? null
         : fail("Identyfikator wpisu jest dozwolony tylko dla zgloszenia wpisu.");
   const { firestore } = await getFirebaseServices(env);
-  const { doc, getDoc, serverTimestamp, setDoc } = await import("firebase/firestore");
-  const sessionSnapshot = await getDoc(
+  const { doc, getDoc, getDocFromCache, serverTimestamp, setDoc, writeBatch } =
+    await import("firebase/firestore");
+  const readDocument = input.isOnline ? getDoc : getDocFromCache;
+  const sessionSnapshot = await readDocument(
     doc(firestore, HARVEST_SESSIONS_COLLECTION, sessionId)
   );
 
@@ -152,7 +163,7 @@ export async function createIssueReport(
   }
 
   if (entryId) {
-    const entrySnapshot = await getDoc(
+    const entrySnapshot = await readDocument(
       doc(firestore, HARVEST_ENTRIES_COLLECTION, entryId)
     );
     const entry = entrySnapshot.exists()
@@ -173,8 +184,10 @@ export async function createIssueReport(
   }
 
   const reportId = createReportId();
-  await setDoc(doc(firestore, ISSUE_REPORTS_COLLECTION, reportId), {
-    createdAt: serverTimestamp(),
+  const reportReference = doc(firestore, ISSUE_REPORTS_COLLECTION, reportId);
+  const createdAt = serverTimestamp();
+  const reportDocument = {
+    createdAt,
     entryId,
     id: reportId,
     message,
@@ -187,7 +200,39 @@ export async function createIssueReport(
     status: "OPEN",
     subject,
     workerId
-  } satisfies IssueReportDocument);
+  } satisfies IssueReportDocument;
+
+  if (!input.isOnline) {
+    const batch = writeBatch(firestore);
+    batch.set(reportReference, reportDocument);
+    await queueOfflineFirestoreBatch({
+      batch,
+      journal: dependencies.journal ?? defaultFirestoreSyncJournal,
+      records: [
+        {
+          businessStatus: "OPEN",
+          deviceId,
+          id: reportId,
+          kind: "ISSUE_REPORT",
+          localSnapshot: {
+            ...reportDocument,
+            createdAt: new Date().toISOString()
+          },
+          sessionId,
+          userUid: input.actorProfile.uid
+        }
+      ],
+      verifyLocalWrite: async () => (await getDocFromCache(reportReference)).exists()
+    });
+
+    return {
+      id: reportId,
+      message: "Zgloszenie zapisano lokalnie. Zostanie wyslane po odzyskaniu polaczenia.",
+      status: "QUEUED"
+    };
+  }
+
+  await setDoc(reportReference, reportDocument);
 
   return {
     id: reportId,
@@ -218,7 +263,9 @@ export async function listPickerIssueReports(
   return {
     dataSource: snapshot.metadata.fromCache ? "CACHE" : "SERVER",
     invalidReportCount: built.invalidReportCount,
-    reports: built.reports.map(toPickerItem)
+    reports: built.reports.map(({ pendingSync, report }) =>
+      toPickerItem(report, pendingSync)
+    )
   };
 }
 
@@ -236,7 +283,9 @@ export async function listAdminIssueReports(
 
   return {
     invalidReportCount: built.invalidReportCount,
-    reports: built.reports.map(toAdminItem)
+    reports: built.reports.map(({ pendingSync, report }) =>
+      toAdminItem(report, pendingSync)
+    )
   };
 }
 
@@ -408,8 +457,11 @@ export function decodeIssueReport(
 function buildIssueReportList(
   documents: readonly RawDocument[],
   expectedWorkerId?: string
-): { invalidReportCount: number; reports: IssueReportDocument[] } {
-  const reports: IssueReportDocument[] = [];
+): {
+  invalidReportCount: number;
+  reports: { pendingSync: boolean; report: IssueReportDocument }[];
+} {
+  const reports: { pendingSync: boolean; report: IssueReportDocument }[] = [];
   let invalidReportCount = 0;
 
   for (const document of documents) {
@@ -418,7 +470,7 @@ function buildIssueReportList(
     if (!report || (expectedWorkerId && report.workerId !== expectedWorkerId)) {
       invalidReportCount += 1;
     } else {
-      reports.push(report);
+      reports.push({ pendingSync: document.pendingSync, report });
     }
   }
 
@@ -426,19 +478,23 @@ function buildIssueReportList(
     invalidReportCount,
     reports: reports.sort(
       (left, right) =>
-        (paymentTimestampToIso(right.createdAt) ?? "").localeCompare(
-          paymentTimestampToIso(left.createdAt) ?? ""
-        ) || right.id.localeCompare(left.id)
+        (paymentTimestampToIso(right.report.createdAt) ?? "").localeCompare(
+          paymentTimestampToIso(left.report.createdAt) ?? ""
+        ) || right.report.id.localeCompare(left.report.id)
     )
   };
 }
 
-function toPickerItem(report: IssueReportDocument): PickerIssueReportItem {
+function toPickerItem(
+  report: IssueReportDocument,
+  pendingSync: boolean
+): PickerIssueReportItem {
   return {
     createdAtIso: paymentTimestampToIso(report.createdAt),
     entryId: report.entryId,
     id: report.id,
     message: report.message,
+    pendingSync,
     resolutionNote: report.resolutionNote,
     resolvedAtIso: paymentTimestampToIso(report.resolvedAt),
     seasonId: report.seasonId,
@@ -448,9 +504,12 @@ function toPickerItem(report: IssueReportDocument): PickerIssueReportItem {
   };
 }
 
-function toAdminItem(report: IssueReportDocument): AdminIssueReportItem {
+function toAdminItem(
+  report: IssueReportDocument,
+  pendingSync: boolean
+): AdminIssueReportItem {
   return {
-    ...toPickerItem(report),
+    ...toPickerItem(report, pendingSync),
     reporterUid: report.reporterUid,
     resolvedBy: report.resolvedBy,
     workerId: report.workerId
@@ -461,11 +520,13 @@ function toRawDocuments(
   documents: readonly {
     data(options?: { serverTimestamps?: "estimate" }): unknown;
     id: string;
+    metadata: { hasPendingWrites: boolean };
   }[]
 ): RawDocument[] {
   return documents.map((document) => ({
     data: document.data({ serverTimestamps: "estimate" }),
-    id: document.id
+    id: document.id,
+    pendingSync: document.metadata.hasPendingWrites
   }));
 }
 

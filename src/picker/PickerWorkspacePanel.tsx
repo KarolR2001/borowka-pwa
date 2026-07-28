@@ -6,6 +6,7 @@ import {
   PickerIssueReportsPanel,
   type PickerIssueReportsApi
 } from "../issues/PickerIssueReportsPanel";
+import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { PickerDashboardPanel, type PickerDashboardApi } from "./PickerDashboardPanel";
 import {
@@ -17,29 +18,41 @@ import {
   type PickerPaymentListApi
 } from "./PickerPaymentListPanel";
 import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
+import {
+  PickerOfflineDataPanel,
+  type PickerOfflineDataApi
+} from "./PickerOfflineDataPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES";
 
 export function PickerWorkspacePanel({
   authState,
+  cacheMode,
+  deviceId,
   env,
   isOnline,
   pickerDashboardApi,
   pickerHarvestListApi,
   pickerPaymentListApi,
   pickerIssueReportsApi,
+  pickerOfflineDataApi,
   pickerSessionDetailsApi,
+  onLocalDocumentsChanged,
   syncDocuments
 }: {
   authState: AuthSessionState;
+  cacheMode: FirestoreCacheMode;
+  deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
   pickerDashboardApi?: PickerDashboardApi;
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
   pickerIssueReportsApi?: PickerIssueReportsApi;
+  pickerOfflineDataApi?: PickerOfflineDataApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
+  onLocalDocumentsChanged?: () => Promise<void> | void;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [activeView, setActiveView] = useState<PickerView>("SUMMARY");
@@ -54,6 +67,14 @@ export function PickerWorkspacePanel({
 
   return (
     <section className="picker-workspace" aria-label="Strefa zbieracza">
+      <PickerOfflineDataPanel
+        authState={authState}
+        cacheMode={cacheMode}
+        deviceId={deviceId}
+        env={env}
+        isOnline={isOnline}
+        offlineDataApi={pickerOfflineDataApi}
+      />
       <div
         className="picker-workspace__tabs"
         role="tablist"
@@ -121,10 +142,12 @@ export function PickerWorkspacePanel({
       ) : (
         <PickerIssueReportsPanel
           authState={authState}
+          deviceId={deviceId}
           env={env}
           initialSessionId={reportSessionId}
           isOnline={isOnline}
           issueReportsApi={pickerIssueReportsApi}
+          onLocalDocumentsChanged={onLocalDocumentsChanged}
           onInitialSessionHandled={handleInitialSessionHandled}
           sessionDetailsApi={pickerSessionDetailsApi}
         />

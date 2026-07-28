@@ -54,18 +54,22 @@ const initialSourceState: SourceState = {
 
 export function PickerIssueReportsPanel({
   authState,
+  deviceId,
   env,
   initialSessionId,
   isOnline,
   issueReportsApi = defaultPickerIssueReportsApi,
+  onLocalDocumentsChanged,
   onInitialSessionHandled,
   sessionDetailsApi = defaultPickerSessionDetailsApi
 }: {
   authState: AuthSessionState;
+  deviceId: string;
   env: FirebaseEnv;
   initialSessionId: string | null;
   isOnline: boolean;
   issueReportsApi?: PickerIssueReportsApi;
+  onLocalDocumentsChanged?: () => Promise<void> | void;
   onInitialSessionHandled: () => void;
   sessionDetailsApi?: PickerSessionDetailsApi;
 }) {
@@ -205,12 +209,20 @@ export function PickerIssueReportsPanel({
     try {
       const result = await issueReportsApi.create(env, {
         actorProfile,
+        deviceId,
         entryId: subject === "ENTRY" ? entryId : null,
         isOnline,
         message,
         sessionId: sourceState.result.sessionId,
         subject
       });
+      if (result.status === "QUEUED" && onLocalDocumentsChanged) {
+        try {
+          await onLocalDocumentsChanged();
+        } catch {
+          // The queued Firestore write remains recoverable through the sync journal.
+        }
+      }
       setSubmitStatus("SUCCESS");
       setSubmitMessage(result.message);
       setSourceState(initialSourceState);
@@ -323,13 +335,13 @@ export function PickerIssueReportsPanel({
           {!isOnline ? (
             <p className="form-message form-message--warning">
               <CloudOff aria-hidden="true" size={18} />
-              Formularz pozostaje przygotowany. Wyslij go po odzyskaniu polaczenia.
+              Zgloszenie zostanie zapisane lokalnie i wyslane po odzyskaniu polaczenia.
             </p>
           ) : null}
           <div className="form-actions">
             <button
               className="primary-button"
-              disabled={!isOnline || submitStatus === "SUBMITTING"}
+              disabled={submitStatus === "SUBMITTING"}
               type="submit"
             >
               <Send aria-hidden="true" size={18} />
@@ -384,7 +396,9 @@ export function PickerIssueReportsPanel({
               <div className="issue-report-list__heading">
                 <strong>{subjectLabel(report.subject)}</strong>
                 <span className={statusClass(report.status)}>
-                  {statusLabel(report.status)}
+                  {report.pendingSync
+                    ? "Oczekuje na synchronizacje"
+                    : statusLabel(report.status)}
                 </span>
               </div>
               <span>

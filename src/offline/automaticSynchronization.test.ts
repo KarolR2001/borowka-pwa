@@ -191,4 +191,46 @@ describe("automatic synchronization trigger policy", () => {
     expect(flushPendingWrites).toHaveBeenCalledTimes(3);
     expect(confirmRecordOnServer).toHaveBeenCalledTimes(104);
   });
+
+  it("confirms and removes an offline picker issue report", async () => {
+    const journal = createMemoryFirestoreSyncJournal();
+    const account = {
+      deviceId: "device-picker",
+      userUid: "picker-1"
+    };
+    await journal.put({
+      ...account,
+      businessStatus: "OPEN",
+      id: "report-1",
+      kind: "ISSUE_REPORT",
+      localSnapshot: { id: "report-1", status: "OPEN" },
+      sessionId: "session-1"
+    });
+    const confirmRecordOnServer = vi.fn().mockResolvedValue(true);
+    const api = createFirestoreSynchronizationApi(journal, {
+      confirmRecordOnServer,
+      flushPendingWrites: vi.fn().mockResolvedValue(undefined)
+    });
+
+    const result = await api.synchronize(
+      {},
+      createSynchronizationRequest({
+        ...account,
+        pendingDocumentCount: 1,
+        requestedAtIso: "2026-07-29T08:00:00.000Z",
+        trigger: "ONLINE_RESTORED",
+        userRole: "PICKER"
+      })
+    );
+
+    expect(result.status).toBe("SUCCESS");
+    expect(confirmRecordOnServer).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        id: "report-1",
+        kind: "ISSUE_REPORT"
+      })
+    );
+    expect(await journal.list(account)).toEqual([]);
+  });
 });

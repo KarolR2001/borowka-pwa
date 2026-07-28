@@ -182,7 +182,10 @@ async function reconcileJournalWithServer(
   confirmRecordOnServer: (env: FirebaseEnv, record: SyncJournalRecord) => Promise<boolean>
 ): Promise<void> {
   const businessRecords = records.filter(
-    (record) => record.kind === "HARVEST_SESSION" || record.kind === "HARVEST_ENTRY"
+    (record) =>
+      record.kind === "HARVEST_SESSION" ||
+      record.kind === "HARVEST_ENTRY" ||
+      record.kind === "ISSUE_REPORT"
   );
   let hasRejectedBusinessRecord = false;
 
@@ -250,7 +253,11 @@ async function isJournalRecordConfirmedOnServer(
   const { firestore } = await getFirebaseServices(env);
   const { doc, getDocFromServer } = await import("firebase/firestore");
   const collectionName =
-    record.kind === "HARVEST_SESSION" ? "harvestSessions" : "harvestEntries";
+    record.kind === "HARVEST_SESSION"
+      ? "harvestSessions"
+      : record.kind === "ISSUE_REPORT"
+        ? "issueReports"
+        : "harvestEntries";
   const snapshot = await getDocFromServer(doc(firestore, collectionName, record.id));
 
   if (!snapshot.exists()) {

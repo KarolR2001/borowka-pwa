@@ -98,6 +98,7 @@ describe("issue report Firestore flow", () => {
       {},
       {
         actorProfile: pickerProfile,
+        deviceId: "device-picker",
         entryId: "entry-1",
         isOnline: true,
         message: "Waga tego wpisu powinna byc nizsza.",
