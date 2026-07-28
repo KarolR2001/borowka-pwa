@@ -39,6 +39,7 @@ export type AddHarvestEntryOnlineInput = {
   weightG: number | null;
   isOnline: boolean;
   createdDeviceId: string;
+  identity?: HarvestEntryIdentity | null;
 };
 
 export type AddHarvestEntryOnlineResult = {
@@ -114,6 +115,25 @@ export async function addHarvestEntryOnline(
 
     return decodedEntry.entry;
   });
+  const existingRetry = input.identity
+    ? entries.find((entry) => entry.id === input.identity?.id)
+    : undefined;
+
+  if (existingRetry) {
+    assertActorCanAddEntryToSession(
+      input.actorProfile,
+      withCurrentSessionTotals(decodedSession.session, entries)
+    );
+    assertMatchingHarvestEntryRetry(input, existingRetry);
+
+    return {
+      entry: existingRetry,
+      selectedSessionId: existingRetry.sessionId,
+      message: `Wpis #${String(existingRetry.sequenceNumber)} juz istnieje.`,
+      nextSessionTotals: createNextSessionTotals(decodedSession.session, entries)
+    };
+  }
+
   const createdAtDevice = Timestamp.now();
   const createdAtServer = serverTimestamp();
   const prepared = prepareHarvestEntryDocument({
@@ -125,7 +145,8 @@ export async function addHarvestEntryOnline(
     isOnline: input.isOnline,
     createdDeviceId: input.createdDeviceId,
     createdAtDevice,
-    createdAtServer
+    createdAtServer,
+    identity: input.identity
   });
   const auditId = createAuditEventId();
   const batch = writeBatch(firestore);
@@ -250,6 +271,41 @@ export function nextHarvestEntrySequenceNumber(
   entries: readonly Pick<HarvestEntryDocument, "sequenceNumber">[]
 ): number {
   return entries.reduce((next, entry) => Math.max(next, entry.sequenceNumber + 1), 1);
+}
+
+function createNextSessionTotals(
+  session: HarvestSessionDocument,
+  entries: readonly HarvestEntryDocument[]
+): HarvestEntryNextSessionTotals {
+  const totals = calculateHarvestSessionTotals({
+    session,
+    entries: entries.map(toCalculableHarvestEntry)
+  });
+
+  return {
+    totalEntryCount: totals.activeEntryCount,
+    totalQuantityMilli: totals.totalQuantityMilli,
+    totalWeightG: totals.totalWeightG,
+    estimatedAmountGrosz: totals.amountDueGrosz
+  };
+}
+
+function assertMatchingHarvestEntryRetry(
+  input: AddHarvestEntryOnlineInput,
+  entry: HarvestEntryDocument
+): void {
+  if (
+    input.identity?.sequenceNumber !== entry.sequenceNumber ||
+    input.sessionId !== entry.sessionId ||
+    input.quantityMilli !== entry.quantityMilli ||
+    input.weightG !== entry.weightG ||
+    input.createdDeviceId !== entry.createdDeviceId ||
+    input.actorProfile.uid !== entry.createdBy
+  ) {
+    throw new Error(
+      "Ponowienie wpisu ma ten sam UUID, ale inny payload. Wymagany jest przeglad."
+    );
+  }
 }
 
 function toCalculableHarvestEntry(entry: HarvestEntryDocument): CalculableHarvestEntry {

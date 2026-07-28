@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
@@ -41,9 +41,14 @@ import {
 import { GenericQuantityEntryForm } from "./GenericQuantityEntryForm";
 import {
   addHarvestEntryOnline,
+  nextHarvestEntrySequenceNumber,
   type AddHarvestEntryOnlineInput,
   type AddHarvestEntryOnlineResult
 } from "./harvestEntryRuntime";
+import {
+  reserveHarvestEntryIdentity,
+  type HarvestEntryIdentity
+} from "./harvestEntryIdempotency";
 import {
   listOperatorHarvestSessionDashboard,
   type HarvestSessionDashboardResult,
@@ -170,6 +175,11 @@ type AddEntryDraft = {
   weightG: number | null;
 };
 
+type PendingEntryAttempt = AddEntryDraft & {
+  identity: HarvestEntryIdentity;
+  sessionId: string;
+};
+
 type CancelEntryDraft = {
   entryId: string;
   reason: string;
@@ -252,6 +262,7 @@ export function OperatorHarvestSessionsPanel({
   const [isReopeningSession, setIsReopeningSession] = useState(false);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [hasUnsavedFormInteraction, setHasUnsavedFormInteraction] = useState(false);
+  const pendingEntryAttemptRef = useRef<PendingEntryAttempt | null>(null);
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
   const hasActiveForm =
     hasUnsavedFormInteraction ||
@@ -287,6 +298,7 @@ export function OperatorHarvestSessionsPanel({
       setSessionFeedback(null);
       setSessionError(null);
       setHasUnsavedFormInteraction(false);
+      pendingEntryAttemptRef.current = null;
       return undefined;
     }
 
@@ -495,17 +507,38 @@ export function OperatorHarvestSessionsPanel({
       throw new Error("Wybierz otwarta sesje przed dodaniem wpisu.");
     }
 
+    const currentAttempt = pendingEntryAttemptRef.current;
+    const currentAttemptMatches =
+      currentAttempt?.sessionId === selectedSessionId &&
+      currentAttempt.quantityMilli === draft.quantityMilli &&
+      currentAttempt.weightG === draft.weightG;
+    const attempt = currentAttemptMatches
+      ? currentAttempt
+      : {
+          ...draft,
+          sessionId: selectedSessionId,
+          identity: reserveHarvestEntryIdentity({
+            nextSequenceNumber: nextHarvestEntrySequenceNumber(
+              state.result?.selectedSessionView?.entries ?? []
+            )
+          })
+        };
+
+    pendingEntryAttemptRef.current = attempt;
+
     const result = await harvestSessionsApi.addEntry(env, {
       actorProfile: viewerProfile,
       sessionId: selectedSessionId,
       quantityMilli: draft.quantityMilli,
       weightG: draft.weightG,
       isOnline,
-      createdDeviceId: getOrCreateDeviceId()
+      createdDeviceId: getOrCreateDeviceId(),
+      identity: attempt.identity
     });
 
     await onLocalDocumentsChanged?.();
     await reload(result.selectedSessionId);
+    pendingEntryAttemptRef.current = null;
   };
 
   const handleCancelEntry = async () => {

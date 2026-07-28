@@ -334,6 +334,60 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
   });
 
+  it("reuses the same entry identity when a lost response is retried", async () => {
+    const user = userEvent.setup();
+    const session = createSession("session-1");
+    const addEntry = vi
+      .fn<OperatorHarvestSessionsApi["addEntry"]>()
+      .mockRejectedValueOnce(new Error("Odpowiedz sieci zniknela."))
+      .mockResolvedValue({
+        entry: createEntry(session, 2, "entry-retry"),
+        selectedSessionId: session.id,
+        message: "Wpis #2 juz istnieje.",
+        nextSessionTotals: {
+          totalEntryCount: 2,
+          totalQuantityMilli: 2000,
+          totalWeightG: 2000,
+          estimatedAmountGrosz: 2000
+        }
+      });
+    const api = createHarvestSessionsApi({
+      list: vi
+        .fn<OperatorHarvestSessionsApi["list"]>()
+        .mockResolvedValue(createDashboardResult()),
+      addEntry
+    });
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={api}
+        isOnline={true}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Anna Test" });
+    await user.click(screen.getByRole("button", { name: "Dodaj wpis" }));
+    await user.type(screen.getByLabelText("Waga kg"), "1");
+    await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
+    await screen.findByText("Odpowiedz sieci zniknela.");
+    await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
+
+    await waitFor(() => {
+      expect(addEntry).toHaveBeenCalledTimes(2);
+    });
+
+    const firstInput = addEntry.mock.calls[0][1];
+    const secondInput = addEntry.mock.calls[1][1];
+
+    expect(firstInput.identity).toEqual(secondInput.identity);
+    expect(firstInput.identity).toMatchObject({
+      sequenceNumber: 2
+    });
+    expect(typeof firstInput.identity?.id).toBe("string");
+  });
+
   it("closes the selected session after confirmation and refreshes the dashboard", async () => {
     const user = userEvent.setup();
     const onLocalDocumentsChanged = vi.fn().mockResolvedValue(undefined);

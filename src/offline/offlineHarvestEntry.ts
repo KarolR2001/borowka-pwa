@@ -9,6 +9,7 @@ import {
   prepareHarvestEntryDocument,
   withCurrentSessionTotals
 } from "../harvest/harvestEntryRuntime";
+import { calculateHarvestSessionTotals } from "../harvest/harvestSessionCalculation";
 import type { HarvestEntryNextSessionTotals } from "../harvest/harvestEntryValidation";
 import type { HarvestEntryDocument } from "../harvest/harvestSessionDashboard";
 import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
@@ -50,6 +51,7 @@ export type RetriedOfflineHarvestEntry = {
   selectedSessionId: string;
   identity: HarvestEntryIdentity;
   syncState: OfflineHarvestEntrySyncState | "ALREADY_SYNCED";
+  nextSessionTotals: HarvestEntryNextSessionTotals;
   pendingEntryCount: number;
   pendingWriteCount: number;
   readyForNextEntry: true;
@@ -82,8 +84,11 @@ export function prepareOfflineHarvestEntry(
 
   if (saveIntent.status === "RETRY_EXISTING_DOCUMENT") {
     const entry = findEntryById(input.entries, saveIntent.entryId);
+    assertOfflineEntryRetryAllowed(input);
+    assertMatchingOfflineEntryRetry(input, identity, entry);
     const sortedEntries = sortEntriesBySequence(input.entries);
     const sessionWithLocalTotals = withCurrentSessionTotals(input.session, sortedEntries);
+    const nextSessionTotals = createNextSessionTotals(input.session, sortedEntries);
     const pendingEntryCount = countPendingEntries(sortedEntries);
     const pendingWriteCount = countPendingHarvestWrites({
       session: input.session,
@@ -101,6 +106,7 @@ export function prepareOfflineHarvestEntry(
         sequenceNumber: entry.sequenceNumber
       },
       syncState: entry.pendingSync ? "LOCAL_PENDING_SYNC" : "ALREADY_SYNCED",
+      nextSessionTotals,
       pendingEntryCount,
       pendingWriteCount,
       readyForNextEntry: true,
@@ -184,6 +190,65 @@ function sortEntriesBySequence(
 
 function countPendingEntries(entries: readonly HarvestEntryDocument[]): number {
   return entries.filter((entry) => entry.pendingSync).length;
+}
+
+function createNextSessionTotals(
+  session: HarvestSessionDocument,
+  entries: readonly HarvestEntryDocument[]
+): HarvestEntryNextSessionTotals {
+  const totals = calculateHarvestSessionTotals({
+    session,
+    entries
+  });
+
+  return {
+    totalEntryCount: totals.activeEntryCount,
+    totalQuantityMilli: totals.totalQuantityMilli,
+    totalWeightG: totals.totalWeightG,
+    estimatedAmountGrosz: totals.amountDueGrosz
+  };
+}
+
+function assertMatchingOfflineEntryRetry(
+  input: PrepareOfflineHarvestEntryInput,
+  identity: HarvestEntryIdentity,
+  entry: HarvestEntryDocument
+): void {
+  if (
+    identity.sequenceNumber !== entry.sequenceNumber ||
+    input.session.id !== entry.sessionId ||
+    input.quantityMilli !== entry.quantityMilli ||
+    input.weightG !== entry.weightG ||
+    input.createdDeviceId.trim() !== entry.createdDeviceId ||
+    input.actorProfile.uid !== entry.createdBy
+  ) {
+    throw new Error(
+      "Ponowienie wpisu ma ten sam UUID, ale inny payload. Wymagany jest przeglad."
+    );
+  }
+}
+
+function assertOfflineEntryRetryAllowed(input: PrepareOfflineHarvestEntryInput): void {
+  if (
+    !input.actorProfile.active ||
+    input.actorProfile.registrationStatus !== "APPROVED" ||
+    (input.actorProfile.role !== "ADMIN" && input.actorProfile.role !== "OPERATOR")
+  ) {
+    throw new Error("Dodanie wpisu wymaga aktywnego administratora albo operatora.");
+  }
+
+  if (input.session.status !== "OPEN") {
+    throw new Error("Wpis mozna dodac tylko do otwartej sesji.");
+  }
+
+  if (
+    input.actorProfile.role === "OPERATOR" &&
+    input.session.createdBy !== input.actorProfile.uid
+  ) {
+    throw new Error(
+      "Operator moze dodawac wpisy tylko do prowadzonej przez siebie sesji."
+    );
+  }
 }
 
 function findEntryById(
