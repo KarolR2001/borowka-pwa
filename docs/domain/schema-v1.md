@@ -144,3 +144,6 @@ Stage 6.15 closed season conflict contract is maintained in
 
 Stage 6.16 archived configuration conflict contract is maintained in
 `docs/domain/archived-configuration-conflict.md`.
+
+Stage 6.17 two device harvest conflict contract is maintained in
+`docs/domain/device-conflict.md`.

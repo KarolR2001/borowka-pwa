@@ -72,6 +72,7 @@
 - Etap 6.14 / konflikt stawki: kontrakt `rateConflict` zachowuje lokalny snapshot stawki, porownuje go z aktualnymi wersjami serwera, blokuje wyplate i wymaga `REVIEW_REQUIRED` oraz decyzji administratora przy niezgodnosci w `src/offline/rateConflict.test.ts` oraz `docs/domain/rate-conflict.md`.
 - Etap 6.15 / konflikt zamknietego sezonu: kontrakt `closedSeasonConflict` zachowuje dane sesji, nie dopisuje automatycznie do zamknietego sezonu, blokuje wyplate, ustawia `REVIEW_REQUIRED`, wymaga audytowanej decyzji administratora i pokazuje jasny komunikat w `src/offline/closedSeasonConflict.test.ts` oraz `docs/domain/closed-season-conflict.md`.
 - Etap 6.16 / konflikt zarchiwizowanego zbieracza lub planu: kontrakt `archivedConfigurationConflict` rozroznia istniejaca sesje offline od nowej proby, zachowuje snapshoty i wpisy, blokuje nowe sesje z archiwalna konfiguracja oraz wymaga review albo audytowanej akceptacji historycznej w `src/offline/archivedConfigurationConflict.test.ts` oraz `docs/domain/archived-configuration-conflict.md`.
+- Etap 6.17 / konflikt dwoch urzadzen: kontrakt `deviceConflict` wykrywa niezalezne sesje tej samej osoby i daty, te sama sesje zmieniona na innym urzadzeniu, rozbiezne rewizje, wpisy po zdalnym zamknieciu i wpisy z roznych urzadzen bez automatycznego scalania danych w `src/offline/deviceConflict.test.ts` oraz `docs/domain/device-conflict.md`.
 - Sesje i wpisy: testy kalkulatora, statusow i blokad edycji.
 - Offline: test trybu samolotowego, restartu i ponownej synchronizacji.
 - Wyplaty: test blokady drugiej aktywnej wyplaty.
