@@ -161,6 +161,68 @@ describe("AdminPendingPaymentsPanel", () => {
     );
   });
 
+  it("refreshes the list and warns after another administrator paid first", async () => {
+    const user = userEvent.setup();
+    const api: PendingPaymentsApi = {
+      createPayment: vi.fn().mockResolvedValue(alreadyPaidResult("session-a")),
+      checkEligibility: vi.fn().mockResolvedValue({
+        amountDueGrosz: 5000,
+        blockers: [],
+        checkedAtIso: "2026-07-28T12:00:00.000Z",
+        paymentId: "session-a",
+        sessionId: "session-a",
+        sessionRevision: 2,
+        status: "ELIGIBLE"
+      }),
+      list: vi
+        .fn()
+        .mockResolvedValueOnce({
+          excluded: {
+            activePaymentCount: 0,
+            missingAmountCount: 0,
+            pendingSynchronizationCount: 0
+          },
+          invalidDocumentCount: 0,
+          sessions: [pendingSession("session-a", "Anna", 5000)]
+        })
+        .mockResolvedValue({
+          excluded: {
+            activePaymentCount: 1,
+            missingAmountCount: 0,
+            pendingSynchronizationCount: 0
+          },
+          invalidDocumentCount: 0,
+          sessions: []
+        })
+    };
+
+    render(
+      <AdminPendingPaymentsPanel
+        authState={adminState}
+        deviceId="device-admin"
+        env={{}}
+        isOnline={true}
+        pendingPaymentsApi={api}
+        syncDocuments={[]}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Sprawdz warunki" }));
+    await user.click(await screen.findByRole("button", { name: "Wyplac" }));
+    await user.click(
+      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+    );
+    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+
+    const warning = await screen.findByText(/juz wyplacona przez admin-2/);
+    expect(warning).toHaveClass("form-message--warning");
+    expect(warning).toHaveTextContent("28.07.2026, 16:30");
+    await waitFor(() => {
+      expect(api.list).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByText("Brak sesji spelniajacych filtry.")).toBeVisible();
+  });
+
   it("explains every blocker before leaving payment disabled", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
@@ -250,6 +312,7 @@ function confirmedPaymentResult(sessionId: string) {
       cancellationReason: null,
       cancelledAt: null,
       cancelledBy: null,
+      creationAttemptId: "attempt-1",
       createdAtServer: "server-time",
       createdBy: "admin-1",
       id: sessionId,
@@ -265,5 +328,22 @@ function confirmedPaymentResult(sessionId: string) {
     },
     sessionRevision: 3,
     status: "CONFIRMED" as const
+  };
+}
+
+function alreadyPaidResult(sessionId: string) {
+  return {
+    ...confirmedPaymentResult(sessionId),
+    confirmationSource: "SERVER_EXISTING_PAYMENT" as const,
+    existingPaymentCreatedAtIso: "2026-07-28T14:30:00.000Z",
+    existingPaymentCreatedBy: "admin-2",
+    message:
+      "Ta sesja zostala juz wyplacona przez admin-2 28.07.2026, 16:30. Lista zostala odswiezona.",
+    payment: {
+      ...confirmedPaymentResult(sessionId).payment,
+      createdAtServer: "2026-07-28T14:30:00.000Z",
+      createdBy: "admin-2"
+    },
+    status: "ALREADY_PAID" as const
   };
 }

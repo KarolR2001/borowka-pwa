@@ -1,5 +1,5 @@
 import { Banknote, X } from "lucide-react";
-import { useState, type SyntheticEvent } from "react";
+import { useRef, useState, type SyntheticEvent } from "react";
 
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import type { PaymentEligibilityResult } from "./paymentEligibility";
@@ -32,9 +32,16 @@ export function PaymentConfirmationForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState<PaymentWriteResult | null>(null);
+  const submissionInProgress = useRef(false);
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+
+    if (submissionInProgress.current) {
+      return;
+    }
+
+    submissionInProgress.current = true;
 
     try {
       const confirmation = preparePaymentConfirmation({
@@ -56,6 +63,7 @@ export function PaymentConfirmationForm({
           : "Nie udalo sie zapisac wyplaty."
       );
     } finally {
+      submissionInProgress.current = false;
       setIsSubmitting(false);
     }
   }
@@ -178,7 +186,15 @@ export function PaymentConfirmationForm({
 
       {error ? <p className="form-message form-message--error">{error}</p> : null}
       {confirmed ? (
-        <p className="form-message form-message--ok">{confirmed.message}</p>
+        <p
+          className={`form-message ${
+            confirmed.status === "CONFIRMED"
+              ? "form-message--ok"
+              : "form-message--warning"
+          }`}
+        >
+          {confirmed.message}
+        </p>
       ) : null}
 
       <div className="payment-confirmation-form__actions">

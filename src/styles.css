@@ -461,6 +461,12 @@ h2 {
   background: #fff3ec;
 }
 
+.form-message--warning {
+  border: 1px solid #dccb86;
+  color: #684f00;
+  background: #fff9df;
+}
+
 .auth-summary {
   display: grid;
   gap: 8px;

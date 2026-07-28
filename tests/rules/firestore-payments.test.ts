@@ -117,6 +117,39 @@ describe("payment rules", () => {
     await assertFails(amountBatch.commit());
   });
 
+  it("accepts the previous client schema without a creation attempt id", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+    const batch = writeBatch(db);
+    const legacyPayment = paymentDocument();
+    Reflect.deleteProperty(legacyPayment, "creationAttemptId");
+    batch.set(doc(db, "payments", "session-1"), legacyPayment);
+    batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
+    batch.set(
+      doc(db, "auditEvents", "payment-created-session-1"),
+      paymentAudit("admin-1")
+    );
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it("rejects an invalid creation attempt id", async () => {
+    await seedBase();
+    const db = authenticatedDb("admin-1");
+    const batch = writeBatch(db);
+    batch.set(
+      doc(db, "payments", "session-1"),
+      paymentDocument({ creationAttemptId: "" })
+    );
+    batch.update(doc(db, "harvestSessions", "session-1"), paidSessionUpdate());
+    batch.set(
+      doc(db, "auditEvents", "payment-created-session-1"),
+      paymentAudit("admin-1")
+    );
+
+    await assertFails(batch.commit());
+  });
+
   it("keeps an accepted payment immutable", async () => {
     await seedBase();
     const db = authenticatedDb("admin-1");
@@ -185,6 +218,7 @@ function paymentDocument(overrides: Record<string, unknown> = {}) {
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,
+    creationAttemptId: "attempt-1",
     createdAtServer: serverTimestamp(),
     createdBy: "admin-1",
     id: "session-1",

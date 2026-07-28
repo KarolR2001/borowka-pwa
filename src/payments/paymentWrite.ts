@@ -27,6 +27,7 @@ export type PaymentDocument = {
   cancellationReason: string | null;
   cancelledAt: unknown;
   cancelledBy: string | null;
+  creationAttemptId: string | null;
   createdAtServer: unknown;
   createdBy: string;
   id: string;
@@ -60,14 +61,26 @@ export type CreatePaymentInput = {
   isOnline: boolean;
 };
 
-export type PaymentWriteResult = {
+type PaymentWriteResultBase = {
   auditId: string;
-  confirmationSource: "SERVER_READ_AFTER_COMMIT" | "SERVER_RECONCILIATION";
   message: string;
   payment: PaymentDocument;
   sessionRevision: number;
+};
+
+export type PaymentConfirmedResult = PaymentWriteResultBase & {
+  confirmationSource: "SERVER_READ_AFTER_COMMIT" | "SERVER_RECONCILIATION";
   status: "CONFIRMED";
 };
+
+export type PaymentAlreadyPaidResult = PaymentWriteResultBase & {
+  confirmationSource: "SERVER_EXISTING_PAYMENT";
+  existingPaymentCreatedAtIso: string | null;
+  existingPaymentCreatedBy: string;
+  status: "ALREADY_PAID";
+};
+
+export type PaymentWriteResult = PaymentConfirmedResult | PaymentAlreadyPaidResult;
 
 export class PaymentWriteUncertainError extends Error {
   constructor() {
@@ -109,6 +122,7 @@ export async function createPayment(
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, getDocFromServer, runTransaction, serverTimestamp } =
     await import("firebase/firestore");
+  const creationAttemptId = createPaymentAttemptId();
   const paymentRef = doc(firestore, PAYMENTS_COLLECTION, input.confirmation.paymentId);
   const sessionRef = doc(
     firestore,
@@ -151,6 +165,7 @@ export async function createPayment(
         actorProfile: input.actorProfile,
         auditId,
         confirmation: input.confirmation,
+        creationAttemptId,
         createdAtDevice,
         createdAtServer: committedAtServer,
         deviceId,
@@ -168,20 +183,42 @@ export async function createPayment(
   }
 
   try {
-    const result = await readConfirmedPaymentFromServer({
+    const serverState = await readAcceptedPaymentFromServer({
       auditId,
       auditRef,
-      confirmation: input.confirmation,
       getDocFromServer,
       paymentRef,
       sessionRef
     });
 
-    return {
-      ...result,
-      confirmationSource:
-        transactionError === null ? "SERVER_READ_AFTER_COMMIT" : "SERVER_RECONCILIATION"
-    };
+    if (transactionError === null) {
+      if (
+        !paymentMatchesConfirmation(
+          serverState,
+          input.confirmation,
+          input.actorProfile.uid,
+          creationAttemptId
+        )
+      ) {
+        throw new PaymentWriteUncertainError();
+      }
+
+      return confirmedPaymentResult(serverState, "SERVER_READ_AFTER_COMMIT");
+    }
+
+    if (
+      !(transactionError instanceof PaymentWriteValidationError) &&
+      paymentMatchesConfirmation(
+        serverState,
+        input.confirmation,
+        input.actorProfile.uid,
+        creationAttemptId
+      )
+    ) {
+      return confirmedPaymentResult(serverState, "SERVER_RECONCILIATION");
+    }
+
+    return alreadyPaidResult(serverState);
   } catch (confirmationError) {
     if (transactionError instanceof PaymentWriteValidationError) {
       throw transactionError;
@@ -206,6 +243,7 @@ export function preparePaymentWrite({
   actorProfile,
   auditId,
   confirmation,
+  creationAttemptId,
   createdAtDevice,
   createdAtServer,
   deviceId,
@@ -216,6 +254,7 @@ export function preparePaymentWrite({
   actorProfile: UserProfile;
   auditId: string;
   confirmation: PreparedPaymentConfirmation;
+  creationAttemptId: string;
   createdAtDevice: unknown;
   createdAtServer: unknown;
   deviceId: string;
@@ -225,6 +264,10 @@ export function preparePaymentWrite({
 }): PreparedPaymentWrite {
   assertPaymentActor(actorProfile);
   const actorUid = normalizeRequiredText(actorProfile.uid, "Wyplata wymaga aktora.");
+  const normalizedCreationAttemptId = normalizeRequiredText(
+    creationAttemptId,
+    "Wyplata wymaga identyfikatora proby zapisu."
+  );
   const normalizedDeviceId = normalizeRequiredText(
     deviceId,
     "Wyplata wymaga identyfikatora urzadzenia."
@@ -298,6 +341,7 @@ export function preparePaymentWrite({
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,
+    creationAttemptId: normalizedCreationAttemptId,
     createdAtServer,
     createdBy: actorUid,
     id: session.id,
@@ -357,6 +401,10 @@ export function decodePaymentDocument(
   const cancellationReason = readNullableText(data.cancellationReason);
   const cancelledBy = readNullableText(data.cancelledBy);
   const note = readNullableText(data.note);
+  const creationAttemptId =
+    data.creationAttemptId === undefined
+      ? null
+      : readRequiredText(data.creationAttemptId);
 
   if (
     cancellationReason === undefined ||
@@ -375,6 +423,7 @@ export function decodePaymentDocument(
     cancellationReason,
     cancelledAt: data.cancelledAt ?? null,
     cancelledBy,
+    creationAttemptId,
     createdAtServer: data.createdAtServer ?? null,
     createdBy: readRequiredText(data.createdBy),
     id: readRequiredText(data.id),
@@ -392,6 +441,7 @@ export function decodePaymentDocument(
   if (
     payment.id !== expectedId ||
     payment.sessionId !== expectedId ||
+    (data.creationAttemptId !== undefined && !payment.creationAttemptId) ||
     payment.amountGrosz < 0 ||
     !payment.createdBy ||
     payment.createdAtServer === null ||
@@ -415,17 +465,21 @@ export function createPaymentAuditId(sessionId: string): string {
   )}`;
 }
 
-async function readConfirmedPaymentFromServer({
+type AcceptedPaymentServerState = {
+  auditId: string;
+  payment: PaymentDocument;
+  sessionRevision: number;
+};
+
+async function readAcceptedPaymentFromServer({
   auditId,
   auditRef,
-  confirmation,
   getDocFromServer,
   paymentRef,
   sessionRef
 }: {
   auditId: string;
   auditRef: unknown;
-  confirmation: PreparedPaymentConfirmation;
   getDocFromServer: (reference: never) => Promise<{
     data: () => unknown;
     exists: () => boolean;
@@ -433,7 +487,7 @@ async function readConfirmedPaymentFromServer({
   }>;
   paymentRef: unknown;
   sessionRef: unknown;
-}): Promise<Omit<PaymentWriteResult, "confirmationSource">> {
+}): Promise<AcceptedPaymentServerState> {
   let snapshots;
 
   try {
@@ -458,34 +512,107 @@ async function readConfirmedPaymentFromServer({
 
   if (
     payment?.status !== "ACTIVE" ||
-    payment.id !== confirmation.paymentId ||
-    payment.amountGrosz !== confirmation.amountGrosz ||
-    payment.seasonId !== confirmation.seasonId ||
-    payment.workerId !== confirmation.workerId ||
-    payment.workerNameSnapshot !== confirmation.workerNameSnapshot ||
-    payment.paidBusinessDate !== confirmation.paidBusinessDate ||
-    payment.paymentMethod !== confirmation.paymentMethod ||
-    payment.note !== confirmation.note ||
     decodedSession.status !== "FOUND" ||
     decodedSession.session.status !== "PAID" ||
     decodedSession.session.paymentId !== payment.id ||
     decodedSession.session.amountDueGrosz !== payment.amountGrosz ||
-    decodedSession.session.revision !== confirmation.expectedSessionRevision + 1 ||
     !isRecord(auditData) ||
     auditSnapshot.id !== auditId ||
     auditData.action !== "HARVEST_SESSION_PAID" ||
-    auditData.entityId !== confirmation.sessionId
+    auditData.actorUid !== payment.createdBy ||
+    auditData.entityId !== payment.sessionId ||
+    auditData.entityType !== "HARVEST_SESSION"
   ) {
     throw new PaymentWriteUncertainError();
   }
 
   return {
     auditId,
-    message: `Firestore potwierdzil wyplate dla ${payment.workerNameSnapshot}.`,
     payment,
-    sessionRevision: decodedSession.session.revision,
+    sessionRevision: decodedSession.session.revision
+  };
+}
+
+function paymentMatchesConfirmation(
+  serverState: AcceptedPaymentServerState,
+  confirmation: PreparedPaymentConfirmation,
+  expectedCreatedBy: string,
+  expectedCreationAttemptId: string
+): boolean {
+  const { payment } = serverState;
+
+  return (
+    payment.id === confirmation.paymentId &&
+    payment.amountGrosz === confirmation.amountGrosz &&
+    payment.seasonId === confirmation.seasonId &&
+    payment.workerId === confirmation.workerId &&
+    payment.workerNameSnapshot === confirmation.workerNameSnapshot &&
+    payment.paidBusinessDate === confirmation.paidBusinessDate &&
+    payment.paymentMethod === confirmation.paymentMethod &&
+    payment.note === confirmation.note &&
+    payment.createdBy === expectedCreatedBy &&
+    payment.creationAttemptId === expectedCreationAttemptId &&
+    serverState.sessionRevision === confirmation.expectedSessionRevision + 1
+  );
+}
+
+function confirmedPaymentResult(
+  serverState: AcceptedPaymentServerState,
+  confirmationSource: PaymentConfirmedResult["confirmationSource"]
+): PaymentConfirmedResult {
+  return {
+    ...serverState,
+    confirmationSource,
+    message: `Firestore potwierdzil wyplate dla ${serverState.payment.workerNameSnapshot}.`,
     status: "CONFIRMED"
   };
+}
+
+function alreadyPaidResult(
+  serverState: AcceptedPaymentServerState
+): PaymentAlreadyPaidResult {
+  const existingPaymentCreatedAtIso = paymentTimestampToIso(
+    serverState.payment.createdAtServer
+  );
+  const createdAtLabel = existingPaymentCreatedAtIso
+    ? new Intl.DateTimeFormat("pl-PL", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "Europe/Warsaw"
+      }).format(new Date(existingPaymentCreatedAtIso))
+    : "o nieznanym czasie serwera";
+
+  return {
+    ...serverState,
+    confirmationSource: "SERVER_EXISTING_PAYMENT",
+    existingPaymentCreatedAtIso,
+    existingPaymentCreatedBy: serverState.payment.createdBy,
+    message: `Ta sesja zostala juz wyplacona przez ${serverState.payment.createdBy} ${createdAtLabel}. Lista zostala odswiezona.`,
+    status: "ALREADY_PAID"
+  };
+}
+
+export function paymentTimestampToIso(value: unknown): string | null {
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+        ? new Date(value)
+        : isTimestampLike(value)
+          ? value.toDate()
+          : null;
+
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+}
+
+function createPaymentAttemptId(): string {
+  const cryptoApi = globalThis.crypto as { randomUUID?: () => string } | undefined;
+
+  if (typeof cryptoApi?.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+
+  return `payment-attempt-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
 }
 
 function assertPaymentActor(profile: UserProfile): void {
@@ -564,6 +691,15 @@ function readNonNegativeInteger(value: unknown): number | null {
 
 function isPaymentStatus(value: unknown): value is PaymentDocument["status"] {
   return value === "ACTIVE" || value === "CANCELLED";
+}
+
+function isTimestampLike(value: unknown): value is { toDate: () => Date } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof value.toDate === "function"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
