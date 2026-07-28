@@ -653,6 +653,15 @@ describe("App shell", () => {
       <App
         authSessionApi={createAuthSessionApi(activePickerState)}
         pickerDashboardApi={{ load }}
+        pickerOfflineDataApi={{
+          enablePersistence: vi.fn(),
+          prepare: vi.fn(),
+          read: vi.fn().mockResolvedValue({
+            code: "NOT_PREPARED",
+            dataSource: "SERVER",
+            lastSuccessfulSyncIso: null
+          })
+        }}
       />
     );
 

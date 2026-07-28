@@ -72,6 +72,8 @@ describe("PickerWorkspacePanel", () => {
     render(
       <PickerWorkspacePanel
         authState={pickerState}
+        cacheMode="PERSISTENT"
+        deviceId="device-1"
         env={{}}
         isOnline
         pickerDashboardApi={{ load: dashboardLoad }}
@@ -80,6 +82,15 @@ describe("PickerWorkspacePanel", () => {
         pickerIssueReportsApi={{
           create: vi.fn(),
           list: issueList
+        }}
+        pickerOfflineDataApi={{
+          enablePersistence: vi.fn(),
+          prepare: vi.fn(),
+          read: vi.fn().mockResolvedValue({
+            code: "READY",
+            dataSource: "SERVER",
+            lastSuccessfulSyncIso: "2026-07-29T08:00:00.000Z"
+          })
         }}
         syncDocuments={[]}
       />

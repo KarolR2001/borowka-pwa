@@ -159,6 +159,10 @@ import {
   defaultPickerPaymentListApi,
   type PickerPaymentListApi
 } from "../picker/PickerPaymentListPanel";
+import {
+  defaultPickerOfflineDataApi,
+  type PickerOfflineDataApi
+} from "../picker/PickerOfflineDataPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -209,6 +213,7 @@ export type AppProps = {
   pickerHarvestListApi?: PickerHarvestListApi;
   pickerPaymentListApi?: PickerPaymentListApi;
   pickerIssueReportsApi?: PickerIssueReportsApi;
+  pickerOfflineDataApi?: PickerOfflineDataApi;
   pickerSessionDetailsApi?: PickerSessionDetailsApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
@@ -291,6 +296,7 @@ export function App({
   pickerHarvestListApi = defaultPickerHarvestListApi,
   pickerPaymentListApi = defaultPickerPaymentListApi,
   pickerIssueReportsApi = defaultPickerIssueReportsApi,
+  pickerOfflineDataApi = defaultPickerOfflineDataApi,
   pickerSessionDetailsApi = defaultPickerSessionDetailsApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
@@ -1028,12 +1034,16 @@ export function App({
         {activeView === "picker" ? (
           <PickerWorkspacePanel
             authState={authState}
+            cacheMode={firebaseServicesStatus.cacheMode}
+            deviceId={deviceId}
             env={env}
             isOnline={isOnline}
+            onLocalDocumentsChanged={handleLocalDocumentsChanged}
             pickerDashboardApi={pickerDashboardApi}
             pickerHarvestListApi={pickerHarvestListApi}
             pickerPaymentListApi={pickerPaymentListApi}
             pickerIssueReportsApi={pickerIssueReportsApi}
+            pickerOfflineDataApi={pickerOfflineDataApi}
             pickerSessionDetailsApi={pickerSessionDetailsApi}
             syncDocuments={syncDocuments}
           />

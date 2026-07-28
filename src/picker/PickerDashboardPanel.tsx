@@ -247,7 +247,10 @@ export function PickerDashboardPanel({
             </p>
           ) : null}
           <p className="picker-dashboard__refreshed">
-            Ostatnie odswiezenie: {formatRefreshTime(result.refreshedAtIso)}
+            {result.dataSource === "CACHE"
+              ? "Odczyt pamieci lokalnej"
+              : "Pobrano z serwera"}
+            : {formatRefreshTime(result.refreshedAtIso)}
           </p>
         </>
       ) : null}
