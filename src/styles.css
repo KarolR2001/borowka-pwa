@@ -496,6 +496,7 @@ h2 {
 .device-directory,
 .season-directory,
 .settlement-plan-directory,
+.pending-payment-directory,
 .operator-sessions {
   display: grid;
   gap: 18px;
@@ -602,6 +603,10 @@ h2 {
   grid-template-columns:
     minmax(220px, 1.4fr) minmax(140px, 0.55fr) minmax(180px, 0.75fr)
     minmax(150px, 0.6fr);
+}
+
+.pending-payment-filters {
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) repeat(4, minmax(130px, 0.75fr));
 }
 
 .season-form,
@@ -1709,6 +1714,10 @@ h2 {
 
 .worker-table {
   min-width: 1180px;
+}
+
+.pending-payment-table {
+  min-width: 1380px;
 }
 
 .directory-table th,
