@@ -121,10 +121,10 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `6.21` scalony do `main` w commicie
-  `87f7779`.
+- Punkt startowy tego przyrostu: pakiet `6.22` scalony do `main` w commicie
+  `59bb13d`.
 - Aktualna galaz realizuje pakiet
-  `6.22 - aktualizacja PWA podczas pracy offline`.
-- Po zakonczeniu 6.22 nastepny pakiet to
   `6.23 - zgodnosc starego klienta z nowymi Rules`.
+- Po zakonczeniu 6.23 nastepny pakiet to
+  `6.24 - testy Android`.
 - Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.

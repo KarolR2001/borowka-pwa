@@ -162,3 +162,6 @@ Stage 6.21 safe sign-out contract is maintained in
 
 Stage 6.22 safe PWA update contract is maintained in
 `docs/domain/pwa-update-safety.md`.
+
+Stage 6.23 client and Firestore Rules compatibility contract is maintained in
+`docs/domain/client-rules-compatibility.md`.

@@ -18,6 +18,8 @@ import {
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
+import { prepareLastSupportedPendingWriteForRules } from "../../src/compatibility/clientRulesCompatibility";
+
 const projectId = "demo-borowka-pwa-harvest";
 
 type ProfileSeed = {
@@ -392,6 +394,39 @@ describe("Firestore harvest session and entry rules", () => {
           createdAtServer: serverTimestamp()
         })
       )
+    );
+  });
+
+  it("keeps the last supported offline entry shape valid and rejects stale shapes", async () => {
+    await seedBase();
+    await seedHarvestSession();
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+    const localPendingEntry = harvestEntry({
+      id: "entry-last-supported",
+      pendingSync: true,
+      createdAtDevice: Timestamp.fromDate(new Date("2026-07-28T08:00:00.000Z"))
+    });
+    const lastSupportedPendingEntry = {
+      ...prepareLastSupportedPendingWriteForRules("HARVEST_ENTRY", localPendingEntry),
+      createdAtServer: serverTimestamp()
+    };
+
+    await assertSucceeds(
+      setDoc(doc(db, "harvestEntries", "entry-last-supported"), lastSupportedPendingEntry)
+    );
+    await assertFails(
+      setDoc(doc(db, "harvestEntries", "entry-stale-shape"), {
+        ...lastSupportedPendingEntry,
+        id: "entry-stale-shape",
+        legacyQuantity: 1
+      })
     );
   });
 
