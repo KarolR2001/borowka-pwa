@@ -123,6 +123,11 @@ import {
   OperatorHarvestSessionsPanel,
   type OperatorHarvestSessionsApi
 } from "../harvest/OperatorHarvestSessionsPanel";
+import {
+  AdminPendingPaymentsPanel,
+  defaultPendingPaymentsApi,
+  type PendingPaymentsApi
+} from "../payments/AdminPendingPaymentsPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -166,6 +171,7 @@ export type AppProps = {
   registrationInvitationsApi?: RegistrationInvitationsApi;
   configurationCacheApi?: ConfigurationCacheApi;
   harvestSessionsApi?: OperatorHarvestSessionsApi;
+  pendingPaymentsApi?: PendingPaymentsApi;
   offlineStorageHealthApi?: OfflineStorageHealthApi;
   synchronizationApi?: SynchronizationApi;
 };
@@ -240,6 +246,7 @@ export function App({
   registrationInvitationsApi = defaultRegistrationInvitationsApi,
   configurationCacheApi = defaultConfigurationCacheApi,
   harvestSessionsApi = defaultOperatorHarvestSessionsApi,
+  pendingPaymentsApi = defaultPendingPaymentsApi,
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
@@ -902,6 +909,13 @@ export function App({
 
         {activeView === "admin" ? (
           <>
+            <AdminPendingPaymentsPanel
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
+              pendingPaymentsApi={pendingPaymentsApi}
+              syncDocuments={syncDocuments}
+            />
             <AdminUserDirectoryPanel
               authState={authState}
               env={env}
