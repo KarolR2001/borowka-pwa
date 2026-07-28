@@ -145,8 +145,8 @@ describe("offline harvest entry preparation", () => {
       actorProfile: operatorProfile,
       session,
       entries: [existingEntry],
-      quantityMilli: 3000,
-      weightG: 3000,
+      quantityMilli: 1000,
+      weightG: 1000,
       createdDeviceId: "device-1",
       createdAtDevice: createdAt,
       identity: {
@@ -165,11 +165,63 @@ describe("offline harvest entry preparation", () => {
         sequenceNumber: 1
       },
       syncState: "LOCAL_PENDING_SYNC",
+      nextSessionTotals: {
+        totalEntryCount: 1,
+        totalQuantityMilli: 1000,
+        totalWeightG: 1000,
+        estimatedAmountGrosz: 1000
+      },
       pendingEntryCount: 1,
       pendingWriteCount: 1,
       readyForNextEntry: true,
       message: "Wpis #1 juz istnieje."
     });
+  });
+
+  it("rejects reuse of an existing UUID with a different payload", () => {
+    const session = createSession();
+    const existingEntry = createEntry(session, 1, {
+      id: "entry-collision",
+      pendingSync: true
+    });
+
+    expect(() =>
+      prepareOfflineHarvestEntry({
+        actorProfile: operatorProfile,
+        session,
+        entries: [existingEntry],
+        quantityMilli: 3000,
+        weightG: 3000,
+        createdDeviceId: "device-1",
+        createdAtDevice: createdAt,
+        identity: {
+          id: "entry-collision",
+          sequenceNumber: 1
+        }
+      })
+    ).toThrow(
+      "Ponowienie wpisu ma ten sam UUID, ale inny payload. Wymagany jest przeglad."
+    );
+
+    expect(() =>
+      prepareOfflineHarvestEntry({
+        actorProfile: {
+          ...operatorProfile,
+          active: false,
+          registrationStatus: "BLOCKED"
+        },
+        session,
+        entries: [existingEntry],
+        quantityMilli: 1000,
+        weightG: 1000,
+        createdDeviceId: "device-1",
+        createdAtDevice: createdAt,
+        identity: {
+          id: "entry-collision",
+          sequenceNumber: 1
+        }
+      })
+    ).toThrow("Dodanie wpisu wymaga aktywnego administratora albo operatora.");
   });
 
   it("blocks invalid actors, sessions and required local metadata", () => {

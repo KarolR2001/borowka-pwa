@@ -205,11 +205,17 @@ export async function addHarvestEntryOffline(
     quantityMilli: input.quantityMilli,
     weightG: input.weightG,
     createdDeviceId: input.createdDeviceId,
-    createdAtDevice
+    createdAtDevice,
+    identity: input.identity
   });
 
-  if (prepared.status !== "CREATED_OFFLINE") {
-    throw new Error("Nowy wpis offline nie moze byc ponowieniem istniejacego UUID.");
+  if (prepared.status === "RETRY_EXISTING") {
+    return {
+      entry: prepared.entry,
+      selectedSessionId: prepared.selectedSessionId,
+      message: prepared.message,
+      nextSessionTotals: prepared.nextSessionTotals
+    };
   }
 
   const createdAtServer = serverTimestamp();
