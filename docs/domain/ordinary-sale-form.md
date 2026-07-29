@@ -51,4 +51,5 @@ Informacja nie zastapi ponownego odczytu serwera bezposrednio przed zapisem.
 - `src/sales/OrdinarySaleForm.tsx` odpowiada za pola, podsumowanie, ostrzezenia i
   blokade podwojnego przejscia dalej.
 - callback `onPrepare` przekazuje `PreparedOrdinarySale` do przeplywu preflight,
-  ktory zostanie zaimplementowany w pakiecie 8.4.
+  zaimplementowanego w `src/sales/saleStockPreflight.ts`. Pelny kontrakt
+  ponownego odczytu i zapisu opisuje `docs/domain/sale-stock-preflight.md`.

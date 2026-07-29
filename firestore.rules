@@ -88,6 +88,7 @@ service cloud.firestore {
         action == 'HARVEST_SESSION_REVIEW_RESOLVED' ||
         action == 'HARVEST_SESSION_PAID' ||
         action == 'PAYMENT_CANCELLED' ||
+        action == 'SALE_CREATED' ||
         action == 'HARVEST_ENTRY_CREATED' ||
         action == 'HARVEST_ENTRY_CANCELLED';
     }
@@ -100,7 +101,8 @@ service cloud.firestore {
         entityType == 'WORKER' ||
         entityType == 'HARVEST_SESSION' ||
         entityType == 'HARVEST_ENTRY' ||
-        entityType == 'PAYMENT';
+        entityType == 'PAYMENT' ||
+        entityType == 'SALE';
     }
 
     function isHarvestSessionStatus(status) {
@@ -451,6 +453,7 @@ service cloud.firestore {
           'seasonId',
           'sessionId',
           'entryId',
+          'saleId',
           'planId',
           'name',
           'code',
@@ -475,6 +478,10 @@ service cloud.firestore {
           'sequenceNumber',
           'quantityMilli',
           'weightG',
+          'entryType',
+          'totalGrosz',
+          'availableStockWeightG',
+          'projectedStockWeightG',
           'pendingSync',
           'createdBy',
           'createdDeviceId',
@@ -1811,6 +1818,108 @@ service cloud.firestore {
         ]);
     }
 
+    function hasSaleFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'seasonId',
+        'businessDate',
+        'weightG',
+        'priceGroszPerKg',
+        'totalGrosz',
+        'entryType',
+        'correctionDirection',
+        'note',
+        'status',
+        'createdBy',
+        'creationAttemptId',
+        'createdAtServer',
+        'cancelledAt',
+        'cancelledBy',
+        'cancellationReason',
+        'legacyImport',
+        'legacySourceRow'
+      ]) && data.keys().hasAll([
+        'id',
+        'seasonId',
+        'businessDate',
+        'weightG',
+        'priceGroszPerKg',
+        'totalGrosz',
+        'entryType',
+        'correctionDirection',
+        'note',
+        'status',
+        'createdBy',
+        'creationAttemptId',
+        'createdAtServer',
+        'cancelledAt',
+        'cancelledBy',
+        'cancellationReason',
+        'legacyImport',
+        'legacySourceRow'
+      ]);
+    }
+
+    function saleCreateAuditMatches(auditEvent, sale, saleId) {
+      return auditEvent.id == 'sale-created-' + saleId &&
+        auditEvent.action == 'SALE_CREATED' &&
+        auditEvent.entityType == 'SALE' &&
+        auditEvent.entityId == saleId &&
+        auditEvent.actorUid == request.auth.uid &&
+        auditEvent.businessDate == sale.businessDate &&
+        auditEvent.reason == null &&
+        auditEvent.beforeSummary.seasonId == sale.seasonId &&
+        auditEvent.beforeSummary.availableStockWeightG is int &&
+        auditEvent.beforeSummary.availableStockWeightG >= sale.weightG &&
+        auditEvent.afterSummary.saleId == saleId &&
+        auditEvent.afterSummary.seasonId == sale.seasonId &&
+        auditEvent.afterSummary.entryType == 'SALE' &&
+        auditEvent.afterSummary.status == 'ACTIVE' &&
+        auditEvent.afterSummary.weightG == sale.weightG &&
+        auditEvent.afterSummary.totalGrosz == sale.totalGrosz &&
+        auditEvent.afterSummary.projectedStockWeightG ==
+          auditEvent.beforeSummary.availableStockWeightG - sale.weightG &&
+        auditEvent.createdAtServer == request.time;
+    }
+
+    function isValidOrdinarySaleCreate(data, saleId) {
+      return isAdmin() &&
+        hasSaleFields(data) &&
+        data.id == saleId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 80 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        openSeasonContainsBusinessDate(data.seasonId, data.businessDate) &&
+        data.weightG is int &&
+        data.weightG > 0 &&
+        data.priceGroszPerKg is int &&
+        data.priceGroszPerKg >= 0 &&
+        data.totalGrosz is int &&
+        data.totalGrosz >= 0 &&
+        data.entryType == 'SALE' &&
+        data.correctionDirection == null &&
+        (data.note == null || (data.note is string && data.note.size() <= 200)) &&
+        data.status == 'ACTIVE' &&
+        data.createdBy == request.auth.uid &&
+        data.creationAttemptId is string &&
+        data.creationAttemptId.size() > 0 &&
+        data.creationAttemptId.size() <= 128 &&
+        data.createdAtServer == request.time &&
+        data.cancelledAt == null &&
+        data.cancelledBy == null &&
+        data.cancellationReason == null &&
+        data.legacyImport == false &&
+        data.legacySourceRow == null &&
+        existsAfter(auditEventPath('sale-created-' + saleId)) &&
+        saleCreateAuditMatches(
+          getAfter(auditEventPath('sale-created-' + saleId)).data,
+          data,
+          saleId
+        );
+    }
+
     function hasPaymentFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -2369,6 +2478,12 @@ service cloud.firestore {
         entryId
       );
       allow delete: if false;
+    }
+
+    match /sales/{saleId} {
+      allow get, list: if isAdmin();
+      allow create: if isValidOrdinarySaleCreate(request.resource.data, saleId);
+      allow update, delete: if false;
     }
 
     match /payments/{paymentId} {

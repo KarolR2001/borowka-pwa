@@ -15,11 +15,13 @@ import {
 export function OrdinarySaleForm({
   disabled = false,
   isOnline,
+  onDraftChange,
   onPrepare,
   stockContexts
 }: {
   disabled?: boolean;
   isOnline: boolean;
+  onDraftChange?: () => void;
   onPrepare: (sale: PreparedOrdinarySale) => Promise<void> | void;
   stockContexts: readonly SaleFormStockContext[];
 }) {
@@ -61,6 +63,7 @@ export function OrdinarySaleForm({
     setDraft((current) => ({ ...current, ...update }));
     setError(null);
     setFeedback(null);
+    onDraftChange?.();
   }
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {

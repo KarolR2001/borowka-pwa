@@ -2559,6 +2559,116 @@ h2 {
   justify-content: flex-end;
 }
 
+.admin-ordinary-sales {
+  display: grid;
+  gap: 16px;
+}
+
+.sale-stock-confirmation {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #c8a653;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fffdf5;
+}
+
+.sale-stock-confirmation__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sale-stock-confirmation__notice svg {
+  flex: 0 0 auto;
+  color: #8a5a08;
+}
+
+.sale-stock-confirmation__notice h3,
+.sale-stock-confirmation__notice p {
+  margin: 0;
+}
+
+.sale-stock-confirmation__notice p {
+  margin-top: 4px;
+  color: #625335;
+}
+
+.sale-stock-confirmation__summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e8dfc8;
+  border-radius: 8px;
+  background: #e8dfc8;
+}
+
+.sale-stock-confirmation__summary > div {
+  min-width: 0;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.sale-stock-confirmation__summary dt {
+  color: #6b6250;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sale-stock-confirmation__summary dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #2c2a24;
+  font-weight: 800;
+}
+
+.sale-stock-confirmation__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.sale-confirmed {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-left: 3px solid;
+  padding: 12px 14px;
+}
+
+.sale-confirmed svg {
+  flex: 0 0 auto;
+}
+
+.sale-confirmed > div {
+  display: grid;
+  gap: 3px;
+}
+
+.sale-confirmed--ok {
+  border-color: #2f7a4f;
+  color: #205b3a;
+  background: #edf8f1;
+}
+
+.sale-confirmed--warning {
+  border-color: #b94d29;
+  color: #7c321c;
+  background: #fff2ed;
+}
+
+.admin-ordinary-sales__concurrency-note {
+  margin: 0;
+  border-left: 3px solid #68746e;
+  padding: 10px 12px;
+  color: #445149;
+  background: #f3f6f4;
+  font-size: 0.9rem;
+}
+
 .directory-table th,
 .directory-table td {
   padding: 12px 14px;
@@ -2723,6 +2833,7 @@ h2 {
   .payment-confirmation-fields,
   .ordinary-sale-form__fields,
   .ordinary-sale-form__summary,
+  .sale-stock-confirmation__summary,
   .payment-directory-details__grid,
   .directory-summary {
     grid-template-columns: 1fr;
@@ -2736,7 +2847,8 @@ h2 {
     justify-content: stretch;
   }
 
-  .ordinary-sale-form__actions button {
+  .ordinary-sale-form__actions button,
+  .sale-stock-confirmation__actions button {
     width: 100%;
   }
 

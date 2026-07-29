@@ -139,6 +139,11 @@ import {
   type AdminIssueReportsApi
 } from "../issues/AdminIssueReportsPanel";
 import {
+  AdminOrdinarySalesPanel,
+  defaultOrdinarySalesApi,
+  type OrdinarySalesApi
+} from "../sales/AdminOrdinarySalesPanel";
+import {
   defaultPickerIssueReportsApi,
   type PickerIssueReportsApi
 } from "../issues/PickerIssueReportsPanel";
@@ -218,6 +223,7 @@ export type AppProps = {
   pendingPaymentsApi?: PendingPaymentsApi;
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   adminIssueReportsApi?: AdminIssueReportsApi;
+  ordinarySalesApi?: OrdinarySalesApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerDataExportApi?: PickerDataExportApi;
   pickerExportSettingsApi?: PickerExportSettingsApi;
@@ -303,6 +309,7 @@ export function App({
   pendingPaymentsApi = defaultPendingPaymentsApi,
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   adminIssueReportsApi = defaultAdminIssueReportsApi,
+  ordinarySalesApi = defaultOrdinarySalesApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerDataExportApi = defaultPickerDataExportApi,
   pickerExportSettingsApi = defaultPickerExportSettingsApi,
@@ -973,6 +980,13 @@ export function App({
 
         {activeView === "admin" ? (
           <>
+            <AdminOrdinarySalesPanel
+              authState={authState}
+              deviceId={deviceId}
+              env={env}
+              isOnline={isOnline}
+              ordinarySalesApi={ordinarySalesApi}
+            />
             <AdminPickerExportSettingsPanel
               authState={authState}
               env={env}
