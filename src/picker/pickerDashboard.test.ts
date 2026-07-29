@@ -12,6 +12,14 @@ const pickerProfile: UserProfile = {
   workerId: "worker-anna"
 };
 
+const secondPickerProfile: UserProfile = {
+  ...pickerProfile,
+  displayName: "Bartek Konto",
+  email: "bartek@example.test",
+  uid: "picker-bartek",
+  workerId: "worker-bartek"
+};
+
 describe("picker dashboard", () => {
   it("summarizes only the picker's selected season and active payments", () => {
     const result = buildPickerDashboard({
@@ -160,6 +168,63 @@ describe("picker dashboard", () => {
       invalidWorker: true,
       workerName: null
     });
+  });
+
+  it("does not expose picker A cached data after picker B signs in on a shared device", () => {
+    const result = buildPickerDashboard({
+      actorProfile: secondPickerProfile,
+      dataSource: "CACHE",
+      paymentDocuments: [
+        paymentDocument("payment-anna", {
+          amountGrosz: 9000,
+          sessionId: "session-anna"
+        }),
+        paymentDocument("payment-bartek", {
+          amountGrosz: 3000,
+          sessionId: "session-bartek",
+          workerId: "worker-bartek",
+          workerNameSnapshot: "Bartek Zbieracz"
+        })
+      ],
+      refreshedAtIso: "2026-07-28T18:30:00.000Z",
+      seasonDocuments: [
+        seasonDocument("season-2026", {
+          isDefault: true
+        })
+      ],
+      sessionDocuments: [
+        sessionDocument("session-anna", {
+          amountDueGrosz: 9000,
+          status: "PAID"
+        }),
+        sessionDocument("session-bartek", {
+          amountDueGrosz: 3000,
+          paymentId: "payment-bartek",
+          status: "PAID",
+          workerId: "worker-bartek",
+          workerNameSnapshot: "Bartek Zbieracz"
+        })
+      ],
+      workerDocument: workerDocument(
+        {
+          displayName: "Bartek Zbieracz",
+          linkedUserUid: secondPickerProfile.uid,
+          normalizedName: "bartek zbieracz"
+        },
+        "worker-bartek"
+      )
+    });
+
+    expect(result).toMatchObject({
+      accruedAmountGrosz: 3000,
+      invalidPaymentCount: 1,
+      invalidSessionCount: 1,
+      paidAmountGrosz: 3000,
+      remainingAmountGrosz: 0,
+      workerId: "worker-bartek",
+      workerName: "Bartek Zbieracz"
+    });
+    expect(JSON.stringify(result)).not.toContain("Anna Zbieracz");
   });
 
   it("does not accrue an OPEN session and accrues a CLOSED session as outstanding", () => {
@@ -412,9 +477,9 @@ function seasonDocument(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function workerDocument(overrides: Record<string, unknown> = {}) {
+function workerDocument(overrides: Record<string, unknown> = {}, id = "worker-anna") {
   return {
-    id: "worker-anna",
+    id,
     data: {
       active: true,
       archivedAt: null,
@@ -424,7 +489,7 @@ function workerDocument(overrides: Record<string, unknown> = {}) {
       currentRateVersionId: "rate-1",
       displayName: "Anna Zbieracz",
       emailContact: null,
-      id: "worker-anna",
+      id,
       legacyName: null,
       linkedUserUid: "picker-anna",
       normalizedName: "anna zbieracz",

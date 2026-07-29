@@ -44,7 +44,7 @@ describe("picker dashboard rules", () => {
     await seedDashboard();
     const pickerDb = authenticatedDb("picker-anna");
 
-    await assertSucceeds(
+    const ownSessions = await assertSucceeds(
       getDocs(
         query(
           collection(pickerDb, "harvestSessions"),
@@ -52,7 +52,7 @@ describe("picker dashboard rules", () => {
         )
       )
     );
-    await assertSucceeds(
+    const ownPayments = await assertSucceeds(
       getDocs(
         query(
           collection(pickerDb, "payments"),
@@ -61,6 +61,8 @@ describe("picker dashboard rules", () => {
         )
       )
     );
+    expect(ownSessions.docs.map((snapshot) => snapshot.id)).toEqual(["session-anna"]);
+    expect(ownPayments.docs.map((snapshot) => snapshot.id)).toEqual(["payment-anna"]);
 
     await assertFails(getDocs(collection(pickerDb, "harvestSessions")));
     await assertFails(
@@ -77,6 +79,30 @@ describe("picker dashboard rules", () => {
         query(collection(pickerDb, "payments"), where("workerId", "==", "worker-bartek"))
       )
     );
+
+    const secondPickerDb = authenticatedDb("picker-bartek");
+    const secondPickerSessions = await assertSucceeds(
+      getDocs(
+        query(
+          collection(secondPickerDb, "harvestSessions"),
+          where("workerId", "==", "worker-bartek")
+        )
+      )
+    );
+    const secondPickerPayments = await assertSucceeds(
+      getDocs(
+        query(
+          collection(secondPickerDb, "payments"),
+          where("workerId", "==", "worker-bartek")
+        )
+      )
+    );
+    expect(secondPickerSessions.docs.map((snapshot) => snapshot.id)).toEqual([
+      "session-bartek"
+    ]);
+    expect(secondPickerPayments.docs.map((snapshot) => snapshot.id)).toEqual([
+      "payment-bartek"
+    ]);
   });
 
   it("allows only the linked worker document and season metadata", async () => {
@@ -156,6 +182,30 @@ describe("picker dashboard rules", () => {
       getDocs(collection(authenticatedDb("picker-unlinked"), "payments"))
     );
   });
+
+  it("revokes the same picker's online access after the profile is blocked", async () => {
+    await seedDashboard();
+    const pickerDb = authenticatedDb("picker-anna");
+
+    await assertSucceeds(getDoc(doc(pickerDb, "harvestSessions", "session-anna")));
+
+    if (!testEnv) {
+      throw new Error("Rules test environment is not initialized.");
+    }
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), "users", "picker-anna"), {
+        active: false,
+        registrationStatus: "BLOCKED"
+      });
+    });
+
+    await assertFails(getDoc(doc(pickerDb, "harvestSessions", "session-anna")));
+    await assertFails(
+      getDocs(
+        query(collection(pickerDb, "payments"), where("workerId", "==", "worker-anna"))
+      )
+    );
+  });
 });
 
 async function seedDashboard(): Promise<void> {
@@ -170,6 +220,7 @@ async function seedDashboard(): Promise<void> {
       setDoc(doc(db, "users", "admin-1"), profile("ADMIN", null)),
       setDoc(doc(db, "users", "operator-1"), profile("OPERATOR", null)),
       setDoc(doc(db, "users", "picker-anna"), profile("PICKER", "worker-anna")),
+      setDoc(doc(db, "users", "picker-bartek"), profile("PICKER", "worker-bartek")),
       setDoc(doc(db, "users", "picker-unlinked"), profile("PICKER", null)),
       setDoc(doc(db, "workers", "worker-anna"), {
         active: true,
