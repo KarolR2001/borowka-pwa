@@ -2,6 +2,14 @@ import { CloudOff, Download, FileSpreadsheet, RefreshCw, UserRound } from "lucid
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { DashboardPeriodFilter } from "../dashboard/DashboardPeriodFilter";
+import {
+  currentWarsawBusinessDate,
+  dashboardPeriodSelectionError,
+  DEFAULT_DASHBOARD_PERIOD,
+  resolveDashboardPeriod,
+  type DashboardPeriodSelection
+} from "../dashboard/dashboardPeriod";
 import { formatMoney } from "../domain/format";
 import {
   createPickerDataExportCsv,
@@ -52,9 +60,23 @@ export function PickerDataExportPanel({
   const [filters, setFilters] = useState<PickerDataExportFilters>(
     defaultPickerDataExportFilters
   );
+  const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
+    DEFAULT_DASHBOARD_PERIOD
+  );
   const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
+  const periodError = dashboardPeriodSelectionError(periodSelection);
+  const resolvedPeriod = useMemo(
+    () =>
+      periodError
+        ? null
+        : resolveDashboardPeriod(periodSelection, {
+            todayBusinessDate
+          }),
+    [periodError, periodSelection, todayBusinessDate]
+  );
   const isPicker =
     authState.status === "READY" &&
     authState.profile.role === "PICKER" &&
@@ -93,7 +115,7 @@ export function PickerDataExportPanel({
   }, [authState, env, exportApi, isOnline, isPicker, reloadKey]);
 
   const filtered = useMemo(() => {
-    if (!state.result?.enabled) {
+    if (!state.result?.enabled || periodError) {
       return null;
     }
 
@@ -102,7 +124,7 @@ export function PickerDataExportPanel({
     } catch {
       return null;
     }
-  }, [filters, state.result]);
+  }, [filters, periodError, state.result]);
 
   if (!isPicker) {
     return (
@@ -141,6 +163,22 @@ export function PickerDataExportPanel({
       setFeedback(null);
       setExportError("Nie udalo sie zapisac pliku CSV.");
     }
+  }
+
+  function handlePeriodChange(selection: DashboardPeriodSelection): void {
+    setPeriodSelection(selection);
+    if (dashboardPeriodSelectionError(selection)) {
+      return;
+    }
+
+    const period = resolveDashboardPeriod(selection, {
+      todayBusinessDate
+    });
+    setFilters((current) => ({
+      ...current,
+      fromDate: period.fromDate ?? "",
+      toDate: period.toDate ?? ""
+    }));
   }
 
   return (
@@ -184,11 +222,22 @@ export function PickerDataExportPanel({
       ) : null}
       {state.result?.enabled ? (
         <>
-          <ExportFilters
-            filters={filters}
-            onChange={setFilters}
-            seasons={state.result.seasons}
-          />
+          <div className="picker-data-export__filters" aria-label="Zakres eksportu">
+            <ExportSeasonFilter
+              filters={filters}
+              onChange={setFilters}
+              seasons={state.result.seasons}
+            />
+            <DashboardPeriodFilter
+              idPrefix="picker-data-export"
+              onChange={handlePeriodChange}
+              selection={periodSelection}
+              todayBusinessDate={todayBusinessDate}
+            />
+          </div>
+          {resolvedPeriod ? (
+            <p className="dashboard-period-summary">{resolvedPeriod.label}</p>
+          ) : null}
           <div className="directory-summary" aria-label="Podsumowanie eksportu">
             <ExportStat
               label="Naliczono"
@@ -258,7 +307,7 @@ export function PickerDataExportPanel({
   );
 }
 
-function ExportFilters({
+function ExportSeasonFilter({
   filters,
   onChange,
   seasons
@@ -268,46 +317,22 @@ function ExportFilters({
   seasons: readonly { id: string; name: string }[];
 }) {
   return (
-    <div className="picker-data-export__filters" aria-label="Zakres eksportu">
-      <label className="field">
-        <span>Sezon</span>
-        <select
-          onChange={(event) => {
-            onChange({ ...filters, seasonId: event.target.value });
-          }}
-          value={filters.seasonId}
-        >
-          <option value="">Wszystkie sezony</option>
-          {seasons.map((season) => (
-            <option key={season.id} value={season.id}>
-              {season.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>Od daty sesji</span>
-        <input
-          max={filters.toDate || undefined}
-          onChange={(event) => {
-            onChange({ ...filters, fromDate: event.target.value });
-          }}
-          type="date"
-          value={filters.fromDate}
-        />
-      </label>
-      <label className="field">
-        <span>Do daty sesji</span>
-        <input
-          min={filters.fromDate || undefined}
-          onChange={(event) => {
-            onChange({ ...filters, toDate: event.target.value });
-          }}
-          type="date"
-          value={filters.toDate}
-        />
-      </label>
-    </div>
+    <label className="field">
+      <span>Sezon</span>
+      <select
+        onChange={(event) => {
+          onChange({ ...filters, seasonId: event.target.value });
+        }}
+        value={filters.seasonId}
+      >
+        <option value="">Wszystkie sezony</option>
+        {seasons.map((season) => (
+          <option key={season.id} value={season.id}>
+            {season.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

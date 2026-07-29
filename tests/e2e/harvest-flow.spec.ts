@@ -18,6 +18,12 @@ test.describe("Seeded harvest flow", () => {
       operatorDashboard.getByRole("button", { name: "Nowy zbior" })
     ).toBeVisible();
     await expect(operatorDashboard.getByText("Dostepne operacyjnie")).toBeVisible();
+    const periodSelect = operatorDashboard.locator("#operator-dashboard-period");
+    await expect(periodSelect).toHaveValue("TODAY");
+    await periodSelect.selectOption("CUSTOM");
+    await operatorDashboard.locator("#operator-dashboard-period-from").fill("2026-07-17");
+    await operatorDashboard.locator("#operator-dashboard-period-to").fill("2026-07-17");
+    await expect(operatorDashboard.getByText("Wlasny zakres: 17.07.2026")).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     ).toBeLessThanOrEqual(0);

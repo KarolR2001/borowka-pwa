@@ -2,6 +2,11 @@ import type { AppProps, AuthSessionApi, DeviceRegistryApi } from "../app/App";
 import type { AuthSessionListener, AuthSessionState } from "../auth/authSession";
 import type { OperatorDashboardApi } from "../dashboard/OperatorDashboardPanel";
 import {
+  businessDateMatchesPeriod,
+  resolveDashboardPeriod
+} from "../dashboard/dashboardPeriod";
+import { DEFAULT_OPERATOR_DASHBOARD_PERIOD } from "../dashboard/operatorDashboard";
+import {
   createInitialDomainSeed,
   type WorkerRateVersionDocument
 } from "../domain/domainConfiguration";
@@ -375,6 +380,17 @@ function createHarvestHarnessState() {
       const ownSessions = sessions.filter(
         (session) => session.createdBy === input.actorProfile.uid
       );
+      const period = resolveDashboardPeriod(
+        input.periodSelection ?? DEFAULT_OPERATOR_DASHBOARD_PERIOD,
+        {
+          seasonEndDate: seed.seasons[0].endDate,
+          seasonStartDate: seed.seasons[0].startDate,
+          todayBusinessDate: input.businessDate ?? "2026-07-17"
+        }
+      );
+      const ownSessionsInPeriod = ownSessions.filter((session) =>
+        businessDateMatchesPeriod(session.businessDate, period)
+      );
 
       return Promise.resolve({
         activeSeason: {
@@ -387,15 +403,18 @@ function createHarvestHarnessState() {
           availableWeightG: sessions
             .filter((session) => session.status === "CLOSED" || session.status === "PAID")
             .reduce((sum, session) => sum + session.totalWeightG, 0),
-          closedTodayCount: 0,
           conflictCount: 0,
           localPendingCount: 0,
           openSessionCount: openSessions.length,
+          ownClosedSessionCount: ownSessionsInPeriod.filter(
+            (session) => session.status === "CLOSED" || session.status === "PAID"
+          ).length,
           ownOpenSessionCount: ownSessions.filter((session) => session.status === "OPEN")
             .length
         },
         openSessions: openSessions.map(toSafeDashboardSession),
-        ownRecentSessions: ownSessions.slice(0, 8).map(toSafeDashboardSession),
+        ownRecentSessions: ownSessionsInPeriod.slice(0, 8).map(toSafeDashboardSession),
+        period,
         refreshedAtIso: SERVER_TIME,
         stock: {
           dataSource: input.isOnline ? "SERVER" : "CACHE",

@@ -1,7 +1,14 @@
 import { CloudOff, RefreshCw, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { DashboardPeriodFilter } from "../dashboard/DashboardPeriodFilter";
+import {
+  currentWarsawBusinessDate,
+  dashboardPeriodSelectionError,
+  DEFAULT_DASHBOARD_PERIOD,
+  type DashboardPeriodSelection
+} from "../dashboard/dashboardPeriod";
 import { formatKilograms, formatMoney } from "../domain/format";
 import {
   loadPickerDashboard,
@@ -51,7 +58,12 @@ export function PickerDashboardPanel({
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
+    DEFAULT_DASHBOARD_PERIOD
+  );
   const [reloadKey, setReloadKey] = useState(0);
+  const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
+  const periodError = dashboardPeriodSelectionError(periodSelection);
   const isPicker =
     authState.status === "READY" &&
     authState.profile.role === "PICKER" &&
@@ -66,6 +78,10 @@ export function PickerDashboardPanel({
       return undefined;
     }
 
+    if (periodError) {
+      return undefined;
+    }
+
     setState((current) => ({
       result: current.result,
       status: "LOADING"
@@ -73,7 +89,9 @@ export function PickerDashboardPanel({
     void pickerDashboardApi
       .load(env, {
         actorProfile: authState.profile,
+        businessDate: todayBusinessDate,
         isOnline,
+        periodSelection,
         selectedSeasonId
       })
       .then((result) => {
@@ -98,9 +116,12 @@ export function PickerDashboardPanel({
     env,
     isOnline,
     isPicker,
+    periodError,
+    periodSelection,
     pickerDashboardApi,
     reloadKey,
-    selectedSeasonId
+    selectedSeasonId,
+    todayBusinessDate
   ]);
 
   if (!isPicker) {
@@ -115,7 +136,7 @@ export function PickerDashboardPanel({
     );
   }
 
-  const result = state.result;
+  const result = periodError ? null : state.result;
 
   return (
     <section className="picker-dashboard" aria-labelledby="picker-dashboard-title">
@@ -162,6 +183,16 @@ export function PickerDashboardPanel({
         </div>
       </header>
 
+      <div className="dashboard-filter-bar">
+        <DashboardPeriodFilter
+          disabled={state.status === "LOADING"}
+          idPrefix="picker-dashboard"
+          onChange={setPeriodSelection}
+          selection={periodSelection}
+          todayBusinessDate={todayBusinessDate}
+        />
+      </div>
+
       {result?.dataSource === "CACHE" ? (
         <p className="picker-dashboard__source form-message form-message--warning">
           <CloudOff aria-hidden="true" size={18} />
@@ -178,6 +209,9 @@ export function PickerDashboardPanel({
       ) : null}
       {result ? (
         <>
+          {result.period ? (
+            <p className="dashboard-period-summary">{result.period.label}</p>
+          ) : null}
           <div className="directory-summary" aria-label="Podsumowanie zbiorow">
             <DashboardStat
               label="Laczna masa"

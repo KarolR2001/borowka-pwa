@@ -72,6 +72,36 @@ describe("admin dashboard", () => {
       "Pominieto nieprawidlowe dokumenty zrodlowe: 1."
     ]);
   });
+
+  it("filters business flows by an inclusive custom date range", () => {
+    const result = dashboard({
+      businessDate: "2026-07-29",
+      periodSelection: {
+        customFromDate: "2026-07-28",
+        customToDate: "2026-07-28",
+        preset: "CUSTOM"
+      }
+    });
+
+    expect(result.seasons[0]).toMatchObject({
+      metrics: {
+        accruedGrosz: 15_000,
+        availableWeightG: 15_000,
+        confirmedHarvestWeightG: 15_000,
+        dueGrosz: 15_000,
+        paidGrosz: 0,
+        resultAfterHarvestCostGrosz: -15_000,
+        revenueGrosz: 0,
+        soldWeightG: 0
+      },
+      period: {
+        dateBasis: "BUSINESS_DATE",
+        fromDate: "2026-07-28",
+        preset: "CUSTOM",
+        toDate: "2026-07-28"
+      }
+    });
+  });
 });
 
 function dashboard(

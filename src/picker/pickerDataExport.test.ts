@@ -6,7 +6,7 @@ import {
 } from "./pickerDataExport";
 
 describe("picker data export", () => {
-  it("filters own sessions and payments by season and session date", () => {
+  it("filters own sessions and payments by season and their business dates", () => {
     const filtered = filterPickerDataExport(result(), {
       fromDate: "2026-07-01",
       seasonId: "season-a",
@@ -23,6 +23,22 @@ describe("picker data export", () => {
       cancelledPaymentAmountGrosz: 0,
       paidAmountGrosz: 5000,
       remainingAmountGrosz: 0
+    });
+  });
+
+  it("uses the payment business date independently from its source session", () => {
+    const filtered = filterPickerDataExport(result(), {
+      fromDate: "2026-07-11",
+      seasonId: "season-a",
+      toDate: "2026-07-11"
+    });
+
+    expect(filtered.sessions).toEqual([]);
+    expect(filtered.payments.map((payment) => payment.id)).toEqual(["payment-active"]);
+    expect(filtered.summary).toMatchObject({
+      accruedAmountGrosz: 0,
+      paidAmountGrosz: 5000,
+      remainingAmountGrosz: -5000
     });
   });
 

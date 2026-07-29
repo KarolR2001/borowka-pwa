@@ -15,8 +15,21 @@ import {
   OPERATIONAL_STOCK_MOVEMENTS_COLLECTION,
   type OperationalStockMovementDocument
 } from "../stock/operationalStockMovement";
+import {
+  businessDateMatchesPeriod,
+  currentWarsawBusinessDate,
+  resolveDashboardPeriod,
+  type DashboardPeriodSelection,
+  type ResolvedDashboardPeriod
+} from "./dashboardPeriod";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
+
+export const DEFAULT_OPERATOR_DASHBOARD_PERIOD: DashboardPeriodSelection = {
+  customFromDate: "",
+  customToDate: "",
+  preset: "TODAY"
+};
 
 type RawDocument = {
   data: unknown;
@@ -44,14 +57,15 @@ export type OperatorDashboardResult = {
   connection: "ONLINE" | "OFFLINE";
   metrics: {
     availableWeightG: number | null;
-    closedTodayCount: number;
     conflictCount: number;
     localPendingCount: number;
     openSessionCount: number;
+    ownClosedSessionCount: number;
     ownOpenSessionCount: number;
   };
   openSessions: OperatorDashboardSession[];
   ownRecentSessions: OperatorDashboardSession[];
+  period: ResolvedDashboardPeriod;
   refreshedAtIso: string;
   stock: {
     dataSource: "SERVER" | "CACHE" | "UNAVAILABLE";
@@ -65,6 +79,7 @@ export type LoadOperatorDashboardInput = {
   actorProfile: UserProfile;
   businessDate?: string;
   isOnline: boolean;
+  periodSelection?: DashboardPeriodSelection;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 };
 
@@ -95,8 +110,7 @@ export async function loadOperatorDashboard(
         collection(firestore, HARVEST_SESSIONS_COLLECTION),
         where("createdBy", "==", input.actorProfile.uid),
         orderBy("businessDate", "desc"),
-        orderBy("createdAtServer", "desc"),
-        limit(100)
+        orderBy("createdAtServer", "desc")
       )
     )
   ]);
@@ -122,12 +136,13 @@ export async function loadOperatorDashboard(
 
   return buildOperatorDashboard({
     actorUid: input.actorProfile.uid,
-    businessDate: input.businessDate ?? currentBusinessDate(),
+    businessDate: input.businessDate ?? currentWarsawBusinessDate(),
     isOnline: input.isOnline,
     movementDocuments,
     movementFromCache,
     openSessionDocuments: toRawDocuments(openSessionSnapshot.docs),
     ownSessionDocuments: toRawDocuments(ownSessionSnapshot.docs),
+    periodSelection: input.periodSelection,
     refreshedAtIso: new Date().toISOString(),
     seasonDocuments,
     syncDocuments: input.syncDocuments
@@ -142,6 +157,7 @@ export function buildOperatorDashboard({
   movementFromCache,
   openSessionDocuments,
   ownSessionDocuments,
+  periodSelection = DEFAULT_OPERATOR_DASHBOARD_PERIOD,
   refreshedAtIso,
   seasonDocuments,
   syncDocuments
@@ -153,6 +169,7 @@ export function buildOperatorDashboard({
   movementFromCache: boolean;
   openSessionDocuments: readonly RawDocument[];
   ownSessionDocuments: readonly RawDocument[];
+  periodSelection?: DashboardPeriodSelection;
   refreshedAtIso: string;
   seasonDocuments: readonly RawDocument[];
   syncDocuments: readonly SyncDocumentMetadataInput[];
@@ -174,6 +191,16 @@ export function buildOperatorDashboard({
   const ownSessions = sessions
     .filter((session) => session.createdBy === normalizedActorUid)
     .sort(compareSessions);
+  const period = resolveDashboardPeriod(periodSelection, {
+    seasonEndDate: activeSeason?.endDate,
+    seasonStartDate: activeSeason?.startDate,
+    todayBusinessDate: businessDate
+  });
+  const ownSessionsInPeriod = ownSessions.filter(
+    (session) =>
+      session.seasonId === activeSeason?.id &&
+      businessDateMatchesPeriod(session.businessDate, period)
+  );
   const syncSummary = summarizeSyncDocumentMetadata(syncDocuments);
   const conflicts = syncSummary.documents
     .filter(
@@ -228,10 +255,8 @@ export function buildOperatorDashboard({
         invalidMovementCount > 0 || !stockCalculation
           ? null
           : stockCalculation.availableWeightG,
-      closedTodayCount: ownSessions.filter(
-        (session) =>
-          session.businessDate === businessDate &&
-          (session.status === "CLOSED" || session.status === "PAID")
+      ownClosedSessionCount: ownSessionsInPeriod.filter(
+        (session) => session.status === "CLOSED" || session.status === "PAID"
       ).length,
       conflictCount: conflicts.length,
       localPendingCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
@@ -240,7 +265,8 @@ export function buildOperatorDashboard({
         .length
     },
     openSessions: openSessions.map(toSafeSession),
-    ownRecentSessions: ownSessions.slice(0, 8).map(toSafeSession),
+    ownRecentSessions: ownSessionsInPeriod.slice(0, 8).map(toSafeSession),
+    period,
     refreshedAtIso,
     stock: {
       dataSource: stockDataSource,
@@ -389,8 +415,4 @@ function requiredText(value: string, message: string): string {
     throw new Error(message);
   }
   return normalized;
-}
-
-function currentBusinessDate(): string {
-  return new Date().toISOString().slice(0, 10);
 }

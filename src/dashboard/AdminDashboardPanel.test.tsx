@@ -64,11 +64,29 @@ describe("AdminDashboardPanel", () => {
         "Inne urzadzenia pracujace calkowicie offline moga miec sesje, ktorych chmura jeszcze nie zna."
       )
     ).toBeVisible();
+    await user.selectOptions(screen.getByLabelText("Okres"), "CURRENT_WEEK");
+    await waitFor(() => {
+      expect(api.load).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({
+          periodSelection: {
+            customFromDate: "",
+            customToDate: "",
+            preset: "CURRENT_WEEK"
+          }
+        })
+      );
+    });
     expect(api.load).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
         actorProfile: adminState.profile,
         isOnline: true,
+        periodSelection: {
+          customFromDate: "",
+          customToDate: "",
+          preset: "SEASON"
+        },
         syncDocuments: [{ id: "pending-1", kind: "HARVEST_ENTRY", pendingSync: true }]
       })
     );
@@ -171,7 +189,19 @@ function seasonSummary(
     name: string;
   }
 ): AdminDashboardResult["seasons"][number] {
-  const { id, metrics, name, ...seasonOverrides } = overrides;
+  const {
+    id,
+    metrics,
+    name,
+    period = {
+      dateBasis: "BUSINESS_DATE" as const,
+      fromDate: "2026-07-01",
+      label: "Caly sezon: 01.07.2026 - 30.09.2026",
+      preset: "SEASON" as const,
+      toDate: "2026-09-30"
+    },
+    ...seasonOverrides
+  } = overrides;
 
   return {
     endDate: "2026-09-30",
@@ -193,6 +223,7 @@ function seasonSummary(
       ...metrics
     },
     name,
+    period,
     startDate: "2026-07-01",
     status: "OPEN",
     warnings: [],

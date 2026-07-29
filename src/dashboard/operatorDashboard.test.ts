@@ -16,10 +16,10 @@ describe("operator dashboard", () => {
       connection: "ONLINE",
       metrics: {
         availableWeightG: 9000,
-        closedTodayCount: 1,
         conflictCount: 1,
         localPendingCount: 2,
         openSessionCount: 2,
+        ownClosedSessionCount: 1,
         ownOpenSessionCount: 1
       },
       stock: {
@@ -88,6 +88,30 @@ describe("operator dashboard", () => {
     expect(result.activeSeason).toBeNull();
     expect(result.metrics.availableWeightG).toBeNull();
     expect(result.stock.dataSource).toBe("UNAVAILABLE");
+  });
+
+  it("filters only the operator history while keeping current open work visible", () => {
+    const result = dashboard({
+      periodSelection: {
+        customFromDate: "2026-07-28",
+        customToDate: "2026-07-28",
+        preset: "CUSTOM"
+      }
+    });
+
+    expect(result.metrics).toMatchObject({
+      availableWeightG: 9000,
+      openSessionCount: 2,
+      ownClosedSessionCount: 0,
+      ownOpenSessionCount: 1
+    });
+    expect(result.openSessions).toHaveLength(2);
+    expect(result.ownRecentSessions).toEqual([]);
+    expect(result.period).toMatchObject({
+      dateBasis: "BUSINESS_DATE",
+      fromDate: "2026-07-28",
+      toDate: "2026-07-28"
+    });
   });
 });
 

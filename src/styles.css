@@ -518,6 +518,38 @@ h2 {
   margin-top: 20px;
 }
 
+.dashboard-filter-bar {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dashboard-period-filter {
+  display: grid;
+  min-width: min(260px, 100%);
+  gap: 8px;
+}
+
+.dashboard-period-filter__custom {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.dashboard-period-filter__basis,
+.dashboard-period-summary {
+  margin: 0;
+  color: #52635a;
+  font-size: 0.82rem;
+}
+
+.dashboard-period-summary {
+  border-left: 3px solid #287455;
+  padding: 6px 10px;
+  font-weight: 750;
+}
+
 .admin-dashboard__season {
   max-width: 420px;
 }
@@ -802,7 +834,7 @@ h2 {
 
 .picker-data-export__filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  grid-template-columns: minmax(180px, 0.6fr) minmax(320px, 1.4fr);
   gap: 12px;
 }
 
@@ -3221,6 +3253,15 @@ h2 {
   .picker-dashboard__controls .field {
     min-width: 0;
     flex: 1;
+  }
+
+  .dashboard-filter-bar,
+  .dashboard-period-filter {
+    width: 100%;
+  }
+
+  .dashboard-period-filter__custom {
+    grid-template-columns: 1fr;
   }
 
   .picker-dashboard__status-grid {

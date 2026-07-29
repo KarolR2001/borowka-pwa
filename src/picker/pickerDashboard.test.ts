@@ -400,6 +400,52 @@ describe("picker dashboard", () => {
     });
   });
 
+  it("filters private sessions and payments by their business dates", () => {
+    const result = dashboardFor({
+      payments: [
+        paymentDocument("payment-in-range", {
+          amountGrosz: 2000,
+          paidBusinessDate: "2026-07-28"
+        }),
+        paymentDocument("payment-outside", {
+          amountGrosz: 9000,
+          paidBusinessDate: "2026-07-27"
+        })
+      ],
+      periodSelection: {
+        customFromDate: "2026-07-28",
+        customToDate: "2026-07-28",
+        preset: "CUSTOM"
+      },
+      sessions: [
+        sessionDocument("session-in-range", {
+          amountDueGrosz: 5000,
+          businessDate: "2026-07-28",
+          status: "CLOSED",
+          totalWeightG: 5000
+        }),
+        sessionDocument("session-outside", {
+          amountDueGrosz: 7000,
+          businessDate: "2026-07-27",
+          status: "CLOSED",
+          totalWeightG: 7000
+        })
+      ]
+    });
+
+    expect(result).toMatchObject({
+      accruedAmountGrosz: 5000,
+      paidAmountGrosz: 2000,
+      remainingAmountGrosz: 3000,
+      totalWeightG: 5000
+    });
+    expect(result.period).toMatchObject({
+      dateBasis: "BUSINESS_DATE",
+      fromDate: "2026-07-28",
+      toDate: "2026-07-28"
+    });
+  });
+
   it("rejects an approved picker without workerId instead of returning data", async () => {
     await expect(
       loadPickerDashboard(
@@ -434,15 +480,18 @@ describe("picker dashboard", () => {
 
 function dashboardFor({
   payments = [],
+  periodSelection,
   sessions
 }: {
   payments?: ReturnType<typeof paymentDocument>[];
+  periodSelection?: Parameters<typeof buildPickerDashboard>[0]["periodSelection"];
   sessions: ReturnType<typeof sessionDocument>[];
 }) {
   return buildPickerDashboard({
     actorProfile: pickerProfile,
     dataSource: "SERVER",
     paymentDocuments: payments,
+    periodSelection,
     refreshedAtIso: "2026-07-28T18:30:00.000Z",
     seasonDocuments: [
       seasonDocument("season-2026", { isDefault: true }),
