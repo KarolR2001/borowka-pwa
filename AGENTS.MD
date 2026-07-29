@@ -58,7 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek: pakiet `8.6 - korekta sprzedazy`.
+- Aktualny kierunek po scaleniu biezacego przyrostu: pakiet
+  `8.8 - lista i szczegoly sprzedazy`.
 
 ## Testowanie i walidacja
 
@@ -129,13 +130,11 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `8.5` scalony do `main` w commicie
-  `51ee62c`.
-- Aktualna galaz realizuje pakiet `8.6 - korekta sprzedazy`.
+- Pakiet `8.7 - anulowanie sprzedazy` jest zakonczonym zakresem biezacego
+  przyrostu; po jego zielonym CI i scaleniu nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 8.6 nastepny pakiet implementacyjny to
-  `8.7 - anulowanie sprzedazy`.
+- Nastepny pakiet implementacyjny to `8.8 - lista i szczegoly sprzedazy`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.

@@ -91,6 +91,7 @@ service cloud.firestore {
         'PAYMENT_CANCELLED',
         'SALE_CREATED',
         'SALE_CORRECTION_CREATED',
+        'SALE_CANCELLED',
         'HARVEST_ENTRY_CREATED',
         'HARVEST_ENTRY_CANCELLED'
       ];
@@ -487,6 +488,7 @@ service cloud.firestore {
           'correctionDirection',
           'totalGrosz',
           'revenueImpactGrosz',
+          'stockImpactG',
           'availableStockWeightG',
           'projectedStockWeightG',
           'pendingSync',
@@ -2025,6 +2027,89 @@ service cloud.firestore {
         );
     }
 
+    function saleCancellationAuditMatches(auditEvent, sale, previous, saleId) {
+      return auditEvent.id == 'sale-cancelled-' + saleId &&
+        auditEvent.action == 'SALE_CANCELLED' &&
+        auditEvent.entityType == 'SALE' &&
+        auditEvent.entityId == saleId &&
+        auditEvent.actorUid == request.auth.uid &&
+        auditEvent.businessDate == previous.businessDate &&
+        auditEvent.reason == sale.cancellationReason &&
+        auditEvent.beforeSummary.saleId == saleId &&
+        auditEvent.beforeSummary.seasonId == previous.seasonId &&
+        auditEvent.beforeSummary.entryType == previous.entryType &&
+        auditEvent.beforeSummary.correctionDirection ==
+          previous.correctionDirection &&
+        auditEvent.beforeSummary.status == 'ACTIVE' &&
+        auditEvent.beforeSummary.weightG == previous.weightG &&
+        auditEvent.beforeSummary.totalGrosz == previous.totalGrosz &&
+        auditEvent.afterSummary.saleId == saleId &&
+        auditEvent.afterSummary.seasonId == previous.seasonId &&
+        auditEvent.afterSummary.entryType == previous.entryType &&
+        auditEvent.afterSummary.correctionDirection ==
+          previous.correctionDirection &&
+        auditEvent.afterSummary.status == 'CANCELLED' &&
+        auditEvent.afterSummary.weightG == previous.weightG &&
+        auditEvent.afterSummary.totalGrosz == previous.totalGrosz &&
+        (
+          (
+            previous.entryType == 'SALE' &&
+            previous.correctionDirection == null &&
+            auditEvent.beforeSummary.stockImpactG == -previous.weightG &&
+            auditEvent.beforeSummary.revenueImpactGrosz == previous.totalGrosz &&
+            auditEvent.afterSummary.stockImpactG == previous.weightG &&
+            auditEvent.afterSummary.revenueImpactGrosz == -previous.totalGrosz
+          ) || (
+            previous.entryType == 'CORRECTION' &&
+            previous.correctionDirection == 'INCREASE_STOCK' &&
+            auditEvent.beforeSummary.stockImpactG == previous.weightG &&
+            auditEvent.beforeSummary.revenueImpactGrosz == -previous.totalGrosz &&
+            auditEvent.afterSummary.stockImpactG == -previous.weightG &&
+            auditEvent.afterSummary.revenueImpactGrosz == previous.totalGrosz
+          ) || (
+            previous.entryType == 'CORRECTION' &&
+            previous.correctionDirection == 'DECREASE_STOCK' &&
+            auditEvent.beforeSummary.stockImpactG == -previous.weightG &&
+            auditEvent.beforeSummary.revenueImpactGrosz == previous.totalGrosz &&
+            auditEvent.afterSummary.stockImpactG == previous.weightG &&
+            auditEvent.afterSummary.revenueImpactGrosz == -previous.totalGrosz
+          )
+        ) &&
+        auditEvent.createdAtServer == request.time;
+    }
+
+    function isValidSaleCancellationUpdate(data, previous, saleId) {
+      return isAdmin() &&
+        hasSaleFields(data) &&
+        hasSaleFields(previous) &&
+        data.id == saleId &&
+        previous.id == saleId &&
+        previous.status == 'ACTIVE' &&
+        previous.cancelledAt == null &&
+        previous.cancelledBy == null &&
+        previous.cancellationReason == null &&
+        data.status == 'CANCELLED' &&
+        data.cancelledAt == request.time &&
+        data.cancelledBy == request.auth.uid &&
+        data.cancellationReason is string &&
+        data.cancellationReason.size() >= 3 &&
+        data.cancellationReason.size() <= 200 &&
+        data.cancellationReason.matches('.*\\S.*') &&
+        data.diff(previous).affectedKeys().hasOnly([
+          'status',
+          'cancelledAt',
+          'cancelledBy',
+          'cancellationReason'
+        ]) &&
+        existsAfter(auditEventPath('sale-cancelled-' + saleId)) &&
+        saleCancellationAuditMatches(
+          getAfter(auditEventPath('sale-cancelled-' + saleId)).data,
+          data,
+          previous,
+          saleId
+        );
+    }
+
     function hasPaymentFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -2591,7 +2676,12 @@ service cloud.firestore {
         request.resource.data,
         saleId
       ) || isValidSaleCorrectionCreate(request.resource.data, saleId);
-      allow update, delete: if false;
+      allow update: if isValidSaleCancellationUpdate(
+        request.resource.data,
+        resource.data,
+        saleId
+      );
+      allow delete: if false;
     }
 
     match /payments/{paymentId} {

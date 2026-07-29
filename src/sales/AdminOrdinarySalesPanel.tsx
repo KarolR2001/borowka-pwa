@@ -9,6 +9,11 @@ import type {
   PreparedOrdinarySale,
   SaleFormStockContext
 } from "./ordinarySalePreparation";
+import { cancelSale, listSaleCancellationCandidates } from "./saleCancellation";
+import {
+  SaleCancellationSection,
+  type SaleCancellationSectionApi
+} from "./SaleCancellationSection";
 import { SaleCorrectionForm } from "./SaleCorrectionForm";
 import {
   correctionDirectionLabel,
@@ -37,7 +42,7 @@ import {
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
-export type OrdinarySalesApi = {
+export type OrdinarySalesApi = SaleCancellationSectionApi & {
   checkCorrection: (
     env: FirebaseEnv,
     input: CheckSaleCorrectionInput
@@ -61,10 +66,12 @@ export type OrdinarySalesApi = {
 };
 
 export const defaultOrdinarySalesApi: OrdinarySalesApi = {
+  cancelSale,
   checkCorrection: checkSaleCorrection,
   checkStock: checkOrdinarySaleStock,
   create: createOrdinarySale,
   createCorrection: createSaleCorrection,
+  listCancellationCandidates: listSaleCancellationCandidates,
   listStockContexts: listOrdinarySaleStockContexts
 };
 
@@ -105,7 +112,9 @@ export function AdminOrdinarySalesPanel({
   const [confirmed, setConfirmed] = useState<OrdinarySaleConfirmedResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [operationMode, setOperationMode] = useState<"SALE" | "CORRECTION">("SALE");
+  const [operationMode, setOperationMode] = useState<
+    "SALE" | "CORRECTION" | "CANCELLATION"
+  >("SALE");
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -315,6 +324,18 @@ export function AdminOrdinarySalesPanel({
         >
           Korekta
         </button>
+        <button
+          aria-pressed={operationMode === "CANCELLATION"}
+          onClick={() => {
+            setOperationMode("CANCELLATION");
+            setPreflight(null);
+            setConfirmed(null);
+            setSaveError(null);
+          }}
+          type="button"
+        >
+          Anulowanie
+        </button>
       </div>
 
       {operationMode === "SALE" ? (
@@ -360,7 +381,7 @@ export function AdminOrdinarySalesPanel({
           ) : null}
           {confirmed ? <ConfirmedSale result={confirmed} /> : null}
         </>
-      ) : (
+      ) : operationMode === "CORRECTION" ? (
         <SaleCorrectionSection
           actorProfile={actorProfile}
           deviceId={deviceId}
@@ -383,6 +404,27 @@ export function AdminOrdinarySalesPanel({
           ordinarySalesApi={ordinarySalesApi}
           stockContexts={stockState.contexts}
           stockLoading={stockState.status === "LOADING"}
+        />
+      ) : (
+        <SaleCancellationSection
+          actorProfile={actorProfile}
+          api={ordinarySalesApi}
+          deviceId={deviceId}
+          env={env}
+          isOnline={isOnline}
+          onConfirmed={(result) => {
+            setReloadKey((current) => current + 1);
+            replaceStockContext({
+              availableWeightG: result.postWriteAvailableWeightG,
+              pendingDocumentCount: 0,
+              refreshedAtIso: new Date().toISOString(),
+              seasonId: result.cancelledSale.seasonId,
+              seasonName:
+                stockState.contexts.find(
+                  (context) => context.seasonId === result.cancelledSale.seasonId
+                )?.seasonName ?? result.cancelledSale.seasonId
+            });
+          }}
         />
       )}
 

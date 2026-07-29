@@ -147,3 +147,11 @@
 - Decyzja: korekta zapisuje dodatnie `weightG`, nieujemne `priceGroszPerKg` i nieujemne `totalGrosz`. `INCREASE_STOCK` oznacza `+weightG` dla stanu i `-totalGrosz` dla przychodu, a `DECREASE_STOCK` oznacza `-weightG` dla stanu i `+totalGrosz` dla przychodu. Powod jest wymaganym `note` dokumentu i `reason` audytu.
 - Uzasadnienie: PRD wymaga osobnego typu operacji, jawnego kierunku, wartosci i powodu. Jeden kierunek wyznaczajacy przeciwne skutki magazynowe i finansowe usuwa ukryte ujemne wartosci oraz pozwala jednoznacznie raportowac i anulowac dokument.
 - Skutki: formularz i audyt zawsze pokazuja oba podpisane skutki, Rules odrzucaja niespojne znaki, a historyczny ujemny wiersz wymaga recznej klasyfikacji podczas migracji zamiast automatycznego mapowania.
+
+## DEC-0020 - Anulowanie dokumentu sprzedazy
+
+- Status: zaakceptowana technicznie na podstawie PRD
+- Data: 2026-07-29
+- Decyzja: anulowanie zachowuje dokument `sales`, zmienia tylko status i trzy pola anulowania oraz tworzy atomowy audyt `SALE_CANCELLED`. Skutek magazynowy i finansowy jest dokladnym przeciwienstwem aktywnego dokumentu, rowniez dla obu kierunkow korekty.
+- Uzasadnienie: PRD zabrania usuwania historii i wymaga przywrocenia kilogramow oraz odjecia przychodu dla zwyklej sprzedazy. Uogolnienie odwrotnego znaku pozwala jednoznacznie anulowac takze korekty bez tworzenia sztucznego dokumentu kompensujacego.
+- Skutki: anulowanie jest dostepne administratorowi online takze po zamknieciu sezonu, wymaga powodu i potwierdzenia, a poprawienie blednych danych odbywa sie przez anulowanie i dodanie nowej poprawnej operacji.

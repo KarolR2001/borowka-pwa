@@ -167,6 +167,34 @@ describe("ordinary sale stock preflight", () => {
         calculationVersion: "legacy"
       })
     ).toBeNull();
+    expect(
+      decodeSaleDocument("sale-1", {
+        ...document,
+        cancellationReason: "Bledna masa",
+        cancelledAt: "server-time",
+        cancelledBy: "admin-1"
+      })
+    ).toBeNull();
+    expect(
+      decodeSaleDocument("sale-1", {
+        ...document,
+        cancellationReason: "Bledna masa",
+        cancelledAt: "server-time",
+        cancelledBy: "admin-1",
+        status: "CANCELLED"
+      })
+    ).toMatchObject({
+      cancellationReason: "Bledna masa",
+      status: "CANCELLED"
+    });
+    expect(
+      decodeSaleDocument("sale-1", {
+        ...document,
+        cancelledAt: "server-time",
+        cancelledBy: "admin-1",
+        status: "CANCELLED"
+      })
+    ).toBeNull();
     expect(() =>
       prepareOrdinarySaleDocument({
         actorProfile: { ...adminProfile, role: "OPERATOR" },

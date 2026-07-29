@@ -61,12 +61,22 @@ Regula i jej granice sa opisane w
 | CALC-CORR-05 | Niespojny podpisany wplyw  | `INCREASE_STOCK`, przychod audytu `+3750 gr` | batch odrzucony                         |
 | CALC-CORR-06 | Zmiana stanu przed zapisem | potwierdzono 10 kg, serwer zwraca potem 8 kg | bez zapisu, wymagane nowe potwierdzenie |
 
+## Anulowanie sprzedazy
+
+| ID             | Przypadek                     | Aktywny dokument                    | Oczekiwany skutek anulowania          |
+| -------------- | ----------------------------- | ----------------------------------- | ------------------------------------- |
+| CALC-CANCEL-01 | Zwykla sprzedaz               | `SALE`, 3000 g, 3750 gr             | stan `+3000 g`, przychod `-3750 gr`   |
+| CALC-CANCEL-02 | Korekta zwiekszajaca stan     | `INCREASE_STOCK`, 3000 g, 3750 gr   | stan `-3000 g`, przychod `+3750 gr`   |
+| CALC-CANCEL-03 | Korekta zmniejszajaca stan    | `DECREASE_STOCK`, 3000 g, 3750 gr   | stan `+3000 g`, przychod `-3750 gr`   |
+| CALC-CANCEL-04 | Brak powodu lub potwierdzenia | aktywny dokument                    | zapis odrzucony                       |
+| CALC-CANCEL-05 | Zmienione dane historyczne    | anulowanie zmienia tez `weightG`    | transakcja odrzucona                  |
+| CALC-CANCEL-06 | Zamkniety sezon               | aktywna sprzedaz w sezonie `CLOSED` | anulowanie dozwolone, stan odswiezony |
+
 ## Przyszle rozszerzenia
 
 | ID           | Przypadek                                          | Etap   |
 | ------------ | -------------------------------------------------- | ------ |
 | CALC-FUT-002 | Reczna klasyfikacja historycznego przypadku -20 zl | Etap 9 |
-| CALC-FUT-003 | Anulowanie sprzedazy i wplyw na stan               | Etap 8 |
 | CALC-FUT-004 | Wyplata jednej zamknietej sesji                    | Etap 7 |
 | CALC-FUT-005 | Anulowanie wyplaty i powrot sesji do `CLOSED`      | Etap 7 |
 | CALC-FUT-006 | Sesja importowana z historyczna kwota nadrzedna    | Etap 9 |
@@ -89,6 +99,12 @@ zostac przeniesione do testow w odpowiednich etapach.
 Pakiet 8.6 pokrywa `CALC-CORR-01` - `CALC-CORR-06` w
 `src/sales/saleCorrectionPreparation.test.ts`,
 `src/sales/saleCorrectionWrite.test.ts`,
+`src/sales/AdminOrdinarySalesPanel.test.tsx`,
+`tests/rules/firestore-sales.test.ts` oraz
+`tests/integration/sale-stock-preflight.test.ts`.
+
+Pakiet 8.7 pokrywa `CALC-CANCEL-01` - `CALC-CANCEL-06` w
+`src/sales/saleCancellation.test.ts`,
 `src/sales/AdminOrdinarySalesPanel.test.tsx`,
 `tests/rules/firestore-sales.test.ts` oraz
 `tests/integration/sale-stock-preflight.test.ts`.

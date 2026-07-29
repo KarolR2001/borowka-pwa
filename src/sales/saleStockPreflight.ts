@@ -65,6 +65,10 @@ export type FreshSaleStock = {
   invalidDocumentCount: number;
 };
 
+export type FreshSaleStockOptions = {
+  requireOpenSeason?: boolean;
+};
+
 export type OrdinarySaleStockCheck = {
   checkedAtIso: string;
   expectedAvailableWeightG: number;
@@ -465,6 +469,22 @@ export function decodeSaleDocument(
     return null;
   }
 
+  const cancelledAt = data.cancelledAt ?? null;
+  const hasCompleteCancellation =
+    cancelledAt !== null &&
+    cancelledBy !== null &&
+    cancellationReason !== null &&
+    cancellationReason.trim().length >= 3 &&
+    cancellationReason.length <= 200;
+
+  if (
+    (data.status === "ACTIVE" &&
+      (cancelledAt !== null || cancelledBy !== null || cancellationReason !== null)) ||
+    (data.status === "CANCELLED" && !hasCompleteCancellation)
+  ) {
+    return null;
+  }
+
   try {
     if (
       calculateSaleRevenue({
@@ -482,7 +502,7 @@ export function decodeSaleDocument(
     businessDate,
     calculationVersion,
     cancellationReason,
-    cancelledAt: data.cancelledAt ?? null,
+    cancelledAt,
     cancelledBy,
     correctionDirection,
     createdAtServer: data.createdAtServer ?? null,
@@ -533,7 +553,8 @@ export async function readFreshSaleStockForSeason(
   actorProfile: UserProfile,
   seasonId: string,
   isOnline: boolean,
-  businessDate: string
+  businessDate: string,
+  options: FreshSaleStockOptions = {}
 ): Promise<FreshSaleStock> {
   assertAdminOnline(actorProfile, isOnline);
   const { firestore } = await getFirebaseServices(env);
@@ -556,6 +577,7 @@ export async function readFreshSaleStockForSeason(
 
   return readFreshSaleStockWithFirestore({
     firestore,
+    requireOpenSeason: options.requireOpenSeason ?? true,
     season: decodedSeason.season,
     seasonId
   });
@@ -563,14 +585,16 @@ export async function readFreshSaleStockForSeason(
 
 async function readFreshSaleStockWithFirestore({
   firestore,
+  requireOpenSeason = true,
   season,
   seasonId
 }: {
   firestore: Firestore;
+  requireOpenSeason?: boolean;
   season: SeasonDocument;
   seasonId: string;
 }): Promise<FreshSaleStock> {
-  if (season.status !== "OPEN") {
+  if (requireOpenSeason && season.status !== "OPEN") {
     throw new Error("Sprzedaz mozna zapisac tylko w otwartym sezonie.");
   }
 
