@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 7.17: pakiet
-  `7.18 - test prywatnosci pickera`.
+- Aktualny kierunek po pakiecie 7.18: etap 8, zaczynajac od pakietu
+  `8.1 - jednoznaczna definicja zrodel stanu`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,17 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `7.17` scalony do `main` w commicie
-  `a878543`.
+- Punkt startowy tego przyrostu: pakiet `7.18` scalony do `main` w commicie
+  `b00e9bb`.
 - Aktualna galaz realizuje pakiet
-  `7.18 - test prywatnosci pickera`.
+  `8.1 - jednoznaczna definicja zrodel stanu`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 7.18 nastepny pakiet implementacyjny to
-  `8.1 - jednoznaczna definicja zrodel stanu`.
+- Po zakonczeniu 8.1 nastepny pakiet implementacyjny to
+  `8.2 - kalkulacja stanu zrodlowego`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
-- Deploy nie jest jeszcze wykonywany; nalezy poczekac na wieksza bramke etapu.
+- Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.
+- Bramka wejscia etapu 8 dotyczaca syntetycznych danych DEV pozostaje otwarta do
+  czasu standardowego uwierzytelnienia aktywnego administratora i utworzenia
+  zestawu testowego. Nie oznaczaj jej jako `PASS` bez sprawdzenia danych.
