@@ -207,10 +207,10 @@ describe("ordinary sale stock preflight Firestore flow", () => {
       },
       metrics: {
         availableWeightG: 7000,
-        closedTodayCount: 0,
         conflictCount: 0,
         localPendingCount: 0,
         openSessionCount: 0,
+        ownClosedSessionCount: 0,
         ownOpenSessionCount: 0
       },
       stock: {
