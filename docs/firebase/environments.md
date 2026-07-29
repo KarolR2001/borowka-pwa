@@ -1,11 +1,11 @@
 # Firebase environments
 
-## Planned project IDs
+## Project IDs
 
-| Environment | Project ID         | Display name     | Status  |
-| ----------- | ------------------ | ---------------- | ------- |
-| Development | `borowka-pwa-dev`  | Borowka PWA Dev  | Planned |
-| Production  | `borowka-pwa-prod` | Borowka PWA Prod | Planned |
+| Environment | Project ID         | Display name     | Status                                 |
+| ----------- | ------------------ | ---------------- | -------------------------------------- |
+| Development | `borowka-pwa-dev`  | Borowka PWA Dev  | Active; stage 7 deployed 2026-07-29    |
+| Production  | `borowka-pwa-prod` | Borowka PWA Prod | Active project; deployment not started |
 
 Production must not share Firestore, Authentication or Hosting with development.
 
@@ -43,15 +43,17 @@ For production:
 - no free-form experiments;
 - controlled smoke tests with clearly marked technical data.
 
-## Manual setup checklist
+## Setup checklist
 
-- Create project `borowka-pwa-dev`.
-- Create project `borowka-pwa-prod`.
-- Confirm Firestore location before creating databases.
-- Enable Authentication email/password in both projects.
-- Create Web App in both projects and copy public client config into CI/environment secrets.
-- Enable Hosting in both projects.
-- Add authorized domains for local/development/production as needed.
+- [x] Create project `borowka-pwa-dev`.
+- [x] Create project `borowka-pwa-prod`.
+- [x] Confirm Firestore location before creating databases.
+- [x] Enable Authentication email/password in development.
+- [x] Create the development Web App and configure the local development build.
+- [x] Enable development Hosting and deploy the stage 7 gate.
+- [ ] Complete and verify the equivalent production service configuration.
+- [ ] Add CI deployment credentials and variables for controlled GitHub deploys.
+- [ ] Add authorized domains for production as needed.
 - Record owner and production deploy approvers.
 
 ## Local environment files
