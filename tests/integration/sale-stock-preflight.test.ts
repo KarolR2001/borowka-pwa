@@ -5,6 +5,7 @@ import {
 import { collection, doc, getDocs, setDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
+import { loadAdminDashboard } from "../../src/dashboard/adminDashboard";
 import type { UserProfile } from "../../src/domain/identity";
 import type { PreparedOrdinarySale } from "../../src/sales/ordinarySalePreparation";
 import {
@@ -485,6 +486,45 @@ describe("sale cancellation Firestore flow", () => {
           id: "sale-to-cancel",
           seasonName: "Sezon 2026",
           status: "CANCELLED"
+        }
+      ]
+    });
+    expect(
+      await loadAdminDashboard(
+        {},
+        {
+          actorProfile: adminProfile,
+          isOnline: true,
+          syncDocuments: []
+        }
+      )
+    ).toMatchObject({
+      invalidDocumentCounts: {
+        payments: 0,
+        sales: 0,
+        seasons: 0,
+        sessions: 0,
+        workers: 0
+      },
+      seasons: [
+        {
+          id: "season-1",
+          metrics: {
+            accruedGrosz: 10_000,
+            activeWorkerCount: 0,
+            availableWeightG: 10_000,
+            confirmedHarvestWeightG: 10_000,
+            dueGrosz: 10_000,
+            inProgressHarvestWeightG: 0,
+            openSessionCount: 0,
+            paidGrosz: 0,
+            resultAfterHarvestCostGrosz: -10_000,
+            reviewRequiredSessionCount: 0,
+            revenueGrosz: 0,
+            soldWeightG: 0
+          },
+          status: "CLOSED",
+          warnings: []
         }
       ]
     });

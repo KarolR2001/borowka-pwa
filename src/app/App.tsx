@@ -139,6 +139,11 @@ import {
   type AdminIssueReportsApi
 } from "../issues/AdminIssueReportsPanel";
 import {
+  AdminDashboardPanel,
+  defaultAdminDashboardApi,
+  type AdminDashboardApi
+} from "../dashboard/AdminDashboardPanel";
+import {
   AdminOrdinarySalesPanel,
   defaultOrdinarySalesApi,
   type OrdinarySalesApi
@@ -223,6 +228,7 @@ export type AppProps = {
   pendingPaymentsApi?: PendingPaymentsApi;
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   adminIssueReportsApi?: AdminIssueReportsApi;
+  adminDashboardApi?: AdminDashboardApi;
   ordinarySalesApi?: OrdinarySalesApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerDataExportApi?: PickerDataExportApi;
@@ -309,6 +315,7 @@ export function App({
   pendingPaymentsApi = defaultPendingPaymentsApi,
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   adminIssueReportsApi = defaultAdminIssueReportsApi,
+  adminDashboardApi = defaultAdminDashboardApi,
   ordinarySalesApi = defaultOrdinarySalesApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerDataExportApi = defaultPickerDataExportApi,
@@ -980,6 +987,13 @@ export function App({
 
         {activeView === "admin" ? (
           <>
+            <AdminDashboardPanel
+              api={adminDashboardApi}
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
+              syncDocuments={syncDocuments}
+            />
             <AdminOrdinarySalesPanel
               authState={authState}
               deviceId={deviceId}
