@@ -123,3 +123,11 @@
 - Decyzja: masa dokumentu `CORRECTION` jest dodatnia, a wplyw na stan zapisuje jawny kierunek `INCREASE_STOCK` albo `DECREASE_STOCK`. Kontrolny stan sezonu jest liczony ze zrodel jako potwierdzone zbiory minus sprzedaz netto i moze byc ujemny.
 - Uzasadnienie: PRD wymaga odroznienia obu kierunkow korekty, zabrania ukrywania jej jako zwyklej sprzedazy z ujemnym znakiem oraz wymaga alarmu dla ujemnego stanu.
 - Skutki: ujemna masa nie jest prawidlowym sposobem zapisu korekty; kalkulator, formularze, migracja, Rules i raporty musza stosowac ten sam kierunek oraz nie moga automatycznie wyzerowac ujemnego wyniku.
+
+## DEC-0017 - Granica serializacji zwyklej sprzedazy
+
+- Status: zaakceptowana technicznie na podstawie PRD
+- Data: 2026-07-29
+- Decyzja: zwykla sprzedaz wymaga aktywnego administratora i polaczenia online, dwukrotnego swiezego odczytu zrodel przed zapisem, jawnego ponownego potwierdzenia po zmianie stanu oraz kontrolnego przeliczenia po zapisie. Bez zaufanej funkcji serwerowej system nie deklaruje absolutnej serializacji dwoch rownoleglych sprzedazy.
+- Uzasadnienie: Firestore Rules nie moga sumowac wynikow zapytan, a transakcja klienta nie obejmuje atomowo zapytan po wszystkich sesjach i sprzedazach sezonu. Udawanie pelnej blokady pozostawiloby niejawne ryzyko utraty kontroli stanu.
+- Skutki: UI ostrzega przed rownolegla praca, standardowy przeplyw blokuje przekroczenie swiezego stanu, wynik po zapisie jest ponownie sprawdzany, a test kolizji i alarm niespojnosci pozostaja obowiazkowymi pakietami 8.17 i 8.14.
