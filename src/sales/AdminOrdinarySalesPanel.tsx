@@ -3,11 +3,26 @@ import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatKilograms, formatMoney } from "../domain/format";
+import type { UserProfile } from "../domain/identity";
 import { OrdinarySaleForm } from "./OrdinarySaleForm";
 import type {
   PreparedOrdinarySale,
   SaleFormStockContext
 } from "./ordinarySalePreparation";
+import { SaleCorrectionForm } from "./SaleCorrectionForm";
+import {
+  correctionDirectionLabel,
+  type PreparedSaleCorrection
+} from "./saleCorrectionPreparation";
+import {
+  checkSaleCorrection,
+  createSaleCorrection,
+  type CheckSaleCorrectionInput,
+  type CreateSaleCorrectionInput,
+  type CreateSaleCorrectionResult,
+  type SaleCorrectionCheckResult,
+  type SaleCorrectionConfirmedResult
+} from "./saleCorrectionWrite";
 import {
   checkOrdinarySaleStock,
   createOrdinarySale,
@@ -23,6 +38,10 @@ import {
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export type OrdinarySalesApi = {
+  checkCorrection: (
+    env: FirebaseEnv,
+    input: CheckSaleCorrectionInput
+  ) => Promise<SaleCorrectionCheckResult>;
   checkStock: (
     env: FirebaseEnv,
     input: CheckOrdinarySaleStockInput
@@ -31,6 +50,10 @@ export type OrdinarySalesApi = {
     env: FirebaseEnv,
     input: CreateOrdinarySaleInput
   ) => Promise<CreateOrdinarySaleResult>;
+  createCorrection: (
+    env: FirebaseEnv,
+    input: CreateSaleCorrectionInput
+  ) => Promise<CreateSaleCorrectionResult>;
   listStockContexts: (
     env: FirebaseEnv,
     input: ListOrdinarySaleStockInput
@@ -38,8 +61,10 @@ export type OrdinarySalesApi = {
 };
 
 export const defaultOrdinarySalesApi: OrdinarySalesApi = {
+  checkCorrection: checkSaleCorrection,
   checkStock: checkOrdinarySaleStock,
   create: createOrdinarySale,
+  createCorrection: createSaleCorrection,
   listStockContexts: listOrdinarySaleStockContexts
 };
 
@@ -47,6 +72,15 @@ type StockState =
   | { contexts: SaleFormStockContext[]; status: "IDLE" | "LOADING" }
   | { contexts: SaleFormStockContext[]; status: "READY" }
   | { contexts: SaleFormStockContext[]; message: string; status: "ERROR" };
+
+type StockContextSnapshot = Pick<
+  SaleFormStockContext,
+  | "availableWeightG"
+  | "pendingDocumentCount"
+  | "refreshedAtIso"
+  | "seasonId"
+  | "seasonName"
+>;
 
 export function AdminOrdinarySalesPanel({
   authState,
@@ -71,6 +105,7 @@ export function AdminOrdinarySalesPanel({
   const [confirmed, setConfirmed] = useState<OrdinarySaleConfirmedResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [operationMode, setOperationMode] = useState<"SALE" | "CORRECTION">("SALE");
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -197,7 +232,7 @@ export function AdminOrdinarySalesPanel({
     }
   }
 
-  function replaceStockContext(sale: PreparedOrdinarySale): void {
+  function replaceStockContext(sale: StockContextSnapshot): void {
     setStockState((current) => ({
       ...current,
       contexts: current.contexts.map((context) =>
@@ -224,7 +259,7 @@ export function AdminOrdinarySalesPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Stan i przychod</p>
-          <h2 id="ordinary-sales-panel-title">Zwykla sprzedaz</h2>
+          <h2 id="ordinary-sales-panel-title">Sprzedaz</h2>
           <p className="panel-detail">
             Stan jest pobierany ponownie z serwera przed kazdym zapisem.
           </p>
@@ -255,52 +290,338 @@ export function AdminOrdinarySalesPanel({
         <p className="empty-state">Brak otwartego sezonu do sprzedazy.</p>
       ) : null}
 
-      <OrdinarySaleForm
-        disabled={
-          isSaving ||
-          stockState.status === "LOADING" ||
-          preflight?.status === "CONFIRMATION_REQUIRED"
-        }
-        isOnline={isOnline}
-        key={formKey}
-        onDraftChange={() => {
-          setPreflight(null);
-          setSaveError(null);
-        }}
-        onPrepare={handlePrepare}
-        stockContexts={stockState.contexts}
-      />
-
-      {preflight?.status === "CONFIRMATION_REQUIRED" ? (
-        <SaleConfirmation
-          isSaving={isSaving}
-          onEdit={() => {
+      <div className="sales-operation-switch" role="group" aria-label="Typ operacji">
+        <button
+          aria-pressed={operationMode === "SALE"}
+          onClick={() => {
+            setOperationMode("SALE");
             setPreflight(null);
+            setConfirmed(null);
             setSaveError(null);
           }}
-          onConfirm={() => {
-            void handleConfirm();
+          type="button"
+        >
+          Zwykla sprzedaz
+        </button>
+        <button
+          aria-pressed={operationMode === "CORRECTION"}
+          onClick={() => {
+            setOperationMode("CORRECTION");
+            setPreflight(null);
+            setConfirmed(null);
+            setSaveError(null);
           }}
-          result={preflight}
+          type="button"
+        >
+          Korekta
+        </button>
+      </div>
+
+      {operationMode === "SALE" ? (
+        <>
+          <OrdinarySaleForm
+            disabled={
+              isSaving ||
+              stockState.status === "LOADING" ||
+              preflight?.status === "CONFIRMATION_REQUIRED"
+            }
+            isOnline={isOnline}
+            key={formKey}
+            onDraftChange={() => {
+              setPreflight(null);
+              setSaveError(null);
+            }}
+            onPrepare={handlePrepare}
+            stockContexts={stockState.contexts}
+          />
+
+          {preflight?.status === "CONFIRMATION_REQUIRED" ? (
+            <SaleConfirmation
+              isSaving={isSaving}
+              onEdit={() => {
+                setPreflight(null);
+                setSaveError(null);
+              }}
+              onConfirm={() => {
+                void handleConfirm();
+              }}
+              result={preflight}
+            />
+          ) : null}
+          {preflight?.status === "BLOCKED" ? (
+            <p className="form-message form-message--error" role="alert">
+              {preflight.message}
+            </p>
+          ) : null}
+          {saveError ? (
+            <p className="form-message form-message--warning" role="alert">
+              {saveError}
+            </p>
+          ) : null}
+          {confirmed ? <ConfirmedSale result={confirmed} /> : null}
+        </>
+      ) : (
+        <SaleCorrectionSection
+          actorProfile={actorProfile}
+          deviceId={deviceId}
+          env={env}
+          isOnline={isOnline}
+          onConfirmed={(result) => {
+            replaceStockContext({
+              availableWeightG: result.postWriteAvailableWeightG,
+              pendingDocumentCount: 0,
+              refreshedAtIso: new Date().toISOString(),
+              seasonId: result.correction.seasonId,
+              seasonName:
+                stockState.contexts.find(
+                  (context) => context.seasonId === result.correction.seasonId
+                )?.seasonName ?? result.correction.seasonId
+            });
+            setReloadKey((current) => current + 1);
+          }}
+          onStockContextChange={replaceStockContext}
+          ordinarySalesApi={ordinarySalesApi}
+          stockContexts={stockState.contexts}
+          stockLoading={stockState.status === "LOADING"}
         />
-      ) : null}
-      {preflight?.status === "BLOCKED" ? (
-        <p className="form-message form-message--error" role="alert">
-          {preflight.message}
-        </p>
-      ) : null}
-      {saveError ? (
-        <p className="form-message form-message--warning" role="alert">
-          {saveError}
-        </p>
-      ) : null}
-      {confirmed ? <ConfirmedSale result={confirmed} /> : null}
+      )}
 
       <p className="admin-ordinary-sales__concurrency-note">
         Nie zapisuj sprzedazy rownoczesnie z innego urzadzenia. Bez zaufanej funkcji
         serwerowej dwa rownolegle zapisy nie maja absolutnej gwarancji serializacji.
       </p>
     </section>
+  );
+}
+
+function SaleCorrectionSection({
+  actorProfile,
+  deviceId,
+  env,
+  isOnline,
+  onConfirmed,
+  onStockContextChange,
+  ordinarySalesApi,
+  stockContexts,
+  stockLoading
+}: {
+  actorProfile: UserProfile;
+  deviceId: string;
+  env: FirebaseEnv;
+  isOnline: boolean;
+  onConfirmed: (result: SaleCorrectionConfirmedResult) => void;
+  onStockContextChange: (snapshot: StockContextSnapshot) => void;
+  ordinarySalesApi: OrdinarySalesApi;
+  stockContexts: readonly SaleFormStockContext[];
+  stockLoading: boolean;
+}) {
+  const [checkResult, setCheckResult] = useState<SaleCorrectionCheckResult | null>(null);
+  const [confirmed, setConfirmed] = useState<SaleCorrectionConfirmedResult | null>(null);
+  const [confirmationAccepted, setConfirmationAccepted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formKey, setFormKey] = useState(0);
+
+  async function handlePrepare(
+    preparedCorrection: PreparedSaleCorrection
+  ): Promise<void> {
+    setConfirmed(null);
+    setConfirmationAccepted(false);
+    setError(null);
+    const result = await ordinarySalesApi.checkCorrection(env, {
+      actorProfile,
+      isOnline,
+      preparedCorrection
+    });
+    setCheckResult(result);
+    onStockContextChange(result.check.correction);
+
+    if (result.status === "BLOCKED") {
+      throw new Error(result.message);
+    }
+  }
+
+  async function handleConfirm(): Promise<void> {
+    if (
+      checkResult?.status !== "CONFIRMATION_REQUIRED" ||
+      !confirmationAccepted ||
+      isSaving ||
+      !isOnline
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const result = await ordinarySalesApi.createCorrection(env, {
+        actorProfile,
+        check: checkResult.check,
+        deviceId,
+        isOnline
+      });
+
+      if (result.status === "CONFIRMED") {
+        setConfirmed(result);
+        setCheckResult(null);
+        setConfirmationAccepted(false);
+        setFormKey((current) => current + 1);
+        onConfirmed(result);
+        return;
+      }
+
+      const refreshedCheck: SaleCorrectionCheckResult =
+        result.status === "BLOCKED"
+          ? {
+              check: result.check,
+              message: result.message,
+              status: "BLOCKED"
+            }
+          : {
+              check: result.check,
+              status: "CONFIRMATION_REQUIRED"
+            };
+      setCheckResult(refreshedCheck);
+      setConfirmationAccepted(false);
+      setError(result.message);
+      onStockContextChange(result.check.correction);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Nie udalo sie potwierdzic korekty."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="sale-correction-section">
+      <SaleCorrectionForm
+        disabled={
+          stockLoading || isSaving || checkResult?.status === "CONFIRMATION_REQUIRED"
+        }
+        isOnline={isOnline}
+        key={formKey}
+        onDraftChange={() => {
+          setCheckResult(null);
+          setConfirmed(null);
+          setConfirmationAccepted(false);
+          setError(null);
+        }}
+        onPrepare={handlePrepare}
+        stockContexts={stockContexts}
+      />
+
+      {checkResult?.status === "CONFIRMATION_REQUIRED" ? (
+        <section
+          className="sale-stock-confirmation"
+          aria-labelledby="sale-correction-confirmation-title"
+        >
+          <div className="sale-stock-confirmation__notice">
+            <TriangleAlert aria-hidden="true" size={20} />
+            <div>
+              <h3 id="sale-correction-confirmation-title">
+                {checkResult.check.stockChanged
+                  ? "Stan zmienil sie przed korekta"
+                  : "Potwierdz skutki korekty"}
+              </h3>
+              <p>
+                Korekta jest osobnym dokumentem i pozostanie w historii wraz z powodem
+                oraz audytem.
+              </p>
+            </div>
+          </div>
+          <dl className="sale-stock-confirmation__summary">
+            <ConfirmationValue
+              label="Kierunek"
+              value={correctionDirectionLabel(
+                checkResult.check.correction.correctionDirection
+              )}
+            />
+            <ConfirmationValue
+              label="Stan przed"
+              value={formatKilograms(checkResult.check.correction.availableWeightG)}
+            />
+            <ConfirmationValue
+              label="Wplyw na stan"
+              value={formatSignedKilograms(checkResult.check.correction.stockImpactG)}
+            />
+            <ConfirmationValue
+              label="Stan po"
+              value={formatKilograms(
+                checkResult.check.correction.projectedAvailableWeightG
+              )}
+            />
+            <ConfirmationValue
+              label="Wplyw na przychod"
+              value={formatSignedMoney(checkResult.check.correction.revenueImpactGrosz)}
+            />
+            <ConfirmationValue label="Powod" value={checkResult.check.correction.note} />
+          </dl>
+          <label className="sale-correction-confirmation__acceptance">
+            <input
+              checked={confirmationAccepted}
+              disabled={isSaving}
+              onChange={(event) => {
+                setConfirmationAccepted(event.target.checked);
+              }}
+              type="checkbox"
+            />
+            Potwierdzam kierunek, wplyw na stan i przychod oraz podany powod.
+          </label>
+          <div className="sale-stock-confirmation__actions">
+            <button
+              className="secondary-button"
+              disabled={isSaving}
+              onClick={() => {
+                setCheckResult(null);
+                setConfirmationAccepted(false);
+                setError(null);
+              }}
+              type="button"
+            >
+              <Pencil aria-hidden="true" size={18} />
+              Wroc do edycji
+            </button>
+            <button
+              className="primary-button"
+              disabled={!confirmationAccepted || isSaving}
+              onClick={() => {
+                void handleConfirm();
+              }}
+              type="button"
+            >
+              <Save aria-hidden="true" size={18} />
+              {isSaving ? "Ponowne sprawdzanie..." : "Potwierdz i zapisz korekte"}
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {checkResult?.status === "BLOCKED" ? (
+        <p className="form-message form-message--error" role="alert">
+          {checkResult.message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="form-message form-message--warning" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {confirmed ? (
+        <div className="sale-confirmed sale-confirmed--ok" role="status">
+          <CheckCircle2 aria-hidden="true" size={20} />
+          <div>
+            <strong>{confirmed.message}</strong>
+            <span>
+              Stan po zapisie: {formatKilograms(confirmed.postWriteAvailableWeightG)}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -418,4 +739,12 @@ function AccessNotice({ message }: { message: string }) {
       <p>{message}</p>
     </section>
   );
+}
+
+function formatSignedKilograms(value: number): string {
+  return `${value > 0 ? "+" : ""}${formatKilograms(value)}`;
+}
+
+function formatSignedMoney(value: number): string {
+  return `${value > 0 ? "+" : ""}${formatMoney(value)}`;
 }

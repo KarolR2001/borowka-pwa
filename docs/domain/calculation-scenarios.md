@@ -50,15 +50,26 @@ zapisane jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom planu.
 Regula i jej granice sa opisane w
 `docs/domain/sale-revenue-calculation.md`.
 
+## Scenariusze korekt sprzedazy Etapu 8
+
+| ID           | Przypadek                  | Dane wejsciowe                               | Oczekiwany wynik                        |
+| ------------ | -------------------------- | -------------------------------------------- | --------------------------------------- |
+| CALC-CORR-01 | Zwrot do stanu             | `INCREASE_STOCK`, 3000 g, 1250 gr/kg         | stan `+3000 g`, przychod `-3750 gr`     |
+| CALC-CORR-02 | Dodatkowy rozchod          | `DECREASE_STOCK`, 12 345 g, 1550 gr/kg       | stan `-12 345 g`, przychod `+19 135 gr` |
+| CALC-CORR-03 | Brak jawnego kierunku      | `CORRECTION`, `correctionDirection = null`   | zapis odrzucony                         |
+| CALC-CORR-04 | Brak powodu                | `CORRECTION`, `note = null`                  | zapis odrzucony                         |
+| CALC-CORR-05 | Niespojny podpisany wplyw  | `INCREASE_STOCK`, przychod audytu `+3750 gr` | batch odrzucony                         |
+| CALC-CORR-06 | Zmiana stanu przed zapisem | potwierdzono 10 kg, serwer zwraca potem 8 kg | bez zapisu, wymagane nowe potwierdzenie |
+
 ## Przyszle rozszerzenia
 
-| ID           | Przypadek                                             | Etap     |
-| ------------ | ----------------------------------------------------- | -------- |
-| CALC-FUT-002 | Korekta sprzedazy, w tym historyczny przypadek -20 zl | Etap 8/9 |
-| CALC-FUT-003 | Anulowanie sprzedazy i wplyw na stan                  | Etap 8   |
-| CALC-FUT-004 | Wyplata jednej zamknietej sesji                       | Etap 7   |
-| CALC-FUT-005 | Anulowanie wyplaty i powrot sesji do `CLOSED`         | Etap 7   |
-| CALC-FUT-006 | Sesja importowana z historyczna kwota nadrzedna       | Etap 9   |
+| ID           | Przypadek                                          | Etap   |
+| ------------ | -------------------------------------------------- | ------ |
+| CALC-FUT-002 | Reczna klasyfikacja historycznego przypadku -20 zl | Etap 9 |
+| CALC-FUT-003 | Anulowanie sprzedazy i wplyw na stan               | Etap 8 |
+| CALC-FUT-004 | Wyplata jednej zamknietej sesji                    | Etap 7 |
+| CALC-FUT-005 | Anulowanie wyplaty i powrot sesji do `CLOSED`      | Etap 7 |
+| CALC-FUT-006 | Sesja importowana z historyczna kwota nadrzedna    | Etap 9 |
 
 ## Minimalne pokrycie automatyczne
 
@@ -74,3 +85,10 @@ Pakiet 8.5 pokrywa `CALC-SALE-01` - `CALC-SALE-05` w
 `src/sales/OrdinarySaleForm.test.tsx` oraz `CALC-SALE-06` w
 `tests/rules/firestore-sales.test.ts`. Pozostale przyszle rozszerzenia musza
 zostac przeniesione do testow w odpowiednich etapach.
+
+Pakiet 8.6 pokrywa `CALC-CORR-01` - `CALC-CORR-06` w
+`src/sales/saleCorrectionPreparation.test.ts`,
+`src/sales/saleCorrectionWrite.test.ts`,
+`src/sales/AdminOrdinarySalesPanel.test.tsx`,
+`tests/rules/firestore-sales.test.ts` oraz
+`tests/integration/sale-stock-preflight.test.ts`.

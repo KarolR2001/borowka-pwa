@@ -164,7 +164,7 @@ export async function checkOrdinarySaleStock(
 ): Promise<OrdinarySaleStockCheckResult> {
   assertAdminOnline(input.actorProfile, input.isOnline);
   assertPreparedOrdinarySale(input.preparedSale);
-  const freshStock = await readFreshSaleStock(
+  const freshStock = await readFreshSaleStockForSeason(
     env,
     input.actorProfile,
     input.preparedSale.seasonId,
@@ -189,7 +189,7 @@ export async function createOrdinarySale(
     input.deviceId,
     "Sprzedaz wymaga identyfikatora urzadzenia."
   );
-  const freshStock = await readFreshSaleStock(
+  const freshStock = await readFreshSaleStockForSeason(
     env,
     input.actorProfile,
     input.check.sale.seasonId,
@@ -270,7 +270,7 @@ export async function createOrdinarySale(
     );
   }
 
-  const postWriteStock = await readFreshSaleStock(
+  const postWriteStock = await readFreshSaleStockForSeason(
     env,
     input.actorProfile,
     sale.seasonId,
@@ -458,6 +458,13 @@ export function decodeSaleDocument(
     return null;
   }
 
+  if (
+    (data.entryType === "SALE" && correctionDirection !== null) ||
+    (data.entryType === "CORRECTION" && (correctionDirection === null || note === null))
+  ) {
+    return null;
+  }
+
   try {
     if (
       calculateSaleRevenue({
@@ -521,7 +528,7 @@ export function createOrdinarySaleId(
   return id;
 }
 
-async function readFreshSaleStock(
+export async function readFreshSaleStockForSeason(
   env: FirebaseEnv,
   actorProfile: UserProfile,
   seasonId: string,

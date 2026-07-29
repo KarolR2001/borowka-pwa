@@ -125,6 +125,59 @@ describe("AdminOrdinarySalesPanel", () => {
     expect(api.create).not.toHaveBeenCalled();
   });
 
+  it("requires an additional confirmation before writing a correction", async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    api.checkCorrection.mockImplementation((_env, input) =>
+      Promise.resolve({
+        check: {
+          checkedAtIso: "2026-07-29T06:05:00.000Z",
+          correction: {
+            ...input.preparedCorrection,
+            refreshedAtIso: "2026-07-29T06:05:00.000Z"
+          },
+          correctionId: "correction-1",
+          expectedAvailableWeightG: 10_000,
+          stockChanged: false
+        },
+        status: "CONFIRMATION_REQUIRED"
+      })
+    );
+    api.createCorrection.mockImplementation((_env, input) =>
+      Promise.resolve(correctionConfirmedResult(input.check.correction))
+    );
+
+    renderPanel(api);
+    await screen.findByRole("option", { name: "Sezon 2026" });
+    await user.click(screen.getByRole("button", { name: "Korekta" }));
+    await user.type(screen.getByLabelText("Masa kg"), "3");
+    await user.type(screen.getByLabelText("Cena za kg"), "12,50");
+    await user.type(screen.getByLabelText("Powod korekty"), "Powod korekty sprzedazy");
+    await user.click(screen.getByRole("button", { name: "Sprawdz korekte" }));
+
+    const confirmButton = await screen.findByRole("button", {
+      name: "Potwierdz i zapisz korekte"
+    });
+    expect(confirmButton).toBeDisabled();
+    expect(api.createCorrection).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByLabelText(
+        "Potwierdzam kierunek, wplyw na stan i przychod oraz podany powod."
+      )
+    );
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(api.createCorrection).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      await screen.findByText(
+        "Korekta sprzedazy zostala zapisana i potwierdzona przez serwer."
+      )
+    ).toBeVisible();
+  });
+
   it("does not load or expose sales to an operator", () => {
     const api = createApi();
     const operatorState: ReadyAuthState = {
@@ -172,8 +225,10 @@ async function fillAndPrepare(user: ReturnType<typeof userEvent.setup>) {
 
 function createApi() {
   return {
+    checkCorrection: vi.fn<OrdinarySalesApi["checkCorrection"]>(),
     checkStock: vi.fn<OrdinarySalesApi["checkStock"]>(),
     create: vi.fn<OrdinarySalesApi["create"]>(),
+    createCorrection: vi.fn<OrdinarySalesApi["createCorrection"]>(),
     listStockContexts: vi.fn<OrdinarySalesApi["listStockContexts"]>().mockResolvedValue([
       {
         availableWeightG: 10_000,
@@ -185,6 +240,55 @@ function createApi() {
         seasonName: "Sezon 2026"
       }
     ])
+  };
+}
+
+function correctionConfirmedResult(
+  correction: import("./saleCorrectionPreparation").PreparedSaleCorrection
+) {
+  const document: SaleDocument = {
+    businessDate: correction.businessDate,
+    calculationVersion: correction.calculationVersion,
+    cancellationReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    correctionDirection: correction.correctionDirection,
+    createdAtServer: "server-time",
+    createdBy: "admin-1",
+    creationAttemptId: "sale-correction-attempt-correction-1",
+    entryType: "CORRECTION",
+    id: "correction-1",
+    legacyImport: false,
+    legacySourceRow: null,
+    note: correction.note,
+    priceGroszPerKg: correction.priceGroszPerKg,
+    seasonId: correction.seasonId,
+    status: "ACTIVE",
+    totalGrosz: correction.revenueMagnitudeGrosz,
+    weightG: correction.weightG
+  };
+
+  return {
+    auditEvent: {
+      action: "SALE_CORRECTION_CREATED" as const,
+      actorRoleSnapshot: "ADMIN" as const,
+      actorUid: "admin-1",
+      afterSummary: null,
+      beforeSummary: null,
+      businessDate: correction.businessDate,
+      createdAtDevice: "device-time",
+      createdAtServer: "server-time",
+      deviceId: "device-admin",
+      entityId: document.id,
+      entityType: "SALE" as const,
+      id: "sale-correction-created-correction-1",
+      reason: correction.note
+    },
+    concurrentStockChangeDetected: false,
+    correction: document,
+    message: "Korekta sprzedazy zostala zapisana i potwierdzona przez serwer.",
+    postWriteAvailableWeightG: correction.projectedAvailableWeightG,
+    status: "CONFIRMED" as const
   };
 }
 
