@@ -218,6 +218,42 @@ describe("AdminOrdinarySalesPanel", () => {
     ).toBeVisible();
   });
 
+  it("opens the selected active history item in the cancellation workflow", async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    const sale = activeSaleDocument();
+    api.list.mockResolvedValue({
+      invalidSaleCount: 0,
+      invalidSeasonCount: 0,
+      invalidUserCount: 0,
+      sales: [
+        {
+          ...sale,
+          authorName: "Admin",
+          cancelledAtIso: null,
+          cancelledByName: null,
+          createdAtIso: "2026-07-29T08:00:00.000Z",
+          seasonName: "Sezon 2026"
+        }
+      ]
+    });
+    api.listCancellationCandidates.mockResolvedValue([
+      { sale, seasonName: "Sezon 2026" }
+    ]);
+
+    renderPanel(api);
+    await user.click(await screen.findByTitle("Otworz szczegoly operacji sale-1"));
+    await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
+
+    expect(screen.getByRole("button", { name: "Anulowanie" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(
+      await screen.findByRole("radio", { name: /Sprzedaz.*2026-07-29/ })
+    ).toBeChecked();
+  });
+
   it("does not load or expose sales to an operator", () => {
     const api = createApi();
     const operatorState: ReadyAuthState = {
@@ -273,6 +309,12 @@ function createApi() {
     listCancellationCandidates: vi
       .fn<OrdinarySalesApi["listCancellationCandidates"]>()
       .mockResolvedValue([]),
+    list: vi.fn<OrdinarySalesApi["list"]>().mockResolvedValue({
+      invalidSaleCount: 0,
+      invalidSeasonCount: 0,
+      invalidUserCount: 0,
+      sales: []
+    }),
     listStockContexts: vi.fn<OrdinarySalesApi["listStockContexts"]>().mockResolvedValue([
       {
         availableWeightG: 10_000,

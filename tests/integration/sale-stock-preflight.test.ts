@@ -11,6 +11,7 @@ import {
   cancelSale,
   listSaleCancellationCandidates
 } from "../../src/sales/saleCancellation";
+import { listAdminSales } from "../../src/sales/saleDirectory";
 import type { PreparedSaleCorrection } from "../../src/sales/saleCorrectionPreparation";
 import {
   checkSaleCorrection,
@@ -473,6 +474,20 @@ describe("sale cancellation Firestore flow", () => {
         { actorProfile: adminProfile, isOnline: true }
       )
     ).toEqual([]);
+    expect(await listAdminSales({}, adminProfile)).toMatchObject({
+      invalidSaleCount: 0,
+      invalidSeasonCount: 0,
+      invalidUserCount: 0,
+      sales: [
+        {
+          authorName: "Admin Sale",
+          cancellationReason: "Bledna masa",
+          id: "sale-to-cancel",
+          seasonName: "Sezon 2026",
+          status: "CANCELLED"
+        }
+      ]
+    });
   });
 });
 

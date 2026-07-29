@@ -59,7 +59,7 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
 - Aktualny kierunek po scaleniu biezacego przyrostu: pakiet
-  `8.8 - lista i szczegoly sprzedazy`.
+  `8.9 - pulpit administratora`.
 
 ## Testowanie i walidacja
 
@@ -130,11 +130,11 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Pakiet `8.7 - anulowanie sprzedazy` jest zakonczonym zakresem biezacego
+- Pakiet `8.8 - lista i szczegoly sprzedazy` jest zakonczonym zakresem biezacego
   przyrostu; po jego zielonym CI i scaleniu nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Nastepny pakiet implementacyjny to `8.8 - lista i szczegoly sprzedazy`.
+- Nastepny pakiet implementacyjny to `8.9 - pulpit administratora`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.

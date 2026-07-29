@@ -11,6 +11,11 @@ import type {
 } from "./ordinarySalePreparation";
 import { cancelSale, listSaleCancellationCandidates } from "./saleCancellation";
 import {
+  AdminSaleDirectoryPanel,
+  type AdminSaleDirectoryApi
+} from "./AdminSaleDirectoryPanel";
+import { listAdminSales } from "./saleDirectory";
+import {
   SaleCancellationSection,
   type SaleCancellationSectionApi
 } from "./SaleCancellationSection";
@@ -42,28 +47,29 @@ import {
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
-export type OrdinarySalesApi = SaleCancellationSectionApi & {
-  checkCorrection: (
-    env: FirebaseEnv,
-    input: CheckSaleCorrectionInput
-  ) => Promise<SaleCorrectionCheckResult>;
-  checkStock: (
-    env: FirebaseEnv,
-    input: CheckOrdinarySaleStockInput
-  ) => Promise<OrdinarySaleStockCheckResult>;
-  create: (
-    env: FirebaseEnv,
-    input: CreateOrdinarySaleInput
-  ) => Promise<CreateOrdinarySaleResult>;
-  createCorrection: (
-    env: FirebaseEnv,
-    input: CreateSaleCorrectionInput
-  ) => Promise<CreateSaleCorrectionResult>;
-  listStockContexts: (
-    env: FirebaseEnv,
-    input: ListOrdinarySaleStockInput
-  ) => Promise<SaleFormStockContext[]>;
-};
+export type OrdinarySalesApi = AdminSaleDirectoryApi &
+  SaleCancellationSectionApi & {
+    checkCorrection: (
+      env: FirebaseEnv,
+      input: CheckSaleCorrectionInput
+    ) => Promise<SaleCorrectionCheckResult>;
+    checkStock: (
+      env: FirebaseEnv,
+      input: CheckOrdinarySaleStockInput
+    ) => Promise<OrdinarySaleStockCheckResult>;
+    create: (
+      env: FirebaseEnv,
+      input: CreateOrdinarySaleInput
+    ) => Promise<CreateOrdinarySaleResult>;
+    createCorrection: (
+      env: FirebaseEnv,
+      input: CreateSaleCorrectionInput
+    ) => Promise<CreateSaleCorrectionResult>;
+    listStockContexts: (
+      env: FirebaseEnv,
+      input: ListOrdinarySaleStockInput
+    ) => Promise<SaleFormStockContext[]>;
+  };
 
 export const defaultOrdinarySalesApi: OrdinarySalesApi = {
   cancelSale,
@@ -72,6 +78,7 @@ export const defaultOrdinarySalesApi: OrdinarySalesApi = {
   create: createOrdinarySale,
   createCorrection: createSaleCorrection,
   listCancellationCandidates: listSaleCancellationCandidates,
+  list: listAdminSales,
   listStockContexts: listOrdinarySaleStockContexts
 };
 
@@ -115,6 +122,9 @@ export function AdminOrdinarySalesPanel({
   const [operationMode, setOperationMode] = useState<
     "SALE" | "CORRECTION" | "CANCELLATION"
   >("SALE");
+  const [requestedCancellationSaleId, setRequestedCancellationSaleId] = useState<
+    string | null
+  >(null);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -304,6 +314,7 @@ export function AdminOrdinarySalesPanel({
           aria-pressed={operationMode === "SALE"}
           onClick={() => {
             setOperationMode("SALE");
+            setRequestedCancellationSaleId(null);
             setPreflight(null);
             setConfirmed(null);
             setSaveError(null);
@@ -316,6 +327,7 @@ export function AdminOrdinarySalesPanel({
           aria-pressed={operationMode === "CORRECTION"}
           onClick={() => {
             setOperationMode("CORRECTION");
+            setRequestedCancellationSaleId(null);
             setPreflight(null);
             setConfirmed(null);
             setSaveError(null);
@@ -328,6 +340,7 @@ export function AdminOrdinarySalesPanel({
           aria-pressed={operationMode === "CANCELLATION"}
           onClick={() => {
             setOperationMode("CANCELLATION");
+            setRequestedCancellationSaleId(null);
             setPreflight(null);
             setConfirmed(null);
             setSaveError(null);
@@ -425,6 +438,7 @@ export function AdminOrdinarySalesPanel({
                 )?.seasonName ?? result.cancelledSale.seasonId
             });
           }}
+          requestedSaleId={requestedCancellationSaleId}
         />
       )}
 
@@ -432,6 +446,17 @@ export function AdminOrdinarySalesPanel({
         Nie zapisuj sprzedazy rownoczesnie z innego urzadzenia. Bez zaufanej funkcji
         serwerowej dwa rownolegle zapisy nie maja absolutnej gwarancji serializacji.
       </p>
+
+      <AdminSaleDirectoryPanel
+        api={ordinarySalesApi}
+        authState={authState}
+        env={env}
+        isOnline={isOnline}
+        onRequestCancellation={(saleId) => {
+          setRequestedCancellationSaleId(saleId);
+          setOperationMode("CANCELLATION");
+        }}
+      />
     </section>
   );
 }
