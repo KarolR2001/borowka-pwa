@@ -60,49 +60,53 @@ service cloud.firestore {
     }
 
     function isAuditAction(action) {
-      return action == 'USER_ROLE_CHANGED' ||
-        action == 'USER_WORKER_LINK_CHANGED' ||
-        action == 'USER_BLOCKED' ||
-        action == 'USER_REACTIVATED' ||
-        action == 'REGISTRATION_INVITATION_CREATED' ||
-        action == 'REGISTRATION_INVITATION_CANCELLED' ||
-        action == 'REGISTRATION_INVITATION_EXPIRED' ||
-        action == 'SEASON_CREATED' ||
-        action == 'SEASON_OPENED' ||
-        action == 'SEASON_CLOSED' ||
-        action == 'SEASON_REOPENED' ||
-        action == 'SEASON_ARCHIVED' ||
-        action == 'SEASON_DEFAULT_CHANGED' ||
-        action == 'SETTLEMENT_PLAN_CREATED' ||
-        action == 'SETTLEMENT_PLAN_UPDATED' ||
-        action == 'SETTLEMENT_PLAN_ARCHIVED' ||
-        action == 'WORKER_CREATED' ||
-        action == 'WORKER_ARCHIVED' ||
-        action == 'WORKER_RATE_CHANGED' ||
-        action == 'HARVEST_SESSION_CREATED' ||
-        action == 'HARVEST_SESSION_CLOSED' ||
-        action == 'HARVEST_SESSION_RECLOSED' ||
-        action == 'HARVEST_SESSION_REOPENED' ||
-        action == 'HARVEST_SESSION_CANCELLED' ||
-        action == 'HARVEST_SESSION_MARKED_REVIEW_REQUIRED' ||
-        action == 'HARVEST_SESSION_REVIEW_RESOLVED' ||
-        action == 'HARVEST_SESSION_PAID' ||
-        action == 'PAYMENT_CANCELLED' ||
-        action == 'SALE_CREATED' ||
-        action == 'HARVEST_ENTRY_CREATED' ||
-        action == 'HARVEST_ENTRY_CANCELLED';
+      return action in [
+        'USER_ROLE_CHANGED',
+        'USER_WORKER_LINK_CHANGED',
+        'USER_BLOCKED',
+        'USER_REACTIVATED',
+        'REGISTRATION_INVITATION_CREATED',
+        'REGISTRATION_INVITATION_CANCELLED',
+        'REGISTRATION_INVITATION_EXPIRED',
+        'SEASON_CREATED',
+        'SEASON_OPENED',
+        'SEASON_CLOSED',
+        'SEASON_REOPENED',
+        'SEASON_ARCHIVED',
+        'SEASON_DEFAULT_CHANGED',
+        'SETTLEMENT_PLAN_CREATED',
+        'SETTLEMENT_PLAN_UPDATED',
+        'SETTLEMENT_PLAN_ARCHIVED',
+        'WORKER_CREATED',
+        'WORKER_ARCHIVED',
+        'WORKER_RATE_CHANGED',
+        'HARVEST_SESSION_CREATED',
+        'HARVEST_SESSION_CLOSED',
+        'HARVEST_SESSION_RECLOSED',
+        'HARVEST_SESSION_REOPENED',
+        'HARVEST_SESSION_CANCELLED',
+        'HARVEST_SESSION_MARKED_REVIEW_REQUIRED',
+        'HARVEST_SESSION_REVIEW_RESOLVED',
+        'HARVEST_SESSION_PAID',
+        'PAYMENT_CANCELLED',
+        'SALE_CREATED',
+        'HARVEST_ENTRY_CREATED',
+        'HARVEST_ENTRY_CANCELLED'
+      ];
     }
 
     function isAuditEntityType(entityType) {
-      return entityType == 'USER_PROFILE' ||
-        entityType == 'REGISTRATION_INVITATION' ||
-        entityType == 'SEASON' ||
-        entityType == 'SETTLEMENT_PLAN' ||
-        entityType == 'WORKER' ||
-        entityType == 'HARVEST_SESSION' ||
-        entityType == 'HARVEST_ENTRY' ||
-        entityType == 'PAYMENT' ||
-        entityType == 'SALE';
+      return entityType in [
+        'USER_PROFILE',
+        'REGISTRATION_INVITATION',
+        'SEASON',
+        'SETTLEMENT_PLAN',
+        'WORKER',
+        'HARVEST_SESSION',
+        'HARVEST_ENTRY',
+        'PAYMENT',
+        'SALE'
+      ];
     }
 
     function isHarvestSessionStatus(status) {
