@@ -57,6 +57,16 @@ beforeEach(async () => {
       setDoc(doc(db, "users", pickerProfile.uid), pickerProfile),
       setDoc(doc(db, "harvestSessions", "session-paid"), sessionDocument()),
       setDoc(
+        doc(db, "harvestSessions", "session-bartek"),
+        sessionDocument({
+          id: "session-bartek",
+          paymentId: null,
+          status: "CLOSED",
+          workerId: "worker-bartek",
+          workerNameSnapshot: "Bartek Zbieracz"
+        })
+      ),
+      setDoc(
         doc(db, "harvestEntries", "entry-cancelled"),
         entryDocument("entry-cancelled", 1, {
           cancellationReason: "Bledna waga",
@@ -132,9 +142,24 @@ describe("picker session details Firestore read", () => {
     expect(serialized).not.toContain("operator-secret");
     expect(serialized).not.toContain("device-secret");
   });
+
+  it("rejects a foreign session id supplied through navigation", async () => {
+    await expect(
+      loadPickerSessionDetails(
+        {},
+        {
+          actorProfile: pickerProfile,
+          isOnline: true,
+          sessionId: "session-bartek"
+        }
+      )
+    ).rejects.toMatchObject({
+      code: "permission-denied"
+    });
+  });
 });
 
-function sessionDocument() {
+function sessionDocument(overrides: Record<string, unknown> = {}) {
   return {
     allowBatchQuantitySnapshot: true,
     amountDueGrosz: 2250,
@@ -173,7 +198,8 @@ function sessionDocument() {
     updatedAtServer: Timestamp.now(),
     weightRequiredSnapshot: false,
     workerId: "worker-anna",
-    workerNameSnapshot: "Anna Zbieracz"
+    workerNameSnapshot: "Anna Zbieracz",
+    ...overrides
   };
 }
 
