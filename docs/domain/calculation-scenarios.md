@@ -36,11 +36,24 @@ zapisane jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom planu.
 | CALC-013 | Zamkniecie pustej sesji                              | sesja `OPEN`, brak aktywnych wpisow                                          | walidacja odrzuca zamkniecie                                                                               |
 | CALC-014 | Druga sesja tej samej osoby i dnia                   | istnieje sesja tej samej osoby i daty                                        | nowa sesja wymaga jawnego potwierdzenia                                                                    |
 
+## Scenariusze sprzedazy Etapu 8
+
+| ID           | Przypadek                                  | Dane wejsciowe              | Oczekiwany wynik                             |
+| ------------ | ------------------------------------------ | --------------------------- | -------------------------------------------- |
+| CALC-SALE-01 | Pelne kilogramy                            | 3000 g, 1250 gr/kg          | 3750 gr, `calculationVersion = "1"`          |
+| CALC-SALE-02 | Ponizej polowy grosza                      | 1 g, 499 gr/kg              | 0 gr                                         |
+| CALC-SALE-03 | Dokladnie polowa grosza                    | 1 g, 500 gr/kg              | 1 gr                                         |
+| CALC-SALE-04 | Wszystkie gramy i jedno zaokraglenie       | 12 345 g, 1550 gr/kg        | 19 134,750 gr przed zaokragleniem, 19 135 gr |
+| CALC-SALE-05 | Cena zero                                  | 1500 g, 0 gr/kg             | 0 gr                                         |
+| CALC-SALE-06 | Niespojna kwota albo wersja podczas zapisu | 3000 g, 1250 gr/kg, 3749 gr | zapis odrzucony                              |
+
+Regula i jej granice sa opisane w
+`docs/domain/sale-revenue-calculation.md`.
+
 ## Przyszle rozszerzenia
 
 | ID           | Przypadek                                             | Etap     |
 | ------------ | ----------------------------------------------------- | -------- |
-| CALC-FUT-001 | Sprzedaz zwykla liczona z pelnej precyzji masy        | Etap 8   |
 | CALC-FUT-002 | Korekta sprzedazy, w tym historyczny przypadek -20 zl | Etap 8/9 |
 | CALC-FUT-003 | Anulowanie sprzedazy i wplyw na stan                  | Etap 8   |
 | CALC-FUT-004 | Wyplata jednej zamknietej sesji                       | Etap 7   |
@@ -54,5 +67,10 @@ Etap 5.12 pokrywa automatycznie scenariusze `CALC-001` - `CALC-012` w
 czesc `CALC-013`, blokujac przygotowanie zamkniecia pustej sesji w
 `src/harvest/harvestSessionTrustBoundary.test.ts`. Przed zamknieciem Etapu 5
 nadal trzeba pokryc integracyjny przeplyw zamkniecia sesji oraz `CALC-014` w
-przeplywach zamkniecia i otwierania sesji. Przyszle rozszerzenia musza zostac
-przeniesione do testow w odpowiednich etapach.
+przeplywach zamkniecia i otwierania sesji.
+
+Pakiet 8.5 pokrywa `CALC-SALE-01` - `CALC-SALE-05` w
+`src/sales/saleRevenueCalculation.test.ts`, prezentacje metody w
+`src/sales/OrdinarySaleForm.test.tsx` oraz `CALC-SALE-06` w
+`tests/rules/firestore-sales.test.ts`. Pozostale przyszle rozszerzenia musza
+zostac przeniesione do testow w odpowiednich etapach.

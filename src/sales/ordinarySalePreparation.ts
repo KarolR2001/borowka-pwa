@@ -1,4 +1,9 @@
 import { parseDecimalToScaledInteger } from "../domain/format";
+import {
+  SALE_REVENUE_CALCULATION_VERSION,
+  SALE_REVENUE_ROUNDING_RULE,
+  calculateSaleRevenue
+} from "./saleRevenueCalculation";
 
 export const ORDINARY_SALE_NOTE_MAX_LENGTH = 200;
 
@@ -28,7 +33,10 @@ export type OrdinarySalePreview = {
   priceGroszPerKg: number;
   projectedAvailableWeightG: number;
   refreshedAtIso: string;
+  revenueCalculationVersion: string;
   revenuePreviewGrosz: number;
+  revenueRemainderMilliGrosz: number;
+  revenueRoundingRule: typeof SALE_REVENUE_ROUNDING_RULE;
   seasonId: string;
   seasonName: string;
   stockDataSource: SaleFormStockContext["dataSource"];
@@ -77,6 +85,7 @@ export function createOrdinarySalePreview({
     weightG,
     "Przewidywany stan przekracza bezpieczny zakres liczbowy."
   );
+  const revenue = calculateSaleRevenue({ priceGroszPerKg, weightG });
 
   return {
     availableWeightG: context.availableWeightG,
@@ -86,7 +95,10 @@ export function createOrdinarySalePreview({
     priceGroszPerKg,
     projectedAvailableWeightG,
     refreshedAtIso: new Date(context.refreshedAtIso).toISOString(),
-    revenuePreviewGrosz: calculateSaleRevenuePreviewGrosz(weightG, priceGroszPerKg),
+    revenueCalculationVersion: revenue.calculationVersion,
+    revenuePreviewGrosz: revenue.totalGrosz,
+    revenueRemainderMilliGrosz: revenue.remainderMilliGrosz,
+    revenueRoundingRule: revenue.roundingRule,
     seasonId: context.seasonId,
     seasonName: context.seasonName,
     stockDataSource: context.dataSource,
@@ -120,23 +132,10 @@ export function calculateSaleRevenuePreviewGrosz(
   weightG: number,
   priceGroszPerKg: number
 ): number {
-  assertSafePositiveInteger(
-    weightG,
-    "Masa sprzedazy musi byc dodatnia liczba calkowita gramow."
-  );
-  assertSafeNonNegativeInteger(
-    priceGroszPerKg,
-    "Cena sprzedazy musi byc nieujemna liczba calkowita groszy za kilogram."
-  );
-
-  const rounded = (BigInt(weightG) * BigInt(priceGroszPerKg) + 500n) / 1000n;
-
-  if (rounded > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error("Podglad przychodu przekracza bezpieczny zakres liczbowy.");
-  }
-
-  return Number(rounded);
+  return calculateSaleRevenue({ priceGroszPerKg, weightG }).totalGrosz;
 }
+
+export { SALE_REVENUE_CALCULATION_VERSION };
 
 function parseSaleWeight(value: string): number {
   let weightG: number;

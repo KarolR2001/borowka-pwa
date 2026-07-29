@@ -95,6 +95,34 @@ describe("sales Firestore rules", () => {
       }
     });
     await assertFails(invalidBatch.commit());
+
+    const wrongTotalBatch = writeBatch(db);
+    wrongTotalBatch.set(doc(db, "sales", "sale-1"), {
+      ...saleDocument(),
+      totalGrosz: 3749
+    });
+    wrongTotalBatch.set(doc(db, "auditEvents", "sale-created-sale-1"), {
+      ...saleAudit(),
+      afterSummary: {
+        ...saleAudit().afterSummary,
+        totalGrosz: 3749
+      }
+    });
+    await assertFails(wrongTotalBatch.commit());
+
+    const wrongVersionBatch = writeBatch(db);
+    wrongVersionBatch.set(doc(db, "sales", "sale-1"), {
+      ...saleDocument(),
+      calculationVersion: "legacy"
+    });
+    wrongVersionBatch.set(doc(db, "auditEvents", "sale-created-sale-1"), {
+      ...saleAudit(),
+      afterSummary: {
+        ...saleAudit().afterSummary,
+        calculationVersion: "legacy"
+      }
+    });
+    await assertFails(wrongVersionBatch.commit());
   });
 
   it("rejects a sale outside the open season date range", async () => {
@@ -160,6 +188,7 @@ function profile(role: "ADMIN" | "OPERATOR" | "PICKER") {
 function saleDocument() {
   return {
     businessDate: "2026-07-29",
+    calculationVersion: "1",
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,
@@ -186,6 +215,7 @@ function saleAudit() {
     actorRoleSnapshot: "ADMIN",
     actorUid: "admin-1",
     afterSummary: {
+      calculationVersion: "1",
       entryType: "SALE",
       projectedStockWeightG: 7000,
       saleId: "sale-1",

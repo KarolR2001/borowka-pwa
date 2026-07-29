@@ -131,3 +131,11 @@
 - Decyzja: zwykla sprzedaz wymaga aktywnego administratora i polaczenia online, dwukrotnego swiezego odczytu zrodel przed zapisem, jawnego ponownego potwierdzenia po zmianie stanu oraz kontrolnego przeliczenia po zapisie. Bez zaufanej funkcji serwerowej system nie deklaruje absolutnej serializacji dwoch rownoleglych sprzedazy.
 - Uzasadnienie: Firestore Rules nie moga sumowac wynikow zapytan, a transakcja klienta nie obejmuje atomowo zapytan po wszystkich sesjach i sprzedazach sezonu. Udawanie pelnej blokady pozostawiloby niejawne ryzyko utraty kontroli stanu.
 - Skutki: UI ostrzega przed rownolegla praca, standardowy przeplyw blokuje przekroczenie swiezego stanu, wynik po zapisie jest ponownie sprawdzany, a test kolizji i alarm niespojnosci pozostaja obowiazkowymi pakietami 8.17 i 8.14.
+
+## DEC-0018 - Oficjalne zaokraglenie przychodu sprzedazy
+
+- Status: zaakceptowana technicznie na podstawie PRD
+- Data: 2026-07-29
+- Decyzja: przychod zwyklej sprzedazy jest liczony jako `weightG * priceGroszPerKg / 1000`, z wykorzystaniem wszystkich gramow i jednym matematycznym zaokragleniem do pelnego grosza; polowa grosza jest zaokraglana w gore. Regula ma `calculationVersion = "1"`.
+- Uzasadnienie: PRD FR-SALE-014 wymaga pelnej precyzji masy i wyniku w groszach, a pakiet 8.5 wymaga jednej jawnej, testowanej i wersjonowanej reguly. Obliczenia calkowitoliczbowe usuwaja roznice wynikajace z reprezentacji zmiennoprzecinkowej.
+- Skutki: formularz pokazuje metode, klient zapisuje wersje razem z kwota, Security Rules niezaleznie sprawdzaja zgodnosc, a przyszla zmiana algorytmu wymaga nowej wersji bez cichego przeliczania historii.

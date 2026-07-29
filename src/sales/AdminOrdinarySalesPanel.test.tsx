@@ -205,7 +205,10 @@ function stockCheck(
       priceGroszPerKg: 1250,
       projectedAvailableWeightG: availableWeightG - 3000,
       refreshedAtIso: "2026-07-29T06:05:00.000Z",
+      revenueCalculationVersion: "1",
       revenuePreviewGrosz: 3750,
+      revenueRemainderMilliGrosz: 0,
+      revenueRoundingRule: "HALF_UP_TO_GROSZ",
       seasonId: "season-1",
       seasonName: "Sezon 2026",
       status: "ACTIVE",
@@ -221,6 +224,7 @@ function stockCheck(
 function confirmedResult(check: OrdinarySaleStockCheck) {
   const sale: SaleDocument = {
     businessDate: check.sale.businessDate,
+    calculationVersion: "1",
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,

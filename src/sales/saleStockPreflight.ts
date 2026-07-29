@@ -24,10 +24,13 @@ import {
   type StockCorrectionDirection
 } from "../stock/stockSourceDefinition";
 import {
-  calculateSaleRevenuePreviewGrosz,
   type PreparedOrdinarySale,
   type SaleFormStockContext
 } from "./ordinarySalePreparation";
+import {
+  SALE_REVENUE_CALCULATION_VERSION,
+  calculateSaleRevenue
+} from "./saleRevenueCalculation";
 import type { Firestore } from "firebase/firestore";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -36,6 +39,7 @@ export const SALES_COLLECTION = "sales";
 
 export type SaleDocument = {
   businessDate: string;
+  calculationVersion: string;
   cancellationReason: string | null;
   cancelledAt: unknown;
   cancelledBy: string | null;
@@ -376,6 +380,7 @@ export function prepareOrdinarySaleDocument({
 
   return {
     businessDate: checkedSale.businessDate,
+    calculationVersion: checkedSale.revenueCalculationVersion,
     cancellationReason: null,
     cancelledAt: null,
     cancelledBy: null,
@@ -413,6 +418,7 @@ export function decodeSaleDocument(
   const id = readRequiredText(data.id);
   const seasonId = readRequiredText(data.seasonId);
   const businessDate = readRequiredText(data.businessDate);
+  const calculationVersion = readRequiredText(data.calculationVersion);
   const createdBy = readRequiredText(data.createdBy);
   const creationAttemptId = readRequiredText(data.creationAttemptId);
   const note = readNullableText(data.note);
@@ -433,6 +439,7 @@ export function decodeSaleDocument(
     id !== expectedId ||
     !seasonId ||
     !businessDate ||
+    calculationVersion !== SALE_REVENUE_CALCULATION_VERSION ||
     !createdBy ||
     !creationAttemptId ||
     note === undefined ||
@@ -451,8 +458,22 @@ export function decodeSaleDocument(
     return null;
   }
 
+  try {
+    if (
+      calculateSaleRevenue({
+        priceGroszPerKg: data.priceGroszPerKg,
+        weightG: data.weightG
+      }).totalGrosz !== data.totalGrosz
+    ) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
   const sale: SaleDocument = {
     businessDate,
+    calculationVersion,
     cancellationReason,
     cancelledAt: data.cancelledAt ?? null,
     cancelledBy,
@@ -627,6 +648,7 @@ function prepareOrdinarySaleAudit({
     actorUid: actorProfile.uid,
     afterSummary: {
       entryType: "SALE",
+      calculationVersion: checkedSale.revenueCalculationVersion,
       projectedStockWeightG: checkedSale.projectedAvailableWeightG,
       saleId,
       seasonId: checkedSale.seasonId,
@@ -659,10 +681,21 @@ function assertPreparedOrdinarySale(sale: PreparedOrdinarySale): void {
     !isSafeNonNegativeInteger(sale.priceGroszPerKg) ||
     !Number.isSafeInteger(sale.availableWeightG) ||
     !Number.isSafeInteger(sale.projectedAvailableWeightG) ||
-    sale.revenuePreviewGrosz !==
-      calculateSaleRevenuePreviewGrosz(sale.weightG, sale.priceGroszPerKg)
+    sale.revenueCalculationVersion !== SALE_REVENUE_CALCULATION_VERSION
   ) {
     throw new Error("Przygotowana sprzedaz ma nieprawidlowe dane.");
+  }
+
+  const revenue = calculateSaleRevenue({
+    priceGroszPerKg: sale.priceGroszPerKg,
+    weightG: sale.weightG
+  });
+
+  if (
+    sale.revenuePreviewGrosz !== revenue.totalGrosz ||
+    sale.revenueRemainderMilliGrosz !== revenue.remainderMilliGrosz
+  ) {
+    throw new Error("Przygotowana sprzedaz ma niespojny przychod.");
   }
 
   if (sale.note !== null && (sale.note.trim() !== sale.note || sale.note.length > 200)) {
@@ -714,6 +747,7 @@ function saleMatchesAttempt(
     confirmed.createdBy === expected.createdBy &&
     confirmed.seasonId === expected.seasonId &&
     confirmed.businessDate === expected.businessDate &&
+    confirmed.calculationVersion === expected.calculationVersion &&
     confirmed.weightG === expected.weightG &&
     confirmed.priceGroszPerKg === expected.priceGroszPerKg &&
     confirmed.totalGrosz === expected.totalGrosz &&
