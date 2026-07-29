@@ -1,4 +1,5 @@
 import {
+  assertFails,
   initializeTestEnvironment,
   type RulesTestEnvironment
 } from "@firebase/rules-unit-testing";
@@ -6,6 +7,7 @@ import { collection, doc, getDocs, setDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
 import { loadAdminDashboard } from "../../src/dashboard/adminDashboard";
+import { loadOperatorDashboard } from "../../src/dashboard/operatorDashboard";
 import type { UserProfile } from "../../src/domain/identity";
 import type { PreparedOrdinarySale } from "../../src/sales/ordinarySalePreparation";
 import {
@@ -43,6 +45,14 @@ const adminProfile: UserProfile = {
   workerId: null
 };
 
+const operatorProfile: UserProfile = {
+  ...adminProfile,
+  displayName: "Operator Sale",
+  email: "operator-sale@example.test",
+  role: "OPERATOR",
+  uid: "operator-sale"
+};
+
 let testEnvironment: RulesTestEnvironment | undefined;
 
 beforeAll(async () => {
@@ -68,8 +78,18 @@ beforeEach(async () => {
     const db = context.firestore();
     await Promise.all([
       setDoc(doc(db, "users", adminProfile.uid), adminProfile),
+      setDoc(doc(db, "users", operatorProfile.uid), operatorProfile),
       setDoc(doc(db, "seasons", "season-1"), seasonDocument()),
-      setDoc(doc(db, "harvestSessions", "session-1"), closedSession())
+      setDoc(doc(db, "harvestSessions", "session-1"), closedSession()),
+      setDoc(doc(db, "operationalStockMovements", "harvest-session-session-1"), {
+        id: "harvest-session-session-1",
+        seasonId: "season-1",
+        sourceId: "session-1",
+        sourceType: "HARVEST_SESSION",
+        updatedAt: "closed-server-time",
+        updatedBy: adminProfile.uid,
+        weightImpactG: 10_000
+      })
     ]);
   });
 
@@ -138,12 +158,71 @@ describe("ordinary sale stock preflight Firestore flow", () => {
       throw new Error("Expected an authenticated database.");
     }
 
-    const [sales, audits] = await Promise.all([
+    const [sales, audits, movements] = await Promise.all([
       getDocs(collection(db, "sales")),
-      getDocs(collection(db, "auditEvents"))
+      getDocs(collection(db, "auditEvents")),
+      getDocs(collection(db, "operationalStockMovements"))
     ]);
     expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["sale-1"]);
     expect(audits.docs.map((snapshot) => snapshot.id)).toEqual(["sale-created-sale-1"]);
+    expect(
+      movements.docs
+        .map((snapshot) => ({
+          id: snapshot.id,
+          weightImpactG: readWeightImpact(snapshot.data())
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+    ).toEqual([
+      { id: "harvest-session-session-1", weightImpactG: 10_000 },
+      { id: "sale-sale-1", weightImpactG: -3000 }
+    ]);
+
+    const operatorDb = testEnvironment
+      ?.authenticatedContext(operatorProfile.uid, {
+        email: operatorProfile.email
+      })
+      .firestore();
+
+    if (!operatorDb) {
+      throw new Error("Expected an operator database.");
+    }
+
+    await assertFails(getDocs(collection(operatorDb, "sales")));
+    firebaseServicesMock.getFirebaseServices.mockReturnValue({
+      firestore: operatorDb
+    });
+    const operatorDashboard = await loadOperatorDashboard(
+      {},
+      {
+        actorProfile: operatorProfile,
+        businessDate: "2026-07-29",
+        isOnline: true,
+        syncDocuments: []
+      }
+    );
+    expect(operatorDashboard).toMatchObject({
+      activeSeason: {
+        id: "season-1",
+        name: "Sezon 2026"
+      },
+      metrics: {
+        availableWeightG: 7000,
+        closedTodayCount: 0,
+        conflictCount: 0,
+        localPendingCount: 0,
+        openSessionCount: 0,
+        ownOpenSessionCount: 0
+      },
+      stock: {
+        dataSource: "SERVER",
+        invalidMovementCount: 0,
+        movementCount: 2,
+        pendingMovementCount: 0
+      }
+    });
+    expect(JSON.stringify(operatorDashboard)).not.toMatch(
+      /priceGroszPerKg|totalGrosz|revenue|rateGroszSnapshot|amountDueGrosz/
+    );
   });
 
   it("does not write when the confirmed stock became stale", async () => {
@@ -303,14 +382,23 @@ describe("sale correction Firestore flow", () => {
       throw new Error("Expected an authenticated database.");
     }
 
-    const [sales, audits] = await Promise.all([
+    const [sales, audits, movements] = await Promise.all([
       getDocs(collection(db, "sales")),
-      getDocs(collection(db, "auditEvents"))
+      getDocs(collection(db, "auditEvents")),
+      getDocs(collection(db, "operationalStockMovements"))
     ]);
     expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["correction-1"]);
     expect(audits.docs.map((snapshot) => snapshot.id)).toEqual([
       "sale-correction-created-correction-1"
     ]);
+    expect(
+      movements.docs.find((snapshot) => snapshot.id === "sale-correction-1")?.data()
+    ).toMatchObject({
+      seasonId: "season-1",
+      sourceId: "correction-1",
+      sourceType: "SALE",
+      weightImpactG: 3000
+    });
   });
 
   it("requires another confirmation when stock changes before correction write", async () => {
@@ -528,6 +616,24 @@ describe("sale cancellation Firestore flow", () => {
         }
       ]
     });
+
+    const movementSnapshot = await getDocs(
+      collection(
+        testEnvironment
+          .authenticatedContext(adminProfile.uid, { email: adminProfile.email })
+          .firestore(),
+        "operationalStockMovements"
+      )
+    );
+    expect(
+      movementSnapshot.docs
+        .find((snapshot) => snapshot.id === "sale-sale-to-cancel")
+        ?.data()
+    ).toMatchObject({
+      sourceId: "sale-to-cancel",
+      sourceType: "SALE",
+      weightImpactG: 0
+    });
   });
 });
 
@@ -638,4 +744,17 @@ function closedSession() {
     workerId: "worker-1",
     workerNameSnapshot: "Anna"
   };
+}
+
+function readWeightImpact(value: unknown): number | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "weightImpactG" in value &&
+    typeof value.weightImpactG === "number"
+  ) {
+    return value.weightImpactG;
+  }
+
+  return null;
 }

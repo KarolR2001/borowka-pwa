@@ -1,5 +1,6 @@
 import type { AppProps, AuthSessionApi, DeviceRegistryApi } from "../app/App";
 import type { AuthSessionListener, AuthSessionState } from "../auth/authSession";
+import type { OperatorDashboardApi } from "../dashboard/OperatorDashboardPanel";
 import {
   createInitialDomainSeed,
   type WorkerRateVersionDocument
@@ -40,6 +41,7 @@ export function createHarvestE2eAppProps(): AppProps {
     authSessionApi: harness.authSessionApi,
     deviceRegistryApi: harness.deviceRegistryApi,
     harvestSessionsApi: harness.harvestSessionsApi,
+    operatorDashboardApi: harness.operatorDashboardApi,
     workerDirectoryApi: harness.workerDirectoryApi
   };
 }
@@ -367,6 +369,44 @@ function createHarvestHarnessState() {
     }
   };
 
+  const operatorDashboardApi: OperatorDashboardApi = {
+    load: (_env, input) => {
+      const openSessions = sessions.filter((session) => session.status === "OPEN");
+      const ownSessions = sessions.filter(
+        (session) => session.createdBy === input.actorProfile.uid
+      );
+
+      return Promise.resolve({
+        activeSeason: {
+          id: seed.seasons[0].id,
+          name: seed.seasons[0].name
+        },
+        conflicts: [],
+        connection: input.isOnline ? "ONLINE" : "OFFLINE",
+        metrics: {
+          availableWeightG: sessions
+            .filter((session) => session.status === "CLOSED" || session.status === "PAID")
+            .reduce((sum, session) => sum + session.totalWeightG, 0),
+          closedTodayCount: 0,
+          conflictCount: 0,
+          localPendingCount: 0,
+          openSessionCount: openSessions.length,
+          ownOpenSessionCount: ownSessions.filter((session) => session.status === "OPEN")
+            .length
+        },
+        openSessions: openSessions.map(toSafeDashboardSession),
+        ownRecentSessions: ownSessions.slice(0, 8).map(toSafeDashboardSession),
+        refreshedAtIso: SERVER_TIME,
+        stock: {
+          dataSource: input.isOnline ? "SERVER" : "CACHE",
+          invalidMovementCount: 0,
+          movementCount: sessions.length,
+          pendingMovementCount: 0
+        }
+      });
+    }
+  };
+
   const deviceRegistryApi: DeviceRegistryApi = {
     register: () => Promise.resolve()
   };
@@ -396,7 +436,17 @@ function createHarvestHarnessState() {
     authSessionApi,
     deviceRegistryApi,
     harvestSessionsApi,
+    operatorDashboardApi,
     workerDirectoryApi
+  };
+}
+
+function toSafeDashboardSession(session: HarvestSessionDocument) {
+  return {
+    businessDate: session.businessDate,
+    id: session.id,
+    status: session.status,
+    workerName: session.workerNameSnapshot
   };
 }
 

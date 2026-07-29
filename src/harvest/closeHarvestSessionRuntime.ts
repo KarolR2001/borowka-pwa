@@ -10,6 +10,7 @@ import {
 } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import { decodeSeason } from "../seasons/seasons";
+import { publishHarvestSessionStockMovement } from "../stock/operationalStockMovement";
 import { decodeWorker } from "../workers/workerDirectory";
 import { decodeWorkerRateVersion } from "../plans/settlementPlans";
 import {
@@ -152,8 +153,12 @@ export async function closeHarvestSessionOnline(
     doc(firestore, AUDIT_EVENTS_COLLECTION, prepared.auditEvent.id),
     prepared.auditEvent
   );
-
   await batch.commit();
+  await publishHarvestSessionStockMovement(
+    firestore,
+    prepared.session,
+    input.actorProfile.uid
+  );
 
   return {
     session: prepared.session,

@@ -5,6 +5,7 @@ import {
 } from "../audit/auditEvents";
 import { getFirebaseServices } from "../config/firebaseServices";
 import type { UserProfile } from "../domain/identity";
+import { publishSaleStockMovement } from "../stock/operationalStockMovement";
 import {
   assertPreparedSaleCorrection,
   refreshPreparedSaleCorrectionStock,
@@ -186,6 +187,8 @@ export async function createSaleCorrection(
         : "Nie udalo sie potwierdzic zapisu korekty."
     );
   }
+
+  await publishSaleStockMovement(firestore, confirmedCorrection, input.actorProfile.uid);
 
   const postWriteStock = await readFreshSaleStockForSeason(
     env,

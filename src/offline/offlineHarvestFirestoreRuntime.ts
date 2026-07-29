@@ -30,6 +30,10 @@ import {
   type HarvestSessionDocument
 } from "../harvest/openHarvestSession";
 import {
+  createHarvestSessionStockMovement,
+  OPERATIONAL_STOCK_MOVEMENTS_COLLECTION
+} from "../stock/operationalStockMovement";
+import {
   readConfigurationCache,
   type ConfigurationCacheStorage
 } from "./configurationCache";
@@ -392,6 +396,32 @@ export async function closeHarvestSessionOffline(
       const localSnapshot = await getDocFromCache(sessionRef);
 
       return localSnapshot.exists() && localSnapshot.data().status === "CLOSED";
+    }
+  });
+
+  const stockMovement = createHarvestSessionStockMovement({
+    actorUid: input.actorProfile.uid,
+    session: prepared.session,
+    updatedAt: serverTimestampValue
+  });
+  const stockMovementRef = doc(
+    firestore,
+    OPERATIONAL_STOCK_MOVEMENTS_COLLECTION,
+    stockMovement.id
+  );
+  const stockMovementBatch = writeBatch(firestore);
+  stockMovementBatch.set(stockMovementRef, stockMovement);
+  await queueOfflineFirestoreBatch({
+    batch: stockMovementBatch,
+    journal: dependencies.journal ?? defaultFirestoreSyncJournal,
+    records: [],
+    verifyLocalWrite: async () => {
+      const localSnapshot = await getDocFromCache(stockMovementRef);
+
+      return (
+        localSnapshot.exists() &&
+        localSnapshot.data().weightImpactG === stockMovement.weightImpactG
+      );
     }
   });
 

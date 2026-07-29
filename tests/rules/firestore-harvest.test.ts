@@ -241,6 +241,16 @@ const seedHarvestEntry = async (
   });
 };
 
+const harvestSessionStockMovement = (updatedBy: string, weightImpactG: number) => ({
+  id: "harvest-session-session-1",
+  seasonId: "season-2026-test",
+  sourceId: "session-1",
+  sourceType: "HARVEST_SESSION",
+  updatedAt: serverTimestamp(),
+  updatedBy,
+  weightImpactG
+});
+
 describe("Firestore harvest session and entry rules", () => {
   it("allows admin and operator to create sessions for active workers", async () => {
     await seedBase();
@@ -465,6 +475,12 @@ describe("Firestore harvest session and entry rules", () => {
     await assertSucceeds(
       setDoc(doc(operatorDb, "harvestSessions", "session-1"), closedSession)
     );
+    await assertSucceeds(
+      setDoc(
+        doc(operatorDb, "operationalStockMovements", "harvest-session-session-1"),
+        harvestSessionStockMovement("operator-1", 1000)
+      )
+    );
     await assertFails(
       setDoc(doc(operatorDb, "harvestSessions", "session-1"), {
         ...closedSession,
@@ -493,6 +509,13 @@ describe("Firestore harvest session and entry rules", () => {
       })
     );
     await assertSucceeds(
+      setDoc(
+        doc(adminDb, "operationalStockMovements", "harvest-session-session-1"),
+        harvestSessionStockMovement("admin-1", 0)
+      )
+    );
+
+    await assertSucceeds(
       setDoc(doc(adminDb, "harvestSessions", "session-1"), {
         ...baseSession,
         totalEntryCount: 1,
@@ -505,6 +528,12 @@ describe("Firestore harvest session and entry rules", () => {
         updatedAtServer: serverTimestamp(),
         revision: 4
       })
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(adminDb, "operationalStockMovements", "harvest-session-session-1"),
+        harvestSessionStockMovement("admin-1", 0)
+      )
     );
     await assertFails(deleteDoc(doc(adminDb, "harvestSessions", "session-1")));
   });

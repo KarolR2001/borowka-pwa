@@ -181,6 +181,13 @@ describe("offline harvest Firestore runtime", () => {
     const cachedSession = await getDocFromCache(
       doc(operatorFirestore, "harvestSessions", opened.session.id)
     );
+    const cachedStockMovement = await getDocFromCache(
+      doc(
+        operatorFirestore,
+        "operationalStockMovements",
+        `harvest-session-${opened.session.id}`
+      )
+    );
     const cachedEntries = await getDocsFromCache(
       query(
         collection(operatorFirestore, "harvestEntries"),
@@ -190,6 +197,12 @@ describe("offline harvest Firestore runtime", () => {
     );
 
     expect(cachedSession.data()?.status).toBe("CLOSED");
+    expect(cachedStockMovement.data()).toMatchObject({
+      seasonId: opened.session.seasonId,
+      sourceId: opened.session.id,
+      sourceType: "HARVEST_SESSION",
+      weightImpactG: 10_000
+    });
     expect(cachedEntries.docs).toHaveLength(10);
     expect(new Set(cachedEntries.docs.map((entry) => entry.id)).size).toBe(10);
     const persistedJournalRecords = await journal.list({
@@ -222,6 +235,13 @@ describe("offline harvest Firestore runtime", () => {
     const serverSession = await getDoc(
       doc(operatorFirestore, "harvestSessions", opened.session.id)
     );
+    const serverStockMovement = await getDoc(
+      doc(
+        operatorFirestore,
+        "operationalStockMovements",
+        `harvest-session-${opened.session.id}`
+      )
+    );
     const serverEntries = await getDocs(
       query(
         collection(operatorFirestore, "harvestEntries"),
@@ -236,6 +256,12 @@ describe("offline harvest Firestore runtime", () => {
       totalQuantityMilli: 10_000,
       totalWeightG: 10_000,
       amountDueGrosz: 10_000
+    });
+    expect(serverStockMovement.data()).toMatchObject({
+      seasonId: opened.session.seasonId,
+      sourceId: opened.session.id,
+      sourceType: "HARVEST_SESSION",
+      weightImpactG: 10_000
     });
     expect(serverEntries.docs).toHaveLength(10);
     expect(new Set(serverEntries.docs.map((entry) => entry.id)).size).toBe(10);
