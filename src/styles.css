@@ -2547,6 +2547,77 @@ h2 {
   font-weight: 700;
 }
 
+.sale-correction-form {
+  display: grid;
+  gap: 16px;
+  border-top: 1px solid #dce6df;
+  padding-top: 20px;
+}
+
+.sale-correction-form__direction {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.sale-correction-form__direction legend {
+  margin-bottom: 8px;
+  color: #334b3f;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.sale-correction-form__direction > p {
+  margin: 0;
+  color: #5f6f66;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.sale-correction-form__segments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 520px;
+  overflow: hidden;
+  border: 1px solid #b8c8bf;
+  border-radius: 8px;
+  background: #b8c8bf;
+}
+
+.sale-correction-form__segments label {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #334b3f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.sale-correction-form__segments label:has(input:checked) {
+  background: #e8f2ec;
+  color: #173129;
+}
+
+.sale-correction-form__segments input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.sale-correction-form__segments label:has(input:focus-visible) {
+  outline: 3px solid #78a58e;
+  outline-offset: -3px;
+}
+
 .ordinary-sale-form__warning {
   display: flex;
   align-items: flex-start;
@@ -2572,6 +2643,58 @@ h2 {
 .admin-ordinary-sales {
   display: grid;
   gap: 16px;
+}
+
+.sales-operation-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 420px;
+  overflow: hidden;
+  border: 1px solid #b8c8bf;
+  border-radius: 8px;
+  background: #b8c8bf;
+}
+
+.sales-operation-switch button {
+  min-height: 40px;
+  border: 0;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #4d6257;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.sales-operation-switch button[aria-pressed="true"] {
+  background: #e8f2ec;
+  color: #173129;
+}
+
+.sales-operation-switch button:focus-visible {
+  outline: 3px solid #78a58e;
+  outline-offset: -3px;
+}
+
+.sale-correction-section {
+  display: grid;
+  gap: 16px;
+}
+
+.sale-correction-confirmation__acceptance {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #334b3f;
+  font-weight: 750;
+}
+
+.sale-correction-confirmation__acceptance input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
 }
 
 .sale-stock-confirmation {

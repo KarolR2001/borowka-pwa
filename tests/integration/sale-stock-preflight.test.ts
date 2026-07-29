@@ -7,6 +7,11 @@ import { readFileSync } from "node:fs";
 
 import type { UserProfile } from "../../src/domain/identity";
 import type { PreparedOrdinarySale } from "../../src/sales/ordinarySalePreparation";
+import type { PreparedSaleCorrection } from "../../src/sales/saleCorrectionPreparation";
+import {
+  checkSaleCorrection,
+  createSaleCorrection
+} from "../../src/sales/saleCorrectionWrite";
 import {
   checkOrdinarySaleStock,
   createOrdinarySale
@@ -231,6 +236,148 @@ describe("ordinary sale stock preflight Firestore flow", () => {
   });
 });
 
+describe("sale correction Firestore flow", () => {
+  it("checks fresh stock and writes a separate correction with audit", async () => {
+    const checkResult = await checkSaleCorrection(
+      {},
+      {
+        actorProfile: adminProfile,
+        correctionId: "correction-1",
+        isOnline: true,
+        preparedCorrection: preparedCorrection()
+      }
+    );
+
+    expect(checkResult).toMatchObject({
+      check: {
+        correction: {
+          projectedAvailableWeightG: 13_000,
+          revenueImpactGrosz: -3750,
+          stockImpactG: 3000
+        },
+        expectedAvailableWeightG: 10_000,
+        stockChanged: false
+      },
+      status: "CONFIRMATION_REQUIRED"
+    });
+
+    if (checkResult.status !== "CONFIRMATION_REQUIRED") {
+      throw new Error("Expected a confirmable correction.");
+    }
+
+    const writeResult = await createSaleCorrection(
+      {},
+      {
+        actorProfile: adminProfile,
+        check: checkResult.check,
+        deviceId: "device-admin",
+        isOnline: true
+      }
+    );
+
+    expect(writeResult).toMatchObject({
+      concurrentStockChangeDetected: false,
+      correction: {
+        correctionDirection: "INCREASE_STOCK",
+        entryType: "CORRECTION",
+        id: "correction-1",
+        note: "Powod korekty sprzedazy",
+        totalGrosz: 3750,
+        weightG: 3000
+      },
+      postWriteAvailableWeightG: 13_000,
+      status: "CONFIRMED"
+    });
+
+    const db = testEnvironment
+      ?.authenticatedContext(adminProfile.uid, { email: adminProfile.email })
+      .firestore();
+
+    if (!db) {
+      throw new Error("Expected an authenticated database.");
+    }
+
+    const [sales, audits] = await Promise.all([
+      getDocs(collection(db, "sales")),
+      getDocs(collection(db, "auditEvents"))
+    ]);
+    expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["correction-1"]);
+    expect(audits.docs.map((snapshot) => snapshot.id)).toEqual([
+      "sale-correction-created-correction-1"
+    ]);
+  });
+
+  it("requires another confirmation when stock changes before correction write", async () => {
+    const staleCorrection = await checkSaleCorrection(
+      {},
+      {
+        actorProfile: adminProfile,
+        correctionId: "correction-stale",
+        isOnline: true,
+        preparedCorrection: preparedCorrection()
+      }
+    );
+    const saleCheck = await checkOrdinarySaleStock(
+      {},
+      {
+        actorProfile: adminProfile,
+        isOnline: true,
+        preparedSale: preparedSale(),
+        saleId: "sale-first"
+      }
+    );
+
+    if (
+      staleCorrection.status !== "CONFIRMATION_REQUIRED" ||
+      saleCheck.status !== "CONFIRMATION_REQUIRED"
+    ) {
+      throw new Error("Expected confirmable operations.");
+    }
+
+    await createOrdinarySale(
+      {},
+      {
+        actorProfile: adminProfile,
+        check: saleCheck.check,
+        deviceId: "device-first",
+        isOnline: true
+      }
+    );
+
+    const staleResult = await createSaleCorrection(
+      {},
+      {
+        actorProfile: adminProfile,
+        check: staleCorrection.check,
+        deviceId: "device-stale",
+        isOnline: true
+      }
+    );
+
+    expect(staleResult).toMatchObject({
+      check: {
+        correction: {
+          availableWeightG: 7000,
+          projectedAvailableWeightG: 10_000
+        },
+        correctionId: "correction-stale",
+        expectedAvailableWeightG: 7000,
+        stockChanged: true
+      },
+      status: "RECONFIRMATION_REQUIRED"
+    });
+
+    if (!testEnvironment) {
+      throw new Error("Expected test environment.");
+    }
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const sales = await getDocs(collection(context.firestore(), "sales"));
+      expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["sale-first"]);
+    });
+  });
+});
+
 function preparedSale(): PreparedOrdinarySale {
   return {
     availableWeightG: 10_000,
@@ -250,6 +397,32 @@ function preparedSale(): PreparedOrdinarySale {
     seasonName: "Sezon 2026",
     status: "ACTIVE",
     stockDataSource: "SERVER",
+    stockWasFresh: true,
+    weightG: 3000
+  };
+}
+
+function preparedCorrection(): PreparedSaleCorrection {
+  return {
+    availableWeightG: 10_000,
+    businessDate: "2026-07-29",
+    calculationVersion: "1",
+    correctionDirection: "INCREASE_STOCK",
+    entryType: "CORRECTION",
+    note: "Powod korekty sprzedazy",
+    pendingDocumentCount: 0,
+    priceGroszPerKg: 1250,
+    projectedAvailableWeightG: 13_000,
+    refreshedAtIso: "2026-07-29T06:00:00.000Z",
+    revenueImpactGrosz: -3750,
+    revenueMagnitudeGrosz: 3750,
+    revenueRemainderMilliGrosz: 0,
+    revenueRoundingRule: "HALF_UP_TO_GROSZ",
+    seasonId: "season-1",
+    seasonName: "Sezon 2026",
+    status: "ACTIVE",
+    stockDataSource: "SERVER",
+    stockImpactG: 3000,
     stockWasFresh: true,
     weightG: 3000
   };

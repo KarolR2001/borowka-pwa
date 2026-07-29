@@ -140,6 +140,85 @@ describe("sales Firestore rules", () => {
     await assertFails(batch.commit());
   });
 
+  it.each(["INCREASE_STOCK", "DECREASE_STOCK"] as const)(
+    "allows an administrator to create a %s correction with matching impacts",
+    async (direction) => {
+      const db = authenticatedDb("admin-1");
+      const batch = writeBatch(db);
+      batch.set(doc(db, "sales", "correction-1"), correctionDocument(direction));
+      batch.set(
+        doc(db, "auditEvents", "sale-correction-created-correction-1"),
+        correctionAudit(direction)
+      );
+
+      await assertSucceeds(batch.commit());
+    }
+  );
+
+  it("rejects a standalone or malformed correction", async () => {
+    const db = authenticatedDb("admin-1");
+
+    await assertFails(
+      setDoc(doc(db, "sales", "correction-1"), correctionDocument("INCREASE_STOCK"))
+    );
+
+    const missingReasonBatch = writeBatch(db);
+    missingReasonBatch.set(doc(db, "sales", "correction-1"), {
+      ...correctionDocument("INCREASE_STOCK"),
+      note: null
+    });
+    missingReasonBatch.set(
+      doc(db, "auditEvents", "sale-correction-created-correction-1"),
+      {
+        ...correctionAudit("INCREASE_STOCK"),
+        reason: null
+      }
+    );
+    await assertFails(missingReasonBatch.commit());
+
+    const blankReasonBatch = writeBatch(db);
+    blankReasonBatch.set(doc(db, "sales", "correction-1"), {
+      ...correctionDocument("INCREASE_STOCK"),
+      note: "   "
+    });
+    blankReasonBatch.set(doc(db, "auditEvents", "sale-correction-created-correction-1"), {
+      ...correctionAudit("INCREASE_STOCK"),
+      reason: "   "
+    });
+    await assertFails(blankReasonBatch.commit());
+
+    const invalidDirectionBatch = writeBatch(db);
+    invalidDirectionBatch.set(doc(db, "sales", "correction-1"), {
+      ...correctionDocument("INCREASE_STOCK"),
+      correctionDirection: null
+    });
+    invalidDirectionBatch.set(
+      doc(db, "auditEvents", "sale-correction-created-correction-1"),
+      {
+        ...correctionAudit("INCREASE_STOCK"),
+        afterSummary: {
+          ...correctionAudit("INCREASE_STOCK").afterSummary,
+          correctionDirection: null
+        }
+      }
+    );
+    await assertFails(invalidDirectionBatch.commit());
+
+    const wrongImpactBatch = writeBatch(db);
+    wrongImpactBatch.set(
+      doc(db, "sales", "correction-1"),
+      correctionDocument("INCREASE_STOCK")
+    );
+    wrongImpactBatch.set(doc(db, "auditEvents", "sale-correction-created-correction-1"), {
+      ...correctionAudit("INCREASE_STOCK"),
+      afterSummary: {
+        ...correctionAudit("INCREASE_STOCK").afterSummary,
+        revenueImpactGrosz: 3750
+      }
+    });
+    await assertFails(wrongImpactBatch.commit());
+  });
+
   it("denies sales reads and writes to non-admin roles and anonymous users", async () => {
     const operatorDb = authenticatedDb("operator-1");
     const pickerDb = authenticatedDb("picker-1");
@@ -236,5 +315,40 @@ function saleAudit() {
     entityType: "SALE",
     id: "sale-created-sale-1",
     reason: null
+  };
+}
+
+function correctionDocument(correctionDirection: "INCREASE_STOCK" | "DECREASE_STOCK") {
+  return {
+    ...saleDocument(),
+    correctionDirection,
+    creationAttemptId: "sale-correction-attempt-correction-1",
+    entryType: "CORRECTION",
+    id: "correction-1",
+    note: "Powod korekty sprzedazy"
+  };
+}
+
+function correctionAudit(correctionDirection: "INCREASE_STOCK" | "DECREASE_STOCK") {
+  const increasesStock = correctionDirection === "INCREASE_STOCK";
+
+  return {
+    ...saleAudit(),
+    action: "SALE_CORRECTION_CREATED",
+    afterSummary: {
+      calculationVersion: "1",
+      correctionDirection,
+      entryType: "CORRECTION",
+      projectedStockWeightG: increasesStock ? 13_000 : 7000,
+      revenueImpactGrosz: increasesStock ? -3750 : 3750,
+      saleId: "correction-1",
+      seasonId: "season-1",
+      status: "ACTIVE",
+      totalGrosz: 3750,
+      weightG: 3000
+    },
+    entityId: "correction-1",
+    id: "sale-correction-created-correction-1",
+    reason: "Powod korekty sprzedazy"
   };
 }

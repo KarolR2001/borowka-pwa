@@ -90,6 +90,7 @@ service cloud.firestore {
         'HARVEST_SESSION_PAID',
         'PAYMENT_CANCELLED',
         'SALE_CREATED',
+        'SALE_CORRECTION_CREATED',
         'HARVEST_ENTRY_CREATED',
         'HARVEST_ENTRY_CANCELLED'
       ];
@@ -483,7 +484,9 @@ service cloud.firestore {
           'quantityMilli',
           'weightG',
           'entryType',
+          'correctionDirection',
           'totalGrosz',
+          'revenueImpactGrosz',
           'availableStockWeightG',
           'projectedStockWeightG',
           'pendingSync',
@@ -1934,6 +1937,94 @@ service cloud.firestore {
         );
     }
 
+    function saleCorrectionCreateAuditMatches(auditEvent, sale, saleId) {
+      return auditEvent.id == 'sale-correction-created-' + saleId &&
+        auditEvent.action == 'SALE_CORRECTION_CREATED' &&
+        auditEvent.entityType == 'SALE' &&
+        auditEvent.entityId == saleId &&
+        auditEvent.actorUid == request.auth.uid &&
+        auditEvent.businessDate == sale.businessDate &&
+        auditEvent.reason == sale.note &&
+        auditEvent.beforeSummary.seasonId == sale.seasonId &&
+        auditEvent.beforeSummary.availableStockWeightG is int &&
+        auditEvent.afterSummary.saleId == saleId &&
+        auditEvent.afterSummary.seasonId == sale.seasonId &&
+        auditEvent.afterSummary.entryType == 'CORRECTION' &&
+        auditEvent.afterSummary.status == 'ACTIVE' &&
+        auditEvent.afterSummary.calculationVersion == sale.calculationVersion &&
+        auditEvent.afterSummary.correctionDirection ==
+          sale.correctionDirection &&
+        auditEvent.afterSummary.weightG == sale.weightG &&
+        auditEvent.afterSummary.totalGrosz == sale.totalGrosz &&
+        (
+          (
+            sale.correctionDirection == 'INCREASE_STOCK' &&
+            auditEvent.afterSummary.projectedStockWeightG ==
+              auditEvent.beforeSummary.availableStockWeightG + sale.weightG &&
+            auditEvent.afterSummary.revenueImpactGrosz == -sale.totalGrosz
+          ) || (
+            sale.correctionDirection == 'DECREASE_STOCK' &&
+            auditEvent.afterSummary.projectedStockWeightG ==
+              auditEvent.beforeSummary.availableStockWeightG - sale.weightG &&
+            auditEvent.afterSummary.revenueImpactGrosz == sale.totalGrosz
+          )
+        ) &&
+        auditEvent.createdAtServer == request.time;
+    }
+
+    function isValidSaleCorrectionCreate(data, saleId) {
+      return isAdmin() &&
+        hasSaleFields(data) &&
+        data.id == saleId &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 80 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        openSeasonContainsBusinessDate(data.seasonId, data.businessDate) &&
+        data.calculationVersion == '1' &&
+        data.weightG is int &&
+        data.weightG > 0 &&
+        data.weightG <= 1000000000 &&
+        data.priceGroszPerKg is int &&
+        data.priceGroszPerKg >= 0 &&
+        data.priceGroszPerKg <= 100000000 &&
+        data.totalGrosz is int &&
+        data.totalGrosz >= 0 &&
+        data.totalGrosz * 1000 <=
+          data.weightG * data.priceGroszPerKg + 500 &&
+        data.weightG * data.priceGroszPerKg + 500 <
+          (data.totalGrosz + 1) * 1000 &&
+        data.entryType == 'CORRECTION' &&
+        (
+          data.correctionDirection == 'INCREASE_STOCK' ||
+          data.correctionDirection == 'DECREASE_STOCK'
+        ) &&
+        data.note is string &&
+        data.note.size() >= 3 &&
+        data.note.size() <= 200 &&
+        data.note.matches('.*\\S.*') &&
+        data.status == 'ACTIVE' &&
+        data.createdBy == request.auth.uid &&
+        data.creationAttemptId is string &&
+        data.creationAttemptId.size() > 0 &&
+        data.creationAttemptId.size() <= 128 &&
+        data.createdAtServer == request.time &&
+        data.cancelledAt == null &&
+        data.cancelledBy == null &&
+        data.cancellationReason == null &&
+        data.legacyImport == false &&
+        data.legacySourceRow == null &&
+        existsAfter(auditEventPath('sale-correction-created-' + saleId)) &&
+        saleCorrectionCreateAuditMatches(
+          getAfter(
+            auditEventPath('sale-correction-created-' + saleId)
+          ).data,
+          data,
+          saleId
+        );
+    }
+
     function hasPaymentFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -2496,7 +2587,10 @@ service cloud.firestore {
 
     match /sales/{saleId} {
       allow get, list: if isAdmin();
-      allow create: if isValidOrdinarySaleCreate(request.resource.data, saleId);
+      allow create: if isValidOrdinarySaleCreate(
+        request.resource.data,
+        saleId
+      ) || isValidSaleCorrectionCreate(request.resource.data, saleId);
       allow update, delete: if false;
     }
 

@@ -139,3 +139,11 @@
 - Decyzja: przychod zwyklej sprzedazy jest liczony jako `weightG * priceGroszPerKg / 1000`, z wykorzystaniem wszystkich gramow i jednym matematycznym zaokragleniem do pelnego grosza; polowa grosza jest zaokraglana w gore. Regula ma `calculationVersion = "1"`.
 - Uzasadnienie: PRD FR-SALE-014 wymaga pelnej precyzji masy i wyniku w groszach, a pakiet 8.5 wymaga jednej jawnej, testowanej i wersjonowanej reguly. Obliczenia calkowitoliczbowe usuwaja roznice wynikajace z reprezentacji zmiennoprzecinkowej.
 - Skutki: formularz pokazuje metode, klient zapisuje wersje razem z kwota, Security Rules niezaleznie sprawdzaja zgodnosc, a przyszla zmiana algorytmu wymaga nowej wersji bez cichego przeliczania historii.
+
+## DEC-0019 - Kierunek korekty sprzedazy i przychodu
+
+- Status: zaakceptowana technicznie na podstawie PRD
+- Data: 2026-07-29
+- Decyzja: korekta zapisuje dodatnie `weightG`, nieujemne `priceGroszPerKg` i nieujemne `totalGrosz`. `INCREASE_STOCK` oznacza `+weightG` dla stanu i `-totalGrosz` dla przychodu, a `DECREASE_STOCK` oznacza `-weightG` dla stanu i `+totalGrosz` dla przychodu. Powod jest wymaganym `note` dokumentu i `reason` audytu.
+- Uzasadnienie: PRD wymaga osobnego typu operacji, jawnego kierunku, wartosci i powodu. Jeden kierunek wyznaczajacy przeciwne skutki magazynowe i finansowe usuwa ukryte ujemne wartosci oraz pozwala jednoznacznie raportowac i anulowac dokument.
+- Skutki: formularz i audyt zawsze pokazuja oba podpisane skutki, Rules odrzucaja niespojne znaki, a historyczny ujemny wiersz wymaga recznej klasyfikacji podczas migracji zamiast automatycznego mapowania.
