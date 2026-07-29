@@ -506,6 +506,7 @@ h2 {
 .settlement-plan-directory,
 .pending-payment-directory,
 .payment-directory,
+.sale-directory,
 .issue-report-directory,
 .picker-dashboard,
 .picker-harvest-list,
@@ -988,7 +989,8 @@ h2 {
   grid-template-columns: repeat(3, minmax(150px, 1fr)) repeat(4, minmax(130px, 0.75fr));
 }
 
-.payment-directory-filters {
+.payment-directory-filters,
+.sale-directory-filters {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
   gap: 12px;
@@ -2119,6 +2121,10 @@ h2 {
   min-width: 1180px;
 }
 
+.sale-directory-table {
+  min-width: 1360px;
+}
+
 .payment-directory-statuses {
   display: flex;
   flex-wrap: wrap;
@@ -2269,7 +2275,8 @@ h2 {
   opacity: 0.55;
 }
 
-.payment-directory-details {
+.payment-directory-details,
+.sale-directory-details {
   display: grid;
   gap: 16px;
   border: 1px solid #b7d9c4;
@@ -2292,7 +2299,8 @@ h2 {
   margin: 0;
 }
 
-.payment-directory-details__header {
+.payment-directory-details__header,
+.sale-directory-details__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2300,11 +2308,13 @@ h2 {
 }
 
 .payment-directory-details__header h3,
+.sale-directory-details__header h3,
 .payment-directory-source-session h4 {
   margin: 2px 0 0;
 }
 
-.payment-directory-details__grid {
+.payment-directory-details__grid,
+.sale-directory-details__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
@@ -2315,19 +2325,22 @@ h2 {
   background: #dce6df;
 }
 
-.payment-directory-details__grid div {
+.payment-directory-details__grid div,
+.sale-directory-details__grid div {
   min-width: 0;
   padding: 12px;
   background: #ffffff;
 }
 
-.payment-directory-details__grid dt {
+.payment-directory-details__grid dt,
+.sale-directory-details__grid dt {
   color: #5f6f66;
   font-size: 0.82rem;
   font-weight: 700;
 }
 
-.payment-directory-details__grid dd {
+.payment-directory-details__grid dd,
+.sale-directory-details__grid dd {
   margin: 4px 0 0;
   overflow-wrap: anywhere;
   color: #173129;
@@ -3018,6 +3031,7 @@ h2 {
 
   .directory-filters,
   .payment-directory-filters,
+  .sale-directory-filters,
   .active-session__header,
   .active-session__summary,
   .active-session__facts,
@@ -3043,6 +3057,7 @@ h2 {
   .ordinary-sale-form__summary,
   .sale-stock-confirmation__summary,
   .payment-directory-details__grid,
+  .sale-directory-details__grid,
   .directory-summary {
     grid-template-columns: 1fr;
   }

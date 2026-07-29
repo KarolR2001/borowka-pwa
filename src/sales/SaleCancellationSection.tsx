@@ -37,7 +37,8 @@ export function SaleCancellationSection({
   deviceId,
   env,
   isOnline,
-  onConfirmed
+  onConfirmed,
+  requestedSaleId = null
 }: {
   actorProfile: UserProfile;
   api: SaleCancellationSectionApi;
@@ -45,6 +46,7 @@ export function SaleCancellationSection({
   env: FirebaseEnv;
   isOnline: boolean;
   onConfirmed: (result: SaleCancellationResult) => void;
+  requestedSaleId?: string | null;
 }) {
   const [candidateState, setCandidateState] = useState<CandidateState>({
     candidates: [],
@@ -79,9 +81,16 @@ export function SaleCancellationSection({
       .then((candidates) => {
         if (isMounted) {
           setCandidateState({ candidates, status: "READY" });
-          setSelectedSaleId((current) =>
-            candidates.some(({ sale }) => sale.id === current) ? current : ""
-          );
+          setSelectedSaleId((current) => {
+            if (
+              requestedSaleId &&
+              candidates.some(({ sale }) => sale.id === requestedSaleId)
+            ) {
+              return requestedSaleId;
+            }
+
+            return candidates.some(({ sale }) => sale.id === current) ? current : "";
+          });
         }
       })
       .catch((caughtError: unknown) => {
@@ -100,7 +109,7 @@ export function SaleCancellationSection({
     return () => {
       isMounted = false;
     };
-  }, [actorProfile, api, env, isOnline, reloadKey]);
+  }, [actorProfile, api, env, isOnline, reloadKey, requestedSaleId]);
 
   const selectedCandidate = useMemo(
     () =>
