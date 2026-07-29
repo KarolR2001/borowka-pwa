@@ -115,3 +115,11 @@
 - Decyzja: scenariusze obliczen sesji sa zapisane w `docs/domain/calculation-scenarios.md`; przypadki sprzedazy, korekt, wyplat i migracji sa oznaczone jako przyszle rozszerzenia, bo odpowiadaja pozniejszym etapom.
 - Uzasadnienie: bramka wejscia Etapu 5 wymaga zatwierdzonych wzorcow obliczeniowych, a PRD dzieli sesje, wyplaty, sprzedaz i migracje na osobne etapy.
 - Skutki: implementacja Etapu 5 musi pokryc automatycznymi testami scenariusze sesji z tego dokumentu przed zamknieciem etapu.
+
+## DEC-0016 - Kierunek korekty sprzedazy i stan kontrolny
+
+- Status: zaakceptowana technicznie na podstawie PRD
+- Data: 2026-07-29
+- Decyzja: masa dokumentu `CORRECTION` jest dodatnia, a wplyw na stan zapisuje jawny kierunek `INCREASE_STOCK` albo `DECREASE_STOCK`. Kontrolny stan sezonu jest liczony ze zrodel jako potwierdzone zbiory minus sprzedaz netto i moze byc ujemny.
+- Uzasadnienie: PRD wymaga odroznienia obu kierunkow korekty, zabrania ukrywania jej jako zwyklej sprzedazy z ujemnym znakiem oraz wymaga alarmu dla ujemnego stanu.
+- Skutki: ujemna masa nie jest prawidlowym sposobem zapisu korekty; kalkulator, formularze, migracja, Rules i raporty musza stosowac ten sam kierunek oraz nie moga automatycznie wyzerowac ujemnego wyniku.
