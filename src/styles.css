@@ -507,6 +507,7 @@ h2 {
 .pending-payment-directory,
 .payment-directory,
 .sale-directory,
+.admin-dashboard,
 .issue-report-directory,
 .picker-dashboard,
 .picker-harvest-list,
@@ -514,6 +515,80 @@ h2 {
   display: grid;
   gap: 18px;
   margin-top: 20px;
+}
+
+.admin-dashboard__season {
+  max-width: 420px;
+}
+
+.admin-dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-dashboard__metric {
+  display: grid;
+  min-width: 0;
+  min-height: 112px;
+  align-content: start;
+  gap: 6px;
+  border: 1px solid #d7e1da;
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.admin-dashboard__metric > span {
+  color: #5a6b62;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.admin-dashboard__metric > strong {
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-size: 1.25rem;
+}
+
+.admin-dashboard__metric > small {
+  color: #5f6f66;
+  line-height: 1.35;
+}
+
+.admin-dashboard__metric--warning {
+  border-color: #d9a46f;
+  background: #fff8f1;
+}
+
+.admin-dashboard__metric--warning > strong {
+  color: #8a3b12;
+}
+
+.admin-dashboard__warnings {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  border-left: 3px solid #b4532b;
+  padding: 12px 14px;
+  color: #7a3217;
+  background: #fff4ee;
+}
+
+.admin-dashboard__warnings ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.admin-dashboard__cloud-note {
+  margin: 0;
+  border-left: 3px solid #68746e;
+  padding: 10px 12px;
+  color: #445149;
+  background: #f3f6f4;
+  font-size: 0.9rem;
 }
 
 .picker-workspace {
@@ -3062,6 +3137,10 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .admin-dashboard__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .ordinary-sale-form__header {
     flex-direction: column;
   }
@@ -3135,6 +3214,10 @@ h2 {
   .auth-summary__row {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .admin-dashboard__metrics {
+    grid-template-columns: 1fr;
   }
 
   .worker-profile__header {

@@ -1,0 +1,420 @@
+import { getFirebaseServices } from "../config/firebaseServices";
+import {
+  SEASONS_COLLECTION,
+  WORKERS_COLLECTION,
+  type SeasonDocument
+} from "../domain/domainConfiguration";
+import type { UserProfile } from "../domain/identity";
+import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
+import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
+import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
+import {
+  summarizeSyncDocumentMetadata,
+  type SyncDocumentMetadataInput,
+  type SyncMetadataSummary
+} from "../offline/pendingWriteMetadata";
+import { decodePaymentDocument, type PaymentDocument } from "../payments/paymentWrite";
+import { PAYMENTS_COLLECTION } from "../payments/pendingPayments";
+import {
+  decodeSaleDocument,
+  SALES_COLLECTION,
+  type SaleDocument
+} from "../sales/saleStockPreflight";
+import { activeSaleRevenueImpact } from "../sales/saleDirectory";
+import { decodeSeason } from "../seasons/seasons";
+import { calculateSourceStockForSeason } from "../stock/sourceStockCalculation";
+import { decodeWorker } from "../workers/workerDirectory";
+
+type FirebaseEnv = Record<string, string | boolean | undefined>;
+
+export type AdminDashboardMetrics = {
+  accruedGrosz: number;
+  activeWorkerCount: number;
+  availableWeightG: number;
+  confirmedHarvestWeightG: number;
+  dueGrosz: number;
+  inProgressHarvestWeightG: number;
+  openSessionCount: number;
+  paidGrosz: number;
+  resultAfterHarvestCostGrosz: number;
+  reviewRequiredSessionCount: number;
+  revenueGrosz: number;
+  soldWeightG: number;
+};
+
+export type AdminDashboardSeason = {
+  endDate: string | null;
+  id: string;
+  isDefault: boolean;
+  metrics: AdminDashboardMetrics;
+  name: string;
+  startDate: string;
+  status: SeasonDocument["status"];
+  warnings: string[];
+};
+
+export type AdminDashboardResult = {
+  invalidDocumentCounts: {
+    payments: number;
+    sales: number;
+    seasons: number;
+    sessions: number;
+    workers: number;
+  };
+  localSyncSummary: SyncMetadataSummary;
+  refreshedAtIso: string;
+  seasons: AdminDashboardSeason[];
+};
+
+export type LoadAdminDashboardInput = {
+  actorProfile: UserProfile;
+  isOnline: boolean;
+  syncDocuments: readonly SyncDocumentMetadataInput[];
+};
+
+type RawDocument = {
+  data: unknown;
+  id: string;
+};
+
+export async function loadAdminDashboard(
+  env: FirebaseEnv,
+  input: LoadAdminDashboardInput
+): Promise<AdminDashboardResult> {
+  assertAdminOnline(input.actorProfile, input.isOnline);
+  const { firestore } = await getFirebaseServices(env);
+  const { collection, getDocsFromServer } = await import("firebase/firestore");
+  const [seasonSnapshot, sessionSnapshot, saleSnapshot, paymentSnapshot, workerSnapshot] =
+    await Promise.all([
+      getDocsFromServer(collection(firestore, SEASONS_COLLECTION)),
+      getDocsFromServer(collection(firestore, HARVEST_SESSIONS_COLLECTION)),
+      getDocsFromServer(collection(firestore, SALES_COLLECTION)),
+      getDocsFromServer(collection(firestore, PAYMENTS_COLLECTION)),
+      getDocsFromServer(collection(firestore, WORKERS_COLLECTION))
+    ]);
+
+  return buildAdminDashboard({
+    paymentDocuments: toRawDocuments(paymentSnapshot.docs),
+    refreshedAtIso: new Date().toISOString(),
+    saleDocuments: toRawDocuments(saleSnapshot.docs),
+    seasonDocuments: toRawDocuments(seasonSnapshot.docs),
+    sessionDocuments: toRawDocuments(sessionSnapshot.docs),
+    syncDocuments: input.syncDocuments,
+    workerDocuments: toRawDocuments(workerSnapshot.docs)
+  });
+}
+
+export function buildAdminDashboard({
+  paymentDocuments,
+  refreshedAtIso,
+  saleDocuments,
+  seasonDocuments,
+  sessionDocuments,
+  syncDocuments,
+  workerDocuments
+}: {
+  paymentDocuments: readonly RawDocument[];
+  refreshedAtIso: string;
+  saleDocuments: readonly RawDocument[];
+  seasonDocuments: readonly RawDocument[];
+  sessionDocuments: readonly RawDocument[];
+  syncDocuments: readonly SyncDocumentMetadataInput[];
+  workerDocuments: readonly RawDocument[];
+}): AdminDashboardResult {
+  assertIso(refreshedAtIso);
+  const seasons: SeasonDocument[] = [];
+  const sessions: HarvestSessionDocument[] = [];
+  const sales: SaleDocument[] = [];
+  const payments: PaymentDocument[] = [];
+  let invalidSeasonCount = 0;
+  let invalidSessionCount = 0;
+  let invalidSaleCount = 0;
+  let invalidPaymentCount = 0;
+  let invalidWorkerCount = 0;
+  let activeWorkerCount = 0;
+
+  for (const document of seasonDocuments) {
+    const decoded = decodeSeason(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      seasons.push(decoded.season);
+    } else {
+      invalidSeasonCount += 1;
+    }
+  }
+
+  for (const document of sessionDocuments) {
+    const decoded = decodeHarvestSession(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      sessions.push(decoded.session);
+    } else {
+      invalidSessionCount += 1;
+    }
+  }
+
+  for (const document of saleDocuments) {
+    const sale = decodeSaleDocument(document.id, document.data);
+
+    if (sale) {
+      sales.push(sale);
+    } else {
+      invalidSaleCount += 1;
+    }
+  }
+
+  for (const document of paymentDocuments) {
+    const payment = decodePaymentDocument(document.id, document.data);
+
+    if (payment) {
+      payments.push(payment);
+    } else {
+      invalidPaymentCount += 1;
+    }
+  }
+
+  for (const document of workerDocuments) {
+    const decoded = decodeWorker(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      if (decoded.worker.active) {
+        activeWorkerCount += 1;
+      }
+    } else {
+      invalidWorkerCount += 1;
+    }
+  }
+
+  const invalidDocumentCounts = {
+    payments: invalidPaymentCount,
+    sales: invalidSaleCount,
+    seasons: invalidSeasonCount,
+    sessions: invalidSessionCount,
+    workers: invalidWorkerCount
+  };
+  const localSyncSummary = summarizeSyncDocumentMetadata(syncDocuments);
+
+  return {
+    invalidDocumentCounts,
+    localSyncSummary,
+    refreshedAtIso,
+    seasons: seasons
+      .map((season) =>
+        buildSeasonDashboard({
+          activeWorkerCount,
+          invalidDocumentCounts,
+          localSyncSummary,
+          payments,
+          sales,
+          season,
+          sessions
+        })
+      )
+      .sort(compareDashboardSeasons)
+  };
+}
+
+function buildSeasonDashboard({
+  activeWorkerCount,
+  invalidDocumentCounts,
+  localSyncSummary,
+  payments,
+  sales,
+  season,
+  sessions
+}: {
+  activeWorkerCount: number;
+  invalidDocumentCounts: AdminDashboardResult["invalidDocumentCounts"];
+  localSyncSummary: SyncMetadataSummary;
+  payments: readonly PaymentDocument[];
+  sales: readonly SaleDocument[];
+  season: SeasonDocument;
+  sessions: readonly HarvestSessionDocument[];
+}): AdminDashboardSeason {
+  const seasonSessions = sessions.filter((session) => session.seasonId === season.id);
+  const seasonSales = sales.filter((sale) => sale.seasonId === season.id);
+  const seasonPayments = payments.filter((payment) => payment.seasonId === season.id);
+  const stock = calculateSourceStockForSeason({
+    harvestSessions: seasonSessions,
+    sales: seasonSales,
+    seasonId: season.id
+  });
+  let inProgressHarvestWeightG = 0;
+  let accruedGrosz = 0;
+  let paidGrosz = 0;
+  let revenueGrosz = 0;
+
+  for (const session of seasonSessions) {
+    if (session.status === "OPEN") {
+      inProgressHarvestWeightG = safeAdd(inProgressHarvestWeightG, session.totalWeightG);
+    }
+
+    if (
+      (session.status === "CLOSED" || session.status === "PAID") &&
+      session.amountDueGrosz !== null
+    ) {
+      accruedGrosz = safeAdd(accruedGrosz, session.amountDueGrosz);
+    }
+  }
+
+  for (const payment of seasonPayments) {
+    if (payment.status === "ACTIVE") {
+      paidGrosz = safeAdd(paidGrosz, payment.amountGrosz);
+    }
+  }
+
+  for (const sale of seasonSales) {
+    revenueGrosz = safeAdd(revenueGrosz, activeSaleRevenueImpact(sale));
+  }
+
+  const dueGrosz = safeAdd(accruedGrosz, -paidGrosz);
+  const resultAfterHarvestCostGrosz = safeAdd(revenueGrosz, -accruedGrosz);
+  const warnings = buildWarnings({
+    availableWeightG: stock.availableWeightG,
+    dueGrosz,
+    invalidDocumentCounts,
+    localSyncSummary
+  });
+
+  return {
+    endDate: season.endDate,
+    id: season.id,
+    isDefault: season.isDefault,
+    metrics: {
+      accruedGrosz,
+      activeWorkerCount,
+      availableWeightG: stock.availableWeightG,
+      confirmedHarvestWeightG: stock.confirmedHarvestWeightG,
+      dueGrosz,
+      inProgressHarvestWeightG,
+      openSessionCount: seasonSessions.filter((session) => session.status === "OPEN")
+        .length,
+      paidGrosz,
+      resultAfterHarvestCostGrosz,
+      reviewRequiredSessionCount: seasonSessions.filter(
+        (session) => session.status === "REVIEW_REQUIRED"
+      ).length,
+      revenueGrosz,
+      soldWeightG: stock.soldWeightG
+    },
+    name: season.name,
+    startDate: season.startDate,
+    status: season.status,
+    warnings
+  };
+}
+
+function buildWarnings({
+  availableWeightG,
+  dueGrosz,
+  invalidDocumentCounts,
+  localSyncSummary
+}: {
+  availableWeightG: number;
+  dueGrosz: number;
+  invalidDocumentCounts: AdminDashboardResult["invalidDocumentCounts"];
+  localSyncSummary: SyncMetadataSummary;
+}): string[] {
+  const warnings: string[] = [];
+  const pendingLocalCount =
+    localSyncSummary.localSavedCount + localSyncSummary.pendingSyncCount;
+  const invalidCount = Object.values(invalidDocumentCounts).reduce(
+    (total, count) => total + count,
+    0
+  );
+
+  if (pendingLocalCount > 0) {
+    warnings.push(
+      `Biezace urzadzenie ma lokalne zapisy oczekujace: ${String(pendingLocalCount)}.`
+    );
+  }
+
+  if (localSyncSummary.actionableErrorCount > 0) {
+    warnings.push(
+      `Synchronizacja wymaga dzialania dla ${String(
+        localSyncSummary.actionableErrorCount
+      )} dokumentow.`
+    );
+  }
+
+  if (availableWeightG < 0) {
+    warnings.push("Stan dostepnych kilogramow jest ujemny i wymaga korekty.");
+  }
+
+  if (dueGrosz < 0) {
+    warnings.push("Wyplacona kwota przekracza naliczenia i wymaga kontroli.");
+  }
+
+  if (invalidCount > 0) {
+    warnings.push(`Pominieto nieprawidlowe dokumenty zrodlowe: ${String(invalidCount)}.`);
+  }
+
+  return warnings;
+}
+
+function compareDashboardSeasons(
+  left: AdminDashboardSeason,
+  right: AdminDashboardSeason
+): number {
+  return (
+    Number(right.isDefault) - Number(left.isDefault) ||
+    statusPriority(left.status) - statusPriority(right.status) ||
+    right.startDate.localeCompare(left.startDate) ||
+    left.name.localeCompare(right.name, "pl")
+  );
+}
+
+function statusPriority(status: SeasonDocument["status"]): number {
+  switch (status) {
+    case "OPEN":
+      return 0;
+    case "PLANNED":
+      return 1;
+    case "CLOSED":
+      return 2;
+    case "ARCHIVED":
+      return 3;
+  }
+}
+
+function toRawDocuments(
+  documents: readonly {
+    data: (options?: { serverTimestamps?: "estimate" }) => unknown;
+    id: string;
+  }[]
+): RawDocument[] {
+  return documents.map((document) => ({
+    data: document.data({ serverTimestamps: "estimate" }),
+    id: document.id
+  }));
+}
+
+function assertAdminOnline(profile: UserProfile, isOnline: boolean): void {
+  if (
+    profile.role !== "ADMIN" ||
+    !profile.active ||
+    profile.registrationStatus !== "APPROVED"
+  ) {
+    throw new Error("Pulpit finansowy wymaga aktywnego administratora.");
+  }
+
+  if (!isOnline) {
+    throw new Error("Odswiezenie pulpitu administratora wymaga polaczenia online.");
+  }
+}
+
+function assertIso(value: string): void {
+  if (Number.isNaN(new Date(value).getTime())) {
+    throw new Error("Pulpit administratora wymaga poprawnego czasu odswiezenia.");
+  }
+}
+
+function safeAdd(left: number, right: number): number {
+  const result = left + right;
+
+  if (!Number.isSafeInteger(result)) {
+    throw new Error("Metryka pulpitu przekracza bezpieczny zakres.");
+  }
+
+  return result;
+}
