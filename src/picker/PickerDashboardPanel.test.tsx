@@ -56,6 +56,11 @@ describe("PickerDashboardPanel", () => {
       expect.objectContaining({
         actorProfile: pickerState.profile,
         isOnline: false,
+        periodSelection: {
+          customFromDate: "",
+          customToDate: "",
+          preset: "SEASON"
+        },
         selectedSeasonId: null
       })
     );
@@ -128,6 +133,13 @@ function dashboardResult(
     invalidSessionCount: 0,
     invalidWorker: false,
     paidAmountGrosz: 2250,
+    period: {
+      dateBasis: "BUSINESS_DATE",
+      fromDate: "2026-07-01",
+      label: "Caly sezon: 01.07.2026 - 30.09.2026",
+      preset: "SEASON",
+      toDate: "2026-09-30"
+    },
     quantities: [
       {
         planId: "plan-ubianka",
@@ -144,6 +156,7 @@ function dashboardResult(
     selectedSeasonName: "Sezon 2026",
     seasons: [
       {
+        endDate: "2026-09-30",
         id: "season-2026",
         isDefault: true,
         name: "Sezon 2026",
@@ -151,6 +164,7 @@ function dashboardResult(
         status: "OPEN"
       },
       {
+        endDate: "2025-09-30",
         id: "season-2025",
         isDefault: false,
         name: "Sezon 2025",

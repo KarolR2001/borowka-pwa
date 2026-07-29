@@ -626,11 +626,19 @@ describe("App shell", () => {
       invalidSessionCount: 0,
       invalidWorker: false,
       paidAmountGrosz: 2000,
+      period: {
+        dateBasis: "BUSINESS_DATE",
+        fromDate: "2026-07-01",
+        label: "Caly sezon: 01.07.2026 - 30.09.2026",
+        preset: "SEASON",
+        toDate: "2026-09-30"
+      },
       quantities: [],
       refreshedAtIso: "2026-07-28T18:30:00.000Z",
       remainingAmountGrosz: 3000,
       seasons: [
         {
+          endDate: "2026-09-30",
           id: "season-2026",
           isDefault: true,
           name: "Sezon 2026",
@@ -1145,14 +1153,21 @@ describe("App shell", () => {
         connection: "ONLINE",
         metrics: {
           availableWeightG: 12_000,
-          closedTodayCount: 1,
           conflictCount: 0,
           localPendingCount: 0,
           openSessionCount: 0,
+          ownClosedSessionCount: 1,
           ownOpenSessionCount: 0
         },
         openSessions: [],
         ownRecentSessions: [],
+        period: {
+          dateBasis: "BUSINESS_DATE",
+          fromDate: "2026-07-29",
+          label: "Dzisiaj: 29.07.2026",
+          preset: "TODAY",
+          toDate: "2026-07-29"
+        },
         refreshedAtIso: "2026-07-29T08:00:00.000Z",
         stock: {
           dataSource: "SERVER",

@@ -59,7 +59,7 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
 - Aktualny kierunek po scaleniu biezacego przyrostu: pakiet
-  `8.11 - filtry okresow`.
+  `8.12 - agregacje i ograniczanie odczytow`.
 
 ## Testowanie i walidacja
 
@@ -130,11 +130,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Pakiet `8.10 - pulpit operatora` jest zakonczonym zakresem biezacego
+- Pakiet `8.11 - filtry okresow` jest zakonczonym zakresem biezacego
   przyrostu; po jego zielonym CI i scaleniu nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Nastepny pakiet implementacyjny to `8.11 - filtry okresow`.
+- Nastepny pakiet implementacyjny to
+  `8.12 - agregacje i ograniczanie odczytow`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.

@@ -62,6 +62,11 @@ describe("OperatorDashboardPanel", () => {
       expect.objectContaining({
         actorProfile: operatorState.profile,
         isOnline: true,
+        periodSelection: {
+          customFromDate: "",
+          customToDate: "",
+          preset: "TODAY"
+        },
         syncDocuments: [{ id: "pending-1", kind: "HARVEST_ENTRY", pendingSync: true }]
       })
     );
@@ -195,10 +200,10 @@ function dashboardResult(
     connection: "ONLINE",
     metrics: {
       availableWeightG: 12_500,
-      closedTodayCount: 2,
       conflictCount: 1,
       localPendingCount: 1,
       openSessionCount: 2,
+      ownClosedSessionCount: 2,
       ownOpenSessionCount: 1
     },
     openSessions: [
@@ -223,6 +228,13 @@ function dashboardResult(
         workerName: "Zbieracz A"
       }
     ],
+    period: {
+      dateBasis: "BUSINESS_DATE",
+      fromDate: "2026-07-29",
+      label: "Dzisiaj: 29.07.2026",
+      preset: "TODAY",
+      toDate: "2026-07-29"
+    },
     refreshedAtIso: "2026-07-29T08:00:00.000Z",
     stock: {
       dataSource: "SERVER",

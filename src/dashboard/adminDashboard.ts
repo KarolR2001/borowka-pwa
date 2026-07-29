@@ -24,6 +24,14 @@ import { activeSaleRevenueImpact } from "../sales/saleDirectory";
 import { decodeSeason } from "../seasons/seasons";
 import { calculateSourceStockForSeason } from "../stock/sourceStockCalculation";
 import { decodeWorker } from "../workers/workerDirectory";
+import {
+  businessDateMatchesPeriod,
+  currentWarsawBusinessDate,
+  DEFAULT_DASHBOARD_PERIOD,
+  resolveDashboardPeriod,
+  type DashboardPeriodSelection,
+  type ResolvedDashboardPeriod
+} from "./dashboardPeriod";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -48,6 +56,7 @@ export type AdminDashboardSeason = {
   isDefault: boolean;
   metrics: AdminDashboardMetrics;
   name: string;
+  period: ResolvedDashboardPeriod;
   startDate: string;
   status: SeasonDocument["status"];
   warnings: string[];
@@ -68,7 +77,9 @@ export type AdminDashboardResult = {
 
 export type LoadAdminDashboardInput = {
   actorProfile: UserProfile;
+  businessDate?: string;
   isOnline: boolean;
+  periodSelection?: DashboardPeriodSelection;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 };
 
@@ -94,7 +105,9 @@ export async function loadAdminDashboard(
     ]);
 
   return buildAdminDashboard({
+    businessDate: input.businessDate ?? currentWarsawBusinessDate(),
     paymentDocuments: toRawDocuments(paymentSnapshot.docs),
+    periodSelection: input.periodSelection,
     refreshedAtIso: new Date().toISOString(),
     saleDocuments: toRawDocuments(saleSnapshot.docs),
     seasonDocuments: toRawDocuments(seasonSnapshot.docs),
@@ -105,7 +118,9 @@ export async function loadAdminDashboard(
 }
 
 export function buildAdminDashboard({
+  businessDate = currentWarsawBusinessDate(),
   paymentDocuments,
+  periodSelection = DEFAULT_DASHBOARD_PERIOD,
   refreshedAtIso,
   saleDocuments,
   seasonDocuments,
@@ -113,7 +128,9 @@ export function buildAdminDashboard({
   syncDocuments,
   workerDocuments
 }: {
+  businessDate?: string;
   paymentDocuments: readonly RawDocument[];
+  periodSelection?: DashboardPeriodSelection;
   refreshedAtIso: string;
   saleDocuments: readonly RawDocument[];
   seasonDocuments: readonly RawDocument[];
@@ -202,9 +219,11 @@ export function buildAdminDashboard({
       .map((season) =>
         buildSeasonDashboard({
           activeWorkerCount,
+          businessDate,
           invalidDocumentCounts,
           localSyncSummary,
           payments,
+          periodSelection,
           sales,
           season,
           sessions
@@ -216,24 +235,44 @@ export function buildAdminDashboard({
 
 function buildSeasonDashboard({
   activeWorkerCount,
+  businessDate,
   invalidDocumentCounts,
   localSyncSummary,
   payments,
+  periodSelection,
   sales,
   season,
   sessions
 }: {
   activeWorkerCount: number;
+  businessDate: string;
   invalidDocumentCounts: AdminDashboardResult["invalidDocumentCounts"];
   localSyncSummary: SyncMetadataSummary;
   payments: readonly PaymentDocument[];
+  periodSelection: DashboardPeriodSelection;
   sales: readonly SaleDocument[];
   season: SeasonDocument;
   sessions: readonly HarvestSessionDocument[];
 }): AdminDashboardSeason {
-  const seasonSessions = sessions.filter((session) => session.seasonId === season.id);
-  const seasonSales = sales.filter((sale) => sale.seasonId === season.id);
-  const seasonPayments = payments.filter((payment) => payment.seasonId === season.id);
+  const period = resolveDashboardPeriod(periodSelection, {
+    seasonEndDate: season.endDate,
+    seasonStartDate: season.startDate,
+    todayBusinessDate: businessDate
+  });
+  const seasonSessions = sessions.filter(
+    (session) =>
+      session.seasonId === season.id &&
+      businessDateMatchesPeriod(session.businessDate, period)
+  );
+  const seasonSales = sales.filter(
+    (sale) =>
+      sale.seasonId === season.id && businessDateMatchesPeriod(sale.businessDate, period)
+  );
+  const seasonPayments = payments.filter(
+    (payment) =>
+      payment.seasonId === season.id &&
+      businessDateMatchesPeriod(payment.paidBusinessDate, period)
+  );
   const stock = calculateSourceStockForSeason({
     harvestSessions: seasonSessions,
     sales: seasonSales,
@@ -298,6 +337,7 @@ function buildSeasonDashboard({
       soldWeightG: stock.soldWeightG
     },
     name: season.name,
+    period,
     startDate: season.startDate,
     status: season.status,
     warnings

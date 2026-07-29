@@ -4,11 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { formatKilograms, formatMoney } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
   loadAdminDashboard,
   type AdminDashboardResult,
   type LoadAdminDashboardInput
 } from "./adminDashboard";
+import {
+  currentWarsawBusinessDate,
+  dashboardPeriodSelectionError,
+  DEFAULT_DASHBOARD_PERIOD,
+  type DashboardPeriodSelection
+} from "./dashboardPeriod";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -48,7 +55,12 @@ export function AdminDashboardPanel({
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
   const [selectedSeasonId, setSelectedSeasonId] = useState("");
+  const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
+    DEFAULT_DASHBOARD_PERIOD
+  );
   const [reloadKey, setReloadKey] = useState(0);
+  const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
+  const periodError = dashboardPeriodSelectionError(periodSelection);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -56,6 +68,10 @@ export function AdminDashboardPanel({
 
     if (!isAdmin) {
       setState(initialState);
+      return undefined;
+    }
+
+    if (periodError) {
       return undefined;
     }
 
@@ -68,7 +84,9 @@ export function AdminDashboardPanel({
     void api
       .load(env, {
         actorProfile: authState.profile,
+        businessDate: todayBusinessDate,
         isOnline,
+        periodSelection,
         syncDocuments
       })
       .then((result) => {
@@ -102,11 +120,26 @@ export function AdminDashboardPanel({
     return () => {
       isMounted = false;
     };
-  }, [api, authState, env, isAdmin, isOnline, reloadKey, syncDocuments]);
+  }, [
+    api,
+    authState,
+    env,
+    isAdmin,
+    isOnline,
+    periodError,
+    periodSelection,
+    reloadKey,
+    syncDocuments,
+    todayBusinessDate
+  ]);
 
   const selectedSeason = useMemo(
-    () => state.result?.seasons.find((season) => season.id === selectedSeasonId) ?? null,
-    [selectedSeasonId, state.result]
+    () =>
+      periodError
+        ? null
+        : (state.result?.seasons.find((season) => season.id === selectedSeasonId) ??
+          null),
+    [periodError, selectedSeasonId, state.result]
   );
   const localPendingCount = state.result
     ? state.result.localSyncSummary.localSavedCount +
@@ -153,23 +186,32 @@ export function AdminDashboardPanel({
         </button>
       </header>
 
-      {state.result && state.result.seasons.length > 0 ? (
-        <label className="field admin-dashboard__season">
-          <span>Sezon</span>
-          <select
-            onChange={(event) => {
-              setSelectedSeasonId(event.target.value);
-            }}
-            value={selectedSeasonId}
-          >
-            {state.result.seasons.map((season) => (
-              <option key={season.id} value={season.id}>
-                {season.name} · {seasonStatusLabel(season.status)}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+      <div className="dashboard-filter-bar">
+        {state.result && state.result.seasons.length > 0 ? (
+          <label className="field admin-dashboard__season">
+            <span>Sezon</span>
+            <select
+              onChange={(event) => {
+                setSelectedSeasonId(event.target.value);
+              }}
+              value={selectedSeasonId}
+            >
+              {state.result.seasons.map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.name} · {seasonStatusLabel(season.status)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <DashboardPeriodFilter
+          disabled={state.status === "LOADING"}
+          idPrefix="admin-dashboard"
+          onChange={setPeriodSelection}
+          selection={periodSelection}
+          todayBusinessDate={todayBusinessDate}
+        />
+      </div>
 
       {!isOnline ? (
         <p className="form-message form-message--warning">
@@ -190,6 +232,7 @@ export function AdminDashboardPanel({
 
       {selectedSeason ? (
         <>
+          <p className="dashboard-period-summary">{selectedSeason.period.label}</p>
           <div className="admin-dashboard__metrics">
             <DashboardMetric
               label="Zebrano potwierdzone"

@@ -12,6 +12,14 @@ import { PAYMENTS_COLLECTION } from "../payments/pendingPayments";
 import { decodePaymentDocument, type PaymentDocument } from "../payments/paymentWrite";
 import { decodeSeason } from "../seasons/seasons";
 import { decodeWorker } from "../workers/workerDirectory";
+import {
+  businessDateMatchesPeriod,
+  currentWarsawBusinessDate,
+  DEFAULT_DASHBOARD_PERIOD,
+  resolveDashboardPeriod,
+  type DashboardPeriodSelection,
+  type ResolvedDashboardPeriod
+} from "../dashboard/dashboardPeriod";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -22,13 +30,15 @@ type RawDocument = {
 
 export type PickerDashboardInput = {
   actorProfile: UserProfile;
+  businessDate?: string;
   isOnline: boolean;
+  periodSelection?: DashboardPeriodSelection;
   selectedSeasonId?: string | null;
 };
 
 export type PickerDashboardSeason = Pick<
   SeasonDocument,
-  "id" | "name" | "status" | "isDefault" | "startDate"
+  "id" | "name" | "status" | "isDefault" | "startDate" | "endDate"
 >;
 
 export type PickerDashboardQuantity = {
@@ -48,6 +58,7 @@ export type PickerDashboardResult = {
   invalidSessionCount: number;
   invalidWorker: boolean;
   paidAmountGrosz: number;
+  period: ResolvedDashboardPeriod | null;
   quantities: PickerDashboardQuantity[];
   refreshedAtIso: string;
   remainingAmountGrosz: number;
@@ -113,8 +124,10 @@ export async function loadPickerDashboard(
 
   return buildPickerDashboard({
     actorProfile: input.actorProfile,
+    businessDate: input.businessDate ?? currentWarsawBusinessDate(),
     dataSource: fromCache ? "CACHE" : "SERVER",
     paymentDocuments: toRawDocuments(paymentSnapshot.docs),
+    periodSelection: input.periodSelection,
     refreshedAtIso: new Date().toISOString(),
     seasonDocuments: toRawDocuments(seasonSnapshot.docs),
     selectedSeasonId: input.selectedSeasonId,
@@ -130,8 +143,10 @@ export async function loadPickerDashboard(
 
 export function buildPickerDashboard({
   actorProfile,
+  businessDate = currentWarsawBusinessDate(),
   dataSource,
   paymentDocuments,
+  periodSelection = DEFAULT_DASHBOARD_PERIOD,
   refreshedAtIso,
   seasonDocuments,
   selectedSeasonId,
@@ -139,8 +154,10 @@ export function buildPickerDashboard({
   workerDocument
 }: {
   actorProfile: UserProfile;
+  businessDate?: string;
   dataSource: PickerDashboardResult["dataSource"];
   paymentDocuments: readonly RawDocument[];
+  periodSelection?: DashboardPeriodSelection;
   refreshedAtIso: string;
   seasonDocuments: readonly RawDocument[];
   selectedSeasonId?: string | null;
@@ -193,15 +210,26 @@ export function buildPickerDashboard({
   );
   const selectedSeason =
     sortedSeasons.find((season) => season.id === effectiveSeasonId) ?? null;
+  const period = selectedSeason
+    ? resolveDashboardPeriod(periodSelection, {
+        seasonEndDate: selectedSeason.endDate,
+        seasonStartDate: selectedSeason.startDate,
+        todayBusinessDate: businessDate
+      })
+    : null;
   const selectedSessions = sessions.filter(
     (session) =>
       session.seasonId === effectiveSeasonId &&
+      (period === null || businessDateMatchesPeriod(session.businessDate, period)) &&
       (session.status === "OPEN" ||
         session.status === "CLOSED" ||
         session.status === "PAID")
   );
   const selectedPayments = payments.filter(
-    (payment) => payment.seasonId === effectiveSeasonId && payment.status === "ACTIVE"
+    (payment) =>
+      payment.seasonId === effectiveSeasonId &&
+      payment.status === "ACTIVE" &&
+      (period === null || businessDateMatchesPeriod(payment.paidBusinessDate, period))
   );
   const sessionCounts = {
     closed: selectedSessions.filter((session) => session.status === "CLOSED").length,
@@ -232,12 +260,14 @@ export function buildPickerDashboard({
     invalidSessionCount,
     invalidWorker: worker === null,
     paidAmountGrosz,
+    period,
     quantities: summarizeQuantities(selectedSessions),
     refreshedAtIso: normalizeIsoTimestamp(refreshedAtIso),
     remainingAmountGrosz: safeDifference(accruedAmountGrosz, paidAmountGrosz),
     selectedSeasonId: effectiveSeasonId,
     selectedSeasonName: selectedSeason?.name ?? null,
-    seasons: sortedSeasons.map(({ id, name, status, isDefault, startDate }) => ({
+    seasons: sortedSeasons.map(({ endDate, id, name, status, isDefault, startDate }) => ({
+      endDate,
       id,
       name,
       status,

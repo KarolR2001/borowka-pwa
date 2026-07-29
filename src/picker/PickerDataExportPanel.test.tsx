@@ -40,6 +40,7 @@ describe("PickerDataExportPanel", () => {
     );
 
     await user.selectOptions(await screen.findByLabelText("Sezon"), "season-2026");
+    expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
     await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
 
     expect(downloadCsv).toHaveBeenCalledTimes(1);
@@ -47,6 +48,34 @@ describe("PickerDataExportPanel", () => {
     expect(downloadCsv.mock.calls[0]?.[0]).toContain('"NALICZENIE"');
     expect(downloadCsv.mock.calls[0]?.[1]).toMatch(/^borowka-moje-dane-.*\.csv$/);
     expect(screen.getByText("Wyeksportowano sesje: 1, wyplaty: 1.")).toBeInTheDocument();
+  });
+
+  it("applies a custom business-date range to the exported report", async () => {
+    const user = userEvent.setup();
+    const downloadCsv = vi.fn();
+
+    render(
+      <PickerDataExportPanel
+        authState={pickerState}
+        env={{}}
+        exportApi={{
+          downloadCsv,
+          load: vi.fn().mockResolvedValue(exportResult())
+        }}
+        isOnline
+      />
+    );
+
+    await user.selectOptions(await screen.findByLabelText("Okres"), "CUSTOM");
+    await user.clear(screen.getByLabelText("Od"));
+    await user.type(screen.getByLabelText("Od"), "2026-07-10");
+    await user.clear(screen.getByLabelText("Do"));
+    await user.type(screen.getByLabelText("Do"), "2026-07-10");
+    await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    expect(downloadCsv.mock.calls[0]?.[0]).toContain('"Zakres od";"2026-07-10"');
+    expect(downloadCsv.mock.calls[0]?.[0]).toContain('"Zakres do";"2026-07-10"');
   });
 
   it("requires an explicit incomplete cache export", async () => {

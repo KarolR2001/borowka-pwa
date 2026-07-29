@@ -7,17 +7,24 @@ import {
   Wifi,
   WifiOff
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
   loadOperatorDashboard,
+  DEFAULT_OPERATOR_DASHBOARD_PERIOD,
   type LoadOperatorDashboardInput,
   type OperatorDashboardResult,
   type OperatorDashboardSession
 } from "./operatorDashboard";
+import {
+  currentWarsawBusinessDate,
+  dashboardPeriodSelectionError,
+  type DashboardPeriodSelection
+} from "./dashboardPeriod";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -56,7 +63,12 @@ export function OperatorDashboardPanel({
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
+  const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
+    DEFAULT_OPERATOR_DASHBOARD_PERIOD
+  );
   const [reloadKey, setReloadKey] = useState(0);
+  const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
+  const periodError = dashboardPeriodSelectionError(periodSelection);
   const isOperator =
     authState.status === "READY" && authState.profile.role === "OPERATOR";
 
@@ -68,11 +80,17 @@ export function OperatorDashboardPanel({
       return undefined;
     }
 
+    if (periodError) {
+      return undefined;
+    }
+
     setState((current) => ({ result: current.result, status: "LOADING" }));
     void api
       .load(env, {
         actorProfile: authState.profile,
+        businessDate: todayBusinessDate,
         isOnline,
+        periodSelection,
         syncDocuments
       })
       .then((result) => {
@@ -89,7 +107,18 @@ export function OperatorDashboardPanel({
     return () => {
       isMounted = false;
     };
-  }, [api, authState, env, isOnline, isOperator, reloadKey, syncDocuments]);
+  }, [
+    api,
+    authState,
+    env,
+    isOnline,
+    isOperator,
+    periodError,
+    periodSelection,
+    reloadKey,
+    syncDocuments,
+    todayBusinessDate
+  ]);
 
   if (!isOperator) {
     return (
@@ -103,7 +132,7 @@ export function OperatorDashboardPanel({
     );
   }
 
-  const result = state.result;
+  const result = periodError ? null : state.result;
   const warnings = result ? dashboardWarnings(result) : [];
 
   return (
@@ -149,6 +178,16 @@ export function OperatorDashboardPanel({
         </div>
       </header>
 
+      <div className="dashboard-filter-bar">
+        <DashboardPeriodFilter
+          disabled={state.status === "LOADING"}
+          idPrefix="operator-dashboard"
+          onChange={setPeriodSelection}
+          selection={periodSelection}
+          todayBusinessDate={todayBusinessDate}
+        />
+      </div>
+
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
           Nie udalo sie pobrac pulpitu operatora
@@ -161,6 +200,7 @@ export function OperatorDashboardPanel({
 
       {result ? (
         <>
+          <p className="dashboard-period-summary">{result.period.label}</p>
           <div className="operator-dashboard__metrics">
             <DashboardMetric
               label="Aktywny sezon"
@@ -190,8 +230,12 @@ export function OperatorDashboardPanel({
               value={String(result.metrics.ownOpenSessionCount)}
             />
             <DashboardMetric
-              label="Moje zamkniete dzis"
-              value={String(result.metrics.closedTodayCount)}
+              label={
+                result.period.preset === "TODAY"
+                  ? "Moje zamkniete dzis"
+                  : "Moje zamkniete w okresie"
+              }
+              value={String(result.metrics.ownClosedSessionCount)}
             />
             <DashboardMetric
               label="Lokalnie oczekujace"
@@ -222,8 +266,8 @@ export function OperatorDashboardPanel({
             sessions={result.openSessions}
           />
           <DashboardSessionList
-            emptyMessage="Brak wlasnych ostatnich sesji."
-            label="Moje ostatnie sesje"
+            emptyMessage="Brak wlasnych sesji w wybranym okresie."
+            label="Moje sesje w okresie"
             sessions={result.ownRecentSessions}
           />
 

@@ -171,15 +171,14 @@ export function filterPickerDataExport(
         session.businessDate >= normalizedFilters.fromDate) &&
       (!normalizedFilters.toDate || session.businessDate <= normalizedFilters.toDate)
   );
-  const sessionIds = new Set(sessions.map((session) => session.sessionId));
   const payments = result.payments.filter(
     (payment) =>
       (!normalizedFilters.seasonId || payment.seasonId === normalizedFilters.seasonId) &&
-      (sessionIds.has(payment.sessionId) ||
-        (!normalizedFilters.fromDate &&
-          !normalizedFilters.toDate &&
-          payment.sessionBusinessDate === null))
+      (!normalizedFilters.fromDate ||
+        payment.paidBusinessDate >= normalizedFilters.fromDate) &&
+      (!normalizedFilters.toDate || payment.paidBusinessDate <= normalizedFilters.toDate)
   );
+  const sessionIds = new Set(sessions.map((session) => session.sessionId));
   const officialSessionIds = new Set(
     result.sessionSummaries
       .filter(
@@ -196,10 +195,7 @@ export function filterPickerDataExport(
   );
   const paidAmountGrosz = safeSum(
     payments
-      .filter(
-        (payment) =>
-          payment.status === "ACTIVE" && officialSessionIds.has(payment.sessionId)
-      )
+      .filter((payment) => payment.status === "ACTIVE")
       .map((payment) => payment.amountGrosz)
   );
 
