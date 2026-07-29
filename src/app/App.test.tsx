@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
 import type { DeviceDirectoryApi } from "../devices/AdminDeviceDirectoryPanel";
+import type { OperatorDashboardApi } from "../dashboard/OperatorDashboardPanel";
 import type { OperatorHarvestSessionsApi } from "../harvest/OperatorHarvestSessionsPanel";
 import type { RegistrationInvitationsApi } from "../invitations/AdminRegistrationInvitationsPanel";
 import type { ConfigurationCacheApi } from "../offline/ConfigurationCachePanel";
@@ -1134,18 +1135,32 @@ describe("App shell", () => {
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 
-  it("renders simplified worker directory from the operator tab", async () => {
+  it("renders the operational dashboard without the worker directory", async () => {
     const user = userEvent.setup();
-    const listWorkers = vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
-      workers: [],
-      plans: [],
-      profiles: [],
-      invalidWorkers: [],
-      invalidPlans: [],
-      invalidRateVersions: [],
-      invalidProfiles: [],
-      invalidAuditEvents: []
-    });
+    const loadOperatorDashboard = vi
+      .fn<OperatorDashboardApi["load"]>()
+      .mockResolvedValue({
+        activeSeason: { id: "season-1", name: "Sezon 2026" },
+        conflicts: [],
+        connection: "ONLINE",
+        metrics: {
+          availableWeightG: 12_000,
+          closedTodayCount: 1,
+          conflictCount: 0,
+          localPendingCount: 0,
+          openSessionCount: 0,
+          ownOpenSessionCount: 0
+        },
+        openSessions: [],
+        ownRecentSessions: [],
+        refreshedAtIso: "2026-07-29T08:00:00.000Z",
+        stock: {
+          dataSource: "SERVER",
+          invalidMovementCount: 0,
+          movementCount: 2,
+          pendingMovementCount: 0
+        }
+      });
     const listHarvestSessions = vi
       .fn<OperatorHarvestSessionsApi["list"]>()
       .mockResolvedValue({
@@ -1203,7 +1218,7 @@ describe("App shell", () => {
           reopen: reopenHarvestSession,
           cancel: cancelHarvestSession
         }}
-        workerDirectoryApi={{ list: listWorkers }}
+        operatorDashboardApi={{ load: loadOperatorDashboard }}
       />
     );
 
@@ -1215,9 +1230,13 @@ describe("App shell", () => {
         selectedSessionId: null,
         isOnline: true
       });
-      expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
-        viewerRole: "OPERATOR"
-      });
+      expect(loadOperatorDashboard).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          actorProfile: activeOperatorState.profile,
+          isOnline: true
+        })
+      );
     });
     expect(listOpeningConfiguration).toHaveBeenCalledWith(expect.anything(), {
       actorProfile: activeOperatorState.profile,
@@ -1226,6 +1245,7 @@ describe("App shell", () => {
     expect(
       screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Pulpit operatora" })).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
   });
 });

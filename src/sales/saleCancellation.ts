@@ -8,6 +8,7 @@ import { getFirebaseServices } from "../config/firebaseServices";
 import { SEASONS_COLLECTION } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import { decodeSeason } from "../seasons/seasons";
+import { publishSaleStockMovement } from "../stock/operationalStockMovement";
 import {
   SALES_COLLECTION,
   decodeSaleDocument,
@@ -153,7 +154,6 @@ export async function cancelSale(
         sale,
         saleId
       });
-
       transaction.update(saleRef, prepared.saleUpdate);
       transaction.set(auditRef, prepared.auditEvent);
     });
@@ -187,6 +187,7 @@ export async function cancelSale(
   }
 
   const impact = calculateSaleCancellationImpact(cancelledSale);
+  await publishSaleStockMovement(firestore, cancelledSale, input.actorProfile.uid);
   const postWriteStock = await readFreshSaleStockForSeason(
     env,
     input.actorProfile,

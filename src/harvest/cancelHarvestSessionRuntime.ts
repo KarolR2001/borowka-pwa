@@ -1,6 +1,7 @@
 import { AUDIT_EVENTS_COLLECTION, createAuditEventId } from "../audit/auditEvents";
 import { getFirebaseServices } from "../config/firebaseServices";
 import type { UserProfile } from "../domain/identity";
+import { publishHarvestSessionStockMovement } from "../stock/operationalStockMovement";
 import {
   prepareCancelHarvestSession,
   type PreparedCancelHarvestSession
@@ -120,8 +121,12 @@ export async function cancelHarvestSessionOnline(
     doc(firestore, AUDIT_EVENTS_COLLECTION, prepared.auditEvent.id),
     prepared.auditEvent
   );
-
   await batch.commit();
+  await publishHarvestSessionStockMovement(
+    firestore,
+    prepared.session,
+    input.actorProfile.uid
+  );
 
   return {
     session: prepared.session,

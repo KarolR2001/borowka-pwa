@@ -71,10 +71,14 @@ describe("sales Firestore rules", () => {
   it("allows an administrator to create a sale only with a matching audit", async () => {
     const db = authenticatedDb("admin-1");
     const batch = writeBatch(db);
-    batch.set(doc(db, "sales", "sale-1"), saleDocument());
+    const sale = saleDocument();
+    batch.set(doc(db, "sales", "sale-1"), sale);
     batch.set(doc(db, "auditEvents", "sale-created-sale-1"), saleAudit());
 
     await assertSucceeds(batch.commit());
+    await assertSucceeds(
+      setDoc(doc(db, "operationalStockMovements", "sale-sale-1"), saleStockMovement(sale))
+    );
     await assertSucceeds(getDocs(collection(db, "sales")));
   });
 
@@ -153,6 +157,12 @@ describe("sales Firestore rules", () => {
       );
 
       await assertSucceeds(batch.commit());
+      await assertSucceeds(
+        setDoc(
+          doc(db, "operationalStockMovements", "sale-correction-1"),
+          saleStockMovement(correctionDocument(direction))
+        )
+      );
     }
   );
 
@@ -239,6 +249,12 @@ describe("sales Firestore rules", () => {
       );
 
       await assertSucceeds(batch.commit());
+      await assertSucceeds(
+        setDoc(
+          doc(db, "operationalStockMovements", `sale-${source.id}`),
+          saleStockMovement({ ...source, status: "CANCELLED" })
+        )
+      );
     }
   );
 
@@ -261,6 +277,12 @@ describe("sales Firestore rules", () => {
     );
 
     await assertSucceeds(batch.commit());
+    await assertSucceeds(
+      setDoc(
+        doc(db, "operationalStockMovements", `sale-${source.id}`),
+        saleStockMovement({ ...source, status: "CANCELLED" })
+      )
+    );
   });
 
   it("rejects cancellation without audit, with a mismatched audit or changed history", async () => {
@@ -300,6 +322,71 @@ describe("sales Firestore rules", () => {
     await seedSale(source);
 
     await assertFails(deleteDoc(doc(authenticatedDb("admin-1"), "sales", source.id)));
+  });
+
+  it("exposes only sanitized stock movements to operators", async () => {
+    const source = saleDocument();
+    await seedSale(source);
+    const adminDb = authenticatedDb("admin-1");
+    await assertSucceeds(
+      setDoc(
+        doc(adminDb, "operationalStockMovements", "sale-sale-1"),
+        saleStockMovement(source)
+      )
+    );
+
+    const operatorSnapshot = await assertSucceeds(
+      getDocs(collection(authenticatedDb("operator-1"), "operationalStockMovements"))
+    );
+    expect(operatorSnapshot.docs.map((snapshot) => snapshot.data())).toEqual([
+      expect.objectContaining({
+        id: "sale-sale-1",
+        seasonId: "season-1",
+        sourceId: "sale-1",
+        sourceType: "SALE",
+        updatedBy: "admin-1",
+        weightImpactG: -3000
+      })
+    ]);
+    expect(Object.keys(operatorSnapshot.docs[0]?.data() ?? {}).sort()).toEqual([
+      "id",
+      "seasonId",
+      "sourceId",
+      "sourceType",
+      "updatedAt",
+      "updatedBy",
+      "weightImpactG"
+    ]);
+
+    await assertFails(
+      getDocs(collection(authenticatedDb("picker-1"), "operationalStockMovements"))
+    );
+    await assertFails(
+      getDocs(
+        collection(
+          requiredEnvironment().unauthenticatedContext().firestore(),
+          "operationalStockMovements"
+        )
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(authenticatedDb("operator-1"), "operationalStockMovements", "sale-sale-1"),
+        {
+          ...saleStockMovement(source),
+          updatedBy: "operator-1"
+        }
+      )
+    );
+    await assertFails(
+      setDoc(doc(adminDb, "operationalStockMovements", "sale-sale-1"), {
+        ...saleStockMovement(source),
+        weightImpactG: -2999
+      })
+    );
+    await assertFails(
+      deleteDoc(doc(adminDb, "operationalStockMovements", "sale-sale-1"))
+    );
   });
 
   it("denies sales reads and writes to non-admin roles and anonymous users", async () => {
@@ -451,6 +538,27 @@ function saleCancellationUpdate() {
     cancelledAt: serverTimestamp(),
     cancelledBy: "admin-1",
     status: "CANCELLED"
+  };
+}
+
+function saleStockMovement(source: SaleFixture) {
+  const weightImpactG =
+    source.status === "CANCELLED"
+      ? 0
+      : source.entryType === "SALE"
+        ? -source.weightG
+        : source.correctionDirection === "INCREASE_STOCK"
+          ? source.weightG
+          : -source.weightG;
+
+  return {
+    id: `sale-${source.id}`,
+    seasonId: source.seasonId,
+    sourceId: source.id,
+    sourceType: "SALE",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-1",
+    weightImpactG
   };
 }
 

@@ -977,6 +977,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/auditEvents/$(auditEventId);
     }
 
+    function salePath(saleId) {
+      return /databases/$(database)/documents/sales/$(saleId);
+    }
+
+    function harvestSessionStockMovementId(sessionId) {
+      return 'harvest-session-' + sessionId;
+    }
+
+    function saleStockMovementId(saleId) {
+      return 'sale-' + saleId;
+    }
+
     function hasWorkerFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -1709,6 +1721,86 @@ service cloud.firestore {
           'updatedAtServer',
           'revision'
         ]);
+    }
+
+    function hasOperationalStockMovementFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'seasonId',
+        'sourceId',
+        'sourceType',
+        'updatedAt',
+        'updatedBy',
+        'weightImpactG'
+      ]) &&
+        data.keys().hasAll([
+          'id',
+          'seasonId',
+          'sourceId',
+          'sourceType',
+          'updatedAt',
+          'updatedBy',
+          'weightImpactG'
+        ]);
+    }
+
+    function expectedHarvestSessionStockImpact(session) {
+      return (
+        session.status == 'CLOSED' ||
+        session.status == 'PAID'
+      ) ? session.totalWeightG : 0;
+    }
+
+    function expectedSaleStockImpact(sale) {
+      return sale.status == 'CANCELLED' ? 0 : (
+        sale.entryType == 'SALE' ? -sale.weightG : (
+          sale.correctionDirection == 'INCREASE_STOCK'
+            ? sale.weightG
+            : -sale.weightG
+        )
+      );
+    }
+
+    function matchesExistingHarvestSessionStockSource(data) {
+      let source = get(harvestSessionPath(data.sourceId)).data;
+      return exists(harvestSessionPath(data.sourceId)) &&
+        data.seasonId == source.seasonId &&
+        data.weightImpactG == expectedHarvestSessionStockImpact(source);
+    }
+
+    function matchesExistingSaleStockSource(data) {
+      let source = get(salePath(data.sourceId)).data;
+      return isAdmin() &&
+        exists(salePath(data.sourceId)) &&
+        data.seasonId == source.seasonId &&
+        data.weightImpactG == expectedSaleStockImpact(source);
+    }
+
+    function isValidOperationalStockMovementWrite(data, movementId) {
+      return (isAdmin() || isOperator()) &&
+        hasOperationalStockMovementFields(data) &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.seasonId is string &&
+        data.seasonId.size() > 0 &&
+        data.sourceId is string &&
+        data.sourceId.size() > 0 &&
+        data.updatedAt == request.time &&
+        data.updatedBy == request.auth.uid &&
+        data.weightImpactG is int &&
+        (
+          (
+            data.sourceType == 'HARVEST_SESSION' &&
+            data.id == harvestSessionStockMovementId(data.sourceId) &&
+            data.id == movementId &&
+            matchesExistingHarvestSessionStockSource(data)
+          ) || (
+            data.sourceType == 'SALE' &&
+            data.id == saleStockMovementId(data.sourceId) &&
+            data.id == movementId &&
+            matchesExistingSaleStockSource(data)
+          )
+        );
     }
 
     function isPaymentMethod(paymentMethod) {
@@ -2680,6 +2772,15 @@ service cloud.firestore {
         request.resource.data,
         resource.data,
         saleId
+      );
+      allow delete: if false;
+    }
+
+    match /operationalStockMovements/{movementId} {
+      allow get, list: if isAdmin() || isOperator();
+      allow create, update: if isValidOperationalStockMovementWrite(
+        request.resource.data,
+        movementId
       );
       allow delete: if false;
     }

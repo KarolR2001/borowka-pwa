@@ -9,6 +9,7 @@ import type { UserProfile } from "../domain/identity";
 import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
 import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
 import { decodeSeason } from "../seasons/seasons";
+import { publishSaleStockMovement } from "../stock/operationalStockMovement";
 import {
   calculateSourceStockForSeason,
   type SourceStockCalculationResult,
@@ -273,6 +274,8 @@ export async function createOrdinarySale(
         : "Nie udalo sie potwierdzic zapisu sprzedazy."
     );
   }
+
+  await publishSaleStockMovement(firestore, confirmedSale, input.actorProfile.uid);
 
   const postWriteStock = await readFreshSaleStockForSeason(
     env,

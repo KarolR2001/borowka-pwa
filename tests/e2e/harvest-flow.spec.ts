@@ -5,6 +5,24 @@ const ADMIN_EMAIL = "admin.e2e@example.test";
 const E2E_PASSWORD = "test12345";
 
 test.describe("Seeded harvest flow", () => {
+  test("keeps the operator dashboard usable on a narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
+    await page.getByRole("button", { name: "Operator" }).click();
+
+    const operatorDashboard = page.locator(".operator-dashboard");
+    await expect(operatorDashboard).toBeVisible();
+    await expect(
+      operatorDashboard.getByRole("button", { name: "Nowy zbior" })
+    ).toBeVisible();
+    await expect(operatorDashboard.getByText("Dostepne operacyjnie")).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    ).toBeLessThanOrEqual(0);
+  });
+
   test("runs operator session flow and admin correction actions", async ({ page }) => {
     page.on("dialog", async (dialog) => {
       await dialog.accept();
@@ -15,9 +33,17 @@ test.describe("Seeded harvest flow", () => {
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
     await page.getByRole("button", { name: "Operator" }).click();
 
-    await expect(
-      page.getByRole("form", { name: "Otwieranie sesji zbioru" })
-    ).toBeVisible();
+    const operatorDashboard = page.locator(".operator-dashboard");
+    await expect(operatorDashboard).toBeVisible();
+    await expect(operatorDashboard.getByText("Dostepne operacyjnie")).toBeVisible();
+    await expect(operatorDashboard.getByText(/przychod/i)).toHaveCount(0);
+    const openSessionForm = page.getByRole("form", {
+      name: "Otwieranie sesji zbioru"
+    });
+    await expect(openSessionForm).toBeVisible();
+    await expect(page.getByLabel("Zbieracz")).toBeEnabled();
+    await operatorDashboard.getByRole("button", { name: "Nowy zbior" }).click();
+    await expect(page.getByLabel("Zbieracz")).toBeFocused();
     await page.getByLabel("Data").fill("2026-07-17");
     await page.getByRole("button", { name: "Otworz sesje" }).click();
 

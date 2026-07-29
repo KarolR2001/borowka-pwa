@@ -144,6 +144,11 @@ import {
   type AdminDashboardApi
 } from "../dashboard/AdminDashboardPanel";
 import {
+  defaultOperatorDashboardApi,
+  OperatorDashboardPanel,
+  type OperatorDashboardApi
+} from "../dashboard/OperatorDashboardPanel";
+import {
   AdminOrdinarySalesPanel,
   defaultOrdinarySalesApi,
   type OrdinarySalesApi
@@ -229,6 +234,7 @@ export type AppProps = {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   adminIssueReportsApi?: AdminIssueReportsApi;
   adminDashboardApi?: AdminDashboardApi;
+  operatorDashboardApi?: OperatorDashboardApi;
   ordinarySalesApi?: OrdinarySalesApi;
   pickerDashboardApi?: PickerDashboardApi;
   pickerDataExportApi?: PickerDataExportApi;
@@ -316,6 +322,7 @@ export function App({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   adminIssueReportsApi = defaultAdminIssueReportsApi,
   adminDashboardApi = defaultAdminDashboardApi,
+  operatorDashboardApi = defaultOperatorDashboardApi,
   ordinarySalesApi = defaultOrdinarySalesApi,
   pickerDashboardApi = defaultPickerDashboardApi,
   pickerDataExportApi = defaultPickerDataExportApi,
@@ -1059,6 +1066,13 @@ export function App({
 
         {activeView === "operator" ? (
           <>
+            <OperatorDashboardPanel
+              api={operatorDashboardApi}
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
+              syncDocuments={syncDocuments}
+            />
             <OperatorHarvestSessionsPanel
               authState={authState}
               env={env}
@@ -1069,11 +1083,6 @@ export function App({
               onActiveHarvestSessionChange={setHasActiveHarvestSession}
               onLocalDocumentsChanged={handleLocalDocumentsChanged}
               serviceWorkerReady={isServiceWorkerReady(serviceWorkerStatus)}
-            />
-            <WorkerDirectoryPanel
-              authState={authState}
-              env={env}
-              workerDirectoryApi={workerDirectoryApi}
             />
           </>
         ) : null}

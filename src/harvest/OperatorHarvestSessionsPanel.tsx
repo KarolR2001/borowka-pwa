@@ -868,21 +868,6 @@ export function OperatorHarvestSessionsPanel({
         </button>
       </div>
 
-      <OpenHarvestSessionForm
-        actorRole={viewerProfile.role}
-        configuration={openingConfiguration}
-        configurationMessage={openingConfigurationState.message}
-        draft={openDraft}
-        error={openError}
-        existingOpenSessionsCount={existingOpenSessionsForDraft.length}
-        feedback={openFeedback}
-        isSubmitting={isOpeningSession}
-        onChange={setOpenDraft}
-        onSubmit={() => {
-          void handleOpenSession();
-        }}
-      />
-
       {invalidConfigurationCount > 0 ? (
         <p className="form-message form-message--error">
           Niepoprawne dokumenty konfiguracji otwarcia sesji: {invalidConfigurationCount}
@@ -923,6 +908,27 @@ export function OperatorHarvestSessionsPanel({
       {state.status === "READY" && result?.openSessions.length === 0 ? (
         <p className="empty-state">Brak otwartych sesji zbioru.</p>
       ) : null}
+
+      <div
+        className="operator-sessions__new-session"
+        id="new-harvest-session"
+        tabIndex={-1}
+      >
+        <OpenHarvestSessionForm
+          actorRole={viewerProfile.role}
+          configuration={openingConfiguration}
+          configurationMessage={openingConfigurationState.message}
+          draft={openDraft}
+          error={openError}
+          existingOpenSessionsCount={existingOpenSessionsForDraft.length}
+          feedback={openFeedback}
+          isSubmitting={isOpeningSession}
+          onChange={setOpenDraft}
+          onSubmit={() => {
+            void handleOpenSession();
+          }}
+        />
+      </div>
 
       <ActiveHarvestSessionPanel
         onAddEntry={() => {

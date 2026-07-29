@@ -40,6 +40,7 @@ const firestoreLiteMock = vi.hoisted(() => ({
       }) as const
   ),
   getDoc: vi.fn(),
+  getDocFromServer: vi.fn(),
   getDocs: vi.fn(),
   orderBy: vi.fn(
     (fieldPath: string, direction?: string) =>
@@ -56,6 +57,7 @@ const firestoreLiteMock = vi.hoisted(() => ({
       }) as const
   ),
   serverTimestamp: vi.fn(() => "server-reopen-time"),
+  setDoc: vi.fn(),
   Timestamp: {
     now: vi.fn(() => "device-reopen-time")
   },
@@ -107,10 +109,13 @@ beforeEach(() => {
   firestoreLiteMock.collection.mockClear();
   firestoreLiteMock.doc.mockClear();
   firestoreLiteMock.getDoc.mockReset();
+  firestoreLiteMock.getDocFromServer.mockReset();
   firestoreLiteMock.getDocs.mockReset();
   firestoreLiteMock.orderBy.mockClear();
   firestoreLiteMock.query.mockClear();
   firestoreLiteMock.serverTimestamp.mockClear();
+  firestoreLiteMock.setDoc.mockReset();
+  firestoreLiteMock.setDoc.mockResolvedValue(undefined);
   firestoreLiteMock.Timestamp.now.mockClear();
   firestoreLiteMock.where.mockClear();
   firestoreLiteMock.writeBatch.mockReturnValue(firestoreLiteMock.batch);
@@ -125,6 +130,17 @@ describe("reopen harvest session runtime", () => {
     firestoreLiteMock.getDocs.mockResolvedValue({
       docs: [existingSnapshot(entry.id, entry)]
     });
+    firestoreLiteMock.getDocFromServer.mockImplementation((ref: { id: string }) =>
+      existingSnapshot(ref.id, {
+        id: ref.id,
+        seasonId: session.seasonId,
+        sourceId: session.id,
+        sourceType: "HARVEST_SESSION",
+        updatedAt: "server-reopen-time",
+        updatedBy: adminProfile.uid,
+        weightImpactG: 0
+      })
+    );
 
     const result = await reopenHarvestSessionOnline(
       {
@@ -171,6 +187,16 @@ describe("reopen harvest session runtime", () => {
       })
     );
     expect(firestoreLiteMock.batch.commit).toHaveBeenCalledTimes(1);
+    expect(firestoreLiteMock.setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `operationalStockMovements/harvest-session-${session.id}`
+      }),
+      expect.objectContaining({
+        sourceId: session.id,
+        sourceType: "HARVEST_SESSION",
+        weightImpactG: 0
+      })
+    );
     expect(result).toMatchObject({
       selectedSessionId: session.id,
       message: "Ponownie otwarto sesje dla Anna Test.",

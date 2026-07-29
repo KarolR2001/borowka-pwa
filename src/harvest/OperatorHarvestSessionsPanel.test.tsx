@@ -120,6 +120,15 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(screen.getAllByText("1 kilogram").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeEnabled();
+    const newSessionSection = document.getElementById("new-harvest-session");
+
+    if (!newSessionSection) {
+      throw new Error("Nie znaleziono formularza nowej sesji.");
+    }
+
+    expect(
+      screen.getByLabelText("Otwarte sesje").compareDocumentPosition(newSessionSection)
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("reports active session and form blockers to the PWA update gate", async () => {
