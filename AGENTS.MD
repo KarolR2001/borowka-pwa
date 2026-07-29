@@ -58,8 +58,8 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie czytaj calych duzych plikow przy kazdym zadaniu.
 - Czytaj aktualny fragment planu i najblizszy potrzebny kontekst.
 - Preferuj `rg`, konkretne zakresy linii i krotkie fragmenty.
-- Aktualny kierunek po pakiecie 8.1: pakiet
-  `8.2 - kalkulacja stanu zrodlowego`.
+- Aktualny kierunek po pakiecie 8.2: pakiet
+  `8.3 - formularz zwyklej sprzedazy`.
 
 ## Testowanie i walidacja
 
@@ -130,14 +130,14 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Punkt startowy tego przyrostu: pakiet `8.1` scalony do `main` w commicie
-  `854a7c9`.
+- Punkt startowy tego przyrostu: pakiet `8.2` scalony do `main` w commicie
+  `adcf693`.
 - Aktualna galaz realizuje pakiet
-  `8.2 - kalkulacja stanu zrodlowego`.
+  `8.3 - formularz zwyklej sprzedazy`.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Po zakonczeniu 8.2 nastepny pakiet implementacyjny to
-  `8.3 - formularz zwyklej sprzedazy`.
+- Po zakonczeniu 8.3 nastepny pakiet implementacyjny to
+  `8.4 - sprawdzenie stanu przed zapisem`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.
