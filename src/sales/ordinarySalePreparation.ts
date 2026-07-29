@@ -172,7 +172,7 @@ function normalizeNote(value: string): string | null {
 
   if (normalized.length > ORDINARY_SALE_NOTE_MAX_LENGTH) {
     throw new Error(
-      `Notatka moze miec maksymalnie ${ORDINARY_SALE_NOTE_MAX_LENGTH} znakow.`
+      `Notatka moze miec maksymalnie ${String(ORDINARY_SALE_NOTE_MAX_LENGTH)} znakow.`
     );
   }
 
