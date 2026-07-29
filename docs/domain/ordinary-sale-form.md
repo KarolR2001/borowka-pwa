@@ -1,6 +1,6 @@
 # Formularz zwyklej sprzedazy
 
-## Zakres pakietu 8.3
+## Zakres pakietow 8.3-8.5
 
 Formularz przygotowuje zwykla sprzedaz do obowiazkowego, swiezego sprawdzenia
 stanu. Samo nacisniecie `Sprawdz i przejdz dalej` nie zapisuje dokumentu
@@ -29,9 +29,12 @@ Dla wybranego sezonu interfejs pokazuje:
 - przewidywany stan po sprzedazy;
 - czas odswiezenia stanu.
 
-Podglad przychodu korzysta z pelnych gramow i groszy oraz zaokragla polowe
-grosza w gore. Pakiet 8.5 utrwali te regule jako wersjonowana regule oficjalnego
-zapisu i rozszerzy jej testy brzegowe.
+Podglad przychodu korzysta z pelnych gramow i groszy oraz wykonuje jedno
+zaokraglenie matematyczne do pelnego grosza, z polowa grosza w gore. Formularz
+jawnie pokazuje mase, cene, wynik i wersje reguly. Ten sam wynik oraz
+`calculationVersion = "1"` sa zapisywane w dokumencie sprzedazy i audycie.
+Pelny kontrakt obliczen opisuje
+`docs/domain/sale-revenue-calculation.md`.
 
 Ujemny przewidywany stan nie jest ukrywany. Formularz pokazuje wartosc i
 ostrzezenie, a swiezy preflight pakietu 8.4 ma odrzucic zwykla sprzedaz
@@ -53,3 +56,7 @@ Informacja nie zastapi ponownego odczytu serwera bezposrednio przed zapisem.
 - callback `onPrepare` przekazuje `PreparedOrdinarySale` do przeplywu preflight,
   zaimplementowanego w `src/sales/saleStockPreflight.ts`. Pelny kontrakt
   ponownego odczytu i zapisu opisuje `docs/domain/sale-stock-preflight.md`.
+- `src/sales/saleRevenueCalculation.ts` jest jedynym klientowym zrodlem reguly
+  przychodu zwyklej sprzedazy.
+- `firestore.rules` niezaleznie wymuszaja zgodnosc masy, ceny, kwoty i wersji
+  dla kazdego nowego dokumentu `SALE`.

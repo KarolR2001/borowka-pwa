@@ -118,6 +118,7 @@ describe("ordinary sale stock preflight", () => {
 
     expect(document).toEqual({
       businessDate: "2026-07-29",
+      calculationVersion: "1",
       cancellationReason: null,
       cancelledAt: null,
       cancelledBy: null,
@@ -154,6 +155,18 @@ describe("ordinary sale stock preflight", () => {
         correctionDirection: "INCREASE_STOCK"
       })
     ).toBeNull();
+    expect(
+      decodeSaleDocument("sale-1", {
+        ...document,
+        totalGrosz: document.totalGrosz - 1
+      })
+    ).toBeNull();
+    expect(
+      decodeSaleDocument("sale-1", {
+        ...document,
+        calculationVersion: "legacy"
+      })
+    ).toBeNull();
     expect(() =>
       prepareOrdinarySaleDocument({
         actorProfile: { ...adminProfile, role: "OPERATOR" },
@@ -184,7 +197,10 @@ function preparedSale(): PreparedOrdinarySale {
     priceGroszPerKg: 1250,
     projectedAvailableWeightG: 7000,
     refreshedAtIso: "2026-07-29T06:00:00.000Z",
+    revenueCalculationVersion: "1",
     revenuePreviewGrosz: 3750,
+    revenueRemainderMilliGrosz: 0,
+    revenueRoundingRule: "HALF_UP_TO_GROSZ",
     seasonId: "season-1",
     seasonName: "Sezon 2026",
     status: "ACTIVE",

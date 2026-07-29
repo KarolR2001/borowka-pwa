@@ -2537,6 +2537,16 @@ h2 {
   color: #8a3b12;
 }
 
+.ordinary-sale-form__calculation {
+  margin: 0;
+  border-left: 3px solid #4f7561;
+  padding: 10px 12px;
+  color: #334b3f;
+  background: #f2f7f4;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .ordinary-sale-form__warning {
   display: flex;
   align-items: flex-start;

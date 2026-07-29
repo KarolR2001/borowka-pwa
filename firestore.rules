@@ -1827,6 +1827,7 @@ service cloud.firestore {
         'id',
         'seasonId',
         'businessDate',
+        'calculationVersion',
         'weightG',
         'priceGroszPerKg',
         'totalGrosz',
@@ -1846,6 +1847,7 @@ service cloud.firestore {
         'id',
         'seasonId',
         'businessDate',
+        'calculationVersion',
         'weightG',
         'priceGroszPerKg',
         'totalGrosz',
@@ -1879,6 +1881,7 @@ service cloud.firestore {
         auditEvent.afterSummary.seasonId == sale.seasonId &&
         auditEvent.afterSummary.entryType == 'SALE' &&
         auditEvent.afterSummary.status == 'ACTIVE' &&
+        auditEvent.afterSummary.calculationVersion == sale.calculationVersion &&
         auditEvent.afterSummary.weightG == sale.weightG &&
         auditEvent.afterSummary.totalGrosz == sale.totalGrosz &&
         auditEvent.afterSummary.projectedStockWeightG ==
@@ -1896,12 +1899,19 @@ service cloud.firestore {
         data.seasonId is string &&
         data.seasonId.size() > 0 &&
         openSeasonContainsBusinessDate(data.seasonId, data.businessDate) &&
+        data.calculationVersion == '1' &&
         data.weightG is int &&
         data.weightG > 0 &&
+        data.weightG <= 1000000000 &&
         data.priceGroszPerKg is int &&
         data.priceGroszPerKg >= 0 &&
+        data.priceGroszPerKg <= 100000000 &&
         data.totalGrosz is int &&
         data.totalGrosz >= 0 &&
+        data.totalGrosz * 1000 <=
+          data.weightG * data.priceGroszPerKg + 500 &&
+        data.weightG * data.priceGroszPerKg + 500 <
+          (data.totalGrosz + 1) * 1000 &&
         data.entryType == 'SALE' &&
         data.correctionDirection == null &&
         (data.note == null || (data.note is string && data.note.size() <= 200)) &&

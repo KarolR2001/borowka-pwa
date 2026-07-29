@@ -46,6 +46,11 @@ describe("OrdinarySaleForm", () => {
     expect(screen.getByText("15,50 zł / kg")).toBeVisible();
     expect(screen.getByText("191,35 zł")).toBeVisible();
     expect(screen.getByText("87,655 kg")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Obliczenie przychodu: 12,345 kg x 15,50 zł / kg = 191,35 zł. Pelne gramy, polowa grosza w gore (regula 1)."
+      )
+    ).toBeVisible();
   });
 
   it("prepares exact values for the fresh-stock preflight", async () => {
@@ -67,7 +72,9 @@ describe("OrdinarySaleForm", () => {
         note: "Odbior przy gospodarstwie",
         priceGroszPerKg: 1550,
         projectedAvailableWeightG: 87_655,
+        revenueCalculationVersion: "1",
         revenuePreviewGrosz: 19_135,
+        revenueRoundingRule: "HALF_UP_TO_GROSZ",
         seasonId: "season-2026",
         weightG: 12_345
       })

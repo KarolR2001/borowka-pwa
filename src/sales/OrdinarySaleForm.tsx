@@ -241,6 +241,15 @@ export function OrdinarySaleForm({
         />
       </dl>
 
+      {preview ? (
+        <p className="ordinary-sale-form__calculation">
+          Obliczenie przychodu: {formatKilograms(preview.weightG)} x{" "}
+          {formatMoney(preview.priceGroszPerKg)} / kg ={" "}
+          {formatMoney(preview.revenuePreviewGrosz)}. Pelne gramy, polowa grosza w gore
+          (regula {preview.revenueCalculationVersion}).
+        </p>
+      ) : null}
+
       {!isOnline ? (
         <p className="ordinary-sale-form__warning" role="status">
           <CloudOff aria-hidden="true" size={18} />

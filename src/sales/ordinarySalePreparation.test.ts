@@ -67,7 +67,10 @@ describe("ordinary sale form model", () => {
       priceGroszPerKg: 1550,
       projectedAvailableWeightG: 87_655,
       refreshedAtIso: "2026-07-29T05:00:00.000Z",
+      revenueCalculationVersion: "1",
       revenuePreviewGrosz: 19_135,
+      revenueRemainderMilliGrosz: 750,
+      revenueRoundingRule: "HALF_UP_TO_GROSZ",
       seasonId: "season-2026",
       seasonName: "Sezon 2026",
       status: "ACTIVE",
@@ -162,7 +165,7 @@ describe("ordinary sale form model", () => {
   it("rejects an unsafe revenue preview", () => {
     expect(() =>
       calculateSaleRevenuePreviewGrosz(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
-    ).toThrow("Podglad przychodu przekracza bezpieczny zakres liczbowy.");
+    ).toThrow("Masa sprzedazy przekracza limit jednego dokumentu.");
   });
 });
 
