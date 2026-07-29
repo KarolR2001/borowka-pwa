@@ -7,6 +7,10 @@ import { readFileSync } from "node:fs";
 
 import type { UserProfile } from "../../src/domain/identity";
 import type { PreparedOrdinarySale } from "../../src/sales/ordinarySalePreparation";
+import {
+  cancelSale,
+  listSaleCancellationCandidates
+} from "../../src/sales/saleCancellation";
 import type { PreparedSaleCorrection } from "../../src/sales/saleCorrectionPreparation";
 import {
   checkSaleCorrection,
@@ -375,6 +379,100 @@ describe("sale correction Firestore flow", () => {
       const sales = await getDocs(collection(context.firestore(), "sales"));
       expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["sale-first"]);
     });
+  });
+});
+
+describe("sale cancellation Firestore flow", () => {
+  it("cancels an active sale with audit and restores stock after season close", async () => {
+    const checkResult = await checkOrdinarySaleStock(
+      {},
+      {
+        actorProfile: adminProfile,
+        isOnline: true,
+        preparedSale: preparedSale(),
+        saleId: "sale-to-cancel"
+      }
+    );
+
+    if (checkResult.status !== "CONFIRMATION_REQUIRED") {
+      throw new Error("Expected a confirmable sale.");
+    }
+
+    await createOrdinarySale(
+      {},
+      {
+        actorProfile: adminProfile,
+        check: checkResult.check,
+        deviceId: "device-admin",
+        isOnline: true
+      }
+    );
+
+    expect(
+      await listSaleCancellationCandidates(
+        {},
+        { actorProfile: adminProfile, isOnline: true }
+      )
+    ).toMatchObject([
+      {
+        sale: { id: "sale-to-cancel", status: "ACTIVE" },
+        seasonName: "Sezon 2026"
+      }
+    ]);
+
+    if (!testEnvironment) {
+      throw new Error("Expected test environment.");
+    }
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "seasons", "season-1"),
+        {
+          closedAt: "closed-time",
+          closedBy: adminProfile.uid,
+          status: "CLOSED"
+        },
+        { merge: true }
+      );
+    });
+
+    const result = await cancelSale(
+      {},
+      {
+        actorProfile: adminProfile,
+        confirmed: true,
+        deviceId: "device-admin",
+        isOnline: true,
+        reason: "Bledna masa",
+        saleId: "sale-to-cancel"
+      }
+    );
+
+    expect(result).toMatchObject({
+      auditEvent: {
+        action: "SALE_CANCELLED",
+        id: "sale-cancelled-sale-to-cancel",
+        reason: "Bledna masa"
+      },
+      cancelledSale: {
+        cancellationReason: "Bledna masa",
+        cancelledBy: adminProfile.uid,
+        id: "sale-to-cancel",
+        status: "CANCELLED"
+      },
+      impact: {
+        revenueImpactGrosz: -3750,
+        stockImpactG: 3000
+      },
+      postWriteAvailableWeightG: 10_000,
+      status: "CANCELLED"
+    });
+    expect(
+      await listSaleCancellationCandidates(
+        {},
+        { actorProfile: adminProfile, isOnline: true }
+      )
+    ).toEqual([]);
   });
 });
 

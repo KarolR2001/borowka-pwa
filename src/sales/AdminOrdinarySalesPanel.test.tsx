@@ -178,6 +178,46 @@ describe("AdminOrdinarySalesPanel", () => {
     ).toBeVisible();
   });
 
+  it("requires a reason and explicit confirmation before cancelling a sale", async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    const sale = activeSaleDocument();
+    api.listCancellationCandidates.mockResolvedValue([
+      { sale, seasonName: "Sezon 2026" }
+    ]);
+    api.cancelSale.mockResolvedValue(cancellationResult(sale));
+
+    renderPanel(api);
+    await screen.findByRole("option", { name: "Sezon 2026" });
+    await user.click(screen.getByRole("button", { name: "Anulowanie" }));
+    await user.click(await screen.findByRole("radio", { name: /Sprzedaz.*2026-07-29/ }));
+
+    const confirmation = screen.getByLabelText(
+      "Potwierdzam anulowanie, jego wplyw na stan i przychod oraz podany powod."
+    );
+    expect(confirmation).toBeDisabled();
+    expect(screen.getByText("+3,000 kg")).toBeVisible();
+    expect(screen.getByText(/-37,50/)).toBeVisible();
+
+    await user.type(screen.getByLabelText("Powod anulowania"), "Bledna masa");
+    await user.click(confirmation);
+    await user.click(screen.getByRole("button", { name: "Anuluj operacje" }));
+
+    await waitFor(() => {
+      expect(api.cancelSale).toHaveBeenCalledTimes(1);
+    });
+    expect(api.cancelSale.mock.calls[0]?.[1]).toMatchObject({
+      confirmed: true,
+      reason: "Bledna masa",
+      saleId: "sale-1"
+    });
+    expect(
+      await screen.findByText(
+        "Operacja sprzedazy zostala anulowana. Dokument i powod pozostaly w historii."
+      )
+    ).toBeVisible();
+  });
+
   it("does not load or expose sales to an operator", () => {
     const api = createApi();
     const operatorState: ReadyAuthState = {
@@ -225,10 +265,14 @@ async function fillAndPrepare(user: ReturnType<typeof userEvent.setup>) {
 
 function createApi() {
   return {
+    cancelSale: vi.fn<OrdinarySalesApi["cancelSale"]>(),
     checkCorrection: vi.fn<OrdinarySalesApi["checkCorrection"]>(),
     checkStock: vi.fn<OrdinarySalesApi["checkStock"]>(),
     create: vi.fn<OrdinarySalesApi["create"]>(),
     createCorrection: vi.fn<OrdinarySalesApi["createCorrection"]>(),
+    listCancellationCandidates: vi
+      .fn<OrdinarySalesApi["listCancellationCandidates"]>()
+      .mockResolvedValue([]),
     listStockContexts: vi.fn<OrdinarySalesApi["listStockContexts"]>().mockResolvedValue([
       {
         availableWeightG: 10_000,
@@ -289,6 +333,67 @@ function correctionConfirmedResult(
     message: "Korekta sprzedazy zostala zapisana i potwierdzona przez serwer.",
     postWriteAvailableWeightG: correction.projectedAvailableWeightG,
     status: "CONFIRMED" as const
+  };
+}
+
+function activeSaleDocument(): SaleDocument {
+  return {
+    businessDate: "2026-07-29",
+    calculationVersion: "1",
+    cancellationReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    correctionDirection: null,
+    createdAtServer: "server-time",
+    createdBy: "admin-1",
+    creationAttemptId: "sale-attempt-sale-1",
+    entryType: "SALE",
+    id: "sale-1",
+    legacyImport: false,
+    legacySourceRow: null,
+    note: "Odbiorca A",
+    priceGroszPerKg: 1250,
+    seasonId: "season-1",
+    status: "ACTIVE",
+    totalGrosz: 3750,
+    weightG: 3000
+  };
+}
+
+function cancellationResult(sale: SaleDocument) {
+  const cancelledSale: SaleDocument = {
+    ...sale,
+    cancellationReason: "Bledna masa",
+    cancelledAt: "server-time",
+    cancelledBy: "admin-1",
+    status: "CANCELLED"
+  };
+
+  return {
+    auditEvent: {
+      action: "SALE_CANCELLED" as const,
+      actorRoleSnapshot: "ADMIN" as const,
+      actorUid: "admin-1",
+      afterSummary: null,
+      beforeSummary: null,
+      businessDate: sale.businessDate,
+      createdAtDevice: "device-time",
+      createdAtServer: "server-time",
+      deviceId: "device-admin",
+      entityId: sale.id,
+      entityType: "SALE" as const,
+      id: "sale-cancelled-sale-1",
+      reason: "Bledna masa"
+    },
+    cancelledSale,
+    impact: {
+      revenueImpactGrosz: -3750,
+      stockImpactG: 3000
+    },
+    message:
+      "Operacja sprzedazy zostala anulowana. Dokument i powod pozostaly w historii.",
+    postWriteAvailableWeightG: 13_000,
+    status: "CANCELLED" as const
   };
 }
 

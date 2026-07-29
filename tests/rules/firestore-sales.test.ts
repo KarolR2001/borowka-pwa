@@ -7,6 +7,7 @@ import {
 import {
   Timestamp,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   serverTimestamp,
@@ -219,6 +220,88 @@ describe("sales Firestore rules", () => {
     await assertFails(wrongImpactBatch.commit());
   });
 
+  it.each([
+    ["SALE", null],
+    ["CORRECTION", "INCREASE_STOCK"],
+    ["CORRECTION", "DECREASE_STOCK"]
+  ] as const)(
+    "allows an administrator to cancel %s %s with a matching reversal audit",
+    async (entryType, correctionDirection) => {
+      const source =
+        entryType === "SALE" ? saleDocument() : correctionDocument(correctionDirection);
+      await seedSale(source);
+      const db = authenticatedDb("admin-1");
+      const batch = writeBatch(db);
+      batch.update(doc(db, "sales", source.id), saleCancellationUpdate());
+      batch.set(
+        doc(db, "auditEvents", `sale-cancelled-${source.id}`),
+        saleCancellationAudit(source)
+      );
+
+      await assertSucceeds(batch.commit());
+    }
+  );
+
+  it("allows cancellation after the source season has been closed", async () => {
+    const source = saleDocument();
+    await seedSale(source);
+    await requiredEnvironment().withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "seasons", "season-1"),
+        { status: "CLOSED" },
+        { merge: true }
+      );
+    });
+    const db = authenticatedDb("admin-1");
+    const batch = writeBatch(db);
+    batch.update(doc(db, "sales", source.id), saleCancellationUpdate());
+    batch.set(
+      doc(db, "auditEvents", `sale-cancelled-${source.id}`),
+      saleCancellationAudit(source)
+    );
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it("rejects cancellation without audit, with a mismatched audit or changed history", async () => {
+    const source = saleDocument();
+    await seedSale(source);
+    const db = authenticatedDb("admin-1");
+
+    const standalone = writeBatch(db);
+    standalone.update(doc(db, "sales", source.id), saleCancellationUpdate());
+    await assertFails(standalone.commit());
+
+    const wrongAudit = writeBatch(db);
+    wrongAudit.update(doc(db, "sales", source.id), saleCancellationUpdate());
+    wrongAudit.set(doc(db, "auditEvents", "sale-cancelled-sale-1"), {
+      ...saleCancellationAudit(source),
+      afterSummary: {
+        ...saleCancellationAudit(source).afterSummary,
+        stockImpactG: -3000
+      }
+    });
+    await assertFails(wrongAudit.commit());
+
+    const changedHistory = writeBatch(db);
+    changedHistory.update(doc(db, "sales", source.id), {
+      ...saleCancellationUpdate(),
+      weightG: 4000
+    });
+    changedHistory.set(
+      doc(db, "auditEvents", "sale-cancelled-sale-1"),
+      saleCancellationAudit({ ...source, weightG: 4000 })
+    );
+    await assertFails(changedHistory.commit());
+  });
+
+  it("rejects sale deletion", async () => {
+    const source = saleDocument();
+    await seedSale(source);
+
+    await assertFails(deleteDoc(doc(authenticatedDb("admin-1"), "sales", source.id)));
+  });
+
   it("denies sales reads and writes to non-admin roles and anonymous users", async () => {
     const operatorDb = authenticatedDb("operator-1");
     const pickerDb = authenticatedDb("picker-1");
@@ -350,5 +433,71 @@ function correctionAudit(correctionDirection: "INCREASE_STOCK" | "DECREASE_STOCK
     entityId: "correction-1",
     id: "sale-correction-created-correction-1",
     reason: "Powod korekty sprzedazy"
+  };
+}
+
+type SaleFixture =
+  ReturnType<typeof saleDocument> | ReturnType<typeof correctionDocument>;
+
+async function seedSale(source: SaleFixture) {
+  await requiredEnvironment().withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "sales", source.id), source);
+  });
+}
+
+function saleCancellationUpdate() {
+  return {
+    cancellationReason: "Bledna masa",
+    cancelledAt: serverTimestamp(),
+    cancelledBy: "admin-1",
+    status: "CANCELLED"
+  };
+}
+
+function saleCancellationAudit(source: SaleFixture) {
+  const isOrdinarySale = source.entryType === "SALE";
+  const increasesStock = source.correctionDirection === "INCREASE_STOCK";
+  const activeStockImpactG = isOrdinarySale
+    ? -source.weightG
+    : increasesStock
+      ? source.weightG
+      : -source.weightG;
+  const activeRevenueImpactGrosz =
+    !isOrdinarySale && increasesStock ? -source.totalGrosz : source.totalGrosz;
+
+  return {
+    action: "SALE_CANCELLED",
+    actorRoleSnapshot: "ADMIN",
+    actorUid: "admin-1",
+    afterSummary: {
+      correctionDirection: source.correctionDirection,
+      entryType: source.entryType,
+      revenueImpactGrosz: -activeRevenueImpactGrosz,
+      saleId: source.id,
+      seasonId: source.seasonId,
+      status: "CANCELLED",
+      stockImpactG: -activeStockImpactG,
+      totalGrosz: source.totalGrosz,
+      weightG: source.weightG
+    },
+    beforeSummary: {
+      correctionDirection: source.correctionDirection,
+      entryType: source.entryType,
+      revenueImpactGrosz: activeRevenueImpactGrosz,
+      saleId: source.id,
+      seasonId: source.seasonId,
+      status: "ACTIVE",
+      stockImpactG: activeStockImpactG,
+      totalGrosz: source.totalGrosz,
+      weightG: source.weightG
+    },
+    businessDate: source.businessDate,
+    createdAtDevice: Timestamp.now(),
+    createdAtServer: serverTimestamp(),
+    deviceId: "device-admin",
+    entityId: source.id,
+    entityType: "SALE",
+    id: `sale-cancelled-${source.id}`,
+    reason: "Bledna masa"
   };
 }
