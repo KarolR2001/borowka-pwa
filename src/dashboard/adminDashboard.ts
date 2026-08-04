@@ -32,6 +32,7 @@ import {
   type DashboardPeriodSelection,
   type ResolvedDashboardPeriod
 } from "./dashboardPeriod";
+import { dashboardPeriodQueryConstraints } from "./dashboardReadStrategy";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -62,7 +63,13 @@ export type AdminDashboardSeason = {
   warnings: string[];
 };
 
+export type AdminDashboardSeasonOption = Omit<
+  AdminDashboardSeason,
+  "metrics" | "period" | "warnings"
+>;
+
 export type AdminDashboardResult = {
+  calculationSource: "FIRESTORE_AGGREGATION" | "SOURCE_DOCUMENTS";
   invalidDocumentCounts: {
     payments: number;
     sales: number;
@@ -72,7 +79,8 @@ export type AdminDashboardResult = {
   };
   localSyncSummary: SyncMetadataSummary;
   refreshedAtIso: string;
-  seasons: AdminDashboardSeason[];
+  seasons: AdminDashboardSeasonOption[];
+  selectedSeason: AdminDashboardSeason | null;
 };
 
 export type LoadAdminDashboardInput = {
@@ -80,6 +88,7 @@ export type LoadAdminDashboardInput = {
   businessDate?: string;
   isOnline: boolean;
   periodSelection?: DashboardPeriodSelection;
+  selectedSeasonId?: string | null;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 };
 
@@ -94,27 +103,185 @@ export async function loadAdminDashboard(
 ): Promise<AdminDashboardResult> {
   assertAdminOnline(input.actorProfile, input.isOnline);
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocsFromServer } = await import("firebase/firestore");
-  const [seasonSnapshot, sessionSnapshot, saleSnapshot, paymentSnapshot, workerSnapshot] =
-    await Promise.all([
-      getDocsFromServer(collection(firestore, SEASONS_COLLECTION)),
-      getDocsFromServer(collection(firestore, HARVEST_SESSIONS_COLLECTION)),
-      getDocsFromServer(collection(firestore, SALES_COLLECTION)),
-      getDocsFromServer(collection(firestore, PAYMENTS_COLLECTION)),
-      getDocsFromServer(collection(firestore, WORKERS_COLLECTION))
-    ]);
+  const {
+    collection,
+    count,
+    getAggregateFromServer,
+    getDocsFromServer,
+    query,
+    sum,
+    where
+  } = await import("firebase/firestore");
+  const seasonSnapshot = await getDocsFromServer(
+    collection(firestore, SEASONS_COLLECTION)
+  );
+  const decodedSeasons = decodeSeasons(toRawDocuments(seasonSnapshot.docs));
+  const seasons = decodedSeasons.seasons.sort(compareSeasons);
+  const selectedSeason = selectSeason(seasons, input.selectedSeasonId ?? null);
+  const localSyncSummary = summarizeSyncDocumentMetadata(input.syncDocuments);
+  const refreshedAtIso = new Date().toISOString();
+  const invalidDocumentCounts = {
+    payments: 0,
+    sales: 0,
+    seasons: decodedSeasons.invalidCount,
+    sessions: 0,
+    workers: 0
+  };
 
-  return buildAdminDashboard({
-    businessDate: input.businessDate ?? currentWarsawBusinessDate(),
-    paymentDocuments: toRawDocuments(paymentSnapshot.docs),
-    periodSelection: input.periodSelection,
-    refreshedAtIso: new Date().toISOString(),
-    saleDocuments: toRawDocuments(saleSnapshot.docs),
-    seasonDocuments: toRawDocuments(seasonSnapshot.docs),
-    sessionDocuments: toRawDocuments(sessionSnapshot.docs),
-    syncDocuments: input.syncDocuments,
-    workerDocuments: toRawDocuments(workerSnapshot.docs)
-  });
+  if (!selectedSeason) {
+    return {
+      calculationSource: "FIRESTORE_AGGREGATION",
+      invalidDocumentCounts,
+      localSyncSummary,
+      refreshedAtIso,
+      seasons: [],
+      selectedSeason: null
+    };
+  }
+
+  const businessDate = input.businessDate ?? currentWarsawBusinessDate();
+  const period = resolveDashboardPeriod(
+    input.periodSelection ?? DEFAULT_DASHBOARD_PERIOD,
+    {
+      seasonEndDate: selectedSeason.endDate,
+      seasonStartDate: selectedSeason.startDate,
+      todayBusinessDate: businessDate
+    }
+  );
+  const sessionPeriodConstraints = dashboardPeriodQueryConstraints(
+    "businessDate",
+    period,
+    where
+  );
+  const salePeriodConstraints = dashboardPeriodQueryConstraints(
+    "businessDate",
+    period,
+    where
+  );
+  const paymentPeriodConstraints = dashboardPeriodQueryConstraints(
+    "paidBusinessDate",
+    period,
+    where
+  );
+  const sessions = collection(firestore, HARVEST_SESSIONS_COLLECTION);
+  const sales = collection(firestore, SALES_COLLECTION);
+  const payments = collection(firestore, PAYMENTS_COLLECTION);
+  const workers = collection(firestore, WORKERS_COLLECTION);
+  const [
+    settled,
+    open,
+    review,
+    ordinarySales,
+    stockIncreases,
+    stockDecreases,
+    paid,
+    activeWorkers
+  ] = await Promise.all([
+    getAggregateFromServer(
+      query(
+        sessions,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "in", ["CLOSED", "PAID"]),
+        ...sessionPeriodConstraints
+      ),
+      {
+        accruedGrosz: sum("amountDueGrosz"),
+        confirmedHarvestWeightG: sum("totalWeightG")
+      }
+    ),
+    getAggregateFromServer(
+      query(
+        sessions,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "OPEN"),
+        ...sessionPeriodConstraints
+      ),
+      {
+        inProgressHarvestWeightG: sum("totalWeightG"),
+        openSessionCount: count()
+      }
+    ),
+    getAggregateFromServer(
+      query(
+        sessions,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "REVIEW_REQUIRED"),
+        ...sessionPeriodConstraints
+      ),
+      { reviewRequiredSessionCount: count() }
+    ),
+    getAggregateFromServer(
+      query(
+        sales,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "ACTIVE"),
+        where("entryType", "==", "SALE"),
+        ...salePeriodConstraints
+      ),
+      { revenueGrosz: sum("totalGrosz"), soldWeightG: sum("weightG") }
+    ),
+    getAggregateFromServer(
+      query(
+        sales,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "ACTIVE"),
+        where("entryType", "==", "CORRECTION"),
+        where("correctionDirection", "==", "INCREASE_STOCK"),
+        ...salePeriodConstraints
+      ),
+      { revenueGrosz: sum("totalGrosz"), soldWeightG: sum("weightG") }
+    ),
+    getAggregateFromServer(
+      query(
+        sales,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "ACTIVE"),
+        where("entryType", "==", "CORRECTION"),
+        where("correctionDirection", "==", "DECREASE_STOCK"),
+        ...salePeriodConstraints
+      ),
+      { revenueGrosz: sum("totalGrosz"), soldWeightG: sum("weightG") }
+    ),
+    getAggregateFromServer(
+      query(
+        payments,
+        where("seasonId", "==", selectedSeason.id),
+        where("status", "==", "ACTIVE"),
+        ...paymentPeriodConstraints
+      ),
+      { paidGrosz: sum("amountGrosz") }
+    ),
+    getAggregateFromServer(query(workers, where("active", "==", true)), {
+      activeWorkerCount: count()
+    })
+  ]);
+
+  return {
+    calculationSource: "FIRESTORE_AGGREGATION",
+    invalidDocumentCounts,
+    localSyncSummary,
+    refreshedAtIso,
+    seasons: seasons.map(toSeasonOption),
+    selectedSeason: buildAggregatedSeasonDashboard({
+      activeWorkerCount: activeWorkers.data().activeWorkerCount,
+      accruedGrosz: settled.data().accruedGrosz,
+      confirmedHarvestWeightG: settled.data().confirmedHarvestWeightG,
+      inProgressHarvestWeightG: open.data().inProgressHarvestWeightG,
+      invalidDocumentCounts,
+      localSyncSummary,
+      openSessionCount: open.data().openSessionCount,
+      paidGrosz: paid.data().paidGrosz,
+      period,
+      reviewRequiredSessionCount: review.data().reviewRequiredSessionCount,
+      saleRevenueGrosz: ordinarySales.data().revenueGrosz,
+      saleWeightG: ordinarySales.data().soldWeightG,
+      season: selectedSeason,
+      stockDecreaseRevenueGrosz: stockDecreases.data().revenueGrosz,
+      stockDecreaseWeightG: stockDecreases.data().soldWeightG,
+      stockIncreaseRevenueGrosz: stockIncreases.data().revenueGrosz,
+      stockIncreaseWeightG: stockIncreases.data().soldWeightG
+    })
+  };
 }
 
 export function buildAdminDashboard({
@@ -124,6 +291,7 @@ export function buildAdminDashboard({
   refreshedAtIso,
   saleDocuments,
   seasonDocuments,
+  selectedSeasonId,
   sessionDocuments,
   syncDocuments,
   workerDocuments
@@ -134,6 +302,7 @@ export function buildAdminDashboard({
   refreshedAtIso: string;
   saleDocuments: readonly RawDocument[];
   seasonDocuments: readonly RawDocument[];
+  selectedSeasonId?: string | null;
   sessionDocuments: readonly RawDocument[];
   syncDocuments: readonly SyncDocumentMetadataInput[];
   workerDocuments: readonly RawDocument[];
@@ -212,24 +381,123 @@ export function buildAdminDashboard({
   const localSyncSummary = summarizeSyncDocumentMetadata(syncDocuments);
 
   return {
+    calculationSource: "SOURCE_DOCUMENTS",
     invalidDocumentCounts,
     localSyncSummary,
     refreshedAtIso,
-    seasons: seasons
-      .map((season) =>
-        buildSeasonDashboard({
-          activeWorkerCount,
-          businessDate,
-          invalidDocumentCounts,
-          localSyncSummary,
-          payments,
-          periodSelection,
-          sales,
-          season,
-          sessions
-        })
-      )
-      .sort(compareDashboardSeasons)
+    seasons: seasons.sort(compareSeasons).map(toSeasonOption),
+    selectedSeason: (() => {
+      const season = selectSeason(seasons, selectedSeasonId ?? null);
+
+      return season
+        ? buildSeasonDashboard({
+            activeWorkerCount,
+            businessDate,
+            invalidDocumentCounts,
+            localSyncSummary,
+            payments,
+            periodSelection,
+            sales,
+            season,
+            sessions
+          })
+        : null;
+    })()
+  };
+}
+
+export function buildAggregatedSeasonDashboard({
+  activeWorkerCount,
+  accruedGrosz,
+  confirmedHarvestWeightG,
+  inProgressHarvestWeightG,
+  invalidDocumentCounts,
+  localSyncSummary,
+  openSessionCount,
+  paidGrosz,
+  period,
+  reviewRequiredSessionCount,
+  saleRevenueGrosz,
+  saleWeightG,
+  season,
+  stockDecreaseRevenueGrosz,
+  stockDecreaseWeightG,
+  stockIncreaseRevenueGrosz,
+  stockIncreaseWeightG
+}: {
+  activeWorkerCount: number;
+  accruedGrosz: number;
+  confirmedHarvestWeightG: number;
+  inProgressHarvestWeightG: number;
+  invalidDocumentCounts: AdminDashboardResult["invalidDocumentCounts"];
+  localSyncSummary: SyncMetadataSummary;
+  openSessionCount: number;
+  paidGrosz: number;
+  period: ResolvedDashboardPeriod;
+  reviewRequiredSessionCount: number;
+  saleRevenueGrosz: number;
+  saleWeightG: number;
+  season: SeasonDocument;
+  stockDecreaseRevenueGrosz: number;
+  stockDecreaseWeightG: number;
+  stockIncreaseRevenueGrosz: number;
+  stockIncreaseWeightG: number;
+}): AdminDashboardSeason {
+  const values = {
+    activeWorkerCount,
+    accruedGrosz,
+    confirmedHarvestWeightG,
+    inProgressHarvestWeightG,
+    openSessionCount,
+    paidGrosz,
+    reviewRequiredSessionCount,
+    saleRevenueGrosz,
+    saleWeightG,
+    stockDecreaseRevenueGrosz,
+    stockDecreaseWeightG,
+    stockIncreaseRevenueGrosz,
+    stockIncreaseWeightG
+  };
+
+  for (const value of Object.values(values)) {
+    assertAggregateInteger(value);
+  }
+
+  const soldWeightG = safeAdd(
+    safeAdd(saleWeightG, stockDecreaseWeightG),
+    -stockIncreaseWeightG
+  );
+  const revenueGrosz = safeAdd(
+    safeAdd(saleRevenueGrosz, stockDecreaseRevenueGrosz),
+    -stockIncreaseRevenueGrosz
+  );
+  const availableWeightG = safeAdd(confirmedHarvestWeightG, -soldWeightG);
+  const dueGrosz = safeAdd(accruedGrosz, -paidGrosz);
+  const resultAfterHarvestCostGrosz = safeAdd(revenueGrosz, -accruedGrosz);
+
+  return {
+    ...toSeasonOption(season),
+    metrics: {
+      accruedGrosz,
+      activeWorkerCount,
+      availableWeightG,
+      confirmedHarvestWeightG,
+      dueGrosz,
+      inProgressHarvestWeightG,
+      openSessionCount,
+      paidGrosz,
+      resultAfterHarvestCostGrosz,
+      reviewRequiredSessionCount,
+      revenueGrosz,
+      soldWeightG
+    },
+    period,
+    warnings: buildWarnings({
+      availableWeightG,
+      dueGrosz,
+      invalidDocumentCounts,
+      localSyncSummary
+    })
   };
 }
 
@@ -392,16 +660,63 @@ function buildWarnings({
   return warnings;
 }
 
-function compareDashboardSeasons(
-  left: AdminDashboardSeason,
-  right: AdminDashboardSeason
-): number {
+function compareSeasons(left: SeasonDocument, right: SeasonDocument): number {
   return (
     Number(right.isDefault) - Number(left.isDefault) ||
     statusPriority(left.status) - statusPriority(right.status) ||
     right.startDate.localeCompare(left.startDate) ||
     left.name.localeCompare(right.name, "pl")
   );
+}
+
+function decodeSeasons(documents: readonly RawDocument[]): {
+  invalidCount: number;
+  seasons: SeasonDocument[];
+} {
+  const seasons: SeasonDocument[] = [];
+  let invalidCount = 0;
+
+  for (const document of documents) {
+    const decoded = decodeSeason(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      seasons.push(decoded.season);
+    } else {
+      invalidCount += 1;
+    }
+  }
+
+  return { invalidCount, seasons };
+}
+
+function selectSeason(
+  seasons: readonly SeasonDocument[],
+  requestedId: string | null
+): SeasonDocument | null {
+  if (requestedId) {
+    const requested = seasons.find((season) => season.id === requestedId);
+    if (requested) {
+      return requested;
+    }
+  }
+
+  return (
+    seasons.find((season) => season.isDefault) ??
+    seasons.find((season) => season.status === "OPEN") ??
+    seasons.at(0) ??
+    null
+  );
+}
+
+function toSeasonOption(season: SeasonDocument): AdminDashboardSeasonOption {
+  return {
+    endDate: season.endDate,
+    id: season.id,
+    isDefault: season.isDefault,
+    name: season.name,
+    startDate: season.startDate,
+    status: season.status
+  };
 }
 
 function statusPriority(status: SeasonDocument["status"]): number {
@@ -457,4 +772,10 @@ function safeAdd(left: number, right: number): number {
   }
 
   return result;
+}
+
+function assertAggregateInteger(value: number): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error("Agregat pulpitu zawiera nieprawidlowa wartosc liczbowa.");
+  }
 }

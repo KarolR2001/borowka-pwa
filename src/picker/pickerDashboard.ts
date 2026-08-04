@@ -20,6 +20,7 @@ import {
   type DashboardPeriodSelection,
   type ResolvedDashboardPeriod
 } from "../dashboard/dashboardPeriod";
+import { dashboardPeriodQueryConstraints } from "../dashboard/dashboardReadStrategy";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -96,13 +97,43 @@ export async function loadPickerDashboard(
   const readDocument = input.isOnline ? getDoc : getDocFromCache;
   const readDocuments = input.isOnline ? getDocs : getDocsFromCache;
 
-  const [workerSnapshot, sessionSnapshot, paymentSnapshot, seasonSnapshot] =
-    await Promise.all([
-      readDocument(doc(firestore, WORKERS_COLLECTION, workerId)),
+  const [workerSnapshot, seasonSnapshot] = await Promise.all([
+    readDocument(doc(firestore, WORKERS_COLLECTION, workerId)),
+    readDocuments(collection(firestore, SEASONS_COLLECTION))
+  ]);
+  const seasonDocuments = toRawDocuments(seasonSnapshot.docs);
+  const decodedSeasons = seasonDocuments.flatMap((document) => {
+    const decoded = decodeSeason(document.id, document.data);
+    return decoded.status === "FOUND" ? [decoded.season] : [];
+  });
+  const sortedSeasons = sortSeasons(decodedSeasons);
+  const selectedSeasonId = chooseSeasonId(
+    sortedSeasons,
+    [],
+    input.selectedSeasonId ?? null
+  );
+  const selectedSeason =
+    sortedSeasons.find((season) => season.id === selectedSeasonId) ?? null;
+  let sessionDocuments: RawDocument[] = [];
+  let paymentDocuments: RawDocument[] = [];
+  let flowFromCache = false;
+
+  if (selectedSeason) {
+    const period = resolveDashboardPeriod(
+      input.periodSelection ?? DEFAULT_DASHBOARD_PERIOD,
+      {
+        seasonEndDate: selectedSeason.endDate,
+        seasonStartDate: selectedSeason.startDate,
+        todayBusinessDate: input.businessDate ?? currentWarsawBusinessDate()
+      }
+    );
+    const [sessionSnapshot, paymentSnapshot] = await Promise.all([
       readDocuments(
         query(
           collection(firestore, HARVEST_SESSIONS_COLLECTION),
           where("workerId", "==", workerId),
+          where("seasonId", "==", selectedSeason.id),
+          ...dashboardPeriodQueryConstraints("businessDate", period, where),
           orderBy("businessDate", "desc"),
           orderBy("createdAtServer", "desc")
         )
@@ -110,28 +141,34 @@ export async function loadPickerDashboard(
       readDocuments(
         query(
           collection(firestore, PAYMENTS_COLLECTION),
-          where("workerId", "==", workerId)
+          where("workerId", "==", workerId),
+          where("seasonId", "==", selectedSeason.id),
+          ...dashboardPeriodQueryConstraints("paidBusinessDate", period, where),
+          orderBy("paidBusinessDate", "desc")
         )
-      ),
-      readDocuments(collection(firestore, SEASONS_COLLECTION))
+      )
     ]);
+    sessionDocuments = toRawDocuments(sessionSnapshot.docs);
+    paymentDocuments = toRawDocuments(paymentSnapshot.docs);
+    flowFromCache =
+      sessionSnapshot.metadata.fromCache || paymentSnapshot.metadata.fromCache;
+  }
 
   const fromCache =
     workerSnapshot.metadata.fromCache ||
-    sessionSnapshot.metadata.fromCache ||
-    paymentSnapshot.metadata.fromCache ||
-    seasonSnapshot.metadata.fromCache;
+    seasonSnapshot.metadata.fromCache ||
+    flowFromCache;
 
   return buildPickerDashboard({
     actorProfile: input.actorProfile,
     businessDate: input.businessDate ?? currentWarsawBusinessDate(),
     dataSource: fromCache ? "CACHE" : "SERVER",
-    paymentDocuments: toRawDocuments(paymentSnapshot.docs),
+    paymentDocuments,
     periodSelection: input.periodSelection,
     refreshedAtIso: new Date().toISOString(),
-    seasonDocuments: toRawDocuments(seasonSnapshot.docs),
-    selectedSeasonId: input.selectedSeasonId,
-    sessionDocuments: toRawDocuments(sessionSnapshot.docs),
+    seasonDocuments,
+    selectedSeasonId,
+    sessionDocuments,
     workerDocument: workerSnapshot.exists()
       ? {
           data: workerSnapshot.data({ serverTimestamps: "estimate" }),

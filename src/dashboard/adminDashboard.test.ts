@@ -1,4 +1,9 @@
-import { buildAdminDashboard, type AdminDashboardResult } from "./adminDashboard";
+import type { SeasonDocument } from "../domain/domainConfiguration";
+import {
+  buildAdminDashboard,
+  buildAggregatedSeasonDashboard,
+  type AdminDashboardResult
+} from "./adminDashboard";
 import type { SaleDocument } from "../sales/saleStockPreflight";
 
 describe("admin dashboard", () => {
@@ -13,7 +18,7 @@ describe("admin dashboard", () => {
       workers: 0
     });
     expect(result.seasons).toHaveLength(1);
-    expect(result.seasons[0]).toMatchObject({
+    expect(result.selectedSeason).toMatchObject({
       id: "season-1",
       metrics: {
         accruedGrosz: 15_000,
@@ -66,7 +71,7 @@ describe("admin dashboard", () => {
       syncDocuments: []
     });
 
-    expect(result.seasons[0]?.warnings).toEqual([
+    expect(result.selectedSeason?.warnings).toEqual([
       "Stan dostepnych kilogramow jest ujemny i wymaga korekty.",
       "Wyplacona kwota przekracza naliczenia i wymaga kontroli.",
       "Pominieto nieprawidlowe dokumenty zrodlowe: 1."
@@ -83,7 +88,7 @@ describe("admin dashboard", () => {
       }
     });
 
-    expect(result.seasons[0]).toMatchObject({
+    expect(result.selectedSeason).toMatchObject({
       metrics: {
         accruedGrosz: 15_000,
         availableWeightG: 15_000,
@@ -101,6 +106,38 @@ describe("admin dashboard", () => {
         toDate: "2026-07-28"
       }
     });
+  });
+
+  it("keeps aggregate calculations equivalent to decoded source documents", () => {
+    const source = dashboard();
+    const selectedSeason = source.selectedSeason;
+
+    if (!selectedSeason) {
+      throw new Error("Test wymaga wybranego sezonu.");
+    }
+
+    const aggregate = buildAggregatedSeasonDashboard({
+      activeWorkerCount: 2,
+      accruedGrosz: 15_000,
+      confirmedHarvestWeightG: 15_000,
+      inProgressHarvestWeightG: 2000,
+      invalidDocumentCounts: source.invalidDocumentCounts,
+      localSyncSummary: source.localSyncSummary,
+      openSessionCount: 1,
+      paidGrosz: 5000,
+      period: selectedSeason.period,
+      reviewRequiredSessionCount: 1,
+      saleRevenueGrosz: 5000,
+      saleWeightG: 4000,
+      season: seasonDocument() as SeasonDocument,
+      stockDecreaseRevenueGrosz: 0,
+      stockDecreaseWeightG: 0,
+      stockIncreaseRevenueGrosz: 1250,
+      stockIncreaseWeightG: 1000
+    });
+
+    expect(aggregate.metrics).toEqual(selectedSeason.metrics);
+    expect(aggregate.warnings).toEqual(selectedSeason.warnings);
   });
 });
 

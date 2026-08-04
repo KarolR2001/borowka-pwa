@@ -39,7 +39,79 @@ const expectedCompositeIndexes = [
   ],
   ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"],
   ["payments", "workerId:ASCENDING", "paidBusinessDate:DESCENDING"],
+  ["payments", "workerId:ASCENDING", "seasonId:ASCENDING", "paidBusinessDate:DESCENDING"],
+  [
+    "payments",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "paidBusinessDate:ASCENDING",
+    "amountGrosz:ASCENDING"
+  ],
+  [
+    "sales",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "entryType:ASCENDING",
+    "businessDate:ASCENDING",
+    "totalGrosz:ASCENDING",
+    "weightG:ASCENDING"
+  ],
+  [
+    "sales",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "entryType:ASCENDING",
+    "correctionDirection:ASCENDING",
+    "businessDate:ASCENDING",
+    "totalGrosz:ASCENDING",
+    "weightG:ASCENDING"
+  ],
+  ["operationalStockMovements", "seasonId:ASCENDING", "weightImpactG:ASCENDING"],
   ["issueReports", "workerId:ASCENDING", "createdAt:DESCENDING"],
+  ["harvestSessions", "seasonId:ASCENDING", "status:ASCENDING", "businessDate:ASCENDING"],
+  [
+    "harvestSessions",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:ASCENDING",
+    "totalWeightG:ASCENDING"
+  ],
+  [
+    "harvestSessions",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:ASCENDING",
+    "amountDueGrosz:ASCENDING",
+    "totalWeightG:ASCENDING"
+  ],
+  [
+    "harvestSessions",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "harvestSessions",
+    "workerId:ASCENDING",
+    "seasonId:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "harvestSessions",
+    "createdBy:ASCENDING",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:ASCENDING"
+  ],
+  [
+    "harvestSessions",
+    "createdBy:ASCENDING",
+    "seasonId:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
   ...HARVEST_QUERY_INDEX_REQUIREMENTS.map((requirement) => [
     requirement.collectionGroup,
     ...requirement.fields.map((field) => `${field.fieldPath}:${field.order}`)

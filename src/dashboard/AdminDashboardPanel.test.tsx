@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { AdminDashboardPanel, type AdminDashboardApi } from "./AdminDashboardPanel";
-import type { AdminDashboardResult } from "./adminDashboard";
+import type { AdminDashboardResult, AdminDashboardSeason } from "./adminDashboard";
 
 type ReadyAuthState = Extract<AuthSessionState, { status: "READY" }>;
 
@@ -56,9 +56,11 @@ describe("AdminDashboardPanel", () => {
     expect(within(dashboardMetric("Lokalnie oczekujace")).getByText("1")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2");
-    expect(
-      within(dashboardMetric("Zebrano potwierdzone")).getByText("8,000 kg")
-    ).toBeVisible();
+    await waitFor(() => {
+      expect(
+        within(dashboardMetric("Zebrano potwierdzone")).getByText("8,000 kg")
+      ).toBeVisible();
+    });
     expect(
       screen.getByText(
         "Inne urzadzenia pracujace calkowicie offline moga miec sesje, ktorych chmura jeszcze nie zna."
@@ -121,7 +123,11 @@ describe("AdminDashboardPanel", () => {
 
 function dashboardApi(): AdminDashboardApi {
   return {
-    load: vi.fn<AdminDashboardApi["load"]>().mockResolvedValue(dashboardResult())
+    load: vi
+      .fn<AdminDashboardApi["load"]>()
+      .mockImplementation((_env, input) =>
+        Promise.resolve(dashboardResult(input.selectedSeasonId ?? "season-1"))
+      )
   };
 }
 
@@ -135,8 +141,31 @@ function dashboardMetric(label: string): HTMLElement {
   return metric;
 }
 
-function dashboardResult(): AdminDashboardResult {
+function dashboardResult(selectedSeasonId = "season-1"): AdminDashboardResult {
+  const firstSeason = seasonSummary({
+    id: "season-1",
+    isDefault: true,
+    metrics: {
+      availableWeightG: -1000,
+      confirmedHarvestWeightG: 15_000
+    },
+    name: "Sezon 2026",
+    warnings: ["Stan dostepnych kilogramow jest ujemny i wymaga korekty."]
+  });
+  const secondSeason = seasonSummary({
+    id: "season-2",
+    isDefault: false,
+    metrics: {
+      availableWeightG: 8000,
+      confirmedHarvestWeightG: 8000
+    },
+    name: "Sezon 2025",
+    status: "CLOSED",
+    warnings: []
+  });
+
   return {
+    calculationSource: "FIRESTORE_AGGREGATION",
     invalidDocumentCounts: {
       payments: 0,
       sales: 0,
@@ -156,39 +185,27 @@ function dashboardResult(): AdminDashboardResult {
       totalDocumentCount: 1
     },
     refreshedAtIso: "2026-07-29T08:00:00.000Z",
-    seasons: [
-      seasonSummary({
-        id: "season-1",
-        isDefault: true,
-        metrics: {
-          availableWeightG: -1000,
-          confirmedHarvestWeightG: 15_000
-        },
-        name: "Sezon 2026",
-        warnings: ["Stan dostepnych kilogramow jest ujemny i wymaga korekty."]
-      }),
-      seasonSummary({
-        id: "season-2",
-        isDefault: false,
-        metrics: {
-          availableWeightG: 8000,
-          confirmedHarvestWeightG: 8000
-        },
-        name: "Sezon 2025",
-        status: "CLOSED",
-        warnings: []
+    seasons: [firstSeason, secondSeason].map(
+      ({ endDate, id, isDefault, name, startDate, status }) => ({
+        endDate,
+        id,
+        isDefault,
+        name,
+        startDate,
+        status
       })
-    ]
+    ),
+    selectedSeason: selectedSeasonId === "season-2" ? secondSeason : firstSeason
   };
 }
 
 function seasonSummary(
-  overrides: Omit<Partial<AdminDashboardResult["seasons"][number]>, "metrics"> & {
+  overrides: Omit<Partial<AdminDashboardSeason>, "metrics"> & {
     id: string;
-    metrics?: Partial<AdminDashboardResult["seasons"][number]["metrics"]>;
+    metrics?: Partial<AdminDashboardSeason["metrics"]>;
     name: string;
   }
-): AdminDashboardResult["seasons"][number] {
+): AdminDashboardSeason {
   const {
     id,
     metrics,

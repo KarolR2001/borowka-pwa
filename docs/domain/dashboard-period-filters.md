@@ -54,7 +54,7 @@ obejmuje tylko `workerId` zalogowanego zbieracza.
 
 ## Odczyty
 
-Pakiet 8.11 filtruje poprawne dokumenty po ich odczytaniu. Pomiar liczby
-odczytow, zapytania ograniczone zakresem i ewentualne agregaty sa osobnym
-zakresem pakietu 8.12. Do czasu jego zakonczenia nie nalezy interpretowac
-filtra jako optymalizacji kosztu odczytow.
+Od pakietu 8.12 okres jest czescia zapytania do Firestore. Administrator i
+operator online uzywaja agregatow, a dokumenty zbieracza sa ograniczone do
+`workerId`, sezonu i daty biznesowej. Szczegolowy budzet oraz zachowanie
+offline opisuje `docs/domain/dashboard-read-strategy.md`.

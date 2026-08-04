@@ -3,9 +3,10 @@
 ## Dostep i swiezosc
 
 Pulpit jest dostepny wylacznie aktywnemu, zatwierdzonemu administratorowi.
-Kazde odswiezenie pobiera z serwera dokumenty sezonow, sesji zbioru,
-sprzedazy, wyplat i zbieraczy. Dane finansowe nie sa udostepniane operatorowi
-ani pickerowi.
+Kazde odswiezenie pobiera z serwera liste sezonow i agregaty Firestore tylko
+dla wybranego sezonu oraz okresu. Dokumenty sesji, sprzedazy, wyplat i
+zbieraczy nie sa przesylane do klienta administratora. Dane finansowe nie sa
+udostepniane operatorowi ani pickerowi.
 
 Pulpit pokazuje czas ostatniego poprawnego odczytu z chmury. Odczyt offline
 jest blokowany, poniewaz cache nie moze byc podstawa aktualnego podsumowania
@@ -17,8 +18,8 @@ moga miec sesje, ktorych chmura jeszcze nie zna.
 
 Administrator wybiera sezon z listy. Domyslnie wybierany jest sezon oznaczony
 `isDefault`, nastepnie otwarty, a w pozostalych przypadkach pierwszy wedlug
-daty rozpoczecia. Metryki obejmuja caly wybrany sezon; filtry okresow sa
-oddzielnym zakresem pakietu 8.11.
+daty rozpoczecia. Zmiana sezonu lub okresu wykonuje nowe agregaty ograniczone
+do tego wyboru. Statystyki biznesowe uzywaja daty biznesowej.
 
 Liczba aktywnych zbieraczy opisuje aktualnie aktywne dokumenty w kartotece
 `workers`. Pozostale metryki sa ograniczone przez `seasonId`.
@@ -40,7 +41,9 @@ Liczba aktywnych zbieraczy opisuje aktualnie aktywne dokumenty w kartotece
 | Wynik po koszcie zbioru | przychod minus naliczenia zbieraczy                           |
 
 Anulowane sesje, sprzedaze i wyplaty nie wplywaja na aktywne sumy.
-Nieprawidlowe dokumenty zrodlowe sa pomijane i raportowane ostrzezeniem.
+Pelne przeliczenie kontrolne pomija nieprawidlowe dokumenty zrodlowe i raportuje
+ostrzezenie. Biezace agregaty opieraja sie na indeksowanych polach i nie
+zastepuja okresowego uzgodnienia ze zrodlami.
 Wszystkie masy pozostaja w gramach, a kwoty w groszach do momentu prezentacji.
 
 Nazwa `Wynik po koszcie zbioru` jest celowa. Wartosc nie jest pelnym zyskiem,
@@ -56,6 +59,9 @@ Pulpit wymaga kontroli administratora, gdy:
 - dostepny stan kilogramow jest ujemny;
 - wyplacona kwota przekracza naliczenia;
 - co najmniej jeden dokument zrodlowy jest nieprawidlowy.
+
+Budzet odczytow, szczegoly zapytan i procedura uzgodnienia sa opisane w
+`docs/domain/dashboard-read-strategy.md`.
 
 Ostrzezenia nie zmieniaja danych i nie ukrywaja wartosci ujemnych. Pokazuja
 rzeczywisty wynik obliczenia, aby administrator mogl znalezc i skorygowac

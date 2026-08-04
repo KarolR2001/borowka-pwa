@@ -41,18 +41,25 @@ reproducible.
 Do not attach a listener to all `harvestEntries` for a season. Entry queries
 must remain scoped to a single session.
 
-## Planned later-stage query families
+## Dashboard aggregation queries
 
-PRD section 38 defines additional query families for sessions, entries,
-payments and sales. Harvest session and entry families are now represented in
-the manifest. Add payments and sales indexes when the corresponding collections
-and Firestore calls are implemented, so the manifest reflects real screens and
-Rules tests.
+Stage 8 adds indexes for queries bounded by season and business date:
 
-Expected future collection names from the PRD:
+| Area                     | Collection                  | Equality prefix                                       | Range/order/aggregate fields           |
+| ------------------------ | --------------------------- | ----------------------------------------------------- | -------------------------------------- |
+| Admin harvest aggregates | `harvestSessions`           | `seasonId`, `status`                                  | data, `amountDueGrosz`, `totalWeightG` |
+| Operator open list       | `harvestSessions`           | `seasonId`, `status`                                  | `businessDate desc`, `createdAtServer` |
+| Operator history/counts  | `harvestSessions`           | `createdBy`, `seasonId`, optionally `status`          | `businessDate`                         |
+| Picker session summary   | `harvestSessions`           | `workerId`, `seasonId`                                | `businessDate desc`, `createdAtServer` |
+| Picker payments          | `payments`                  | `workerId`, `seasonId`                                | `paidBusinessDate desc`                |
+| Admin payment aggregate  | `payments`                  | `seasonId`, `status`                                  | data, `amountGrosz`                    |
+| Admin sale aggregates    | `sales`                     | `seasonId`, `status`, `entryType`, optional direction | data, `totalGrosz`, `weightG`          |
+| Operator stock aggregate | `operationalStockMovements` | `seasonId`                                            | `weightImpactG`                        |
 
-- `payments`;
-- `sales`.
+The exact read budgets and card calculations are documented in
+`docs/domain/dashboard-read-strategy.md`.
+Fields passed to `sum()` are included in the matching composite index, as
+required by the Firestore aggregation index model.
 
 ## Deployment
 

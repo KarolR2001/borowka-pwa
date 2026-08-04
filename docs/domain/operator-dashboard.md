@@ -61,13 +61,18 @@ operatora nie moze byc uznany za kompletny.
 
 ## Online i offline
 
-Online dane sa pobierane przez zapytania serwerowe. Offline pulpit korzysta z
-cache Firestore i oznacza stan jako `Kopia lokalna`. Oczekujace ruchy,
+Online stan i liczniki sa pobierane przez agregaty Firestore. Listy sa
+ograniczone do aktywnego sezonu: 100 otwartych sesji oraz 8 pozycji historii
+operatora w wybranym okresie. Offline pulpit korzysta z dokumentow w cache
+Firestore i oznacza stan jako `Kopia lokalna`. Oczekujace ruchy,
 nieprawidlowe dokumenty oraz stan ujemny wywoluja jawne ostrzezenie.
 
 Licznik zapisow i konflikty opieraja sie na lokalnym dzienniku synchronizacji,
 wiec opisuja tylko biezace urzadzenie. Konflikty innych operatorow nie sa
 ujawniane.
+
+Budzet i kontrakt kazdej karty opisuje
+`docs/domain/dashboard-read-strategy.md`.
 
 ## Pokrycie testowe
 

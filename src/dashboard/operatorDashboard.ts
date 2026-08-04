@@ -22,6 +22,11 @@ import {
   type DashboardPeriodSelection,
   type ResolvedDashboardPeriod
 } from "./dashboardPeriod";
+import {
+  dashboardPeriodQueryConstraints,
+  OPERATOR_OPEN_SESSION_LIMIT,
+  OPERATOR_RECENT_SESSION_LIMIT
+} from "./dashboardReadStrategy";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -89,62 +94,171 @@ export async function loadOperatorDashboard(
 ): Promise<OperatorDashboardResult> {
   assertOperator(input.actorProfile);
   const { firestore } = await getFirebaseServices(env);
-  const { collection, getDocs, getDocsFromCache, limit, orderBy, query, where } =
-    await import("firebase/firestore");
+  const {
+    collection,
+    count,
+    getAggregateFromServer,
+    getDocs,
+    getDocsFromCache,
+    limit,
+    orderBy,
+    query,
+    sum,
+    where
+  } = await import("firebase/firestore");
   const readQuery = input.isOnline ? getDocs : getDocsFromCache;
-  const [seasonSnapshot, openSessionSnapshot, ownSessionSnapshot] = await Promise.all([
-    readQuery(
-      query(collection(firestore, SEASONS_COLLECTION), where("status", "==", "OPEN"))
-    ),
-    readQuery(
-      query(
-        collection(firestore, HARVEST_SESSIONS_COLLECTION),
-        where("status", "==", "OPEN"),
-        orderBy("businessDate", "desc"),
-        orderBy("createdAtServer", "desc"),
-        limit(100)
-      )
-    ),
-    readQuery(
-      query(
-        collection(firestore, HARVEST_SESSIONS_COLLECTION),
-        where("createdBy", "==", input.actorProfile.uid),
-        orderBy("businessDate", "desc"),
-        orderBy("createdAtServer", "desc")
-      )
-    )
-  ]);
+  const seasonSnapshot = await readQuery(
+    query(collection(firestore, SEASONS_COLLECTION), where("status", "==", "OPEN"))
+  );
   const seasonDocuments = toRawDocuments(seasonSnapshot.docs);
   const activeSeason = selectActiveSeason(seasonDocuments);
+  const businessDate = input.businessDate ?? currentWarsawBusinessDate();
+  const period = resolveDashboardPeriod(
+    input.periodSelection ?? DEFAULT_OPERATOR_DASHBOARD_PERIOD,
+    {
+      seasonEndDate: activeSeason?.endDate,
+      seasonStartDate: activeSeason?.startDate,
+      todayBusinessDate: businessDate
+    }
+  );
+  let openSessionDocuments: RawDocument[] = [];
+  let ownSessionDocuments: RawDocument[] = [];
   let movementDocuments: RawDocument[] = [];
   let movementFromCache = !input.isOnline;
+  let stockAggregate: { availableWeightG: number; movementCount: number } | null = null;
+  let ownClosedSessionCount: number | null = null;
+  let ownOpenSessionCount: number | null = null;
 
   if (activeSeason) {
-    const movementSnapshot = await readQuery(
-      query(
-        collection(firestore, OPERATIONAL_STOCK_MOVEMENTS_COLLECTION),
-        where("seasonId", "==", activeSeason.id)
-      )
+    const sessions = collection(firestore, HARVEST_SESSIONS_COLLECTION);
+    const movements = collection(firestore, OPERATIONAL_STOCK_MOVEMENTS_COLLECTION);
+    const openSessionsQuery = query(
+      sessions,
+      where("seasonId", "==", activeSeason.id),
+      where("status", "==", "OPEN"),
+      orderBy("businessDate", "desc"),
+      orderBy("createdAtServer", "desc"),
+      limit(OPERATOR_OPEN_SESSION_LIMIT)
     );
-    movementDocuments = movementSnapshot.docs.map((snapshot) => ({
-      data: snapshot.data({ serverTimestamps: "estimate" }),
-      hasPendingWrites: snapshot.metadata.hasPendingWrites,
-      id: snapshot.id
-    }));
-    movementFromCache = movementSnapshot.metadata.fromCache;
+    const ownPeriodConstraints = dashboardPeriodQueryConstraints(
+      "businessDate",
+      period,
+      where
+    );
+    const ownRecentQuery = query(
+      sessions,
+      where("createdBy", "==", input.actorProfile.uid),
+      where("seasonId", "==", activeSeason.id),
+      ...ownPeriodConstraints,
+      orderBy("businessDate", "desc"),
+      orderBy("createdAtServer", "desc"),
+      ...(input.isOnline ? [limit(OPERATOR_RECENT_SESSION_LIMIT)] : [])
+    );
+
+    if (input.isOnline) {
+      const [
+        openSnapshot,
+        ownRecentSnapshot,
+        stockSnapshot,
+        ownClosedSnapshot,
+        ownOpenSnapshot
+      ] = await Promise.all([
+        getDocs(openSessionsQuery),
+        getDocs(ownRecentQuery),
+        getAggregateFromServer(
+          query(movements, where("seasonId", "==", activeSeason.id)),
+          { availableWeightG: sum("weightImpactG"), movementCount: count() }
+        ),
+        getAggregateFromServer(
+          query(
+            sessions,
+            where("createdBy", "==", input.actorProfile.uid),
+            where("seasonId", "==", activeSeason.id),
+            where("status", "in", ["CLOSED", "PAID"]),
+            ...ownPeriodConstraints
+          ),
+          { ownClosedSessionCount: count() }
+        ),
+        getAggregateFromServer(
+          query(
+            sessions,
+            where("createdBy", "==", input.actorProfile.uid),
+            where("seasonId", "==", activeSeason.id),
+            where("status", "==", "OPEN")
+          ),
+          { ownOpenSessionCount: count() }
+        )
+      ]);
+      const stockData = stockSnapshot.data();
+      stockAggregate = {
+        availableWeightG: stockData.availableWeightG,
+        movementCount: stockData.movementCount
+      };
+      assertAggregateInteger(stockAggregate.availableWeightG);
+      assertAggregateInteger(stockAggregate.movementCount);
+      ownClosedSessionCount = ownClosedSnapshot.data().ownClosedSessionCount;
+      ownOpenSessionCount = ownOpenSnapshot.data().ownOpenSessionCount;
+      openSessionDocuments = toRawDocuments(openSnapshot.docs);
+      ownSessionDocuments = toRawDocuments(ownRecentSnapshot.docs);
+      movementFromCache = false;
+    } else {
+      const [openSnapshot, ownRecentSnapshot, ownOpenSnapshot, movementSnapshot] =
+        await Promise.all([
+          getDocsFromCache(openSessionsQuery),
+          getDocsFromCache(ownRecentQuery),
+          getDocsFromCache(
+            query(
+              sessions,
+              where("createdBy", "==", input.actorProfile.uid),
+              where("seasonId", "==", activeSeason.id),
+              where("status", "==", "OPEN")
+            )
+          ),
+          getDocsFromCache(query(movements, where("seasonId", "==", activeSeason.id)))
+        ]);
+      openSessionDocuments = toRawDocuments(openSnapshot.docs);
+      ownSessionDocuments = toRawDocuments(ownRecentSnapshot.docs);
+      ownClosedSessionCount = ownSessionDocuments.filter((document) => {
+        const decoded = decodeHarvestSession(document.id, document.data);
+        return (
+          decoded.status === "FOUND" &&
+          (decoded.session.status === "CLOSED" || decoded.session.status === "PAID")
+        );
+      }).length;
+      ownOpenSessionCount = toRawDocuments(ownOpenSnapshot.docs).filter((document) => {
+        const decoded = decodeHarvestSession(document.id, document.data);
+        return (
+          decoded.status === "FOUND" &&
+          decoded.session.createdBy === input.actorProfile.uid &&
+          decoded.session.seasonId === activeSeason.id &&
+          decoded.session.status === "OPEN"
+        );
+      }).length;
+      movementDocuments = movementSnapshot.docs.map((snapshot) => ({
+        data: snapshot.data({ serverTimestamps: "estimate" }),
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+        id: snapshot.id
+      }));
+      movementFromCache = true;
+    }
   }
 
   return buildOperatorDashboard({
     actorUid: input.actorProfile.uid,
-    businessDate: input.businessDate ?? currentWarsawBusinessDate(),
+    businessDate,
     isOnline: input.isOnline,
+    metricOverrides: {
+      ownClosedSessionCount,
+      ownOpenSessionCount
+    },
     movementDocuments,
     movementFromCache,
-    openSessionDocuments: toRawDocuments(openSessionSnapshot.docs),
-    ownSessionDocuments: toRawDocuments(ownSessionSnapshot.docs),
+    openSessionDocuments,
+    ownSessionDocuments,
     periodSelection: input.periodSelection,
     refreshedAtIso: new Date().toISOString(),
     seasonDocuments,
+    stockAggregate,
     syncDocuments: input.syncDocuments
   });
 }
@@ -153,6 +267,7 @@ export function buildOperatorDashboard({
   actorUid,
   businessDate,
   isOnline,
+  metricOverrides = {},
   movementDocuments,
   movementFromCache,
   openSessionDocuments,
@@ -160,11 +275,16 @@ export function buildOperatorDashboard({
   periodSelection = DEFAULT_OPERATOR_DASHBOARD_PERIOD,
   refreshedAtIso,
   seasonDocuments,
+  stockAggregate = null,
   syncDocuments
 }: {
   actorUid: string;
   businessDate: string;
   isOnline: boolean;
+  metricOverrides?: {
+    ownClosedSessionCount?: number | null;
+    ownOpenSessionCount?: number | null;
+  };
   movementDocuments: readonly RawDocument[];
   movementFromCache: boolean;
   openSessionDocuments: readonly RawDocument[];
@@ -172,6 +292,10 @@ export function buildOperatorDashboard({
   periodSelection?: DashboardPeriodSelection;
   refreshedAtIso: string;
   seasonDocuments: readonly RawDocument[];
+  stockAggregate?: {
+    availableWeightG: number;
+    movementCount: number;
+  } | null;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }): OperatorDashboardResult {
   assertBusinessDate(businessDate);
@@ -232,9 +356,9 @@ export function buildOperatorDashboard({
     }
   }
 
-  const stockCalculation = activeSeason
-    ? calculateOperationalStock(movements, activeSeason.id)
-    : null;
+  const stockCalculation =
+    stockAggregate ??
+    (activeSeason ? calculateOperationalStock(movements, activeSeason.id) : null);
   const stockDataSource = activeSeason
     ? movementFromCache || !isOnline
       ? "CACHE"
@@ -255,14 +379,17 @@ export function buildOperatorDashboard({
         invalidMovementCount > 0 || !stockCalculation
           ? null
           : stockCalculation.availableWeightG,
-      ownClosedSessionCount: ownSessionsInPeriod.filter(
-        (session) => session.status === "CLOSED" || session.status === "PAID"
-      ).length,
+      ownClosedSessionCount:
+        metricOverrides.ownClosedSessionCount ??
+        ownSessionsInPeriod.filter(
+          (session) => session.status === "CLOSED" || session.status === "PAID"
+        ).length,
       conflictCount: conflicts.length,
       localPendingCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
       openSessionCount: openSessions.length,
-      ownOpenSessionCount: ownSessions.filter((session) => session.status === "OPEN")
-        .length
+      ownOpenSessionCount:
+        metricOverrides.ownOpenSessionCount ??
+        ownSessions.filter((session) => session.status === "OPEN").length
     },
     openSessions: openSessions.map(toSafeSession),
     ownRecentSessions: ownSessionsInPeriod.slice(0, 8).map(toSafeSession),
@@ -406,6 +533,12 @@ function assertBusinessDate(value: string): void {
 function assertIso(value: string): void {
   if (Number.isNaN(Date.parse(value))) {
     throw new Error("Pulpit operatora wymaga poprawnego czasu odswiezenia.");
+  }
+}
+
+function assertAggregateInteger(value: number): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error("Agregat pulpitu operatora zawiera nieprawidlowa wartosc.");
   }
 }
 
