@@ -101,7 +101,10 @@ pozostaja pierwsza ochrona poprawnosci nowych zapisow, ale agregat nie raportuje
 pelnej liczby historycznych dokumentow o zlym ksztalcie. Okresowe uzgodnienie
 ma odczytac zrodla stronami, zdekodowac je tymi samymi dekoderami domenowymi,
 porownac wynik z agregatami i zapisac raport kontroli bez zmiany zrodel.
-Alarm roznicy oraz blokada sprzedazy sa zakresem pakietu 8.14.
+Przed zwykla sprzedaza kontrola odczytuje pelne zrodla i ruchy wybranego sezonu,
+dekoduje je oraz porownuje dokument po dokumencie. Ten odczyt bezpieczenstwa nie
+jest wykonywany przez kazde odswiezenie kart pulpitu. Alarm, raport skladowych i
+blokade opisuje `docs/domain/stock-reconciliation.md`.
 
 Dokumentacja Firestore:
 

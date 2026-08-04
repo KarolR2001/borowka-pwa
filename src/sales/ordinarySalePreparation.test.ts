@@ -147,6 +147,47 @@ describe("ordinary sale form model", () => {
     ).toThrow("Formularz zawiera zduplikowany kontekst sezonu.");
   });
 
+  it("blocks ordinary sale preparation for a season with a reconciliation alarm", () => {
+    expect(() =>
+      prepareOrdinarySale({
+        draft: draft(),
+        isOnline: true,
+        stockContexts: [
+          {
+            ...stockContexts[0],
+            reconciliation: {
+              blocksOrdinarySale: true,
+              checkedAtIso: "2026-07-29T05:00:00.000Z",
+              differenceG: -1000,
+              expectedMovementCount: 1,
+              issues: [
+                {
+                  code: "AGGREGATE_DIFFERENCE",
+                  count: 1,
+                  documentIds: [],
+                  message: "Roznica."
+                }
+              ],
+              movementInvalidDocumentCount: 0,
+              operationalAvailableWeightG: 99_000,
+              operationalMovementCount: 1,
+              seasonId: "season-2026",
+              source: {
+                activeSaleWeightG: 0,
+                availableWeightG: 100_000,
+                confirmedHarvestWeightG: 100_000,
+                correctionDecreaseWeightG: 0,
+                correctionIncreaseWeightG: 0,
+                soldWeightG: 0
+              },
+              sourceInvalidDocumentCount: 0
+            }
+          }
+        ]
+      })
+    ).toThrow("Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu.");
+  });
+
   it("keeps a negative projected stock visible for the fresh preflight", () => {
     expect(
       createOrdinarySalePreview({

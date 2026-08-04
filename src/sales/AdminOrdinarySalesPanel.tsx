@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { formatKilograms, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
+import type { StockReconciliationReport } from "../stock/stockReconciliation";
 import { OrdinarySaleForm } from "./OrdinarySaleForm";
 import type {
   PreparedOrdinarySale,
@@ -185,6 +186,9 @@ export function AdminOrdinarySalesPanel({
   }
 
   const actorProfile = authState.profile;
+  const blockedStockContexts = stockState.contexts.filter(
+    (context) => context.reconciliation?.blocksOrdinarySale
+  );
 
   async function handlePrepare(preparedSale: PreparedOrdinarySale): Promise<void> {
     setConfirmed(null);
@@ -257,6 +261,7 @@ export function AdminOrdinarySalesPanel({
       contexts: current.contexts.map((context) =>
         context.seasonId === sale.seasonId
           ? {
+              ...context,
               availableWeightG: sale.availableWeightG,
               dataSource: "SERVER",
               isFresh: true,
@@ -308,6 +313,16 @@ export function AdminOrdinarySalesPanel({
       {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
         <p className="empty-state">Brak otwartego sezonu do sprzedazy.</p>
       ) : null}
+
+      {blockedStockContexts.map((context) =>
+        context.reconciliation ? (
+          <StockReconciliationAlert
+            key={context.seasonId}
+            report={context.reconciliation}
+            seasonName={context.seasonName}
+          />
+        ) : null
+      )}
 
       <div className="sales-operation-switch" role="group" aria-label="Typ operacji">
         <button
@@ -799,6 +814,98 @@ function ConfirmationValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StockReconciliationAlert({
+  report,
+  seasonName
+}: {
+  report: StockReconciliationReport;
+  seasonName: string;
+}) {
+  return (
+    <section
+      className="stock-reconciliation-alert"
+      aria-labelledby={`stock-reconciliation-${report.seasonId}`}
+      role="alert"
+    >
+      <div className="stock-reconciliation-alert__heading">
+        <TriangleAlert aria-hidden="true" size={22} />
+        <div>
+          <h3 id={`stock-reconciliation-${report.seasonId}`}>
+            Alarm stanu: {seasonName}
+          </h3>
+          <p>
+            Zwykla sprzedaz jest zablokowana. Wykonaj jawna korekte albo popraw dokument
+            zrodlowy, a nastepnie odswiez stan.
+          </p>
+        </div>
+      </div>
+      <p className="stock-reconciliation-alert__difference">
+        Roznica projekcji: <strong>{formatSignedKilograms(report.differenceG)}</strong>
+      </p>
+      <ul>
+        {report.issues.map((issue) => (
+          <li key={issue.code}>
+            {issue.message} ({String(issue.count)})
+          </li>
+        ))}
+      </ul>
+      <details className="stock-reconciliation-report">
+        <summary>Otworz raport skladowych</summary>
+        <dl>
+          <ConfirmationValue
+            label="Zbiory potwierdzone"
+            value={formatKilograms(report.source.confirmedHarvestWeightG)}
+          />
+          <ConfirmationValue
+            label="Sprzedaz zwykla"
+            value={formatKilograms(report.source.activeSaleWeightG)}
+          />
+          <ConfirmationValue
+            label="Korekty zwiekszajace"
+            value={formatKilograms(report.source.correctionIncreaseWeightG)}
+          />
+          <ConfirmationValue
+            label="Korekty zmniejszajace"
+            value={formatKilograms(report.source.correctionDecreaseWeightG)}
+          />
+          <ConfirmationValue
+            label="Stan ze zrodel"
+            value={formatKilograms(report.source.availableWeightG)}
+          />
+          <ConfirmationValue
+            label="Stan projekcji"
+            value={formatKilograms(report.operationalAvailableWeightG)}
+          />
+          <ConfirmationValue
+            label="Oczekiwane ruchy"
+            value={String(report.expectedMovementCount)}
+          />
+          <ConfirmationValue
+            label="Zapisane ruchy"
+            value={String(report.operationalMovementCount)}
+          />
+        </dl>
+        {report.issues.some((issue) => issue.documentIds.length > 0) ? (
+          <div className="stock-reconciliation-report__documents">
+            <strong>Dokumenty wymagajace sprawdzenia</strong>
+            {report.issues.map((issue) =>
+              issue.documentIds.length > 0 ? (
+                <p key={issue.code}>
+                  {issue.message} {issue.documentIds.slice(0, 20).join(", ")}
+                  {issue.documentIds.length > 20
+                    ? ` i ${String(issue.documentIds.length - 20)} kolejnych`
+                    : ""}
+                </p>
+              ) : null
+            )}
+          </div>
+        ) : null}
+        <small>Kontrola: {formatTimestamp(report.checkedAtIso)}</small>
+      </details>
+    </section>
+  );
+}
+
 function AccessNotice({ message }: { message: string }) {
   return (
     <section className="access-notice" aria-label="Dostep do sprzedazy">
@@ -814,4 +921,9 @@ function formatSignedKilograms(value: number): string {
 
 function formatSignedMoney(value: number): string {
   return `${value > 0 ? "+" : ""}${formatMoney(value)}`;
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pl-PL");
 }

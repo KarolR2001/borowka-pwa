@@ -107,6 +107,34 @@ describe("ordinary sale stock preflight", () => {
     );
   });
 
+  it("blocks an ordinary sale when the operational projection differs", () => {
+    const freshStock = stock(10_000);
+    freshStock.reconciliation = {
+      ...freshStock.reconciliation,
+      blocksOrdinarySale: true,
+      differenceG: -1500,
+      issues: [
+        {
+          code: "AGGREGATE_DIFFERENCE",
+          count: 1,
+          documentIds: [],
+          message: "Roznica."
+        }
+      ],
+      operationalAvailableWeightG: 8500
+    };
+    const result = evaluateOrdinarySaleStockCheck({
+      freshStock,
+      preparedSale: preparedSale(),
+      saleId: "sale-1"
+    });
+
+    expect(result.status).toBe("BLOCKED");
+    expect(result.status === "BLOCKED" ? result.message : "").toContain(
+      "roznica projekcji: -1500 g"
+    );
+  });
+
   it("prepares and decodes an active ordinary sale document", () => {
     const document = prepareOrdinarySaleDocument({
       actorProfile: adminProfile,
@@ -256,6 +284,26 @@ function stock(availableWeightG: number): FreshSaleStock {
       saleDocuments: 0
     }
   };
+  const reconciliation: FreshSaleStock["reconciliation"] = {
+    blocksOrdinarySale: false,
+    checkedAtIso: "2026-07-29T06:05:00.000Z",
+    differenceG: 0,
+    expectedMovementCount: 1,
+    issues: [],
+    movementInvalidDocumentCount: 0,
+    operationalAvailableWeightG: availableWeightG,
+    operationalMovementCount: 1,
+    seasonId: "season-1",
+    source: {
+      activeSaleWeightG: calculation.activeSaleWeightG,
+      availableWeightG,
+      confirmedHarvestWeightG: calculation.confirmedHarvestWeightG,
+      correctionDecreaseWeightG: 0,
+      correctionIncreaseWeightG: 0,
+      soldWeightG: 0
+    },
+    sourceInvalidDocumentCount: 0
+  };
 
   return {
     calculation,
@@ -264,10 +312,12 @@ function stock(availableWeightG: number): FreshSaleStock {
       dataSource: "SERVER",
       isFresh: true,
       pendingDocumentCount: 0,
+      reconciliation,
       refreshedAtIso: "2026-07-29T06:05:00.000Z",
       seasonId: "season-1",
       seasonName: "Sezon 2026"
     },
-    invalidDocumentCount: 0
+    invalidDocumentCount: 0,
+    reconciliation
   };
 }

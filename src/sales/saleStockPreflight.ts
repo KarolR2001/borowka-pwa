@@ -9,13 +9,22 @@ import type { UserProfile } from "../domain/identity";
 import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
 import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
 import { decodeSeason } from "../seasons/seasons";
-import { publishSaleStockMovement } from "../stock/operationalStockMovement";
+import {
+  decodeOperationalStockMovement,
+  OPERATIONAL_STOCK_MOVEMENTS_COLLECTION,
+  publishSaleStockMovement,
+  type OperationalStockMovementDocument
+} from "../stock/operationalStockMovement";
 import {
   calculateSourceStockForSeason,
   type SourceStockCalculationResult,
   type SourceStockHarvestSession,
   type SourceStockSale
 } from "../stock/sourceStockCalculation";
+import {
+  reconcileStockSources,
+  type StockReconciliationReport
+} from "../stock/stockReconciliation";
 import {
   SALE_ENTRY_TYPES,
   SALE_STATUSES,
@@ -64,6 +73,7 @@ export type FreshSaleStock = {
   calculation: SourceStockCalculationResult;
   context: SaleFormStockContext;
   invalidDocumentCount: number;
+  reconciliation: StockReconciliationReport;
 };
 
 export type FreshSaleStockOptions = {
@@ -287,7 +297,7 @@ export async function createOrdinarySale(
   const expectedPostWriteWeightG = input.check.expectedAvailableWeightG - sale.weightG;
   const concurrentStockChangeDetected =
     postWriteStock.context.availableWeightG !== expectedPostWriteWeightG;
-  const stockIsConsistent = postWriteStock.context.availableWeightG >= 0;
+  const stockIsConsistent = !postWriteStock.reconciliation.blocksOrdinarySale;
 
   return {
     auditEvent,
@@ -337,6 +347,14 @@ export function evaluateOrdinarySaleStockCheck({
     saleId: normalizedSaleId,
     stockChanged: availableWeightG !== preparedSale.availableWeightG
   };
+
+  if (freshStock.reconciliation.blocksOrdinarySale) {
+    return {
+      check,
+      message: reconciliationBlockMessage(freshStock.reconciliation),
+      status: "BLOCKED"
+    };
+  }
 
   if (freshStock.invalidDocumentCount > 0) {
     return {
@@ -603,7 +621,7 @@ async function readFreshSaleStockWithFirestore({
 
   const { collection, getDocsFromServer, query, where } =
     await import("firebase/firestore");
-  const [sessionsSnapshot, salesSnapshot] = await Promise.all([
+  const [sessionsSnapshot, salesSnapshot, movementsSnapshot] = await Promise.all([
     getDocsFromServer(
       query(
         collection(firestore, HARVEST_SESSIONS_COLLECTION),
@@ -612,11 +630,19 @@ async function readFreshSaleStockWithFirestore({
     ),
     getDocsFromServer(
       query(collection(firestore, SALES_COLLECTION), where("seasonId", "==", seasonId))
+    ),
+    getDocsFromServer(
+      query(
+        collection(firestore, OPERATIONAL_STOCK_MOVEMENTS_COLLECTION),
+        where("seasonId", "==", seasonId)
+      )
     )
   ]);
   const harvestSessions: SourceStockHarvestSession[] = [];
   const sales: SourceStockSale[] = [];
-  let invalidDocumentCount = 0;
+  const movements: OperationalStockMovementDocument[] = [];
+  let sourceInvalidDocumentCount = 0;
+  let movementInvalidDocumentCount = 0;
 
   for (const snapshot of sessionsSnapshot.docs) {
     const decoded = decodeHarvestSession(snapshot.id, snapshot.data());
@@ -624,7 +650,7 @@ async function readFreshSaleStockWithFirestore({
     if (decoded.status === "FOUND") {
       harvestSessions.push(decoded.session);
     } else {
-      invalidDocumentCount += 1;
+      sourceInvalidDocumentCount += 1;
     }
   }
 
@@ -634,7 +660,17 @@ async function readFreshSaleStockWithFirestore({
     if (decoded) {
       sales.push(decoded);
     } else {
-      invalidDocumentCount += 1;
+      sourceInvalidDocumentCount += 1;
+    }
+  }
+
+  for (const snapshot of movementsSnapshot.docs) {
+    const movement = decodeOperationalStockMovement(snapshot.id, snapshot.data());
+
+    if (movement) {
+      movements.push(movement);
+    } else {
+      movementInvalidDocumentCount += 1;
     }
   }
 
@@ -642,6 +678,16 @@ async function readFreshSaleStockWithFirestore({
     harvestSessions,
     sales,
     seasonId
+  });
+  const checkedAtIso = new Date().toISOString();
+  const reconciliation = reconcileStockSources({
+    checkedAtIso,
+    harvestSessions,
+    movementInvalidDocumentCount,
+    movements,
+    sales,
+    seasonId,
+    sourceInvalidDocumentCount
   });
 
   return {
@@ -651,12 +697,24 @@ async function readFreshSaleStockWithFirestore({
       dataSource: "SERVER",
       isFresh: true,
       pendingDocumentCount: 0,
-      refreshedAtIso: new Date().toISOString(),
+      reconciliation,
+      refreshedAtIso: checkedAtIso,
       seasonId,
       seasonName: season.name
     },
-    invalidDocumentCount
+    invalidDocumentCount: sourceInvalidDocumentCount,
+    reconciliation
   };
+}
+
+function reconciliationBlockMessage(report: StockReconciliationReport): string {
+  if (report.source.availableWeightG < 0) {
+    return "Stan sezonu jest ujemny. Najpierw wykonaj korekte danych zrodlowych.";
+  }
+
+  return `Stan sezonu jest niespojny (roznica projekcji: ${String(
+    report.differenceG
+  )} g). Zwykla sprzedaz zostala zablokowana do czasu jawnej korekty lub poprawienia zrodla.`;
 }
 
 function prepareOrdinarySaleAudit({
