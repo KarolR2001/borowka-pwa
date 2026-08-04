@@ -8,7 +8,7 @@ import type { UserProfile } from "../domain/identity";
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export const FULL_CLOUD_EXPORT_FORMAT = "BOROWKA_FULL_CLOUD_EXPORT";
-export const FULL_CLOUD_EXPORT_FORMAT_VERSION = 1;
+export const FULL_CLOUD_EXPORT_FORMAT_VERSION = 2;
 export const FULL_CLOUD_EXPORT_PAGE_SIZE = 500;
 export const FULL_CLOUD_EXPORT_COLLECTIONS = [
   "appSettings",
@@ -95,8 +95,10 @@ export type FullCloudExportManifest = {
     sha256: string;
   }[];
   format: {
+    dataScope: "ALL_FIRESTORE_COLLECTIONS";
     name: typeof FULL_CLOUD_EXPORT_FORMAT;
     purpose: "PORTABLE_ARCHIVE";
+    source: "FIRESTORE_SERVER";
     version: typeof FULL_CLOUD_EXPORT_FORMAT_VERSION;
   };
   omissions: {
@@ -328,8 +330,10 @@ export async function createFullCloudExportArchive({
     },
     files: fileManifest,
     format: {
+      dataScope: "ALL_FIRESTORE_COLLECTIONS",
       name: FULL_CLOUD_EXPORT_FORMAT,
       purpose: "PORTABLE_ARCHIVE",
+      source: "FIRESTORE_SERVER",
       version: FULL_CLOUD_EXPORT_FORMAT_VERSION
     },
     omissions: {

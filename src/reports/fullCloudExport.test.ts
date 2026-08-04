@@ -54,9 +54,11 @@ describe("full portable cloud export", () => {
         uid: adminProfile.uid
       },
       format: {
+        dataScope: "ALL_FIRESTORE_COLLECTIONS",
         name: FULL_CLOUD_EXPORT_FORMAT,
         purpose: "PORTABLE_ARCHIVE",
-        version: 1
+        source: "FIRESTORE_SERVER",
+        version: 2
       },
       omissions: { count: 1, path: "errors.json" },
       summary: {

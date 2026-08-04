@@ -491,7 +491,7 @@ export function ConfigurationCachePanel({
         downloadEmergencySyncExport(payload);
       }
 
-      setFeedback("Eksport awaryjny zostal przygotowany.");
+      setFeedback("Eksport awaryjny urzadzenia zostal przygotowany.");
     } catch (exportError: unknown) {
       setError(getConfigurationCacheErrorMessage(exportError));
     } finally {
@@ -586,7 +586,9 @@ export function ConfigurationCachePanel({
             type="button"
           >
             <Download aria-hidden="true" size={18} strokeWidth={2.2} />
-            <span>{isExporting ? "Eksport..." : "Eksport awaryjny"}</span>
+            <span>
+              {isExporting ? "Eksport urzadzenia..." : "Eksport awaryjny urzadzenia"}
+            </span>
           </button>
           <button
             className="primary-action"
@@ -762,7 +764,9 @@ function BlockedAccountPendingDataNotice({
         type="button"
       >
         <Download aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>{isExporting ? "Eksport..." : "Eksport awaryjny"}</span>
+        <span>
+          {isExporting ? "Eksport urzadzenia..." : "Eksport awaryjny urzadzenia"}
+        </span>
       </button>
     </div>
   );
@@ -960,6 +964,10 @@ function SyncSafetyInstructions() {
       </div>
       <ul className="worker-profile__list">
         <li>Nie czysc danych przegladarki przed eksportem awaryjnym.</li>
+        <li>
+          Eksport awaryjny urzadzenia obejmuje tylko lokalne dane oczekujace i nie
+          zastepuje pelnego eksportu chmury.
+        </li>
         <li>Nie wylogowuj sie przed potwierdzeniem zielonego statusu synchronizacji.</li>
         <li>Nie wyplacaj sesji oznaczonych jako lokalne albo oczekujace.</li>
         <li>

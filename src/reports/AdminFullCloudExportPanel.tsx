@@ -96,7 +96,9 @@ export function AdminFullCloudExportPanel({
           type="button"
         >
           <Download aria-hidden="true" size={18} />
-          {state.status === "EXPORTING" ? "Przygotowywanie" : "Pobierz pelny eksport"}
+          {state.status === "EXPORTING"
+            ? "Przygotowywanie eksportu chmury"
+            : "Pobierz pelny eksport chmury"}
         </button>
       </div>
 
