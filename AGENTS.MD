@@ -134,8 +134,13 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `e65889e`; nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Pakiet `9.1 - katalog raportow MVP` jest biezacym zakresem. Po jego zielonym
-  CI i scaleniu nastepny jest `9.2 - eksport CSV do polskiego Excela`.
+- Pakiet `9.1 - katalog raportow MVP` zostal scalony do `main` jako `12b1976`;
+  nie implementuj go ponownie.
+- Pakiet `9.2 - eksport CSV do polskiego Excela` jest biezacym zakresem. Po
+  jego zielonym CI i scaleniu nastepny jest `9.3 - pelny eksport przenosny`.
+- Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
+  `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
+  `PASS`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.
