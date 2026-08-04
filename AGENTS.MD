@@ -130,15 +130,18 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Pakiet `8.18 - testy widocznosci finansow` jest zakonczonym zakresem biezacego
-  przyrostu; po jego zielonym CI i scaleniu nie implementuj go ponownie.
+- Pakiet `8.19 - testy wydajnosci pulpitu` jest zakonczony lokalnie; po jego
+  zielonym CI i scaleniu nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Nastepny pakiet implementacyjny to
-  `8.19 - testy wydajnosci pulpitu`.
+- Nastepny pakiet implementacyjny po scaleniu 8.19 to
+  `9.1 - katalog raportow MVP`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.
 - Bramka wejscia etapu 8 dotyczaca syntetycznych danych DEV pozostaje otwarta do
   czasu standardowego uwierzytelnienia aktywnego administratora i utworzenia
   zestawu testowego. Nie oznaczaj jej jako `PASS` bez sprawdzenia danych.
+- Automatyczny pomiar 8.19 na Firestore Emulatorze jest `PASS`, ale przed PROD
+  nadal wykonaj co najmniej 20 pomiarow p95 i Query Explain na realistycznych
+  danych Firebase DEV. Emulator nie jest dowodem wydajnosci prawdziwej sieci.
