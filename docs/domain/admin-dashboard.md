@@ -66,6 +66,11 @@ Pulpit wymaga kontroli administratora, gdy:
 - wyplacona kwota przekracza naliczenia;
 - co najmniej jeden dokument zrodlowy jest nieprawidlowy.
 
+Dodatkowy alarm nad operacjami sprzedazy porownuje pelne zrodla otwartego
+sezonu z projekcja operatora. Pokazuje sezon, wartosc roznicy i rozwijany
+raport skladowych oraz blokuje zwykla sprzedaz. Korekta i anulowanie pozostaja
+dostepne. Szczegoly opisuje `docs/domain/stock-reconciliation.md`.
+
 Budzet odczytow, szczegoly zapytan i procedura uzgodnienia sa opisane w
 `docs/domain/dashboard-read-strategy.md`.
 Semantyke stanu offline opisuje `docs/domain/dashboard-offline-state.md`.

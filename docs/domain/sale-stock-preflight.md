@@ -6,8 +6,9 @@ Zwykla sprzedaz jest operacja online dostepna tylko dla aktywnego
 administratora. Formularz nie zapisuje dokumentu bezposrednio. Przeplyw ma dwa
 jawne kroki:
 
-1. `checkOrdinarySaleStock` pobiera z serwera sezon, wszystkie sesje zbioru i
-   dokumenty sprzedazy potrzebne do kontrolnej kalkulacji stanu.
+1. `checkOrdinarySaleStock` pobiera z serwera sezon, wszystkie sesje zbioru,
+   dokumenty sprzedazy i ruchy projekcji potrzebne do kontrolnej kalkulacji
+   oraz uzgodnienia stanu.
 2. `createOrdinarySale` bezposrednio przed batchowym zapisem wykonuje ten sam
    swiezy odczyt ponownie.
 
@@ -40,6 +41,8 @@ Standardowy przeplyw blokuje zapis, gdy:
 - brak polaczenia;
 - aktor nie jest aktywnym administratorem;
 - dokument zrodlowy jest nieprawidlowy;
+- ruch projekcji jest nieprawidlowy, brakujacy, nadmiarowy albo niezgodny;
+- suma projekcji rozni sie od sumy dokumentow zrodlowych;
 - kontrolny stan jest juz ujemny;
 - masa sprzedazy przekracza swiezy stan.
 
@@ -56,9 +59,9 @@ spojnego audytu. Operator, picker i uzytkownik anonimowy nie moga odczytywac ani
 zapisywac kolekcji `sales`.
 
 Sukces jest pokazywany dopiero po serwerowym odczycie dokumentu sprzedazy i
-audytu. Nastepnie aplikacja ponownie liczy stan ze zrodel. Wynik ujemny albo
-inna wartosc niz oczekiwana jest pokazana jako ostrzezenie wymagajace recznej
-kontroli.
+audytu oraz publikacji ruchu projekcji. Nastepnie aplikacja ponownie liczy i
+uzgadnia stan. Wynik ujemny, roznica projekcji albo inna wartosc niz oczekiwana
+jest pokazana jako alarm wymagajacy recznej kontroli.
 
 ## Ograniczenie wspolbieznosci
 
@@ -78,14 +81,16 @@ Ryzyko jest ograniczone przez:
 - ponowne przeliczenie po zapisie;
 - jawne ostrzezenie przed rownolegla praca na kilku urzadzeniach.
 
-Test kolizji dwoch administratorow oraz docelowa reakcja na ujemny stan naleza
-odpowiednio do pakietow 8.17 i 8.14.
+Test kolizji dwoch administratorow nalezy do pakietu 8.17. Alarm ujemnego lub
+niespojnego stanu i blokada zwyklej sprzedazy sa zdefiniowane w
+`docs/domain/stock-reconciliation.md`.
 
 ## Pliki kontraktu
 
 - `src/sales/saleStockPreflight.ts` - odczyt zrodel, kontrola, zapis i
   potwierdzenie.
 - `src/sales/AdminOrdinarySalesPanel.tsx` - stan UI i ponowne potwierdzenie.
+- `src/stock/stockReconciliation.ts` - porownanie zrodel z projekcja i raport.
 - `firestore.rules` - dostep do `sales` i wymagany audyt.
 - `tests/integration/sale-stock-preflight.test.ts` - rzeczywisty przeplyw przez
   emulator Firestore.

@@ -69,10 +69,11 @@ bez korzystania z agregatu pulpitu. Zwraca:
 - `availableWeightG` - potwierdzone zbiory minus sprzedaz netto;
 - liczniki dokumentow zrodlowych wykorzystane do diagnostyki.
 
-Kalkulator nie ukrywa ujemnego wyniku. Ujemne `availableWeightG` jest sygnalem
-niespojnosci dla alarmu i blokady zwyklej sprzedazy implementowanych w dalszych
-pakietach. Zduplikowany dokument lub przekroczenie bezpiecznego zakresu liczb
-przerywa kalkulacje zamiast zwracac wiarygodnie wygladajaca bledna sume.
+Kalkulator nie ukrywa ujemnego wyniku. Ujemne `availableWeightG` uruchamia alarm
+i blokade zwyklej sprzedazy. Zduplikowany dokument lub przekroczenie
+bezpiecznego zakresu liczb przerywa kalkulacje zamiast zwracac wiarygodnie
+wygladajaca bledna sume. Porownanie z projekcja operatora opisuje
+`docs/domain/stock-reconciliation.md`.
 
 ## Regula techniczna
 
