@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { harvestSessionStatusLabel } from "../harvest/harvestSessionState";
+import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
 import {
   createAdminPaymentCsv,
   createAdminPaymentCsvFilename,
@@ -154,7 +155,7 @@ export function AdminPaymentDirectoryPanel({
     try {
       const exportedAtIso = new Date().toISOString();
       adminPaymentDirectoryApi.downloadCsv(
-        createAdminPaymentCsv(filteredPayments),
+        createAdminPaymentCsv(filteredPayments, exportedAtIso),
         createAdminPaymentCsvFilename(exportedAtIso)
       );
       setExportError(null);
@@ -827,7 +828,7 @@ function downloadAdminPaymentCsv(content: string, filename: string): void {
   }
 
   const blob = new Blob([content], {
-    type: "text/csv;charset=utf-8"
+    type: POLISH_EXCEL_CSV_MIME_TYPE
   });
   const url = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");
