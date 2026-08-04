@@ -81,4 +81,5 @@ Kontrakt jest zaimplementowany w
 `src/stock/stockSourceDefinition.ts`. Funkcje zwracaja podpisany wplyw w gramach:
 wartosc dodatnia zwieksza stan, ujemna go zmniejsza, a zero oznacza dokument
 wykluczony. Kalkulator kontrolny znajduje sie w
-`src/stock/sourceStockCalculation.ts`.
+`src/stock/sourceStockCalculation.ts`. Wyniki 12 scenariuszy regresji sa zapisane
+w `docs/testing/etap-8-stock-correctness-report.md`.
