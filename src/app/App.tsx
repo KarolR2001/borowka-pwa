@@ -148,6 +148,7 @@ import {
   OperatorDashboardPanel,
   type OperatorDashboardApi
 } from "../dashboard/OperatorDashboardPanel";
+import { clearDashboardSnapshots } from "../dashboard/dashboardOfflineState";
 import {
   AdminOrdinarySalesPanel,
   defaultOrdinarySalesApi,
@@ -823,12 +824,15 @@ export function App({
       deviceId
     });
     await offlineStorageHealthApi.markConfigurationCleared(accountQuery);
+    clearDashboardSnapshots({ ownerUid: currentAuthState.profile.uid });
     setAccountSyncState({
       documents: [],
       ownerUid: null
     });
     setLastSyncError(null);
   }, [configurationCacheApi, deviceId, env, offlineStorageHealthApi, synchronizationApi]);
+  const dashboardOwnerKey =
+    authState.status === "READY" ? authState.profile.uid : authState.status;
 
   return (
     <div className="app-shell">
@@ -999,6 +1003,7 @@ export function App({
               authState={authState}
               env={env}
               isOnline={isOnline}
+              key={`admin-dashboard-${dashboardOwnerKey}`}
               syncDocuments={syncDocuments}
             />
             <AdminOrdinarySalesPanel
@@ -1071,6 +1076,7 @@ export function App({
               authState={authState}
               env={env}
               isOnline={isOnline}
+              key={`operator-dashboard-${dashboardOwnerKey}`}
               syncDocuments={syncDocuments}
             />
             <OperatorHarvestSessionsPanel

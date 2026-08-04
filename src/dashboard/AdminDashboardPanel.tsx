@@ -1,15 +1,24 @@
 import { AlertTriangle, Gauge, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatKilograms, formatMoney } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
+  hydrateAdminDashboardSnapshot,
+  isAdminDashboardSnapshot,
   loadAdminDashboard,
+  prepareAdminDashboardSnapshot,
   type AdminDashboardResult,
   type LoadAdminDashboardInput
 } from "./adminDashboard";
+import {
+  calculateLocalDashboardProjection,
+  loadDashboardSnapshot,
+  saveDashboardSnapshot,
+  type DashboardSnapshotStorage
+} from "./dashboardOfflineState";
 import {
   currentWarsawBusinessDate,
   dashboardPeriodSelectionError,
@@ -45,15 +54,21 @@ export function AdminDashboardPanel({
   authState,
   env,
   isOnline,
+  snapshotStorage,
   syncDocuments
 }: {
   api?: AdminDashboardApi;
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
+  snapshotStorage?: DashboardSnapshotStorage | null;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
+  const resultRef = useRef<{
+    ownerUid: string;
+    result: AdminDashboardResult;
+  } | null>(null);
   const [selectedSeasonId, setSelectedSeasonId] = useState("");
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_DASHBOARD_PERIOD
@@ -67,6 +82,7 @@ export function AdminDashboardPanel({
     let isMounted = true;
 
     if (!isAdmin) {
+      resultRef.current = null;
       setState(initialState);
       return undefined;
     }
@@ -76,11 +92,34 @@ export function AdminDashboardPanel({
     }
 
     if (!isOnline) {
-      setState((current) => ({ result: current.result, status: "ERROR" }));
+      const snapshot = loadDashboardSnapshot({
+        isPayload: isAdminDashboardSnapshot,
+        kind: "ADMIN",
+        ownerUid: authState.profile.uid,
+        storage: snapshotStorage
+      });
+      const currentResult =
+        resultRef.current?.ownerUid === authState.profile.uid
+          ? resultRef.current.result
+          : null;
+      const result = snapshot?.payload ?? currentResult;
+
+      if (result) {
+        const hydratedResult = hydrateAdminDashboardSnapshot(result, syncDocuments);
+        resultRef.current = { ownerUid: authState.profile.uid, result: hydratedResult };
+        setState({ result: hydratedResult, status: "READY" });
+      } else {
+        resultRef.current = null;
+        setState({ result: null, status: "ERROR" });
+      }
       return undefined;
     }
 
-    setState((current) => ({ result: current.result, status: "LOADING" }));
+    setState((current) => ({
+      result:
+        resultRef.current?.ownerUid === authState.profile.uid ? current.result : null,
+      status: "LOADING"
+    }));
     void api
       .load(env, {
         actorProfile: authState.profile,
@@ -92,6 +131,13 @@ export function AdminDashboardPanel({
       })
       .then((result) => {
         if (isMounted) {
+          saveDashboardSnapshot({
+            kind: "ADMIN",
+            ownerUid: authState.profile.uid,
+            payload: prepareAdminDashboardSnapshot(result),
+            storage: snapshotStorage
+          });
+          resultRef.current = { ownerUid: authState.profile.uid, result };
           setState({ result, status: "READY" });
         }
       })
@@ -114,22 +160,39 @@ export function AdminDashboardPanel({
     periodSelection,
     reloadKey,
     selectedSeasonId,
+    snapshotStorage,
     syncDocuments,
     todayBusinessDate
   ]);
 
+  const visibleResult =
+    isAdmin && resultRef.current?.ownerUid === authState.profile.uid
+      ? state.result
+      : null;
+
   const selectedSeason = useMemo(
     () =>
       periodError ||
-      (selectedSeasonId !== "" && state.result?.selectedSeason?.id !== selectedSeasonId)
+      (selectedSeasonId !== "" && visibleResult?.selectedSeason?.id !== selectedSeasonId)
         ? null
-        : (state.result?.selectedSeason ?? null),
-    [periodError, selectedSeasonId, state.result]
+        : (visibleResult?.selectedSeason ?? null),
+    [periodError, selectedSeasonId, visibleResult]
   );
-  const localPendingCount = state.result
-    ? state.result.localSyncSummary.localSavedCount +
-      state.result.localSyncSummary.pendingSyncCount
+  const localPendingCount = visibleResult
+    ? visibleResult.localSyncSummary.localSavedCount +
+      visibleResult.localSyncSummary.pendingSyncCount
     : 0;
+  const localProjection = useMemo(
+    () =>
+      calculateLocalDashboardProjection({
+        officialAvailableWeightG: selectedSeason?.metrics.availableWeightG ?? null,
+        period: selectedSeason?.period ?? null,
+        seasonId: selectedSeason?.id ?? null,
+        syncDocuments
+      }),
+    [selectedSeason, syncDocuments]
+  );
+  const isLocalSnapshot = visibleResult?.calculationSource === "LOCAL_SNAPSHOT";
 
   if (!isAdmin) {
     return (
@@ -150,10 +213,12 @@ export function AdminDashboardPanel({
           <p className="eyebrow">Biezacy obraz sezonu</p>
           <h2 id="admin-dashboard-title">Pulpit administratora</h2>
           <p className="panel-detail">
-            {state.result
-              ? `Dane z chmury odswiezono: ${formatTimestamp(
-                  state.result.refreshedAtIso
-                )}.`
+            {visibleResult
+              ? isLocalSnapshot
+                ? `Ostatni stan serwera: ${formatTimestamp(visibleResult.refreshedAtIso)}.`
+                : `Dane z chmury odswiezono: ${formatTimestamp(
+                    visibleResult.refreshedAtIso
+                  )}.`
               : "Metryki sa pobierane bezposrednio z serwera."}
           </p>
         </div>
@@ -172,20 +237,21 @@ export function AdminDashboardPanel({
       </header>
 
       <div className="dashboard-filter-bar">
-        {state.result && state.result.seasons.length > 0 ? (
+        {visibleResult && visibleResult.seasons.length > 0 ? (
           <label className="field admin-dashboard__season">
             <span>Sezon</span>
             <select
+              disabled={!isOnline || state.status === "LOADING"}
               onChange={(event) => {
                 setSelectedSeasonId(event.target.value);
               }}
               value={
                 selectedSeasonId !== ""
                   ? selectedSeasonId
-                  : (state.result.selectedSeason?.id ?? "")
+                  : (visibleResult.selectedSeason?.id ?? "")
               }
             >
-              {state.result.seasons.map((season) => (
+              {visibleResult.seasons.map((season) => (
                 <option key={season.id} value={season.id}>
                   {season.name} · {seasonStatusLabel(season.status)}
                 </option>
@@ -194,7 +260,7 @@ export function AdminDashboardPanel({
           </label>
         ) : null}
         <DashboardPeriodFilter
-          disabled={state.status === "LOADING"}
+          disabled={!isOnline || state.status === "LOADING"}
           idPrefix="admin-dashboard"
           onChange={setPeriodSelection}
           selection={periodSelection}
@@ -204,7 +270,11 @@ export function AdminDashboardPanel({
 
       {!isOnline ? (
         <p className="form-message form-message--warning">
-          Odswiezenie pulpitu wymaga polaczenia z internetem.
+          {visibleResult
+            ? `Tryb offline. Widoczny jest ostatni stan serwera z ${formatTimestamp(
+                visibleResult.refreshedAtIso
+              )}; nie jest to stan aktualny.`
+            : "Tryb offline. Brak zapisanego stanu pulpitu administratora."}
         </p>
       ) : null}
       {state.status === "ERROR" && isOnline ? (
@@ -212,10 +282,10 @@ export function AdminDashboardPanel({
           Nie udalo sie pobrac aktualnych metryk administratora.
         </p>
       ) : null}
-      {state.status === "LOADING" && !state.result ? (
+      {state.status === "LOADING" && !visibleResult ? (
         <p className="empty-state">Pobieranie metryk z serwera.</p>
       ) : null}
-      {state.status !== "LOADING" && state.result?.seasons.length === 0 ? (
+      {state.status !== "LOADING" && visibleResult?.seasons.length === 0 ? (
         <p className="empty-state">Brak sezonu do podsumowania.</p>
       ) : null}
 
@@ -236,10 +306,35 @@ export function AdminDashboardPanel({
               value={formatKilograms(selectedSeason.metrics.soldWeightG)}
             />
             <DashboardMetric
+              detail={isLocalSnapshot ? "Ostatni oficjalny stan serwera" : undefined}
               label="Dostepne"
               tone={selectedSeason.metrics.availableWeightG < 0 ? "WARNING" : "DEFAULT"}
               value={formatKilograms(selectedSeason.metrics.availableWeightG)}
             />
+            {isLocalSnapshot || localProjection.pendingSessionCount > 0 ? (
+              <>
+                <DashboardMetric
+                  detail="Sesje biezacego urzadzenia, ktorych nie ma w oficjalnym stanie"
+                  label="Lokalne sesje poza stanem"
+                  tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
+                  value={String(localProjection.pendingSessionCount)}
+                />
+                <DashboardMetric
+                  detail={`Ostatni stan serwera + ${formatKilograms(
+                    localProjection.pendingConfirmedWeightG
+                  )} z ${String(
+                    localProjection.pendingConfirmedSessionCount
+                  )} zamknietych sesji`}
+                  label="Przewidywane lokalnie"
+                  tone="WARNING"
+                  value={
+                    localProjection.projectedAvailableWeightG === null
+                      ? "Do sprawdzenia"
+                      : formatKilograms(localProjection.projectedAvailableWeightG)
+                  }
+                />
+              </>
+            ) : null}
             <DashboardMetric
               label="Naliczone zbieraczom"
               value={formatMoney(selectedSeason.metrics.accruedGrosz)}

@@ -32,6 +32,10 @@ const operatorState: ReadyAuthState = {
 };
 
 describe("OperatorDashboardPanel", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("shows operational metrics and sessions without financial data", async () => {
     const api = dashboardApi();
 
@@ -158,6 +162,87 @@ describe("OperatorDashboardPanel", () => {
       expect(offlineApi.load).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("keeps the last server state separate from the local prediction offline", async () => {
+    const api = dashboardApi();
+    const { rerender } = render(
+      <OperatorDashboardPanel
+        api={api}
+        authState={operatorState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("12,500 kg")).toBeVisible();
+    rerender(
+      <OperatorDashboardPanel
+        api={api}
+        authState={operatorState}
+        env={{}}
+        isOnline={false}
+        syncDocuments={[{ id: "pending-1", kind: "HARVEST_SESSION", pendingSync: true }]}
+      />
+    );
+
+    expect(
+      await screen.findByText(
+        "Tryb offline. Widoczny stan serwera nie jest stanem aktualnym."
+      )
+    ).toBeVisible();
+    expect(screen.getByText("Ostatni oficjalny stan serwera")).toBeVisible();
+    expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
+    expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
+    expect(screen.getByLabelText("Okres")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Nowy zbior" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Odswiez pulpit operatora" })
+    ).toBeDisabled();
+    expect(api.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not expose an in-memory dashboard after the account changes", async () => {
+    const load = vi
+      .fn<OperatorDashboardApi["load"]>()
+      .mockImplementation((_env, input) =>
+        input.isOnline
+          ? Promise.resolve(dashboardResult())
+          : Promise.reject(new Error("Brak cache nowego konta."))
+      );
+    const api: OperatorDashboardApi = { load };
+    const { rerender } = render(
+      <OperatorDashboardPanel
+        api={api}
+        authState={operatorState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("12,500 kg")).toBeVisible();
+    const otherOperatorState: ReadyAuthState = {
+      ...operatorState,
+      profile: { ...operatorState.profile, uid: "operator-2" },
+      user: { ...operatorState.user, uid: "operator-2" }
+    };
+    rerender(
+      <OperatorDashboardPanel
+        api={api}
+        authState={otherOperatorState}
+        env={{}}
+        isOnline={false}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(
+      await screen.findByText("Nie udalo sie pobrac pulpitu operatora.")
+    ).toBeVisible();
+    expect(screen.queryByText("12,500 kg")).not.toBeInTheDocument();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
 });
 
 function metric(label: string): HTMLElement {
@@ -235,6 +320,7 @@ function dashboardResult(
       preset: "TODAY",
       toDate: "2026-07-29"
     },
+    lastServerSyncIso: "2026-07-29T08:00:00.000Z",
     refreshedAtIso: "2026-07-29T08:00:00.000Z",
     stock: {
       dataSource: "SERVER",

@@ -29,6 +29,10 @@ const adminState: ReadyAuthState = {
 };
 
 describe("AdminDashboardPanel", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("shows the default season, exact result label, warnings and season switch", async () => {
     const user = userEvent.setup();
     const api = dashboardApi();
@@ -118,6 +122,76 @@ describe("AdminDashboardPanel", () => {
     await waitFor(() => {
       expect(api.load).not.toHaveBeenCalled();
     });
+  });
+
+  it("shows a persisted server snapshot explicitly after going offline", async () => {
+    const api = dashboardApi();
+    const { rerender } = render(
+      <AdminDashboardPanel
+        api={api}
+        authState={adminState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("15,000 kg")).toBeVisible();
+    rerender(
+      <AdminDashboardPanel
+        api={api}
+        authState={adminState}
+        env={{}}
+        isOnline={false}
+        syncDocuments={[{ id: "pending-1", kind: "HARVEST_SESSION", pendingSync: true }]}
+      />
+    );
+
+    expect(
+      await screen.findByText(/Tryb offline.*nie jest to stan aktualny/)
+    ).toBeVisible();
+    expect(screen.getByText("Ostatni oficjalny stan serwera")).toBeVisible();
+    expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
+    expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
+    expect(screen.getByLabelText("Sezon")).toBeDisabled();
+    expect(api.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse an in-memory snapshot after the account changes", async () => {
+    const api = dashboardApi();
+    const { rerender } = render(
+      <AdminDashboardPanel
+        api={api}
+        authState={adminState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("15,000 kg")).toBeVisible();
+    const otherAdminState: ReadyAuthState = {
+      ...adminState,
+      profile: { ...adminState.profile, uid: "admin-2" },
+      user: { ...adminState.user, uid: "admin-2" }
+    };
+    rerender(
+      <AdminDashboardPanel
+        api={api}
+        authState={otherAdminState}
+        env={{}}
+        isOnline={false}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(
+      await screen.findByText(
+        "Tryb offline. Brak zapisanego stanu pulpitu administratora."
+      )
+    ).toBeVisible();
+    expect(screen.queryByText("15,000 kg")).not.toBeInTheDocument();
+    expect(api.load).toHaveBeenCalledTimes(1);
   });
 });
 
