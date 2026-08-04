@@ -11,6 +11,7 @@ import {
   type DashboardPeriodSelection
 } from "../dashboard/dashboardPeriod";
 import { formatMoney } from "../domain/format";
+import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
 import {
   createPickerDataExportCsv,
   createPickerDataExportFilename,
@@ -354,7 +355,7 @@ function downloadPickerDataCsv(content: string, filename: string): void {
     throw new Error("Eksport danych wymaga przegladarki z obsluga plikow.");
   }
 
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([content], { type: POLISH_EXCEL_CSV_MIME_TYPE });
   const url = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");
 

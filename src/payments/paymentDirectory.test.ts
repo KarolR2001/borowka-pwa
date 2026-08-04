@@ -78,13 +78,17 @@ describe("admin payment directory", () => {
     const payments = createDirectory().payments.map((payment, index) =>
       index === 0 ? { ...payment, note: '=HYPERLINK("bad")' } : payment
     );
-    const csv = createAdminPaymentCsv(payments);
+    const csv = createAdminPaymentCsv(payments, "2026-07-28T16:00:00.000Z");
 
     expect(csv.startsWith("\uFEFFsep=;\r\n")).toBe(true);
+    expect(csv).toContain('"Wygenerowano UTC";"2026-07-28T16:00:00.000Z"');
+    expect(csv).toContain('"Sezony";"season-2026: Sezon 2026"');
     expect(csv).toContain('"Kwota PLN"');
+    expect(csv).toContain('"Kwota grosze"');
     expect(csv).toContain('"125,00"');
     expect(csv).toContain(`"'=HYPERLINK(""bad"")"`);
-    expect(csv).toContain('"CANCELLED"');
+    expect(csv).toContain('"Anulowana"');
+    expect(csv).toContain('"Przelew bankowy"');
     expect(createAdminPaymentCsvFilename("2026-07-28T16:00:00.000Z")).toBe(
       "borowka-wyplaty-2026-07-28T16-00-00-000Z.csv"
     );

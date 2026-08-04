@@ -60,6 +60,9 @@ describe("picker data export", () => {
     expect(csv).toContain('"Sezon";"Sezon A"');
     expect(csv).toContain('"NALICZENIE"');
     expect(csv).toContain('"WYPLATA"');
+    expect(csv).toContain('"Wyplacono"');
+    expect(csv).toContain('"Aktywna"');
+    expect(csv).toContain('"Gotowka"');
     expect(csv).toContain('"50,00";"5000"');
     expect(csv).toContain(`"'=Plan testowy"`);
     expect(csv).not.toContain("Prywatna notatka");

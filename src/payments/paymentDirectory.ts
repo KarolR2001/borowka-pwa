@@ -4,6 +4,13 @@ import type { UserProfile } from "../domain/identity";
 import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
 import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
 import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
+import {
+  createPolishExcelCsv,
+  createPolishExcelCsvFilename,
+  formatPolishCsvBusinessDate,
+  formatPolishCsvMoney,
+  normalizePolishCsvGeneratedAt
+} from "../reports/polishExcelCsv";
 import { decodeSeason } from "../seasons/seasons";
 import type { PaymentMethod } from "./paymentConfirmation";
 import {
@@ -243,8 +250,24 @@ export function summarizeAdminPayments(
 }
 
 export function createAdminPaymentCsv(
-  payments: readonly AdminPaymentDirectoryItem[]
+  payments: readonly AdminPaymentDirectoryItem[],
+  exportedAtIso = new Date().toISOString()
 ): string {
+  const normalizedExportedAtIso = normalizePolishCsvGeneratedAt(exportedAtIso);
+  const seasons = Array.from(
+    new Map(
+      payments.map((payment) => [
+        payment.seasonId,
+        `${payment.seasonId}: ${payment.seasonName}`
+      ])
+    ).values()
+  ).sort((left, right) => left.localeCompare(right, "pl"));
+  const metadataRows = [
+    ["Raport", "Wyplaty wedlug osoby i daty"],
+    ["Wygenerowano UTC", normalizedExportedAtIso],
+    ["Sezony", seasons.length > 0 ? seasons.join(" | ") : "Brak danych"],
+    ["Liczba rekordow", String(payments.length)]
+  ];
   const headers = [
     "Id wyplaty",
     "Id sesji",
@@ -253,6 +276,7 @@ export function createAdminPaymentCsv(
     "Data wyplaty",
     "Data sesji",
     "Kwota PLN",
+    "Kwota grosze",
     "Metoda",
     "Status",
     "Import historyczny",
@@ -268,11 +292,14 @@ export function createAdminPaymentCsv(
     payment.sessionId,
     payment.seasonName,
     payment.workerName,
-    payment.paidBusinessDate,
-    payment.sourceSession?.businessDate ?? "",
-    formatCsvMoney(payment.amountGrosz),
-    payment.paymentMethod,
-    payment.status,
+    formatPolishCsvBusinessDate(payment.paidBusinessDate),
+    payment.sourceSession
+      ? formatPolishCsvBusinessDate(payment.sourceSession.businessDate)
+      : "",
+    formatPolishCsvMoney(payment.amountGrosz),
+    String(payment.amountGrosz),
+    paymentMethodCsvLabel(payment.paymentMethod),
+    payment.status === "ACTIVE" ? "Aktywna" : "Anulowana",
     payment.legacyImport ? "TAK" : "NIE",
     payment.createdBy,
     payment.createdAtIso ?? "",
@@ -282,19 +309,11 @@ export function createAdminPaymentCsv(
     payment.cancellationReason ?? ""
   ]);
 
-  return `\uFEFFsep=;\r\n${[headers, ...rows]
-    .map((row) => row.map(escapeCsvCell).join(";"))
-    .join("\r\n")}\r\n`;
+  return createPolishExcelCsv([...metadataRows, [], headers, ...rows]);
 }
 
 export function createAdminPaymentCsvFilename(exportedAtIso: string): string {
-  const date = new Date(exportedAtIso);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error("Eksport wyplat wymaga poprawnego czasu.");
-  }
-
-  return `borowka-wyplaty-${date.toISOString().replace(/[:.]/g, "-")}.csv`;
+  return createPolishExcelCsvFilename("borowka-wyplaty", exportedAtIso);
 }
 
 function createDirectoryItem(
@@ -392,15 +411,13 @@ function assertAdmin(profile: UserProfile): void {
   }
 }
 
-function formatCsvMoney(amountGrosz: number): string {
-  const whole = Math.trunc(amountGrosz / 100);
-  const fraction = String(amountGrosz % 100).padStart(2, "0");
-
-  return `${String(whole)},${fraction}`;
-}
-
-function escapeCsvCell(value: string): string {
-  const protectedValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
-
-  return `"${protectedValue.replace(/"/g, '""')}"`;
+function paymentMethodCsvLabel(method: PaymentMethod): string {
+  switch (method) {
+    case "CASH":
+      return "Gotowka";
+    case "BANK_TRANSFER":
+      return "Przelew bankowy";
+    case "OTHER":
+      return "Inna";
+  }
 }

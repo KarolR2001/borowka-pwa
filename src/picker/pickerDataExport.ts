@@ -1,8 +1,20 @@
 import { getFirebaseServices } from "../config/firebaseServices";
 import { SEASONS_COLLECTION } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
-import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
+import {
+  HARVEST_SESSIONS_COLLECTION,
+  harvestSessionStatusLabel
+} from "../harvest/harvestSessionState";
 import { PAYMENTS_COLLECTION } from "../payments/pendingPayments";
+import {
+  createPolishExcelCsv,
+  createPolishExcelCsvFilename,
+  formatPolishCsvBusinessDate,
+  formatPolishCsvKilograms,
+  formatPolishCsvMoney,
+  formatPolishCsvQuantity,
+  normalizePolishCsvGeneratedAt
+} from "../reports/polishExcelCsv";
 import { buildPickerHarvestList, type PickerHarvestListItem } from "./pickerHarvestList";
 import {
   buildPickerPaymentList,
@@ -228,7 +240,7 @@ export function createPickerDataExportCsv({
   filtered: FilteredPickerDataExport;
   result: PickerDataExportResult;
 }): string {
-  const normalizedExportedAtIso = normalizeIso(exportedAtIso);
+  const normalizedExportedAtIso = normalizePolishCsvGeneratedAt(exportedAtIso);
   const sessionMap = new Map(
     result.sessions.map((session) => [session.sessionId, session])
   );
@@ -244,12 +256,12 @@ export function createPickerDataExportCsv({
     ["Sezon", filtered.seasonLabel],
     ["Zakres od", filtered.filters.fromDate || "bez ograniczenia"],
     ["Zakres do", filtered.filters.toDate || "bez ograniczenia"],
-    ["Naliczono PLN", formatCsvMoney(filtered.summary.accruedAmountGrosz)],
-    ["Wyplacono PLN", formatCsvMoney(filtered.summary.paidAmountGrosz)],
-    ["Pozostalo PLN", formatCsvMoney(filtered.summary.remainingAmountGrosz)],
+    ["Naliczono PLN", formatPolishCsvMoney(filtered.summary.accruedAmountGrosz)],
+    ["Wyplacono PLN", formatPolishCsvMoney(filtered.summary.paidAmountGrosz)],
+    ["Pozostalo PLN", formatPolishCsvMoney(filtered.summary.remainingAmountGrosz)],
     [
       "Anulowane wyplaty PLN",
-      formatCsvMoney(filtered.summary.cancelledPaymentAmountGrosz)
+      formatPolishCsvMoney(filtered.summary.cancelledPaymentAmountGrosz)
     ]
   ];
   const headers = [
@@ -279,15 +291,15 @@ export function createPickerDataExportCsv({
     session.seasonId,
     session.seasonName,
     session.sessionId,
-    session.businessDate,
-    session.status,
+    formatPolishCsvBusinessDate(session.businessDate),
+    harvestSessionStatusLabel(session.status),
     session.planName,
     session.unitLabelPlural,
-    formatCsvDecimal(session.totalQuantityMilli),
+    formatPolishCsvQuantity(session.totalQuantityMilli),
     String(session.totalQuantityMilli),
-    formatCsvDecimal(session.totalWeightG),
+    formatPolishCsvKilograms(session.totalWeightG),
     String(session.totalWeightG),
-    session.amountDueGrosz === null ? "" : formatCsvMoney(session.amountDueGrosz),
+    session.amountDueGrosz === null ? "" : formatPolishCsvMoney(session.amountDueGrosz),
     session.amountDueGrosz === null ? "" : String(session.amountDueGrosz),
     "",
     "",
@@ -315,22 +327,20 @@ export function createPickerDataExportCsv({
       "",
       "",
       payment.id,
-      payment.paidBusinessDate,
-      payment.status,
-      payment.paymentMethod,
-      formatCsvMoney(payment.amountGrosz),
+      formatPolishCsvBusinessDate(payment.paidBusinessDate),
+      payment.status === "ACTIVE" ? "Aktywna" : "Anulowana",
+      paymentMethodCsvLabel(payment.paymentMethod),
+      formatPolishCsvMoney(payment.amountGrosz),
       String(payment.amountGrosz)
     ];
   });
   const rows = [...metadataRows, [], headers, ...sessionRows, ...paymentRows];
 
-  return `\uFEFFsep=;\r\n${rows
-    .map((row) => row.map(escapeCsvCell).join(";"))
-    .join("\r\n")}\r\n`;
+  return createPolishExcelCsv(rows);
 }
 
 export function createPickerDataExportFilename(exportedAtIso: string): string {
-  return `borowka-moje-dane-${normalizeIso(exportedAtIso).replace(/[:.]/g, "-")}.csv`;
+  return createPolishExcelCsvFilename("borowka-moje-dane", exportedAtIso);
 }
 
 function normalizeFilters(filters: PickerDataExportFilters): PickerDataExportFilters {
@@ -355,39 +365,15 @@ function normalizeOptionalDate(value: string): string {
   return normalized;
 }
 
-function normalizeIso(value: string): string {
-  const normalized = value.trim();
-  const date = new Date(normalized);
-
-  if (!normalized || Number.isNaN(date.getTime())) {
-    throw new Error("Eksport wymaga poprawnego czasu wygenerowania.");
+function paymentMethodCsvLabel(method: PickerPaymentListItem["paymentMethod"]): string {
+  switch (method) {
+    case "CASH":
+      return "Gotowka";
+    case "BANK_TRANSFER":
+      return "Przelew bankowy";
+    case "OTHER":
+      return "Inna";
   }
-
-  return date.toISOString();
-}
-
-function formatCsvMoney(amountGrosz: number): string {
-  const sign = amountGrosz < 0 ? "-" : "";
-  const absolute = Math.abs(amountGrosz);
-
-  return `${sign}${String(Math.trunc(absolute / 100))},${String(absolute % 100).padStart(2, "0")}`;
-}
-
-function formatCsvDecimal(valueMilli: number): string {
-  const sign = valueMilli < 0 ? "-" : "";
-  const absolute = Math.abs(valueMilli);
-  const whole = Math.trunc(absolute / 1000);
-  const fraction = String(absolute % 1000)
-    .padStart(3, "0")
-    .replace(/0+$/, "");
-
-  return `${sign}${String(whole)}${fraction ? `,${fraction}` : ""}`;
-}
-
-function escapeCsvCell(value: string): string {
-  const protectedValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
-
-  return `"${protectedValue.replace(/"/g, '""')}"`;
 }
 
 function safeSum(values: readonly number[]): number {
