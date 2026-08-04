@@ -51,6 +51,12 @@ describe("PickerDashboardPanel", () => {
     expect(screen.getByText("Dane z pamieci offline")).toBeInTheDocument();
     expect(screen.getByText("4,5 ubianki")).toBeInTheDocument();
     expect(screen.getByText("Anna Konto / Anna Zbieracz")).toBeInTheDocument();
+    expect(screen.getByText("Naliczono")).toBeInTheDocument();
+    expect(screen.getByText("Wyplacono")).toBeInTheDocument();
+    expect(screen.queryByText("Dostepne")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sprzedano")).not.toBeInTheDocument();
+    expect(screen.queryByText("Przychod")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wynik po koszcie zbioru")).not.toBeInTheDocument();
     expect(load).toHaveBeenCalledWith(
       {},
       expect.objectContaining({

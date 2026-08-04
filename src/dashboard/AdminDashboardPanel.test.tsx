@@ -57,6 +57,23 @@ describe("AdminDashboardPanel", () => {
     expect(
       screen.getByText("Stan dostepnych kilogramow jest ujemny i wymaga korekty.")
     ).toBeVisible();
+    for (const label of [
+      "Zebrano potwierdzone",
+      "Zbiory w toku",
+      "Sprzedano",
+      "Dostepne",
+      "Naliczone zbieraczom",
+      "Wyplacone",
+      "Do wyplaty",
+      "Przychod",
+      "Wynik po koszcie zbioru",
+      "Aktywni zbieracze",
+      "Otwarte sesje",
+      "Wymagaja sprawdzenia",
+      "Lokalnie oczekujace"
+    ]) {
+      expect(dashboardMetric(label)).toBeVisible();
+    }
     expect(within(dashboardMetric("Lokalnie oczekujace")).getByText("1")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2");
@@ -191,6 +208,10 @@ describe("AdminDashboardPanel", () => {
       )
     ).toBeVisible();
     expect(screen.queryByText("15,000 kg")).not.toBeInTheDocument();
+    expect(screen.queryByText("Przychod")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wynik po koszcie zbioru")).not.toBeInTheDocument();
+    expect(screen.queryByText("Naliczone zbieraczom")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wyplacone")).not.toBeInTheDocument();
     expect(api.load).toHaveBeenCalledTimes(1);
   });
 });

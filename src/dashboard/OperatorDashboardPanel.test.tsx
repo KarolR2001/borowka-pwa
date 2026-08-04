@@ -61,6 +61,9 @@ describe("OperatorDashboardPanel", () => {
     expect(screen.queryByText(/przychod/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/wyplat/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/stawka.*zl/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Naliczone zbieraczom")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wynik po koszcie zbioru")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sprzedano")).not.toBeInTheDocument();
     expect(api.load).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
