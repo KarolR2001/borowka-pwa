@@ -56,5 +56,20 @@ Production credentials must not be available to ordinary pull request workflows.
 5. Configure required reviewers for the GitHub `production` environment.
 6. Run `Deploy Production` manually only for an approved release.
 
+## Sales concurrency gate
+
+The client-only model does not serialize two sales of different document IDs.
+Before pilot or production, the owner must choose and record one of these paths:
+
+- designate one administrative device as the only device allowed to record
+  ordinary sales and confirm that the farm accepts this operating restriction;
+- deploy a trusted server-side serialization mechanism and repeat the concurrent
+  sale test.
+
+Production remains blocked if multiple devices need to record sales and no
+trusted serialization mechanism exists. The verified collision and its repair
+path are documented in
+`docs/testing/etap-8-concurrent-sale-report.md`.
+
 The workflow validates that `CONFIRM_PRODUCTION_DEPLOY=true`, the service
 account project, deployment project and client project match before deploying.

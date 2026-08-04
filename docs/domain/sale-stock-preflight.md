@@ -81,8 +81,11 @@ Ryzyko jest ograniczone przez:
 - ponowne przeliczenie po zapisie;
 - jawne ostrzezenie przed rownolegla praca na kilku urzadzeniach.
 
-Test kolizji dwoch administratorow nalezy do pakietu 8.17. Alarm ujemnego lub
-niespojnego stanu i blokada zwyklej sprzedazy sa zdefiniowane w
+Test kolizji dwoch administratorow potwierdzil, ze oba zapisy moga zostac
+zaakceptowane i utworzyc stan ujemny. Wynik, alarm i obowiazkowe ograniczenie do
+jednego urzadzenia sprzedazowego opisuje
+`docs/testing/etap-8-concurrent-sale-report.md`. Alarm ujemnego lub niespojnego
+stanu i blokada zwyklej sprzedazy sa zdefiniowane w
 `docs/domain/stock-reconciliation.md`.
 
 ## Pliki kontraktu
