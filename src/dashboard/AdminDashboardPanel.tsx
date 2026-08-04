@@ -87,28 +87,12 @@ export function AdminDashboardPanel({
         businessDate: todayBusinessDate,
         isOnline,
         periodSelection,
+        selectedSeasonId: selectedSeasonId || null,
         syncDocuments
       })
       .then((result) => {
         if (isMounted) {
           setState({ result, status: "READY" });
-          setSelectedSeasonId((current) => {
-            if (result.seasons.some((season) => season.id === current)) {
-              return current;
-            }
-
-            const defaultSeason = result.seasons.find((season) => season.isDefault);
-            if (defaultSeason) {
-              return defaultSeason.id;
-            }
-
-            const openSeason = result.seasons.find((season) => season.status === "OPEN");
-            if (openSeason) {
-              return openSeason.id;
-            }
-
-            return result.seasons[0]?.id ?? "";
-          });
         }
       })
       .catch(() => {
@@ -129,16 +113,17 @@ export function AdminDashboardPanel({
     periodError,
     periodSelection,
     reloadKey,
+    selectedSeasonId,
     syncDocuments,
     todayBusinessDate
   ]);
 
   const selectedSeason = useMemo(
     () =>
-      periodError
+      periodError ||
+      (selectedSeasonId !== "" && state.result?.selectedSeason?.id !== selectedSeasonId)
         ? null
-        : (state.result?.seasons.find((season) => season.id === selectedSeasonId) ??
-          null),
+        : (state.result?.selectedSeason ?? null),
     [periodError, selectedSeasonId, state.result]
   );
   const localPendingCount = state.result
@@ -194,7 +179,11 @@ export function AdminDashboardPanel({
               onChange={(event) => {
                 setSelectedSeasonId(event.target.value);
               }}
-              value={selectedSeasonId}
+              value={
+                selectedSeasonId !== ""
+                  ? selectedSeasonId
+                  : (state.result.selectedSeason?.id ?? "")
+              }
             >
               {state.result.seasons.map((season) => (
                 <option key={season.id} value={season.id}>
