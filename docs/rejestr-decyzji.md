@@ -132,6 +132,14 @@
 - Uzasadnienie: Firestore Rules nie moga sumowac wynikow zapytan, a transakcja klienta nie obejmuje atomowo zapytan po wszystkich sesjach i sprzedazach sezonu. Udawanie pelnej blokady pozostawiloby niejawne ryzyko utraty kontroli stanu.
 - Skutki: UI ostrzega przed rownolegla praca, standardowy przeplyw blokuje przekroczenie swiezego stanu, wynik po zapisie jest ponownie sprawdzany, a test kolizji i alarm niespojnosci pozostaja obowiazkowymi pakietami 8.17 i 8.14.
 
+## DEC-0017A - Jedno urzadzenie sprzedazowe w MVP
+
+- Status: wymagane ograniczenie operacyjne przed pilotazem i produkcja
+- Data: 2026-08-04
+- Decyzja: zweryfikowany model klientowy nie dopuszcza zwyklej sprzedazy z wielu urzadzen jednoczesnie. Do czasu wdrozenia zaufanej serializacji gospodarstwo musi wyznaczyc jedno urzadzenie administracyjne jako jedyne urzadzenie do zapisu zwyklej sprzedazy.
+- Uzasadnienie: test 8.17 potwierdzil, ze dwie sprzedaze po `6000 g` moga przejsc dwa swieze preflighty przy stanie `10000 g`, zostac zapisane i utworzyc stan `-2000 g`. Alarm wykrywa problem i blokuje kolejny zapis, ale nie cofa automatycznie zadnej operacji.
+- Skutki: wielourzadzeniowa sprzedaz blokuje PROD bez funkcji serwerowej; wlasciciel potwierdza jedno urzadzenie przed pilotazem; wynik testu i procedura naprawy znajduja sie w `docs/testing/etap-8-concurrent-sale-report.md`.
+
 ## DEC-0018 - Oficjalne zaokraglenie przychodu sprzedazy
 
 - Status: zaakceptowana technicznie na podstawie PRD

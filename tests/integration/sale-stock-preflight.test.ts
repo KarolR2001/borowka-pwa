@@ -294,6 +294,124 @@ describe("ordinary sale stock preflight Firestore flow", () => {
     });
   });
 
+  it("detects but cannot serialize two concurrent sales that exceed stock together", async () => {
+    const concurrentPreparedSale = {
+      ...preparedSale(),
+      projectedAvailableWeightG: 4000,
+      revenuePreviewGrosz: 7500,
+      weightG: 6000
+    };
+    const [firstCheck, secondCheck] = await Promise.all([
+      checkOrdinarySaleStock(
+        {},
+        {
+          actorProfile: adminProfile,
+          isOnline: true,
+          preparedSale: concurrentPreparedSale,
+          saleId: "sale-concurrent-first"
+        }
+      ),
+      checkOrdinarySaleStock(
+        {},
+        {
+          actorProfile: adminProfile,
+          isOnline: true,
+          preparedSale: concurrentPreparedSale,
+          saleId: "sale-concurrent-second"
+        }
+      )
+    ]);
+
+    if (
+      firstCheck.status !== "CONFIRMATION_REQUIRED" ||
+      secondCheck.status !== "CONFIRMATION_REQUIRED"
+    ) {
+      throw new Error("Expected both concurrent sales to pass the first check.");
+    }
+
+    expect(firstCheck.check.expectedAvailableWeightG).toBe(10_000);
+    expect(secondCheck.check.expectedAvailableWeightG).toBe(10_000);
+
+    const releaseConcurrentWrites = createTwoPartyBarrier();
+    const results = await Promise.all([
+      createOrdinarySale(
+        {},
+        {
+          actorProfile: adminProfile,
+          check: firstCheck.check,
+          deviceId: "device-concurrent-first",
+          isOnline: true
+        },
+        { afterFreshStockAccepted: releaseConcurrentWrites }
+      ),
+      createOrdinarySale(
+        {},
+        {
+          actorProfile: adminProfile,
+          check: secondCheck.check,
+          deviceId: "device-concurrent-second",
+          isOnline: true
+        },
+        { afterFreshStockAccepted: releaseConcurrentWrites }
+      )
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(["CONFIRMED", "CONFIRMED"]);
+    expect(
+      results.some(
+        (result) => result.status === "CONFIRMED" && result.concurrentStockChangeDetected
+      )
+    ).toBe(true);
+
+    const finalCheck = await checkOrdinarySaleStock(
+      {},
+      {
+        actorProfile: adminProfile,
+        isOnline: true,
+        preparedSale: preparedSale(),
+        saleId: "sale-after-concurrency"
+      }
+    );
+
+    expect(finalCheck).toMatchObject({
+      check: { expectedAvailableWeightG: -2000 },
+      status: "BLOCKED"
+    });
+    expect(finalCheck.status === "BLOCKED" ? finalCheck.message : "").toContain("ujemny");
+
+    const dashboard = await loadAdminDashboard(
+      {},
+      {
+        actorProfile: adminProfile,
+        isOnline: true,
+        syncDocuments: []
+      }
+    );
+    expect(dashboard.selectedSeason).toMatchObject({
+      metrics: {
+        availableWeightG: -2000,
+        confirmedHarvestWeightG: 10_000,
+        soldWeightG: 12_000
+      }
+    });
+    expect(dashboard.selectedSeason?.warnings).toContain(
+      "Stan dostepnych kilogramow jest ujemny i wymaga korekty."
+    );
+
+    if (!testEnvironment) {
+      throw new Error("Expected test environment.");
+    }
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const sales = await getDocs(collection(context.firestore(), "sales"));
+      expect(
+        sales.docs
+          .map((snapshot) => snapshot.id)
+          .sort((left, right) => left.localeCompare(right))
+      ).toEqual(["sale-concurrent-first", "sale-concurrent-second"]);
+    });
+  });
+
   it("blocks ordinary sale when the operational projection differs from sources", async () => {
     if (!testEnvironment) {
       throw new Error("Expected test environment.");
@@ -789,4 +907,22 @@ function readWeightImpact(value: unknown): number | null {
   }
 
   return null;
+}
+
+function createTwoPartyBarrier(): () => Promise<void> {
+  let arrivalCount = 0;
+  let release: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  return async () => {
+    arrivalCount += 1;
+
+    if (arrivalCount === 2) {
+      release?.();
+    }
+
+    await ready;
+  };
 }

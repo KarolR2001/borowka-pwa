@@ -106,6 +106,10 @@ export type CreateOrdinarySaleInput = {
   isOnline: boolean;
 };
 
+export type CreateOrdinarySaleDependencies = {
+  afterFreshStockAccepted?: (freshStock: FreshSaleStock) => Promise<void>;
+};
+
 export type OrdinarySaleConfirmedResult = {
   auditEvent: AuditEventDocument;
   concurrentStockChangeDetected: boolean;
@@ -196,7 +200,8 @@ export async function checkOrdinarySaleStock(
 
 export async function createOrdinarySale(
   env: FirebaseEnv,
-  input: CreateOrdinarySaleInput
+  input: CreateOrdinarySaleInput,
+  dependencies: CreateOrdinarySaleDependencies = {}
 ): Promise<CreateOrdinarySaleResult> {
   assertAdminOnline(input.actorProfile, input.isOnline);
   assertOrdinarySaleStockCheck(input.check);
@@ -229,6 +234,8 @@ export async function createOrdinarySale(
       status: "RECONFIRMATION_REQUIRED"
     };
   }
+
+  await dependencies.afterFreshStockAccepted?.(freshStock);
 
   const { firestore } = await getFirebaseServices(env);
   const { Timestamp, doc, getDocFromServer, serverTimestamp, writeBatch } =
