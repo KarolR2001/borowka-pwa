@@ -25,8 +25,11 @@ potwierdzic przez Firestore Query Explain na danych zblizonych do produkcyjnych.
   sezonu i okresu. Pobierana jest tylko mala lista sezonow.
 - Operator online korzysta z agregatu ruchow stanu oraz agregatow licznikow.
   Lista wszystkich otwartych sesji ma limit 100, a historia operatora limit 8.
-- Operator offline liczy stan z dokumentow dostepnych w cache. Odczyt z cache
-  nie jest przedstawiany jako nowy wynik serwera.
+- Administrator i operator zapisuja ostatni udany wynik serwera jako lokalny,
+  wersjonowany snapshot przypisany do konta. Snapshot nie wykonuje odczytow
+  Firestore i nigdy nie jest przedstawiany jako aktualny.
+- Operator bez snapshotu moze awaryjnie policzyc stan z dokumentow dostepnych
+  w cache. Odczyt z cache nie jest przedstawiany jako nowy wynik serwera.
 - Zbieracz online i offline pobiera dokumenty zrodlowe ograniczone przez
   `workerId`, `seasonId` i zakres daty biznesowej. Dokumenty sa potrzebne do
   grupowania ilosci wedlug planu, ktorego agregaty Firestore nie realizuja.
@@ -50,31 +53,32 @@ utrzymujacy agregaty oraz okresowe przeliczenie ze zrodel:
 Wszystkie filtry okresu sa wlaczne na obu koncach. Sesje i sprzedaz uzywaja
 `businessDate`, a wyplaty `paidBusinessDate`.
 
-| Karta                   | Zrodlo i filtr                            | Obliczenie                                 | Offline          |
-| ----------------------- | ----------------------------------------- | ------------------------------------------ | ---------------- |
-| Zebrano potwierdzone    | sesje sezonu, `CLOSED` lub `PAID`, okres  | `sum(totalWeightG)`                        | brak odswiezenia |
-| Zbiory w toku           | sesje sezonu, `OPEN`, okres               | `sum(totalWeightG)`                        | brak odswiezenia |
-| Sprzedano               | aktywne sprzedaze i korekty sezonu, okres | sprzedaz + korekta ubytku - korekta zwrotu | brak odswiezenia |
-| Dostepne                | dwa poprzednie zrodla                     | potwierdzone - sprzedano                   | brak odswiezenia |
-| Naliczone zbieraczom    | sesje sezonu, `CLOSED` lub `PAID`, okres  | `sum(amountDueGrosz)`                      | brak odswiezenia |
-| Wyplacone               | wyplaty sezonu, `ACTIVE`, okres           | `sum(amountGrosz)`                         | brak odswiezenia |
-| Do wyplaty              | naliczenia i wyplaty                      | naliczone - wyplacone                      | brak odswiezenia |
-| Przychod                | aktywne sprzedaze i korekty sezonu, okres | sprzedaz + korekta ubytku - korekta zwrotu | brak odswiezenia |
-| Wynik po koszcie zbioru | przychod i naliczenia                     | przychod - naliczone                       | brak odswiezenia |
-| Aktywni zbieracze       | `workers`, `active == true`               | `count()`; bez filtra historycznego        | brak odswiezenia |
-| Otwarte sesje           | sesje sezonu, `OPEN`, okres               | `count()`                                  | brak odswiezenia |
-| Wymagaja sprawdzenia    | sesje sezonu, `REVIEW_REQUIRED`, okres    | `count()`                                  | brak odswiezenia |
+| Karta                   | Zrodlo i filtr                            | Obliczenie                                 | Offline                    |
+| ----------------------- | ----------------------------------------- | ------------------------------------------ | -------------------------- |
+| Zebrano potwierdzone    | sesje sezonu, `CLOSED` lub `PAID`, okres  | `sum(totalWeightG)`                        | ostatni snapshot           |
+| Zbiory w toku           | sesje sezonu, `OPEN`, okres               | `sum(totalWeightG)`                        | ostatni snapshot           |
+| Sprzedano               | aktywne sprzedaze i korekty sezonu, okres | sprzedaz + korekta ubytku - korekta zwrotu | ostatni snapshot           |
+| Dostepne                | dwa poprzednie zrodla                     | potwierdzone - sprzedano                   | snapshot + prognoza        |
+| Naliczone zbieraczom    | sesje sezonu, `CLOSED` lub `PAID`, okres  | `sum(amountDueGrosz)`                      | ostatni snapshot           |
+| Wyplacone               | wyplaty sezonu, `ACTIVE`, okres           | `sum(amountGrosz)`                         | ostatni snapshot           |
+| Do wyplaty              | naliczenia i wyplaty                      | naliczone - wyplacone                      | ostatni snapshot           |
+| Przychod                | aktywne sprzedaze i korekty sezonu, okres | sprzedaz + korekta ubytku - korekta zwrotu | ostatni snapshot           |
+| Wynik po koszcie zbioru | przychod i naliczenia                     | przychod - naliczone                       | ostatni snapshot           |
+| Aktywni zbieracze       | `workers`, `active == true`               | `count()`; bez filtra historycznego        | ostatni snapshot           |
+| Otwarte sesje           | sesje sezonu, `OPEN`, okres               | `count()`                                  | snapshot + licznik lokalny |
+| Wymagaja sprawdzenia    | sesje sezonu, `REVIEW_REQUIRED`, okres    | `count()`                                  | ostatni snapshot           |
 
 ## Karty operatora
 
-| Karta          | Zrodlo i filtr                                     | Obliczenie                     | Offline                   |
-| -------------- | -------------------------------------------------- | ------------------------------ | ------------------------- |
-| Dostepny stan  | ruchy stanu aktywnego sezonu                       | `sum(weightImpactG)`           | suma dokumentow z cache   |
-| Otwarte sesje  | aktywny sezon, `OPEN`, najnowsze 100               | liczba pobranych pozycji       | lista z cache             |
-| Moje zamkniete | `createdBy`, aktywny sezon, `CLOSED`/`PAID`, okres | `count()`                      | liczba dokumentow z cache |
-| Moje otwarte   | `createdBy`, aktywny sezon, `OPEN`                 | `count()`                      | liczba dokumentow z cache |
-| Lokalne zapisy | lokalny dziennik synchronizacji                    | oczekujace + zapisane lokalnie | pelna informacja lokalna  |
-| Konflikty      | lokalny dziennik synchronizacji                    | odrzucone + zmienione zdalnie  | pelna informacja lokalna  |
+| Karta            | Zrodlo i filtr                                     | Obliczenie                     | Offline                   |
+| ---------------- | -------------------------------------------------- | ------------------------------ | ------------------------- |
+| Dostepny stan    | ruchy stanu aktywnego sezonu                       | `sum(weightImpactG)`           | snapshot lub cache        |
+| Otwarte sesje    | aktywny sezon, `OPEN`, najnowsze 100               | liczba pobranych pozycji       | lista z cache             |
+| Moje zamkniete   | `createdBy`, aktywny sezon, `CLOSED`/`PAID`, okres | `count()`                      | liczba dokumentow z cache |
+| Moje otwarte     | `createdBy`, aktywny sezon, `OPEN`                 | `count()`                      | liczba dokumentow z cache |
+| Lokalne zapisy   | lokalny dziennik synchronizacji                    | oczekujace + zapisane lokalnie | pelna informacja lokalna  |
+| Konflikty        | lokalny dziennik synchronizacji                    | odrzucone + zmienione zdalnie  | pelna informacja lokalna  |
+| Prognoza lokalna | snapshot + sesje biezacego urzadzenia              | stan + zamkniete/wyplacone     | oddzielna od oficjalnej   |
 
 Lista historii operatora jest osobnym odczytem ograniczonym do 8 pozycji po
 `createdBy`, sezonie i okresie. Nie zawiera danych finansowych.
