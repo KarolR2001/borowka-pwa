@@ -390,6 +390,10 @@ describe("App shell", () => {
     const markConfigurationCleared = vi
       .fn<OfflineStorageHealthApi["markConfigurationCleared"]>()
       .mockResolvedValue(undefined);
+    const adminDashboardKey = "borowka.dashboard-snapshot.v1.admin.admin-1";
+    const operatorDashboardKey = "borowka.dashboard-snapshot.v1.operator.admin-1";
+    localStorage.setItem(adminDashboardKey, "admin-snapshot");
+    localStorage.setItem(operatorDashboardKey, "operator-snapshot");
 
     render(
       <App
@@ -442,6 +446,8 @@ describe("App shell", () => {
     expect(markConfigurationCleared).toHaveBeenCalledWith(
       expect.objectContaining({ userUid: "admin-1" })
     );
+    expect(localStorage.getItem(adminDashboardKey)).toBeNull();
+    expect(localStorage.getItem(operatorDashboardKey)).toBeNull();
   });
 
   it("does not expose one account's pending documents after switching users", async () => {
@@ -1168,6 +1174,7 @@ describe("App shell", () => {
           preset: "TODAY",
           toDate: "2026-07-29"
         },
+        lastServerSyncIso: "2026-07-29T08:00:00.000Z",
         refreshedAtIso: "2026-07-29T08:00:00.000Z",
         stock: {
           dataSource: "SERVER",

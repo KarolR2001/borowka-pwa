@@ -8,11 +8,17 @@ dla wybranego sezonu oraz okresu. Dokumenty sesji, sprzedazy, wyplat i
 zbieraczy nie sa przesylane do klienta administratora. Dane finansowe nie sa
 udostepniane operatorowi ani pickerowi.
 
-Pulpit pokazuje czas ostatniego poprawnego odczytu z chmury. Odczyt offline
-jest blokowany, poniewaz cache nie moze byc podstawa aktualnego podsumowania
-finansowego. Licznik lokalnych zapisow dotyczy tylko biezacego urzadzenia.
-Osobne ostrzezenie przypomina, ze inne urzadzenia pracujace calkowicie offline
-moga miec sesje, ktorych chmura jeszcze nie zna.
+Pulpit pokazuje czas ostatniego poprawnego odczytu z chmury. Po udanym odczycie
+zapisuje wersjonowany snapshot wyniku dla zalogowanego konta. Offline nie
+wykonuje nowych agregatow: pokazuje ostatni stan serwera z jego pierwotnym
+czasem i oznacza go jako nieaktualny. Filtry sezonu i okresu sa wtedy
+zablokowane.
+
+Oficjalny stan jest oddzielony od lokalnej prognozy. Prognoza dodaje tylko
+zamkniete lub wyplacone sesje oczekujace w dzienniku biezacego urzadzenia,
+zgodne z sezonem i okresem snapshotu. Licznik obejmuje takze lokalne sesje
+otwarte. Dane innych urzadzen moga nie byc jeszcze znane. Snapshot jest
+usuwany przez jawne czyszczenie danych lokalnych konta.
 
 ## Zakres sezonu
 
@@ -62,6 +68,7 @@ Pulpit wymaga kontroli administratora, gdy:
 
 Budzet odczytow, szczegoly zapytan i procedura uzgodnienia sa opisane w
 `docs/domain/dashboard-read-strategy.md`.
+Semantyke stanu offline opisuje `docs/domain/dashboard-offline-state.md`.
 
 Ostrzezenia nie zmieniaja danych i nie ukrywaja wartosci ujemnych. Pokazuja
 rzeczywisty wynik obliczenia, aby administrator mogl znalezc i skorygowac

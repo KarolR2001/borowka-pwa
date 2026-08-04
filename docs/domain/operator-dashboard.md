@@ -63,9 +63,18 @@ operatora nie moze byc uznany za kompletny.
 
 Online stan i liczniki sa pobierane przez agregaty Firestore. Listy sa
 ograniczone do aktywnego sezonu: 100 otwartych sesji oraz 8 pozycji historii
-operatora w wybranym okresie. Offline pulpit korzysta z dokumentow w cache
-Firestore i oznacza stan jako `Kopia lokalna`. Oczekujace ruchy,
-nieprawidlowe dokumenty oraz stan ujemny wywoluja jawne ostrzezenie.
+operatora w wybranym okresie. Udany wynik jest zapisywany jako wersjonowany
+snapshot przypisany do konta. Offline pulpit najpierw pokazuje ten ostatni stan
+serwera i jego rzeczywisty czas. Gdy snapshotu nie ma, moze uzyc dokumentow z
+cache Firestore, ale nie przedstawia czasu lokalnego odczytu jako czasu
+synchronizacji z serwerem.
+
+Oficjalny stan kilogramow i lokalna prognoza sa osobnymi kartami. Prognoza
+dodaje zamkniete lub wyplacone sesje oczekujace w dzienniku biezacego
+urzadzenia; nie uwzglednia nieznanych zmian innych urzadzen. Offline filtr
+okresu i odswiezenie serwerowe sa zablokowane, natomiast `Nowy zbior` pozostaje
+dostepny dla przygotowanej pracy offline. Oczekujace ruchy, nieprawidlowe
+dokumenty oraz stan ujemny wywoluja jawne ostrzezenie.
 
 Licznik zapisow i konflikty opieraja sie na lokalnym dzienniku synchronizacji,
 wiec opisuja tylko biezace urzadzenie. Konflikty innych operatorow nie sa
@@ -73,6 +82,7 @@ ujawniane.
 
 Budzet i kontrakt kazdej karty opisuje
 `docs/domain/dashboard-read-strategy.md`.
+Semantyke stanu offline opisuje `docs/domain/dashboard-offline-state.md`.
 
 ## Pokrycie testowe
 

@@ -71,9 +71,10 @@ export type OperatorDashboardResult = {
   openSessions: OperatorDashboardSession[];
   ownRecentSessions: OperatorDashboardSession[];
   period: ResolvedDashboardPeriod;
+  lastServerSyncIso: string | null;
   refreshedAtIso: string;
   stock: {
-    dataSource: "SERVER" | "CACHE" | "UNAVAILABLE";
+    dataSource: "SERVER" | "CACHE" | "LOCAL_SNAPSHOT" | "UNAVAILABLE";
     invalidMovementCount: number;
     movementCount: number;
     pendingMovementCount: number;
@@ -326,18 +327,7 @@ export function buildOperatorDashboard({
       businessDateMatchesPeriod(session.businessDate, period)
   );
   const syncSummary = summarizeSyncDocumentMetadata(syncDocuments);
-  const conflicts = syncSummary.documents
-    .filter(
-      (document) => document.status === "REJECTED" || document.status === "REMOTE_CHANGED"
-    )
-    .map((document) => ({
-      detail:
-        document.status === "REJECTED"
-          ? "Operacja wymaga sprawdzenia w centrum synchronizacji."
-          : "Dokument zostal zmieniony na innym urzadzeniu.",
-      id: document.id,
-      label: document.label
-    }));
+  const conflicts = buildOperatorConflicts(syncSummary);
   const movements: OperationalStockMovementDocument[] = [];
   let invalidMovementCount = 0;
   let pendingMovementCount = 0;
@@ -394,6 +384,7 @@ export function buildOperatorDashboard({
     openSessions: openSessions.map(toSafeSession),
     ownRecentSessions: ownSessionsInPeriod.slice(0, 8).map(toSafeSession),
     period,
+    lastServerSyncIso: isOnline ? refreshedAtIso : syncSummary.lastSuccessfulSyncIso,
     refreshedAtIso,
     stock: {
       dataSource: stockDataSource,
@@ -402,6 +393,84 @@ export function buildOperatorDashboard({
       pendingMovementCount
     }
   };
+}
+
+export function hydrateOperatorDashboardSnapshot(
+  result: OperatorDashboardResult,
+  syncDocuments: readonly SyncDocumentMetadataInput[]
+): OperatorDashboardResult {
+  const syncSummary = summarizeSyncDocumentMetadata(syncDocuments);
+  const conflicts = buildOperatorConflicts(syncSummary);
+
+  return {
+    ...result,
+    conflicts,
+    connection: "OFFLINE",
+    lastServerSyncIso:
+      result.lastServerSyncIso ??
+      (result.connection === "ONLINE"
+        ? result.refreshedAtIso
+        : syncSummary.lastSuccessfulSyncIso),
+    metrics: {
+      ...result.metrics,
+      conflictCount: conflicts.length,
+      localPendingCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount
+    },
+    stock: {
+      ...result.stock,
+      dataSource: result.activeSeason ? "LOCAL_SNAPSHOT" : "UNAVAILABLE",
+      pendingMovementCount: 0
+    }
+  };
+}
+
+export function prepareOperatorDashboardSnapshot(
+  result: OperatorDashboardResult
+): OperatorDashboardResult {
+  return hydrateOperatorDashboardSnapshot(result, []);
+}
+
+export function isOperatorDashboardSnapshot(
+  value: unknown
+): value is OperatorDashboardResult {
+  if (
+    !isRecord(value) ||
+    !isActiveSeason(value.activeSeason) ||
+    !Array.isArray(value.conflicts) ||
+    !value.conflicts.every(isOperatorConflict) ||
+    (value.connection !== "ONLINE" && value.connection !== "OFFLINE") ||
+    !isOperatorMetrics(value.metrics) ||
+    !Array.isArray(value.openSessions) ||
+    !value.openSessions.every(isOperatorSession) ||
+    !Array.isArray(value.ownRecentSessions) ||
+    !value.ownRecentSessions.every(isOperatorSession) ||
+    !isDashboardPeriod(value.period) ||
+    !isNullableIso(value.lastServerSyncIso) ||
+    typeof value.refreshedAtIso !== "string" ||
+    Number.isNaN(Date.parse(value.refreshedAtIso)) ||
+    !isOperatorStock(value.stock)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function buildOperatorConflicts(
+  syncSummary: ReturnType<typeof summarizeSyncDocumentMetadata>
+): OperatorDashboardResult["conflicts"] {
+  return syncSummary.documents
+    .filter(
+      (document) => document.status === "REJECTED" || document.status === "REMOTE_CHANGED"
+    )
+    .map((document) => ({
+      detail:
+        document.status === "REJECTED"
+          ? "Operacja wymaga sprawdzenia w centrum synchronizacji."
+          : "Dokument zostal zmieniony na innym urzadzeniu.",
+      id: document.id,
+      label: document.label
+    }));
 }
 
 function selectActiveSeason(documents: readonly RawDocument[]): SeasonDocument | null {
@@ -540,6 +609,95 @@ function assertAggregateInteger(value: number): void {
   if (!Number.isSafeInteger(value)) {
     throw new Error("Agregat pulpitu operatora zawiera nieprawidlowa wartosc.");
   }
+}
+
+function isActiveSeason(
+  value: unknown
+): value is OperatorDashboardResult["activeSeason"] {
+  return (
+    value === null ||
+    (isRecord(value) && typeof value.id === "string" && typeof value.name === "string")
+  );
+}
+
+function isOperatorConflict(
+  value: unknown
+): value is OperatorDashboardResult["conflicts"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.detail === "string" &&
+    typeof value.id === "string" &&
+    typeof value.label === "string"
+  );
+}
+
+function isOperatorMetrics(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.availableWeightG === null || isSafeInteger(value.availableWeightG)) &&
+    [
+      value.conflictCount,
+      value.localPendingCount,
+      value.openSessionCount,
+      value.ownClosedSessionCount,
+      value.ownOpenSessionCount
+    ].every(isNonNegativeSafeInteger)
+  );
+}
+
+function isOperatorSession(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.businessDate === "string" &&
+    typeof value.id === "string" &&
+    ["CANCELLED", "CLOSED", "OPEN", "PAID", "REVIEW_REQUIRED"].includes(
+      String(value.status)
+    ) &&
+    typeof value.workerName === "string"
+  );
+}
+
+function isDashboardPeriod(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.dateBasis === "BUSINESS_DATE" &&
+    (value.fromDate === null || typeof value.fromDate === "string") &&
+    typeof value.label === "string" &&
+    ["TODAY", "CURRENT_WEEK", "CURRENT_MONTH", "SEASON", "CUSTOM"].includes(
+      String(value.preset)
+    ) &&
+    (value.toDate === null || typeof value.toDate === "string")
+  );
+}
+
+function isOperatorStock(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    ["SERVER", "CACHE", "LOCAL_SNAPSHOT", "UNAVAILABLE"].includes(
+      String(value.dataSource)
+    ) &&
+    [value.invalidMovementCount, value.movementCount, value.pendingMovementCount].every(
+      isNonNegativeSafeInteger
+    )
+  );
+}
+
+function isNullableIso(value: unknown): boolean {
+  return (
+    value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)))
+  );
+}
+
+function isNonNegativeSafeInteger(value: unknown): boolean {
+  return isSafeInteger(value) && value >= 0;
+}
+
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function requiredText(value: string, message: string): string {

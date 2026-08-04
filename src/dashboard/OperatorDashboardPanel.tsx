@@ -7,19 +7,28 @@ import {
   Wifi,
   WifiOff
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
+  hydrateOperatorDashboardSnapshot,
+  isOperatorDashboardSnapshot,
   loadOperatorDashboard,
   DEFAULT_OPERATOR_DASHBOARD_PERIOD,
+  prepareOperatorDashboardSnapshot,
   type LoadOperatorDashboardInput,
   type OperatorDashboardResult,
   type OperatorDashboardSession
 } from "./operatorDashboard";
+import {
+  calculateLocalDashboardProjection,
+  loadDashboardSnapshot,
+  saveDashboardSnapshot,
+  type DashboardSnapshotStorage
+} from "./dashboardOfflineState";
 import {
   currentWarsawBusinessDate,
   dashboardPeriodSelectionError,
@@ -54,15 +63,21 @@ export function OperatorDashboardPanel({
   authState,
   env,
   isOnline,
+  snapshotStorage,
   syncDocuments
 }: {
   api?: OperatorDashboardApi;
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
+  snapshotStorage?: DashboardSnapshotStorage | null;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
+  const resultRef = useRef<{
+    ownerUid: string;
+    result: OperatorDashboardResult;
+  } | null>(null);
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_OPERATOR_DASHBOARD_PERIOD
   );
@@ -76,12 +91,34 @@ export function OperatorDashboardPanel({
     let isMounted = true;
 
     if (!isOperator) {
+      resultRef.current = null;
       setState(initialState);
       return undefined;
     }
 
     if (periodError) {
       return undefined;
+    }
+
+    if (!isOnline) {
+      const snapshot = loadDashboardSnapshot({
+        isPayload: isOperatorDashboardSnapshot,
+        kind: "OPERATOR",
+        ownerUid: authState.profile.uid,
+        storage: snapshotStorage
+      });
+      const savedResult =
+        snapshot?.payload ??
+        (resultRef.current?.ownerUid === authState.profile.uid
+          ? resultRef.current.result
+          : null);
+
+      if (savedResult) {
+        const result = hydrateOperatorDashboardSnapshot(savedResult, syncDocuments);
+        resultRef.current = { ownerUid: authState.profile.uid, result };
+        setState({ result, status: "READY" });
+        return undefined;
+      }
     }
 
     setState((current) => ({ result: current.result, status: "LOADING" }));
@@ -95,6 +132,15 @@ export function OperatorDashboardPanel({
       })
       .then((result) => {
         if (isMounted) {
+          if (isOnline) {
+            saveDashboardSnapshot({
+              kind: "OPERATOR",
+              ownerUid: authState.profile.uid,
+              payload: prepareOperatorDashboardSnapshot(result),
+              storage: snapshotStorage
+            });
+          }
+          resultRef.current = { ownerUid: authState.profile.uid, result };
           setState({ result, status: "READY" });
         }
       })
@@ -116,10 +162,25 @@ export function OperatorDashboardPanel({
     periodError,
     periodSelection,
     reloadKey,
+    snapshotStorage,
     syncDocuments,
     todayBusinessDate
   ]);
 
+  const result =
+    periodError || !isOperator || resultRef.current?.ownerUid !== authState.profile.uid
+      ? null
+      : state.result;
+  const warnings = result ? dashboardWarnings(result) : [];
+  const localProjection = useMemo(
+    () =>
+      calculateLocalDashboardProjection({
+        officialAvailableWeightG: result?.metrics.availableWeightG ?? null,
+        seasonId: result?.activeSeason?.id ?? null,
+        syncDocuments
+      }),
+    [result, syncDocuments]
+  );
   if (!isOperator) {
     return (
       <section className="access-notice" aria-label="Pulpit operatora">
@@ -131,9 +192,6 @@ export function OperatorDashboardPanel({
       </section>
     );
   }
-
-  const result = periodError ? null : state.result;
-  const warnings = result ? dashboardWarnings(result) : [];
 
   return (
     <section className="operator-dashboard" aria-labelledby="operator-dashboard-title">
@@ -150,7 +208,11 @@ export function OperatorDashboardPanel({
           <h2 id="operator-dashboard-title">Pulpit operatora</h2>
           <p className="panel-detail">
             {result
-              ? `Ostatnie odswiezenie: ${formatTimestamp(result.refreshedAtIso)}.`
+              ? isOnline
+                ? `Dane z chmury odswiezono: ${formatTimestamp(result.refreshedAtIso)}.`
+                : result.lastServerSyncIso
+                  ? `Ostatni stan serwera: ${formatTimestamp(result.lastServerSyncIso)}.`
+                  : "Brak czasu ostatniego potwierdzonego odczytu serwera."
               : "Pobieranie biezacego obrazu pracy."}
           </p>
         </div>
@@ -165,7 +227,7 @@ export function OperatorDashboardPanel({
           </button>
           <button
             className="secondary-action icon-button"
-            disabled={state.status === "LOADING"}
+            disabled={!isOnline || state.status === "LOADING"}
             onClick={() => {
               setReloadKey((current) => current + 1);
             }}
@@ -180,7 +242,7 @@ export function OperatorDashboardPanel({
 
       <div className="dashboard-filter-bar">
         <DashboardPeriodFilter
-          disabled={state.status === "LOADING"}
+          disabled={!isOnline || state.status === "LOADING"}
           idPrefix="operator-dashboard"
           onChange={setPeriodSelection}
           selection={periodSelection}
@@ -208,7 +270,7 @@ export function OperatorDashboardPanel({
             />
             <DashboardMetric
               detail={stockSourceLabel(result.stock.dataSource)}
-              label="Dostepne operacyjnie"
+              label={isOnline ? "Dostepne operacyjnie" : "Dostepne wg serwera"}
               tone={
                 result.metrics.availableWeightG === null ||
                 result.metrics.availableWeightG < 0
@@ -221,6 +283,30 @@ export function OperatorDashboardPanel({
                   : formatKilograms(result.metrics.availableWeightG)
               }
             />
+            {!isOnline || localProjection.pendingSessionCount > 0 ? (
+              <>
+                <DashboardMetric
+                  detail="Sesje biezacego urzadzenia poza oficjalnym stanem"
+                  label="Lokalne sesje poza stanem"
+                  tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
+                  value={String(localProjection.pendingSessionCount)}
+                />
+                <DashboardMetric
+                  detail={`Stan serwera + ${formatKilograms(
+                    localProjection.pendingConfirmedWeightG
+                  )} z ${String(
+                    localProjection.pendingConfirmedSessionCount
+                  )} zamknietych sesji`}
+                  label="Przewidywane lokalnie"
+                  tone="WARNING"
+                  value={
+                    localProjection.projectedAvailableWeightG === null
+                      ? "Do sprawdzenia"
+                      : formatKilograms(localProjection.projectedAvailableWeightG)
+                  }
+                />
+              </>
+            ) : null}
             <DashboardMetric
               label="Otwarte sesje"
               value={String(result.metrics.openSessionCount)}
@@ -355,7 +441,14 @@ function dashboardWarnings(result: OperatorDashboardResult): string[] {
   const warnings: string[] = [];
 
   if (result.connection === "OFFLINE") {
-    warnings.push("Pracujesz offline. Stan kilogramow pochodzi z kopii lokalnej.");
+    warnings.push(
+      result.stock.dataSource === "LOCAL_SNAPSHOT"
+        ? "Tryb offline. Widoczny stan serwera nie jest stanem aktualnym."
+        : "Pracujesz offline. Stan kilogramow pochodzi z kopii lokalnej."
+    );
+    warnings.push(
+      "Inne urzadzenia moga miec niezsynchronizowane zmiany, ktorych tutaj nie widac."
+    );
   } else if (result.stock.dataSource === "CACHE") {
     warnings.push("Stan kilogramow pochodzi z kopii lokalnej, nie z serwera.");
   }
@@ -383,6 +476,8 @@ function stockSourceLabel(
       return "Potwierdzony przez serwer";
     case "CACHE":
       return "Kopia lokalna";
+    case "LOCAL_SNAPSHOT":
+      return "Ostatni oficjalny stan serwera";
     case "UNAVAILABLE":
       return "Brak aktywnego sezonu";
   }

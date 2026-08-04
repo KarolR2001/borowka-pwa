@@ -69,7 +69,7 @@ export type AdminDashboardSeasonOption = Omit<
 >;
 
 export type AdminDashboardResult = {
-  calculationSource: "FIRESTORE_AGGREGATION" | "SOURCE_DOCUMENTS";
+  calculationSource: "FIRESTORE_AGGREGATION" | "LOCAL_SNAPSHOT" | "SOURCE_DOCUMENTS";
   invalidDocumentCounts: {
     payments: number;
     sales: number;
@@ -501,6 +501,53 @@ export function buildAggregatedSeasonDashboard({
   };
 }
 
+export function hydrateAdminDashboardSnapshot(
+  result: AdminDashboardResult,
+  syncDocuments: readonly SyncDocumentMetadataInput[]
+): AdminDashboardResult {
+  const localSyncSummary = summarizeSyncDocumentMetadata(syncDocuments);
+
+  return {
+    ...result,
+    calculationSource: "LOCAL_SNAPSHOT",
+    localSyncSummary,
+    selectedSeason: result.selectedSeason
+      ? {
+          ...result.selectedSeason,
+          warnings: buildWarnings({
+            availableWeightG: result.selectedSeason.metrics.availableWeightG,
+            dueGrosz: result.selectedSeason.metrics.dueGrosz,
+            invalidDocumentCounts: result.invalidDocumentCounts,
+            localSyncSummary
+          })
+        }
+      : null
+  };
+}
+
+export function prepareAdminDashboardSnapshot(
+  result: AdminDashboardResult
+): AdminDashboardResult {
+  return hydrateAdminDashboardSnapshot(result, []);
+}
+
+export function isAdminDashboardSnapshot(value: unknown): value is AdminDashboardResult {
+  if (
+    !isRecord(value) ||
+    !isAdminCalculationSource(value.calculationSource) ||
+    !isInvalidDocumentCounts(value.invalidDocumentCounts) ||
+    !isRecord(value.localSyncSummary) ||
+    typeof value.refreshedAtIso !== "string" ||
+    Number.isNaN(Date.parse(value.refreshedAtIso)) ||
+    !Array.isArray(value.seasons) ||
+    !value.seasons.every(isSeasonOption)
+  ) {
+    return false;
+  }
+
+  return value.selectedSeason === null || isDashboardSeason(value.selectedSeason);
+}
+
 function buildSeasonDashboard({
   activeWorkerCount,
   businessDate,
@@ -778,4 +825,86 @@ function assertAggregateInteger(value: number): void {
   if (!Number.isSafeInteger(value)) {
     throw new Error("Agregat pulpitu zawiera nieprawidlowa wartosc liczbowa.");
   }
+}
+
+function isAdminCalculationSource(value: unknown): boolean {
+  return (
+    value === "FIRESTORE_AGGREGATION" ||
+    value === "LOCAL_SNAPSHOT" ||
+    value === "SOURCE_DOCUMENTS"
+  );
+}
+
+function isInvalidDocumentCounts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    [value.payments, value.sales, value.seasons, value.sessions, value.workers].every(
+      isNonNegativeSafeInteger
+    )
+  );
+}
+
+function isSeasonOption(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.startDate === "string" &&
+    (value.endDate === null || typeof value.endDate === "string") &&
+    typeof value.isDefault === "boolean" &&
+    isSeasonStatus(value.status)
+  );
+}
+
+function isDashboardSeason(value: unknown): value is AdminDashboardSeason {
+  if (
+    !isRecord(value) ||
+    !isSeasonOption(value) ||
+    !isRecord(value.metrics) ||
+    !isRecord(value.period) ||
+    !Array.isArray(value.warnings) ||
+    !value.warnings.every((warning) => typeof warning === "string")
+  ) {
+    return false;
+  }
+
+  return (
+    [
+      value.metrics.accruedGrosz,
+      value.metrics.activeWorkerCount,
+      value.metrics.availableWeightG,
+      value.metrics.confirmedHarvestWeightG,
+      value.metrics.dueGrosz,
+      value.metrics.inProgressHarvestWeightG,
+      value.metrics.openSessionCount,
+      value.metrics.paidGrosz,
+      value.metrics.resultAfterHarvestCostGrosz,
+      value.metrics.reviewRequiredSessionCount,
+      value.metrics.revenueGrosz,
+      value.metrics.soldWeightG
+    ].every(isSafeInteger) &&
+    value.period.dateBasis === "BUSINESS_DATE" &&
+    typeof value.period.label === "string" &&
+    ["TODAY", "CURRENT_WEEK", "CURRENT_MONTH", "SEASON", "CUSTOM"].includes(
+      String(value.period.preset)
+    ) &&
+    (value.period.fromDate === null || typeof value.period.fromDate === "string") &&
+    (value.period.toDate === null || typeof value.period.toDate === "string")
+  );
+}
+
+function isSeasonStatus(value: unknown): value is SeasonDocument["status"] {
+  return ["OPEN", "PLANNED", "CLOSED", "ARCHIVED"].includes(String(value));
+}
+
+function isNonNegativeSafeInteger(value: unknown): boolean {
+  return isSafeInteger(value) && value >= 0;
+}
+
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

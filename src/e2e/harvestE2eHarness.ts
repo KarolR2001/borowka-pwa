@@ -415,6 +415,7 @@ function createHarvestHarnessState() {
         openSessions: openSessions.map(toSafeDashboardSession),
         ownRecentSessions: ownSessionsInPeriod.slice(0, 8).map(toSafeDashboardSession),
         period,
+        lastServerSyncIso: input.isOnline ? SERVER_TIME : null,
         refreshedAtIso: SERVER_TIME,
         stock: {
           dataSource: input.isOnline ? "SERVER" : "CACHE",
