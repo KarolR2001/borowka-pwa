@@ -27,6 +27,7 @@ const expectedCompositeIndexes = [
   ["seasons", "status:ASCENDING", "startDate:DESCENDING"],
   ["settlementPlans", "active:ASCENDING", "code:ASCENDING"],
   ["users", "active:ASCENDING", "registrationStatus:ASCENDING", "workerId:ASCENDING"],
+  ["users", "registrationStatus:ASCENDING", "createdAt:DESCENDING"],
   ["users", "role:ASCENDING", "active:ASCENDING"],
   ["workers", "active:ASCENDING", "normalizedName:ASCENDING"],
   ["workers", "currentPlanId:ASCENDING", "active:ASCENDING", "normalizedName:ASCENDING"],
@@ -39,6 +40,16 @@ const expectedCompositeIndexes = [
   ],
   ["workerRateVersions", "planId:ASCENDING", "active:ASCENDING"],
   ["payments", "workerId:ASCENDING", "paidBusinessDate:DESCENDING"],
+  ["payments", "seasonId:ASCENDING", "paidBusinessDate:DESCENDING"],
+  ["payments", "status:ASCENDING", "paidBusinessDate:DESCENDING"],
+  ["payments", "seasonId:ASCENDING", "status:ASCENDING", "paidBusinessDate:DESCENDING"],
+  [
+    "payments",
+    "workerId:ASCENDING",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "paidBusinessDate:DESCENDING"
+  ],
   ["payments", "workerId:ASCENDING", "seasonId:ASCENDING", "paidBusinessDate:DESCENDING"],
   [
     "payments",
@@ -59,6 +70,26 @@ const expectedCompositeIndexes = [
   [
     "sales",
     "seasonId:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "sales",
+    "seasonId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "sales",
+    "seasonId:ASCENDING",
+    "entryType:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "sales",
+    "seasonId:ASCENDING",
     "status:ASCENDING",
     "entryType:ASCENDING",
     "correctionDirection:ASCENDING",
@@ -68,7 +99,24 @@ const expectedCompositeIndexes = [
   ],
   ["operationalStockMovements", "seasonId:ASCENDING", "weightImpactG:ASCENDING"],
   ["issueReports", "workerId:ASCENDING", "createdAt:DESCENDING"],
+  ["issueReports", "status:ASCENDING", "createdAt:DESCENDING"],
+  ["issueReports", "workerId:ASCENDING", "status:ASCENDING", "createdAt:DESCENDING"],
+  ["issueReports", "seasonId:ASCENDING", "status:ASCENDING", "createdAt:DESCENDING"],
   ["harvestSessions", "seasonId:ASCENDING", "status:ASCENDING", "businessDate:ASCENDING"],
+  [
+    "harvestSessions",
+    "workerId:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
+  [
+    "harvestSessions",
+    "createdBy:ASCENDING",
+    "status:ASCENDING",
+    "businessDate:DESCENDING",
+    "createdAtServer:DESCENDING"
+  ],
   [
     "harvestSessions",
     "seasonId:ASCENDING",
@@ -111,6 +159,13 @@ const expectedCompositeIndexes = [
     "seasonId:ASCENDING",
     "businessDate:DESCENDING",
     "createdAtServer:DESCENDING"
+  ],
+  ["harvestEntries", "sessionId:ASCENDING", "status:ASCENDING"],
+  [
+    "harvestEntries",
+    "workerId:ASCENDING",
+    "seasonId:ASCENDING",
+    "businessDate:DESCENDING"
   ],
   ...HARVEST_QUERY_INDEX_REQUIREMENTS.map((requirement) => [
     requirement.collectionGroup,
