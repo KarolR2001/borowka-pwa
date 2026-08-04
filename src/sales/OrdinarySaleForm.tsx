@@ -47,6 +47,8 @@ export function OrdinarySaleForm({
     selectedContext?.isFresh === false ||
     selectedContext?.dataSource === "CACHE" ||
     (selectedContext?.pendingDocumentCount ?? 0) > 0;
+  const reconciliationBlocked =
+    selectedContext?.reconciliation?.blocksOrdinarySale === true;
 
   useEffect(() => {
     if (stockContexts.some((context) => context.seasonId === draft.seasonId)) {
@@ -69,7 +71,7 @@ export function OrdinarySaleForm({
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    if (formDisabled || submittingRef.current) {
+    if (formDisabled || reconciliationBlocked || submittingRef.current) {
       return;
     }
 
@@ -262,6 +264,12 @@ export function OrdinarySaleForm({
           Stan moze byc nieaktualny. Odswiez dane przed zatwierdzeniem.
         </p>
       ) : null}
+      {reconciliationBlocked ? (
+        <p className="ordinary-sale-form__warning" role="alert">
+          <TriangleAlert aria-hidden="true" size={18} />
+          Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu.
+        </p>
+      ) : null}
       {preview && preview.projectedAvailableWeightG < 0 ? (
         <p className="ordinary-sale-form__warning" role="alert">
           <TriangleAlert aria-hidden="true" size={18} />
@@ -276,7 +284,7 @@ export function OrdinarySaleForm({
       <div className="ordinary-sale-form__actions">
         <button
           className="primary-button"
-          disabled={formDisabled || !isOnline}
+          disabled={formDisabled || !isOnline || reconciliationBlocked}
           type="submit"
         >
           <ArrowRight aria-hidden="true" size={18} />

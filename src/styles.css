@@ -2906,6 +2906,102 @@ h2 {
   gap: 16px;
 }
 
+.stock-reconciliation-alert {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8a28e;
+  border-left: 4px solid #a83d24;
+  border-radius: 6px;
+  padding: 16px;
+  color: #632818;
+  background: #fff4ef;
+}
+
+.stock-reconciliation-alert__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stock-reconciliation-alert__heading svg {
+  flex: 0 0 auto;
+}
+
+.stock-reconciliation-alert h3,
+.stock-reconciliation-alert p,
+.stock-reconciliation-alert ul {
+  margin: 0;
+}
+
+.stock-reconciliation-alert__heading p {
+  margin-top: 4px;
+}
+
+.stock-reconciliation-alert__difference {
+  font-size: 1rem;
+}
+
+.stock-reconciliation-alert ul {
+  padding-left: 20px;
+}
+
+.stock-reconciliation-report {
+  border-top: 1px solid #e4bbaa;
+  padding-top: 10px;
+}
+
+.stock-reconciliation-report summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.stock-reconciliation-report dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 12px 0;
+  overflow: hidden;
+  border: 1px solid #e4bbaa;
+  border-radius: 6px;
+  background: #e4bbaa;
+}
+
+.stock-reconciliation-report dl > div {
+  min-width: 0;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.stock-reconciliation-report dt {
+  color: #765247;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.stock-reconciliation-report dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #41241c;
+  font-weight: 800;
+}
+
+.stock-reconciliation-report__documents {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.stock-reconciliation-report__documents p {
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 720px) {
+  .stock-reconciliation-report dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .sales-operation-switch {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

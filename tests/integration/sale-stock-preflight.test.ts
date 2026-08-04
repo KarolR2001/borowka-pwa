@@ -3,7 +3,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment
 } from "@firebase/rules-unit-testing";
-import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 
 import { loadAdminDashboard } from "../../src/dashboard/adminDashboard";
@@ -291,6 +291,40 @@ describe("ordinary sale stock preflight Firestore flow", () => {
     await testEnvironment.withSecurityRulesDisabled(async (context) => {
       const sales = await getDocs(collection(context.firestore(), "sales"));
       expect(sales.docs.map((snapshot) => snapshot.id)).toEqual(["sale-first"]);
+    });
+  });
+
+  it("blocks ordinary sale when the operational projection differs from sources", async () => {
+    if (!testEnvironment) {
+      throw new Error("Expected test environment.");
+    }
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await deleteDoc(
+        doc(context.firestore(), "operationalStockMovements", "harvest-session-session-1")
+      );
+    });
+
+    const result = await checkOrdinarySaleStock(
+      {},
+      {
+        actorProfile: adminProfile,
+        isOnline: true,
+        preparedSale: preparedSale(),
+        saleId: "sale-inconsistent"
+      }
+    );
+
+    expect(result).toMatchObject({
+      check: { expectedAvailableWeightG: 10_000 },
+      status: "BLOCKED"
+    });
+    expect(result.status === "BLOCKED" ? result.message : "").toContain(
+      "roznica projekcji: -10000 g"
+    );
+
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      expect((await getDocs(collection(context.firestore(), "sales"))).empty).toBe(true);
     });
   });
 

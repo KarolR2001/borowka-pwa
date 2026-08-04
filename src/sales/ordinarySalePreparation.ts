@@ -1,4 +1,5 @@
 import { parseDecimalToScaledInteger } from "../domain/format";
+import type { StockReconciliationReport } from "../stock/stockReconciliation";
 import {
   SALE_REVENUE_CALCULATION_VERSION,
   SALE_REVENUE_ROUNDING_RULE,
@@ -13,6 +14,7 @@ export type SaleFormStockContext = {
   isFresh: boolean;
   pendingDocumentCount: number;
   refreshedAtIso: string;
+  reconciliation?: StockReconciliationReport;
   seasonId: string;
   seasonName: string;
 };
@@ -118,6 +120,13 @@ export function prepareOrdinarySale({
 }): PreparedOrdinarySale {
   if (!isOnline) {
     throw new Error("Sprzedaz wymaga polaczenia z internetem.");
+  }
+
+  const context = findStockContext(stockContexts, draft.seasonId);
+  if (context.reconciliation?.blocksOrdinarySale) {
+    throw new Error(
+      "Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu."
+    );
   }
 
   return {

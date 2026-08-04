@@ -150,6 +150,27 @@ function preparedCorrection(direction: "INCREASE_STOCK" | "DECREASE_STOCK") {
 }
 
 function freshStock(availableWeightG: number): FreshSaleStock {
+  const reconciliation: FreshSaleStock["reconciliation"] = {
+    blocksOrdinarySale: false,
+    checkedAtIso: "2026-07-29T06:05:00.000Z",
+    differenceG: 0,
+    expectedMovementCount: 0,
+    issues: [],
+    movementInvalidDocumentCount: 0,
+    operationalAvailableWeightG: availableWeightG,
+    operationalMovementCount: 0,
+    seasonId: "season-1",
+    source: {
+      activeSaleWeightG: 0,
+      availableWeightG,
+      confirmedHarvestWeightG: availableWeightG,
+      correctionDecreaseWeightG: 0,
+      correctionIncreaseWeightG: 0,
+      soldWeightG: 0
+    },
+    sourceInvalidDocumentCount: 0
+  };
+
   return {
     calculation: {
       activeSaleWeightG: 0,
@@ -173,10 +194,12 @@ function freshStock(availableWeightG: number): FreshSaleStock {
       dataSource: "SERVER",
       isFresh: true,
       pendingDocumentCount: 0,
+      reconciliation,
       refreshedAtIso: "2026-07-29T06:05:00.000Z",
       seasonId: "season-1",
       seasonName: "Sezon 2026"
     },
-    invalidDocumentCount: 0
+    invalidDocumentCount: 0,
+    reconciliation
   };
 }

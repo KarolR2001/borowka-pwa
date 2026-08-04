@@ -35,6 +35,48 @@ const adminState: ReadyAuthState = {
 };
 
 describe("AdminOrdinarySalesPanel", () => {
+  it("shows the stock alarm, component report and keeps correction available", async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    api.listStockContexts.mockResolvedValue([
+      {
+        availableWeightG: 10_000,
+        dataSource: "SERVER",
+        isFresh: true,
+        pendingDocumentCount: 0,
+        reconciliation: blockedReconciliation(),
+        refreshedAtIso: "2026-07-29T06:00:00.000Z",
+        seasonId: "season-1",
+        seasonName: "Sezon 2026"
+      }
+    ]);
+
+    renderPanel(api);
+
+    expect(
+      await screen.findByRole("heading", { name: "Alarm stanu: Sezon 2026" })
+    ).toBeVisible();
+    expect(screen.getByText("-1,500 kg")).toBeVisible();
+    await user.click(screen.getByText("Otworz raport skladowych"));
+    expect(screen.getByText("Stan ze zrodel")).toBeVisible();
+    expect(screen.getByText("Stan projekcji")).toBeVisible();
+
+    await user.type(screen.getByLabelText("Masa kg"), "1");
+    await user.type(screen.getByLabelText("Cena za kg"), "10");
+    expect(
+      screen.getByText(
+        "Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu."
+      )
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Sprawdz i przejdz dalej" })
+    ).toBeDisabled();
+    expect(api.checkStock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Korekta" }));
+    expect(screen.getByRole("button", { name: "Sprawdz korekte" })).toBeEnabled();
+  });
+
   it("updates changed stock and writes only after explicit confirmation", async () => {
     const user = userEvent.setup();
     const check = stockCheck(8000, true);
@@ -326,6 +368,42 @@ function createApi() {
         seasonName: "Sezon 2026"
       }
     ])
+  };
+}
+
+function blockedReconciliation() {
+  return {
+    blocksOrdinarySale: true,
+    checkedAtIso: "2026-07-29T06:00:00.000Z",
+    differenceG: -1500,
+    expectedMovementCount: 3,
+    issues: [
+      {
+        code: "MISSING_MOVEMENTS" as const,
+        count: 1,
+        documentIds: ["harvest-session-session-3"],
+        message: "Brakuje ruchow operacyjnych dla dokumentow zrodlowych."
+      },
+      {
+        code: "AGGREGATE_DIFFERENCE" as const,
+        count: 1,
+        documentIds: [],
+        message: "Operacyjny agregat kilogramow nie zgadza sie ze zrodlami."
+      }
+    ],
+    movementInvalidDocumentCount: 0,
+    operationalAvailableWeightG: 8500,
+    operationalMovementCount: 2,
+    seasonId: "season-1",
+    source: {
+      activeSaleWeightG: 2000,
+      availableWeightG: 10_000,
+      confirmedHarvestWeightG: 12_000,
+      correctionDecreaseWeightG: 0,
+      correctionIncreaseWeightG: 0,
+      soldWeightG: 2000
+    },
+    sourceInvalidDocumentCount: 0
   };
 }
 
