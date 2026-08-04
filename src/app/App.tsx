@@ -188,6 +188,11 @@ import {
   defaultPickerDataExportApi,
   type PickerDataExportApi
 } from "../picker/PickerDataExportPanel";
+import {
+  AdminFullCloudExportPanel,
+  defaultFullCloudExportApi,
+  type FullCloudExportApi
+} from "../reports/AdminFullCloudExportPanel";
 import { navigationItems, type NavigationKey } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
@@ -235,6 +240,7 @@ export type AppProps = {
   adminPaymentDirectoryApi?: AdminPaymentDirectoryApi;
   adminIssueReportsApi?: AdminIssueReportsApi;
   adminDashboardApi?: AdminDashboardApi;
+  fullCloudExportApi?: FullCloudExportApi;
   operatorDashboardApi?: OperatorDashboardApi;
   ordinarySalesApi?: OrdinarySalesApi;
   pickerDashboardApi?: PickerDashboardApi;
@@ -323,6 +329,7 @@ export function App({
   adminPaymentDirectoryApi = defaultAdminPaymentDirectoryApi,
   adminIssueReportsApi = defaultAdminIssueReportsApi,
   adminDashboardApi = defaultAdminDashboardApi,
+  fullCloudExportApi = defaultFullCloudExportApi,
   operatorDashboardApi = defaultOperatorDashboardApi,
   ordinarySalesApi = defaultOrdinarySalesApi,
   pickerDashboardApi = defaultPickerDashboardApi,
@@ -1018,6 +1025,12 @@ export function App({
               env={env}
               isOnline={isOnline}
               settingsApi={pickerExportSettingsApi}
+            />
+            <AdminFullCloudExportPanel
+              api={fullCloudExportApi}
+              authState={authState}
+              env={env}
+              isOnline={isOnline}
             />
             <AdminPendingPaymentsPanel
               authState={authState}

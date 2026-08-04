@@ -59,7 +59,7 @@ afterAll(async () => {
 });
 
 describe("app settings rules", () => {
-  it("allows admin and picker to get domain settings but denies other access", async () => {
+  it("allows admin export listing and denies listing to other roles", async () => {
     if (!testEnv) {
       throw new Error("Rules test environment was not initialized.");
     }
@@ -71,7 +71,9 @@ describe("app settings rules", () => {
     await assertSucceeds(getDoc(doc(pickerDb, "appSettings", "domain")));
     await assertFails(getDoc(doc(operatorDb, "appSettings", "domain")));
     await assertSucceeds(getDoc(doc(adminDb, "appSettings", "domain")));
-    await assertFails(getDocs(collection(adminDb, "appSettings")));
+    await assertSucceeds(getDocs(collection(adminDb, "appSettings")));
+    await assertFails(getDocs(collection(pickerDb, "appSettings")));
+    await assertFails(getDocs(collection(operatorDb, "appSettings")));
     await assertFails(
       getDoc(doc(testEnv.unauthenticatedContext().firestore(), "appSettings", "domain"))
     );
