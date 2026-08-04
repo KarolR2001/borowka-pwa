@@ -136,8 +136,10 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   uzytkownika jako `SKIPPED`.
 - Pakiet `9.1 - katalog raportow MVP` zostal scalony do `main` jako `12b1976`;
   nie implementuj go ponownie.
-- Pakiet `9.2 - eksport CSV do polskiego Excela` jest biezacym zakresem. Po
-  jego zielonym CI i scaleniu nastepny jest `9.3 - pelny eksport przenosny`.
+- Pakiet `9.2 - eksport CSV do polskiego Excela` zostal scalony do `main` jako
+  `6a0a2e7`; nie implementuj go ponownie.
+- Pakiet `9.3 - pelny eksport przenosny` jest biezacym zakresem. Po jego
+  zielonym CI i scaleniu kontynuuj od pakietu `9.4`.
 - Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
   `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
   `PASS`.
