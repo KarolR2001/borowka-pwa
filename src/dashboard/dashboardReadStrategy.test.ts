@@ -22,6 +22,15 @@ describe("dashboard read strategy", () => {
     });
   });
 
+  it("does not add harvest entry reads to dashboard budgets", () => {
+    expect(
+      estimateDashboardReads({
+        ...PRD_EXPECTED_MAX_SCALE,
+        harvestEntryCount: 0
+      })
+    ).toEqual(estimateDashboardReads(PRD_EXPECTED_MAX_SCALE));
+  });
+
   it("creates inclusive constraints only for defined period bounds", () => {
     const createWhere = vi.fn(
       (fieldPath: string, opStr: WhereFilterOp, value: unknown) =>
