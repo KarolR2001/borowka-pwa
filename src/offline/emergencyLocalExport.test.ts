@@ -96,10 +96,12 @@ describe("emergency local export", () => {
     });
     expect(payload.format).toEqual({
       automaticProductionImportAllowed: false,
+      dataScope: "CURRENT_DEVICE_LOCAL_PENDING_DATA",
       name: "BOROWKA_EMERGENCY_LOCAL_EXPORT",
       purpose: "EMERGENCY_RECOVERY",
       productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED",
-      version: 1,
+      source: "LOCAL_DEVICE_STORAGE",
+      version: 2,
       warning: EMERGENCY_LOCAL_EXPORT_WARNING
     });
     expect(payload.summary).toEqual({

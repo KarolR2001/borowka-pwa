@@ -9,9 +9,9 @@ import type {
 import type { SyncCenterModel } from "./syncCenter";
 
 export const EMERGENCY_LOCAL_EXPORT_FORMAT = "BOROWKA_EMERGENCY_LOCAL_EXPORT";
-export const EMERGENCY_LOCAL_EXPORT_FORMAT_VERSION = 1;
+export const EMERGENCY_LOCAL_EXPORT_FORMAT_VERSION = 2;
 export const EMERGENCY_LOCAL_EXPORT_WARNING =
-  "Eksport awaryjny wymaga kontrolowanego przegladu administratora. Nie jest automatycznie zaakceptowanym importem produkcyjnym.";
+  "Eksport awaryjny urzadzenia zawiera tylko lokalne dane tego urzadzenia. Wymaga kontrolowanego przegladu administratora, nie jest automatycznie zaakceptowanym importem produkcyjnym i nie zastepuje pelnego eksportu chmury.";
 
 export type EmergencyLocalExportDocument = {
   documentUuid: string;
@@ -49,9 +49,11 @@ export type EmergencyLocalExportPayload = {
   exportedAtIso: string;
   format: {
     automaticProductionImportAllowed: false;
+    dataScope: "CURRENT_DEVICE_LOCAL_PENDING_DATA";
     name: typeof EMERGENCY_LOCAL_EXPORT_FORMAT;
     purpose: "EMERGENCY_RECOVERY";
     productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED";
+    source: "LOCAL_DEVICE_STORAGE";
     version: typeof EMERGENCY_LOCAL_EXPORT_FORMAT_VERSION;
     warning: typeof EMERGENCY_LOCAL_EXPORT_WARNING;
   };
@@ -122,9 +124,11 @@ export function createEmergencyLocalExportPayload({
     exportedAtIso: normalizedExportedAtIso,
     format: {
       automaticProductionImportAllowed: false,
+      dataScope: "CURRENT_DEVICE_LOCAL_PENDING_DATA",
       name: EMERGENCY_LOCAL_EXPORT_FORMAT,
       purpose: "EMERGENCY_RECOVERY",
       productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED",
+      source: "LOCAL_DEVICE_STORAGE",
       version: EMERGENCY_LOCAL_EXPORT_FORMAT_VERSION,
       warning: EMERGENCY_LOCAL_EXPORT_WARNING
     },

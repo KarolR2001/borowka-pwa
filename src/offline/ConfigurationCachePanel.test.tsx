@@ -336,7 +336,7 @@ describe("ConfigurationCachePanel", () => {
     expect(screen.getByText("operator@example.test")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronizuj teraz" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Eksport awaryjny" }));
+    await user.click(screen.getByRole("button", { name: "Eksport awaryjny urzadzenia" }));
 
     expect(onEmergencyExport).toHaveBeenCalledTimes(1);
     expect(onEmergencyExport.mock.calls[0]?.[0]).toMatchObject({
@@ -346,7 +346,9 @@ describe("ConfigurationCachePanel", () => {
         platform: "Android"
       },
       format: {
-        automaticProductionImportAllowed: false
+        automaticProductionImportAllowed: false,
+        dataScope: "CURRENT_DEVICE_LOCAL_PENDING_DATA",
+        source: "LOCAL_DEVICE_STORAGE"
       },
       summary: {
         pendingSyncCount: 1,
@@ -776,6 +778,11 @@ describe("ConfigurationCachePanel", () => {
     expect(screen.getByText("Rules odrzucily wpis.")).toBeInTheDocument();
     expect(screen.getByText("Przejrzyj konflikt")).toBeInTheDocument();
     expect(screen.queryByText("Usun wszystkie oczekujace dane")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Eksport awaryjny urzadzenia obejmuje tylko lokalne dane oczekujace/
+      )
+    ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Synchronizuj teraz" }));
 
@@ -785,7 +792,7 @@ describe("ConfigurationCachePanel", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: "Eksport awaryjny" }));
+    await user.click(screen.getByRole("button", { name: "Eksport awaryjny urzadzenia" }));
 
     expect(onEmergencyExport).toHaveBeenCalledTimes(1);
 
@@ -802,8 +809,11 @@ describe("ConfigurationCachePanel", () => {
     });
     expect(exportedPayload.format).toMatchObject({
       automaticProductionImportAllowed: false,
+      dataScope: "CURRENT_DEVICE_LOCAL_PENDING_DATA",
       name: "BOROWKA_EMERGENCY_LOCAL_EXPORT",
-      productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED"
+      productionImportPolicy: "CONTROLLED_REVIEW_REQUIRED",
+      source: "LOCAL_DEVICE_STORAGE",
+      version: 2
     });
     expect(exportedPayload.summary).toMatchObject({
       entryCount: 3,

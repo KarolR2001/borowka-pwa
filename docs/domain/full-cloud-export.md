@@ -58,8 +58,9 @@ tworzyloby cykliczna zaleznosc.
 
 ## Manifest i interpretacja
 
-Format ma nazwe `BOROWKA_FULL_CLOUD_EXPORT`, cel `PORTABLE_ARCHIVE` i wersje
-formatu `1`. Manifest zapisuje:
+Format ma nazwe `BOROWKA_FULL_CLOUD_EXPORT`, cel `PORTABLE_ARCHIVE`, zrodlo
+`FIRESTORE_SERVER`, zakres `ALL_FIRESTORE_COLLECTIONS` i wersje formatu `2`.
+Manifest zapisuje:
 
 - wersje aplikacji, buildu, schematu danych i obliczen z `APP_META`;
 - identyfikator projektu Firebase, srodowisko aplikacji i zrodlo
@@ -104,3 +105,6 @@ zestaw na emulatorze Firestore.
 Eksport awaryjny urzadzenia jest osobnym mechanizmem: obejmuje lokalne oczekujace
 zapisy potrzebne do ratowania synchronizacji. Nie stanowi pelnego eksportu chmury
 i nie moze byc przechowywany ani opisywany jako jego zamiennik.
+
+Pelne porownanie obu mechanizmow znajduje sie w
+`docs/domain/export-mechanism-boundaries.md`.

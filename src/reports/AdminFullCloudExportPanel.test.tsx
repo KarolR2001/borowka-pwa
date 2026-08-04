@@ -50,7 +50,9 @@ describe("AdminFullCloudExportPanel", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Pobierz pelny eksport" }));
+    await user.click(
+      screen.getByRole("button", { name: "Pobierz pelny eksport chmury" })
+    );
 
     await waitFor(() => {
       expect(download).toHaveBeenCalledWith(archive);
@@ -95,7 +97,9 @@ describe("AdminFullCloudExportPanel", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Pobierz pelny eksport" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Pobierz pelny eksport chmury" })
+    ).toBeDisabled();
     expect(
       screen.getByText("Pelny eksport chmury wymaga polaczenia z serwerem.")
     ).toBeVisible();
@@ -125,9 +129,11 @@ function testArchive(): FullCloudExportArchive {
       exportedBy: { email: "admin@example.test", role: "ADMIN", uid: "admin-1" },
       files: [],
       format: {
+        dataScope: "ALL_FIRESTORE_COLLECTIONS",
         name: "BOROWKA_FULL_CLOUD_EXPORT",
         purpose: "PORTABLE_ARCHIVE",
-        version: 1
+        source: "FIRESTORE_SERVER",
+        version: 2
       },
       omissions: { count: 1, path: "errors.json" },
       seasonTotals: [],
