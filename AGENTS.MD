@@ -130,12 +130,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
 
 ## Aktualny stan roboczy
 
-- Pakiet `8.19 - testy wydajnosci pulpitu` jest zakonczony lokalnie; po jego
-  zielonym CI i scaleniu nie implementuj go ponownie.
+- Pakiet `8.19 - testy wydajnosci pulpitu` zostal scalony do `main` jako
+  `e65889e`; nie implementuj go ponownie.
 - Fizyczne przebiegi Android 6.24 i iOS 6.25 zostaly odroczone decyzja
   uzytkownika jako `SKIPPED`.
-- Nastepny pakiet implementacyjny po scaleniu 8.19 to
-  `9.1 - katalog raportow MVP`.
+- Pakiet `9.1 - katalog raportow MVP` jest biezacym zakresem. Po jego zielonym
+  CI i scaleniu nastepny jest `9.2 - eksport CSV do polskiego Excela`.
 - Bramka urzadzeniowa etapu 6 pozostaje otwarta: testy fizyczne oraz rzeczywisty
   deploy A/B trzeba wykonac przed pilotazem lub produkcja.
 - Etap 7 zostal wdrozony do Firebase DEV 2026-07-29. PROD nie zostal wdrozony.
