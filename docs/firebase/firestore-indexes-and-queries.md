@@ -61,6 +61,49 @@ The exact read budgets and card calculations are documented in
 Fields passed to `sum()` are included in the matching composite index, as
 required by the Firestore aggregation index model.
 
+## Stage 8.15 directory and review queries
+
+The manifest also prepares bounded, server-side list queries. Equality filters
+form the index prefix. The business date is descending for newest-first lists;
+`createdAtServer desc` is the deterministic tie-breaker where the document model
+provides it.
+
+| Area                    | Collection        | Equality prefix                               | Order/range                                 | Purpose                                         |
+| ----------------------- | ----------------- | --------------------------------------------- | ------------------------------------------- | ----------------------------------------------- |
+| Registration review     | `users`           | `registrationStatus`                          | `createdAt desc`                            | Newest pending or rejected accounts             |
+| Picker session status   | `harvestSessions` | `workerId`, `status`                          | `businessDate desc`, `createdAtServer desc` | Picker history by active business state         |
+| Operator session status | `harvestSessions` | `createdBy`, `status`                         | `businessDate desc`, `createdAtServer desc` | Operator-owned open or review lists             |
+| Entry state             | `harvestEntries`  | `sessionId`, `status`                         | none                                        | Active or cancelled entries in one session      |
+| Picker entry report     | `harvestEntries`  | `workerId`, `seasonId`                        | `businessDate desc`                         | Explicitly requested cross-session report only  |
+| Season payments         | `payments`        | `seasonId`                                    | `paidBusinessDate desc`                     | Payment directory for one season                |
+| Payment audit           | `payments`        | `status`                                      | `paidBusinessDate desc`                     | Active/cancelled payment audit                  |
+| Active season payments  | `payments`        | `seasonId`, `status`                          | `paidBusinessDate desc`                     | Active documents within a season/date range     |
+| Picker season payments  | `payments`        | `workerId`, `seasonId`, optional `status`     | `paidBusinessDate desc`                     | Picker settlement history and active-only views |
+| Season sales            | `sales`           | `seasonId`                                    | `businessDate desc`, `createdAtServer desc` | Complete sale directory for a season            |
+| Active season sales     | `sales`           | `seasonId`, `status`                          | `businessDate desc`, `createdAtServer desc` | Active/cancelled documents within a date range  |
+| Sale document type      | `sales`           | `seasonId`, `entryType`                       | `businessDate desc`, `createdAtServer desc` | Ordinary sale and correction lists              |
+| Issue queue             | `issueReports`    | `status`, optionally `seasonId` or `workerId` | `createdAt desc`                            | Open admin queue and scoped issue history       |
+
+Existing indexes additionally cover `seasonId + status + businessDate` for
+session lists and aggregates, `workerId + seasonId + businessDate` for picker
+dashboards, and `status + updatedAtServer` for synchronization conflicts marked
+as `REVIEW_REQUIRED`. Synchronization conflict details are derived from session
+state and the local sync journal; there is no separate Firestore conflict
+collection.
+
+### Date ranges
+
+Dashboard and directory queries use inclusive lower and upper bounds on the
+business-date field (`>= from`, `<= to`). The range field and its direction must
+match the corresponding composite index. Aggregates use ascending business-date
+indexes; newest-first lists use descending indexes. A season filter remains
+mandatory for farm-wide sales, payment and dashboard ranges so one screen does
+not scan unrelated seasons.
+
+The cross-session `harvestEntries` index is reserved for an explicit report. A
+dashboard must continue to aggregate `harvestSessions` and must not attach a
+listener to all entries in a season.
+
 ## Deployment
 
 `firebase.json` points Firestore index deployment to
@@ -73,3 +116,14 @@ npm run firebase -- deploy --project "$FIREBASE_PROJECT_ID" --only firestore:rul
 
 For DEV we deploy indexes after a coherent block or stage, not after every small
 package.
+
+Stage 8.15 is an explicit index deployment gate. Deploy only indexes to the
+development project and wait until every index reports `READY` before running
+the large synthetic data tests from stages 8.16-8.19:
+
+```sh
+npm run firebase -- deploy --project borowka-pwa-dev --only firestore:indexes --non-interactive
+npm run firebase -- firestore:indexes --project borowka-pwa-dev
+```
+
+This gate does not authorize or imply a production deployment.
