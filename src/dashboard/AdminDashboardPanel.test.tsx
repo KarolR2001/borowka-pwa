@@ -174,6 +174,45 @@ describe("AdminDashboardPanel", () => {
     expect(api.load).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the last metrics visible while a slow refresh is pending", async () => {
+    const user = userEvent.setup();
+    const refresh = deferred<AdminDashboardResult>();
+    const api: AdminDashboardApi = {
+      load: vi
+        .fn<AdminDashboardApi["load"]>()
+        .mockResolvedValueOnce(dashboardResult())
+        .mockImplementationOnce(() => refresh.promise)
+    };
+
+    render(
+      <AdminDashboardPanel
+        api={api}
+        authState={adminState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("15,000 kg")).toBeVisible();
+    const refreshButton = screen.getByRole("button", {
+      name: "Odswiez pulpit administratora"
+    });
+    await user.click(refreshButton);
+
+    expect(refreshButton).toBeDisabled();
+    expect(screen.getByText("15,000 kg")).toBeVisible();
+
+    const refreshedResult = dashboardResult();
+    if (refreshedResult.selectedSeason) {
+      refreshedResult.selectedSeason.metrics.confirmedHarvestWeightG = 16_000;
+    }
+    refresh.resolve(refreshedResult);
+
+    expect(await screen.findByText("16,000 kg")).toBeVisible();
+    expect(refreshButton).toBeEnabled();
+  });
+
   it("does not reuse an in-memory snapshot after the account changes", async () => {
     const api = dashboardApi();
     const { rerender } = render(
@@ -223,6 +262,26 @@ function dashboardApi(): AdminDashboardApi {
       .mockImplementation((_env, input) =>
         Promise.resolve(dashboardResult(input.selectedSeasonId ?? "season-1"))
       )
+  };
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolvePromise: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return {
+    promise,
+    resolve(value) {
+      if (!resolvePromise) {
+        throw new Error("Deferred promise was not initialized.");
+      }
+      resolvePromise(value);
+    }
   };
 }
 

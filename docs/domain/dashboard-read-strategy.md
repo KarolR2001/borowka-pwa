@@ -4,8 +4,9 @@
 
 Pomiar jest deterministyczny i znajduje sie w
 `src/dashboard/dashboardReadStrategy.ts`. Uzywa gornej oczekiwanej skali z PRD:
-10 sezonow, 200 zbieraczy, 20 000 sesji, 20 000 wyplat, 20 000 sprzedazy oraz
-do 40 000 ruchow operacyjnego stanu.
+10 sezonow, 200 zbieraczy, 200 000 wpisow, 20 000 sesji, 20 000 wyplat, 20 000
+sprzedazy oraz do 40 000 ruchow operacyjnego stanu. Wpisy szczegolowe nie
+zwiekszaja budzetu pulpitu, poniewaz karty korzystaja z agregatow sesji.
 
 | Pulpit        | Strategia przed 8.12                       | Strategia 8.12                                    |
 | ------------- | ------------------------------------------ | ------------------------------------------------- |
@@ -18,6 +19,8 @@ rozpoczete 1000 wpisow indeksu oraz minimum jeden odczyt dla pustego zapytania.
 Podzial dokumentow miedzy kilka rozlacznych zapytan uwzglednia koszt zaokraglenia
 kazdej partycji. Rzeczywisty koszt i plan indeksu trzeba przed produkcja
 potwierdzic przez Firestore Query Explain na danych zblizonych do produkcyjnych.
+Syntetyczny pomiar czasu, cache i odswiezenia znajduje sie w
+`docs/testing/etap-8-dashboard-performance-report.md`.
 
 ## Wybrana strategia
 
@@ -46,7 +49,11 @@ utrzymujacy agregaty oraz okresowe przeliczenie ze zrodel:
 - ponad 100 naliczanych odczytow na odswiezenie administratora;
 - ponad 250 lacznych odczytow na odswiezenie operatora;
 - ponad 1000 dokumentow sesji lub wyplat dla jednego zakresu zbieracza;
-- czas odpowiedzi p95 powyzej 2 sekund na stabilnym polaczeniu.
+- czas pierwszego odczytu lub zmiany filtra p95 powyzej 2 sekund na stabilnym
+  polaczeniu w co najmniej 20 probach;
+- wzrost czasu p95 o ponad 25% po podwojeniu danych wybranego sezonu;
+- pelny skan kolekcji albo plan Query Explain niezgodny z filtrem sezonu i
+  daty biznesowej.
 
 ## Karty administratora
 

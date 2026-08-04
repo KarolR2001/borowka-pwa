@@ -7,6 +7,7 @@ export const OPERATOR_OPEN_SESSION_LIMIT = 100;
 export const OPERATOR_RECENT_SESSION_LIMIT = 8;
 
 export type DashboardScale = {
+  harvestEntryCount: number;
   harvestSessionCount: number;
   operationalStockMovementCount: number;
   paymentCount: number;
@@ -31,6 +32,7 @@ export type DashboardReadEstimate = {
 };
 
 export const PRD_EXPECTED_MAX_SCALE: DashboardScale = {
+  harvestEntryCount: 200_000,
   harvestSessionCount: 20_000,
   operationalStockMovementCount: 40_000,
   paymentCount: 20_000,
