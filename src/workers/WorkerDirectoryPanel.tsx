@@ -695,13 +695,9 @@ export function WorkerDirectoryPanel({
                 <tr key={worker.id}>
                   <td>
                     <strong>{worker.displayName}</strong>
-                    <span className="directory-cell-note">{worker.id}</span>
                   </td>
                   <td>{workerStatusLabel(worker)}</td>
-                  <td>
-                    {worker.currentPlan?.name ?? "brak"}
-                    <span className="directory-cell-note">{worker.currentPlanId}</span>
-                  </td>
+                  <td>{worker.currentPlan?.name ?? "brak"}</td>
                   {isAdmin ? <td>{workerRateLabel(worker.currentRateVersion)}</td> : null}
                   <td>{workerUnitLabel(worker.currentPlan)}</td>
                   {isAdmin ? (
@@ -842,7 +838,6 @@ function WorkerProfilePanel({
         <div>
           <p className="eyebrow">Profil zbieracza</p>
           <h3>{worker.displayName}</h3>
-          <p className="panel-detail">{worker.id}</p>
         </div>
         <button
           className="secondary-action directory-action"
@@ -2013,7 +2008,7 @@ function accountLinkProfileLabel(profile: UserProfile, workerId: string): string
     profile.workerId === workerId
       ? "powiązane z tym zbieraczem"
       : profile.workerId
-        ? `powiązane z ${profile.workerId}`
+        ? `powiązane z innym zbieraczem`
         : "bez powiązania";
 
   return `${profile.displayName} (${profile.email}) - ${userRoleLabel(profile.role)}, ${linkLabel}`;

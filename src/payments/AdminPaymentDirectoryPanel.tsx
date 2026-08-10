@@ -212,15 +212,6 @@ export function AdminPaymentDirectoryPanel({
   return (
     <section className="payment-directory" aria-labelledby="payment-directory-title">
       <header className="directory-header">
-        <div>
-          <p className="eyebrow">Rozliczenia</p>
-          <h2 id="payment-directory-title">Historia wypłat</h2>
-          <p className="panel-detail">
-            {state.status === "LOADING"
-              ? "Pobieranie aktualnych danych z serwera."
-              : "Aktywne, anulowane i importowane wypłaty."}
-          </p>
-        </div>
         <div className="payment-directory__header-actions">
           <button
             className="secondary-button"
