@@ -1,4 +1,4 @@
-import { Banknote, ShieldCheck, ShieldX } from "lucide-react";
+import { Banknote, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -188,6 +188,21 @@ export function AdminPendingPaymentsPanel({
 
   return (
     <section className="pending-payment-directory" aria-labelledby="payments-title">
+      <header className="directory-header">
+        <div className="payment-directory__header-actions">
+          <button
+            className="secondary-button icon-button"
+            onClick={() => {
+              setReloadKey((current) => current + 1);
+            }}
+            title="Odśwież listę"
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" size={18} />
+            <span className="sr-only">Odśwież listę</span>
+          </button>
+        </div>
+      </header>
       <CollapsibleFilters>
         <PaymentFilters filters={filters} onChange={setFilters} sessions={sessions} />
       </CollapsibleFilters>
