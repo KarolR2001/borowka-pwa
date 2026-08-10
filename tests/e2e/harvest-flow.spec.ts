@@ -10,6 +10,12 @@ test.describe("Seeded harvest flow", () => {
     await page.goto("/");
 
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
+    await page.getByRole("button", { name: "Otwórz menu" }).click();
+    const mainMenu = page.getByRole("navigation", { name: "Menu główne" });
+    await expect(mainMenu).toBeVisible();
+    await expect(mainMenu.getByRole("button", { name: "Zbiory" })).toBeVisible();
+    await expect(mainMenu.getByRole("button", { name: "Konto" })).toBeVisible();
+    await page.getByRole("button", { name: "Zamknij menu" }).click();
     await page.getByRole("tab", { name: "Pulpit" }).click();
 
     const operatorDashboard = page.locator(".operator-dashboard");
@@ -142,6 +148,7 @@ async function loginAs(page: Page, email: string, expectedDisplayName: string) {
 }
 
 async function signOut(page: Page) {
+  await page.getByRole("button", { name: "Otwórz menu" }).click();
   await page.getByRole("button", { name: "Konto" }).click();
   await page.getByRole("button", { name: "Wyloguj", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();

@@ -1,12 +1,4 @@
-import {
-  Ban,
-  ClipboardList,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  ShieldAlert,
-  X
-} from "lucide-react";
+import { Ban, ClipboardList, Plus, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -849,25 +841,6 @@ export function OperatorHarvestSessionsPanel({
         setHasUnsavedFormInteraction(true);
       }}
     >
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Ewidencja zbiorów</p>
-          <h3>Otwarte sesje zbioru</h3>
-          <p>{state.message}</p>
-        </div>
-        <button
-          className="secondary-action"
-          disabled={state.status === "LOADING"}
-          onClick={() => {
-            void reload();
-          }}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          Odśwież
-        </button>
-      </div>
-
       {invalidConfigurationCount > 0 ? (
         <p className="form-message form-message--error">
           Niepoprawne dokumenty konfiguracji otwarcia sesji: {invalidConfigurationCount}

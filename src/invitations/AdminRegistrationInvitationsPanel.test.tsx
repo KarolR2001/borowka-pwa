@@ -6,6 +6,11 @@ import {
   AdminRegistrationInvitationsPanel,
   type RegistrationInvitationsApi
 } from "./AdminRegistrationInvitationsPanel";
+import type { WorkerDirectoryApi } from "../workers/WorkerDirectoryPanel";
+import type {
+  WorkerDirectoryListItem,
+  WorkerDirectoryResult
+} from "../workers/workerDirectory";
 import {
   createRegistrationInvitationDraft,
   type RegistrationInvitationDocument
@@ -88,6 +93,29 @@ const createInvitationsApi = (
   cancel: vi.fn<RegistrationInvitationsApi["cancel"]>().mockResolvedValue(undefined),
   ...overrides
 });
+
+const createWorkerDirectoryApi = (
+  workers: WorkerDirectoryListItem[] = []
+): WorkerDirectoryApi => ({
+  list: vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+    workers,
+    plans: [],
+    profiles: [],
+    invalidWorkers: [],
+    invalidPlans: [],
+    invalidRateVersions: [],
+    invalidProfiles: [],
+    invalidAuditEvents: []
+  } satisfies WorkerDirectoryResult)
+});
+
+const worker = (id: string, displayName: string): WorkerDirectoryListItem =>
+  ({
+    id,
+    displayName,
+    active: true,
+    linkedUser: null
+  }) as WorkerDirectoryListItem;
 
 describe("AdminRegistrationInvitationsPanel", () => {
   it("requires a signed-in administrator", () => {
@@ -173,7 +201,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
     expect(screen.getByText("Anulowane Zaproszenie")).toBeInTheDocument();
   });
 
-  it("validates picker workerId before creating invitation", async () => {
+  it("requires selecting an existing worker for a picker invitation", async () => {
     const user = userEvent.setup();
     const create = vi.fn<RegistrationInvitationsApi["create"]>().mockResolvedValue(
       invitation({
@@ -188,6 +216,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
         authState={adminState}
         env={env}
         registrationInvitationsApi={createInvitationsApi({ create })}
+        workerDirectoryApi={createWorkerDirectoryApi()}
       />
     );
 
@@ -199,8 +228,50 @@ describe("AdminRegistrationInvitationsPanel", () => {
 
     expect(create).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Zaproszenie dla zbieracza wymaga workerId.")
+      screen.getByText("Wybierz zbieracza, którego dane ma widzieć właściciel konta.")
     ).toBeInTheDocument();
+  });
+
+  it("links a picker invitation by selecting the worker name", async () => {
+    const user = userEvent.setup();
+    const create = vi.fn<RegistrationInvitationsApi["create"]>().mockResolvedValue(
+      invitation({
+        id: "invite-picker",
+        emailNormalized: "anna@example.test",
+        displayName: "Anna Konto",
+        targetRole: "PICKER",
+        workerId: "worker-anna"
+      })
+    );
+
+    render(
+      <AdminRegistrationInvitationsPanel
+        authState={adminState}
+        env={env}
+        registrationInvitationsApi={createInvitationsApi({ create })}
+        workerDirectoryApi={createWorkerDirectoryApi([
+          worker("worker-anna", "Anna Zbieracz")
+        ])}
+      />
+    );
+
+    await screen.findByRole("option", { name: "Anna Zbieracz" });
+    await user.type(screen.getByLabelText("E-mail"), "anna@example.test");
+    await user.type(screen.getByLabelText("Nazwa"), "Anna Konto");
+    await user.selectOptions(screen.getByLabelText("Rola docelowa"), "PICKER");
+    await user.selectOptions(screen.getByLabelText("Zbieracz dla konta"), "worker-anna");
+    await user.click(screen.getByRole("button", { name: "Dodaj" }));
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(expect.anything(), {
+        email: "anna@example.test",
+        displayName: "Anna Konto",
+        targetRole: "PICKER",
+        workerId: "worker-anna",
+        createdBy: "admin-1"
+      });
+    });
+    expect(screen.queryByLabelText("workerId")).not.toBeInTheDocument();
   });
 
   it("creates invitation with the signed-in administrator as creator", async () => {

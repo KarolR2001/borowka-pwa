@@ -17,6 +17,7 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import { userRoleLabel, type UserProfile } from "../domain/identity";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { InfoHint } from "../ui/InfoHint";
 import {
   archiveWorker,
   createWorkerRateVersion,
@@ -1474,6 +1475,7 @@ function CreateWorkerRateForm({
       <label className="field">
         <span>Plan</span>
         <select
+          aria-label="Plan"
           disabled={isSubmitting || activePlans.length === 0}
           onChange={(event) => {
             onChange({
@@ -1497,6 +1499,7 @@ function CreateWorkerRateForm({
       <label className="field">
         <span>Stawka</span>
         <input
+          aria-label="Stawka"
           disabled={isSubmitting}
           inputMode="decimal"
           onChange={(event) => {
@@ -1513,6 +1516,7 @@ function CreateWorkerRateForm({
       <label className="field">
         <span>Od dnia</span>
         <input
+          aria-label="Od dnia"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -1629,9 +1633,25 @@ function CreateWorkerForm({
         onSubmit();
       }}
     >
+      <div className="worker-form__account-note">
+        <UserRound aria-hidden="true" size={20} strokeWidth={2.1} />
+        <div>
+          <strong>Zbieracz nie musi mieć konta</strong>
+          <p>
+            Ten formularz tworzy osobę do ewidencji zbiorów i jej pierwszą stawkę. Konto
+            do samodzielnego podglądu danych można utworzyć i powiązać później w zakładce
+            Konta.
+          </p>
+        </div>
+      </div>
+
       <label className="field">
-        <span>Nazwa zbieracza</span>
+        <span className="field__label">
+          Nazwa zbieracza
+          <InfoHint text="Nazwa osoby widoczna podczas otwierania sesji zbioru." />
+        </span>
         <input
+          aria-label="Nazwa zbieracza"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -1646,8 +1666,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field">
-        <span>Plan</span>
+        <span className="field__label">
+          Plan
+          <InfoHint text="Określa, czy zbieracz jest rozliczany według wagi, opakowań albo sztuk." />
+        </span>
         <select
+          aria-label="Plan"
           disabled={isSubmitting || activePlans.length === 0}
           onChange={(event) => {
             onChange({
@@ -1670,8 +1694,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field">
-        <span>Stawka</span>
+        <span className="field__label">
+          Stawka
+          <InfoHint text="Kwota należna za jeden kilogram, jedno opakowanie albo jedną sztukę zgodnie z wybranym planem." />
+        </span>
         <input
+          aria-label="Stawka"
           disabled={isSubmitting}
           inputMode="decimal"
           onChange={(event) => {
@@ -1687,8 +1715,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field">
-        <span>Od dnia</span>
+        <span className="field__label">
+          Od dnia
+          <InfoHint text="Data, od której pierwsza stawka będzie używana przy nowych sesjach." />
+        </span>
         <input
+          aria-label="Od dnia"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -1703,8 +1735,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field">
-        <span>Telefon</span>
+        <span className="field__label">
+          Telefon (opcjonalnie)
+          <InfoHint text="Dane kontaktowe administratora; numer nie służy do logowania." />
+        </span>
         <input
+          aria-label="Telefon"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -1719,8 +1755,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field">
-        <span>E-mail kontaktowy</span>
+        <span className="field__label">
+          E-mail kontaktowy (opcjonalnie)
+          <InfoHint text="Adres kontaktowy niezależny od e-maila przyszłego konta użytkownika." />
+        </span>
         <input
+          aria-label="E-mail kontaktowy"
           disabled={isSubmitting}
           inputMode="email"
           onChange={(event) => {
@@ -1736,8 +1776,12 @@ function CreateWorkerForm({
       </label>
 
       <label className="field worker-form__notes">
-        <span>Notatka</span>
+        <span className="field__label">
+          Notatka (opcjonalnie)
+          <InfoHint text="Wewnętrzna informacja administratora, niewidoczna dla zbieracza." />
+        </span>
         <input
+          aria-label="Notatka"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({

@@ -42,7 +42,7 @@ const activeAdminState: AuthSessionState = {
     workerId: null,
     active: true,
     registrationStatus: "APPROVED",
-    offlineConsent: false
+    offlineConsent: true
   },
   access: {
     status: "READY",
@@ -66,7 +66,7 @@ const activePickerState: AuthSessionState = {
     workerId: "worker-1",
     active: true,
     registrationStatus: "APPROVED",
-    offlineConsent: false
+    offlineConsent: true
   },
   access: {
     status: "READY",
@@ -146,6 +146,14 @@ const createSynchronizationApi = (
     }),
   ...overrides
 });
+
+async function selectMainView(
+  user: ReturnType<typeof userEvent.setup>,
+  viewName: string
+) {
+  await user.click(screen.getByRole("button", { name: "Otwórz menu" }));
+  await user.click(screen.getByRole("button", { name: viewName }));
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -284,6 +292,7 @@ describe("App shell", () => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
     expect(screen.getByRole("heading", { name: "Pulpit zbieracza" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Otwórz menu" }));
     expect(screen.getByRole("button", { name: "Moje dane" })).toBeVisible();
     expect(screen.queryByText("Administrator", { exact: true })).toBeNull();
     expect(screen.queryByText("Operator", { exact: true })).toBeNull();
@@ -300,7 +309,7 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
 
     expect(screen.getByRole("heading", { name: "Admin Test" })).toBeInTheDocument();
     expect(screen.getByText("admin@example.test")).toBeInTheDocument();
@@ -348,7 +357,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(listLocalDocuments).toHaveBeenCalledTimes(2);
     });
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
 
     expect(signOut).not.toHaveBeenCalled();
@@ -399,7 +408,7 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
     await user.click(
       screen.getByRole("button", { name: "Wyloguj i wyczyść urządzenie" })
     );
@@ -487,7 +496,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(listLocalDocuments).toHaveBeenCalledTimes(2);
     });
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
     expect(screen.getByText("Dane administratora")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Anuluj wylogowanie" }));
@@ -495,9 +504,9 @@ describe("App shell", () => {
     act(() => {
       sessionListener?.(activePickerState);
     });
-    await screen.findByRole("button", { name: "Moje dane" });
+    await screen.findByRole("heading", { name: "Moje dane" });
     expect(screen.queryByText("Dane administratora")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
     expect(signOut).not.toHaveBeenCalled();
     resolvePickerDocuments([]);
@@ -561,6 +570,7 @@ describe("App shell", () => {
   });
 
   it("refreshes the active profile on window focus to detect role changes", async () => {
+    const user = userEvent.setup();
     const refresh = vi
       .fn<AuthSessionApi["refresh"]>()
       .mockResolvedValue(activeOperatorState);
@@ -573,7 +583,8 @@ describe("App shell", () => {
       />
     );
 
-    await screen.findByRole("navigation", { name: "Nawigacja główna" });
+    await screen.findByRole("button", { name: "Otwórz menu" });
+    await user.click(screen.getByRole("button", { name: "Otwórz menu" }));
     expect(screen.queryByRole("button", { name: "Moje dane" })).toBeNull();
 
     globalThis.dispatchEvent(new Event("focus"));
@@ -581,7 +592,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
-    expect(screen.getAllByRole("button", { name: "Zbiory" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Zbiory" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Moje dane" })).toBeNull();
   });
 
@@ -598,7 +609,7 @@ describe("App shell", () => {
       />
     );
 
-    await screen.findByRole("button", { name: "Moje dane" });
+    await screen.findByRole("heading", { name: "Moje dane" });
 
     globalThis.dispatchEvent(new Event("online"));
 
@@ -703,22 +714,71 @@ describe("App shell", () => {
 
     expect(input).toMatchObject({
       userUid: "picker-1",
-      trustedOfflineStorage: false
+      trustedOfflineStorage: true
     });
     expect(input.deviceId).toEqual(expect.any(String));
     expect(input.deviceName).toEqual(expect.any(String));
   });
 
-  it("does not render offline configuration in the account view", async () => {
+  it("requires explicit consent before enabling persistent offline data", async () => {
+    const user = userEvent.setup();
+    const updateOfflineConsent = vi
+      .fn<AuthSessionApi["updateOfflineConsent"]>()
+      .mockResolvedValue(undefined);
+    const requestPersistentStorage = vi
+      .fn<OfflineStorageHealthApi["requestPersistentStorage"]>()
+      .mockResolvedValue(true);
+    const consentRequiredState: AuthSessionState = {
+      ...activeAdminState,
+      profile: {
+        ...activeAdminState.profile,
+        offlineConsent: false
+      }
+    };
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(consentRequiredState, {
+          updateOfflineConsent
+        })}
+        offlineStorageHealthApi={{
+          inspect: vi.fn<OfflineStorageHealthApi["inspect"]>(),
+          markConfigurationCleared:
+            vi.fn<OfflineStorageHealthApi["markConfigurationCleared"]>(),
+          markConfigurationPrepared:
+            vi.fn<OfflineStorageHealthApi["markConfigurationPrepared"]>(),
+          requestPersistentStorage
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Zezwolić na zapis danych?" })
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Tak, włącz pracę offline" }));
+
+    await waitFor(() => {
+      expect(updateOfflineConsent).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          uid: "admin-1",
+          offlineConsent: true
+        })
+      );
+    });
+    expect(requestPersistentStorage).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows only the simple offline storage setting in the account view", async () => {
     const user = userEvent.setup();
 
     render(<App authSessionApi={createAuthSessionApi(activeAdminState)} />);
 
-    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await selectMainView(user, "Konto");
 
-    expect(screen.queryByText(/Praca offline/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Zgoda.*offline/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Offline" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Dane na urządzeniu")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Wyłącz przechowywanie" })).toBeVisible();
   });
 
   it("starts synchronization on launch and after online activation when local data exists", async () => {
@@ -1018,11 +1078,12 @@ describe("App shell", () => {
       screen.getByRole("heading", { name: "Lista planów rozliczeń" })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Wypłaty" }));
+    expect(screen.getByRole("tab", { name: "Do wypłaty" })).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Historia wypłat" }));
     await waitFor(() => {
       expect(listPayments).toHaveBeenCalled();
     });
-    expect(screen.getByRole("heading", { name: "Historia wypłat" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Historia wypłat" })).toBeVisible();
 
     await user.click(screen.getByRole("tab", { name: "Zgłoszenia" }));
     await waitFor(() => {
@@ -1152,9 +1213,7 @@ describe("App shell", () => {
       actorProfile: activeOperatorState.profile,
       isOnline: true
     });
-    expect(
-      screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zbiory" })).toBeInTheDocument();
     expect(loadOperatorDashboard).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
@@ -1170,9 +1229,9 @@ describe("App shell", () => {
       );
     });
     expect(screen.getByRole("heading", { name: "Pulpit operatora" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Otwarte sesje zbioru" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Zbiory" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
-    expect(screen.getByRole("heading", { name: "Otwarte sesje zbioru" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Zbiory" })).toBeVisible();
   });
 });
