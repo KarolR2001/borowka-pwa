@@ -11,9 +11,9 @@ Archiwum sluzy do niezaleznej archiwizacji, kontroli oraz przygotowania przyszle
 migracji. Nie jest automatycznym backupem Firebase i nie zapewnia przywracania
 jednym kliknieciem.
 
-Eksport zawiera dane osobowe, zaproszenia, dane urzadzen i audyt. Plik musi byc
-przechowywany poza Firebase w zabezpieczonej lokalizacji z dostepem ograniczonym
-do uprawnionych osob.
+Eksport zawiera dane osobowe i finansowe, zaproszenia, dane urzadzen i audyt.
+Plik musi byc przechowywany poza Firebase w zabezpieczonej lokalizacji z
+dostepem ograniczonym do uprawnionych osob.
 
 ## Zrodlo i kompletnosc
 
@@ -108,6 +108,7 @@ i nie moze byc przechowywany ani opisywany jako jego zamiennik.
 
 Pelne porownanie obu mechanizmow znajduje sie w
 `docs/domain/export-mechanism-boundaries.md`.
+Macierz uprawnien znajduje sie w `docs/domain/export-access-control.md`.
 
 ## Niezalezna walidacja przenosnosci
 

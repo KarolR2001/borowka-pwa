@@ -150,7 +150,9 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   bramkami wdrozenia.
 - Techniczne migracje schematu, eksport przenosny i przyszle przeniesienie
   danych wytworzonych w Borowka PWA pozostaja w zakresie.
-- Biezacy pakiet: `9.18 - test przenosnosci eksportu`.
+- Pakiet `9.18 - test przenosnosci eksportu` zostal scalony do `main` jako
+  `6f7a7e2`; nie implementuj go ponownie.
+- Biezacy pakiet: `9.19 - testy uprawnien eksportu`.
 - Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
   `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
   `PASS`.

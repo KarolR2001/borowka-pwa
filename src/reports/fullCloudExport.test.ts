@@ -129,16 +129,23 @@ describe("full portable cloud export", () => {
     ]);
   });
 
-  it("rejects a non-admin and an incomplete collection set", async () => {
+  it.each([
+    { active: true, role: "OPERATOR" as const },
+    { active: true, role: "PICKER" as const },
+    { active: false, role: "ADMIN" as const }
+  ])("rejects a profile without active admin access: $role/$active", async (access) => {
     await expect(
       createFullCloudExportArchive({
-        actorProfile: { ...adminProfile, role: "OPERATOR" },
+        actorProfile: { ...adminProfile, ...access },
         appEnvironment: "development",
         collections: emptyCollections(),
         exportedAtIso: "2026-08-04T20:00:00.000Z",
         firebaseProjectId: "borowka-pwa-dev"
       })
     ).rejects.toThrow("administratora");
+  });
+
+  it("rejects an incomplete collection set", async () => {
     await expect(
       createFullCloudExportArchive({
         actorProfile: adminProfile,

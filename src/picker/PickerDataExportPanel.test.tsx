@@ -40,6 +40,11 @@ describe("PickerDataExportPanel", () => {
     );
 
     await user.selectOptions(await screen.findByLabelText("Sezon"), "season-2026");
+    expect(
+      screen.getByText(
+        "Plik zawiera Twoje dane osobowe i finansowe. Przechowuj go w zabezpieczonej lokalizacji."
+      )
+    ).toBeVisible();
     expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
     await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
 

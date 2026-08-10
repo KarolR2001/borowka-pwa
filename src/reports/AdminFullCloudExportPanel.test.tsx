@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { AuthSessionState } from "../auth/authSession";
 import {
   AdminFullCloudExportPanel,
+  downloadFullCloudExport,
   type FullCloudExportApi
 } from "./AdminFullCloudExportPanel";
 import type { FullCloudExportArchive } from "./fullCloudExport";
@@ -26,6 +27,11 @@ const adminState: AuthSessionState = {
 };
 
 describe("AdminFullCloudExportPanel", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("downloads a completed archive and reports progress", async () => {
     const user = userEvent.setup();
     const archive = testArchive();
@@ -57,6 +63,11 @@ describe("AdminFullCloudExportPanel", () => {
     await waitFor(() => {
       expect(download).toHaveBeenCalledWith(archive);
     });
+    expect(
+      screen.getByText(
+        "Archiwum zawiera dane osobowe i finansowe. Przechowuj je w zabezpieczonej lokalizacji."
+      )
+    ).toBeVisible();
     const createCall = create.mock.calls[0];
     expect(createCall[0]).toEqual({ VITE_FIREBASE_PROJECT_ID: "borowka-dev" });
     expect(createCall[1].actorProfile).toEqual(adminState.profile);
@@ -67,7 +78,7 @@ describe("AdminFullCloudExportPanel", () => {
     ).toBeVisible();
   });
 
-  it("is hidden from non-admin roles", () => {
+  it.each(["OPERATOR", "PICKER"] as const)("is hidden from the %s role", (role) => {
     const create = vi.fn<FullCloudExportApi["create"]>();
 
     const { container } = render(
@@ -75,8 +86,8 @@ describe("AdminFullCloudExportPanel", () => {
         api={{ create, download: vi.fn() }}
         authState={{
           ...adminState,
-          access: { role: "OPERATOR", status: "READY" },
-          profile: { ...adminState.profile, role: "OPERATOR" }
+          access: { role, status: "READY" },
+          profile: { ...adminState.profile, role }
         }}
         env={{}}
         isOnline
@@ -103,6 +114,22 @@ describe("AdminFullCloudExportPanel", () => {
     expect(
       screen.getByText("Pelny eksport chmury wymaga polaczenia z serwerem.")
     ).toBeVisible();
+  });
+
+  it("downloads through a temporary blob URL and revokes it immediately", () => {
+    const createObjectURL = vi.fn(() => "blob:borowka-export");
+    const revokeObjectURL = vi.fn();
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+
+    downloadFullCloudExport(testArchive());
+
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:borowka-export");
+    expect(document.querySelector('a[href="blob:borowka-export"]')).toBeNull();
   });
 });
 
