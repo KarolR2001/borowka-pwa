@@ -99,6 +99,9 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Nie pokazuj stale komunikatow typu `Firebase gotowy`, wersji buildu ani stanu uslug technicznych.
 - Projektuj przede wszystkim dla telefonu: prosta hierarchia, malo krokow, duze cele dotykowe, brak poziomego przelewania calej strony.
 - Zachowuj wszystkie operacje biznesowe danej roli. Przy rozdzielaniu ekranow sprawdz, czy skroty akcji prowadza do nowej lokalizacji formularza.
+- Nawigacje najwyzszego poziomu, np. `Zbiory`, `Pulpit`, `Moje dane` i `Konto`, pokazuj w menu wysuwanym od gory po uzyciu przycisku z trzema paskami w prawym gornym rogu. Zakladki wewnatrz aktualnego obszaru roboczego moga pozostac jako zakladki.
+- W naglowku pokazuj jedynie nazwe uzytkownika i krotka nazwe aktualnego ekranu. Nie dodawaj duzych kart tytulowych ani recznych przyciskow odswiezania list; dane maja odswiezac sie automatycznie po operacji lub zmianie ekranu.
+- Ekrany `Do wyplaty` i `Historia wyplat` sa osobnymi zakladkami administratora. Nie umieszczaj historii pod lista sesji oczekujacych na wyplate.
 
 ## Zasady tresci i formularzy
 
@@ -109,6 +112,21 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Identyfikatory, kody i symbole techniczne generuj automatycznie. Nie wymagaj ich od uzytkownika, jezeli nie sa decyzja biznesowa; dotyczy to w szczegolnosci tworzenia planu rozliczen.
 - Wszystkie teksty widoczne dla uzytkownika zapisuj poprawna polszczyzna z polskimi znakami.
 - W interfejsie uzywaj slowa `data`, nigdy okreslenia `data biznesowa`.
+
+## Zbieracz a konto uzytkownika
+
+- Zgodnie z PRD zbieracz i konto sa oddzielnymi encjami. Zbieracz jest rekordem operacyjnym uzywanym w zbiorach, stawkach i wyplatach; moze pracowac bez konta aplikacji (`FR-WORKER-013`). Konto jest tozsamoscia Firebase i opcjonalnym dostepem tej osoby do jej danych.
+- Tworzenie zbieracza ma tworzyc rekord zbieracza i pierwsza stawke. Nie tworz automatycznie konta Auth, hasla ani zaproszenia.
+- Konto zbieracza zakladaj przez prerejestracje i powiazanie z istniejacym rekordem zbieracza. Administrator wybiera zbieracza po nazwie z listy aktywnych, niepowiazanych osob. `workerId` jest wartoscia techniczna przekazywana w tle i nie moze byc polem do recznego wpisania ani widoczna kolumna tabeli.
+- Nie pozwalaj powiazac jednego aktywnego zbieracza z wieloma aktywnymi kontami. Przy reaktywacji lub zmianie roli zachowuj aktualne powiazanie jako dostepna opcje i pokazuj nazwe osoby zamiast identyfikatora.
+
+## Zgoda i praca offline
+
+- Kazdy profil bez `offlineConsent` po zalogowaniu musi podjac jawna decyzje dotyczaca zapisu danych na urzadzeniu. Pokaz modal z wyborami `Tak, wlacz prace offline` i `Nie, tylko ta sesja`.
+- Odmowa obowiazuje tylko do konca biezacej sesji logowania. Przy kolejnym logowaniu ponownie popros o decyzje; nie wlaczaj trwalego cache bez zgody.
+- Po zgodzie zapisz preferencje profilu i urzadzenia, popros przegladarke o trwala pamiec, a po kolejnym uruchomieniu z cache `PERSISTENT` automatycznie przygotuj lokalna konfiguracje dla administratora lub operatora.
+- Nie uznawaj urzadzenia za gotowe offline tylko na podstawie flagi profilu. Wymagane sa rowniez: trwaly cache Firestore, gotowy service worker, lokalna konfiguracja i znacznik przygotowania urzadzenia.
+- Uzytkownik moze wylaczyc dalsze przechowywanie w widoku `Konto`. Dane oczekujace czysc tylko przez istniejacy, jawnie potwierdzony przeplyw bezpiecznego wylogowania.
 
 ## Firebase
 
@@ -178,8 +196,9 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `main` jako `b263986`; nie implementuj go ponownie.
 - Pakiet `10.2 - pelna macierz wymagan do testow` zostal scalony do `main` jako
   `88504b7`; nie implementuj go ponownie.
-- Biezacy przyrost: niezbedna korekta UX RC - pelnoekranowe logowanie,
-  role-specific home i izolacja widocznych modulow wedlug DEC-0024.
+- Biezacy przyrost: korekta UX RC - spojne plany rozliczen, jawna zgoda
+  offline, rozdzielone ekrany wyplat, kompaktowe naglowki, menu glowne oraz
+  wybieranie zbieracza po nazwie podczas zakladania i edycji konta.
 - `docs/testing/requirements-traceability.md` jest generowany; nie edytuj go
   recznie. Zmien przypisania w `scripts/requirement-traceability.mjs`, a potem
   uruchom `npm run requirements:write` i `npm run requirements:check`.

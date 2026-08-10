@@ -112,9 +112,6 @@ describe("OperatorHarvestSessionsPanel", () => {
         isOnline: true
       });
     });
-    expect(
-      screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
-    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Anna Test" })).toBeInTheDocument();
     expect(screen.getByText("Sezon testowy 2026 · 17.07.2026")).toBeInTheDocument();
     expect(screen.getAllByText("1 kilogram").length).toBeGreaterThan(0);

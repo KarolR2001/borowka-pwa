@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  Menu,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -17,6 +18,7 @@ import {
   UserCog,
   UserRound,
   Users,
+  X,
   type LucideIcon
 } from "lucide-react";
 import {
@@ -98,6 +100,10 @@ import {
   updateTrustedOfflineConsent,
   type TrustedOfflineConsentUpdateInput
 } from "../offline/trustedOfflineConsent";
+import {
+  OfflineStorageConsentPrompt,
+  OfflineStorageSettings
+} from "../offline/OfflineStorageConsent";
 import {
   createSynchronizationRequest,
   defaultSynchronizationApi,
@@ -278,6 +284,7 @@ type AdminWorkspaceView =
   | "HARVEST_CORRECTIONS"
   | "SALES"
   | "PAYMENTS"
+  | "PAYMENT_HISTORY"
   | "WORKERS"
   | "ACCESS"
   | "ISSUES"
@@ -290,7 +297,8 @@ const adminWorkspaceItems: readonly WorkspaceNavigationItem<AdminWorkspaceView>[
   { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard },
   { key: "HARVEST_CORRECTIONS", label: "Korekty", icon: ClipboardList },
   { key: "SALES", label: "Sprzedaż", icon: ShoppingBasket },
-  { key: "PAYMENTS", label: "Wypłaty", icon: Banknote },
+  { key: "PAYMENTS", label: "Do wypłaty", icon: Banknote },
+  { key: "PAYMENT_HISTORY", label: "Historia wypłat", icon: Banknote },
   { key: "WORKERS", label: "Zbieracze", icon: Users },
   { key: "ACCESS", label: "Konta", icon: UserCog },
   { key: "ISSUES", label: "Zgłoszenia", icon: Flag },
@@ -345,11 +353,20 @@ export function App({
     useState<AdminWorkspaceView>("DASHBOARD");
   const [operatorWorkspaceView, setOperatorWorkspaceView] =
     useState<OperatorWorkspaceView>("HARVESTS");
+  const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const [authState, setAuthState] = useState<AuthSessionState>(() =>
     authSessionApi.getInitialState(env)
   );
   const isOnline = useOnlineStatus();
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+  const [dismissedOfflineConsentUid, setDismissedOfflineConsentUid] = useState<
+    string | null
+  >(null);
+  const [offlineConsentError, setOfflineConsentError] = useState<string | null>(null);
+  const [offlineConsentFeedback, setOfflineConsentFeedback] = useState<string | null>(
+    null
+  );
+  const [isOfflineConsentSubmitting, setIsOfflineConsentSubmitting] = useState(false);
   const serviceWorkerStatus = useServiceWorkerStatus();
   const firebaseStatus = getFirebaseClientConfigStatus(env);
   const firebaseRuntimeStatus = getFirebaseRuntimeStatus(env);
@@ -375,6 +392,7 @@ export function App({
   const initialAuthReadyRef = useRef(authState.status === "READY");
   const firstReadySyncHandledRef = useRef(false);
   const lastReadySyncUidRef = useRef<string | null>(null);
+  const preparedOfflineConfigurationUidsRef = useRef(new Set<string>());
   const deviceIdentity = useMemo(() => readCurrentDeviceIdentity(), []);
   const deviceId = deviceIdentity.id;
   const currentProfileUid = "profile" in authState ? authState.profile.uid : null;
@@ -392,6 +410,39 @@ export function App({
   const resolvedActiveView = roleNavigationItems.some((item) => item.key === activeView)
     ? activeView
     : roleHomeView;
+  const currentScreenLabel =
+    resolvedActiveView === "account"
+      ? "Konto"
+      : resolvedActiveView === "admin"
+        ? (adminWorkspaceItems.find((item) => item.key === adminWorkspaceView)?.label ??
+          "Pulpit")
+        : resolvedActiveView === "operator"
+          ? (operatorWorkspaceItems.find((item) => item.key === operatorWorkspaceView)
+              ?.label ?? "Zbiory")
+          : "Moje dane";
+
+  useEffect(() => {
+    setDismissedOfflineConsentUid(null);
+    setOfflineConsentError(null);
+    setOfflineConsentFeedback(null);
+  }, [currentProfileUid]);
+
+  useEffect(() => {
+    if (!isMainMenuOpen) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMainMenuOpen(false);
+      }
+    };
+
+    globalThis.addEventListener("keydown", closeOnEscape);
+    return () => {
+      globalThis.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isMainMenuOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -774,6 +825,60 @@ export function App({
     isOnline
   ]);
 
+  useEffect(() => {
+    if (
+      authState.status !== "READY" ||
+      !authState.profile.offlineConsent ||
+      authState.profile.role === "PICKER" ||
+      !isOnline ||
+      !firebaseServicesStatus.initialized ||
+      firebaseServicesStatus.cacheMode !== "PERSISTENT" ||
+      !isServiceWorkerReady(serviceWorkerStatus) ||
+      preparedOfflineConfigurationUidsRef.current.has(authState.profile.uid)
+    ) {
+      return;
+    }
+
+    const profile = authState.profile;
+    const viewerRole = profile.role === "ADMIN" ? "ADMIN" : "OPERATOR";
+    preparedOfflineConfigurationUidsRef.current.add(profile.uid);
+
+    void offlineStorageHealthApi
+      .requestPersistentStorage()
+      .then(async (persistentStorageGranted) => {
+        if (!persistentStorageGranted) {
+          throw new Error("Przeglądarka nie przyznała trwałej pamięci.");
+        }
+
+        const result = await configurationCacheApi.prepare(env, {
+          actorProfile: profile,
+          viewerRole,
+          deviceId,
+          persistentDataCacheReady: true,
+          serviceWorkerReady: true
+        });
+
+        await offlineStorageHealthApi.markConfigurationPrepared({
+          deviceId,
+          preparedAtIso: result.snapshot.preparedAtIso,
+          userUid: profile.uid
+        });
+      })
+      .catch(() => {
+        preparedOfflineConfigurationUidsRef.current.delete(profile.uid);
+      });
+  }, [
+    authState,
+    configurationCacheApi,
+    deviceId,
+    env,
+    firebaseServicesStatus.cacheMode,
+    firebaseServicesStatus.initialized,
+    isOnline,
+    offlineStorageHealthApi,
+    serviceWorkerStatus
+  ]);
+
   const diagnostics = useMemo(
     () => ({
       deviceId,
@@ -853,6 +958,62 @@ export function App({
   }, [configurationCacheApi, deviceId, env, offlineStorageHealthApi, synchronizationApi]);
   const dashboardOwnerKey =
     authState.status === "READY" ? authState.profile.uid : authState.status;
+  const handleOfflineConsentUpdate = async (offlineConsent: boolean) => {
+    if (authState.status !== "READY") {
+      return;
+    }
+
+    setOfflineConsentError(null);
+    setOfflineConsentFeedback(null);
+
+    if (!isOnline) {
+      setOfflineConsentError(
+        "Zmiana przechowywania danych wymaga połączenia z internetem."
+      );
+      return;
+    }
+
+    setIsOfflineConsentSubmitting(true);
+
+    try {
+      await authSessionApi.updateOfflineConsent(env, {
+        uid: authState.profile.uid,
+        offlineConsent,
+        deviceId,
+        deviceName: deviceIdentity.name,
+        platform: deviceIdentity.platform
+      });
+      if (offlineConsent) {
+        await offlineStorageHealthApi.requestPersistentStorage();
+      }
+      setAuthState((current) =>
+        current.status === "READY"
+          ? {
+              ...current,
+              profile: {
+                ...current.profile,
+                offlineConsent
+              }
+            }
+          : current
+      );
+
+      if (offlineConsent) {
+        setOfflineConsentFeedback(
+          "Zapis danych na tym urządzeniu został włączony. Pełna praca offline będzie dostępna po następnym uruchomieniu aplikacji."
+        );
+      } else {
+        setDismissedOfflineConsentUid(authState.profile.uid);
+        setOfflineConsentFeedback(
+          "Przechowywanie wyłączono. Wyczyść urządzenie przy wylogowaniu, aby usunąć istniejące dane lokalne."
+        );
+      }
+    } catch {
+      setOfflineConsentError("Nie udało się zapisać zgody dla tego urządzenia.");
+    } finally {
+      setIsOfflineConsentSubmitting(false);
+    }
+  };
   const accountPanel = (
     <AuthPanel
       authSessionApi={authSessionApi}
@@ -898,15 +1059,104 @@ export function App({
           tone={isOnline ? "SUCCESS" : "WARNING"}
         />
       ) : null}
+      {offlineConsentFeedback ? (
+        <TransientToast
+          message={offlineConsentFeedback}
+          onDismiss={() => {
+            setOfflineConsentFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : null}
+      {!authState.profile.offlineConsent &&
+      dismissedOfflineConsentUid !== authState.profile.uid ? (
+        <OfflineStorageConsentPrompt
+          error={offlineConsentError}
+          isOnline={isOnline}
+          isSubmitting={isOfflineConsentSubmitting}
+          onAccept={() => {
+            void handleOfflineConsentUpdate(true);
+          }}
+          onDecline={() => {
+            setOfflineConsentError(null);
+            setDismissedOfflineConsentUid(authState.profile.uid);
+          }}
+        />
+      ) : null}
       <header className="topbar">
         <div>
-          <p className="eyebrow">Ewidencja zbiorów</p>
-          <h1>Borówka</h1>
+          <p className="topbar__user">{displaySessionName(authState)}</p>
+          <h1>{currentScreenLabel}</h1>
         </div>
-        <div className="topbar__context">
-          <strong>{displaySessionName(authState)}</strong>
-        </div>
+        <button
+          aria-expanded={isMainMenuOpen}
+          aria-label="Otwórz menu"
+          className="topbar__menu-button"
+          onClick={() => {
+            setIsMainMenuOpen(true);
+          }}
+          type="button"
+        >
+          <Menu aria-hidden="true" size={24} strokeWidth={2.2} />
+        </button>
       </header>
+
+      {isMainMenuOpen ? (
+        <div
+          className="app-menu-backdrop"
+          onClick={() => {
+            setIsMainMenuOpen(false);
+          }}
+          role="presentation"
+        >
+          <nav
+            aria-label="Menu główne"
+            className="app-menu"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div className="app-menu__header">
+              <div>
+                <p className="eyebrow">Borówka</p>
+                <strong>{displaySessionName(authState)}</strong>
+              </div>
+              <button
+                aria-label="Zamknij menu"
+                className="topbar__menu-button"
+                onClick={() => {
+                  setIsMainMenuOpen(false);
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" size={22} strokeWidth={2.2} />
+              </button>
+            </div>
+            <div className="app-menu__items">
+              {roleNavigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = item.key === resolvedActiveView;
+
+                return (
+                  <button
+                    aria-current={isActive ? "page" : undefined}
+                    className="app-menu__item"
+                    key={item.key}
+                    onClick={() => {
+                      setActiveView(item.key);
+                      setIsMainMenuOpen(false);
+                    }}
+                    type="button"
+                  >
+                    <Icon aria-hidden="true" size={20} strokeWidth={2.2} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+      ) : null}
 
       <PwaUpdateController
         currentUserUid={currentProfileUid}
@@ -917,33 +1167,19 @@ export function App({
         syncDocuments={syncDocuments}
       />
 
-      <nav className="nav-tabs" aria-label="Nawigacja główna">
-        {roleNavigationItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.key === resolvedActiveView;
-
-          return (
-            <button
-              className="nav-tabs__button"
-              aria-current={isActive ? "page" : undefined}
-              key={item.key}
-              onClick={() => {
-                setActiveView(item.key);
-              }}
-              type="button"
-              title={item.label}
-            >
-              <Icon aria-hidden="true" size={18} strokeWidth={2.2} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
       <main className="workspace">
         {resolvedActiveView === "account" ? (
           <>
             {accountPanel}
+            {authState.profile.offlineConsent ? (
+              <OfflineStorageSettings
+                isOnline={isOnline}
+                isSubmitting={isOfflineConsentSubmitting}
+                onDisable={() => {
+                  void handleOfflineConsentUpdate(false);
+                }}
+              />
+            ) : null}
             {authState.profile.role === "ADMIN" ? (
               <details className="technical-details">
                 <summary>Informacje techniczne</summary>
@@ -1035,23 +1271,22 @@ export function App({
                 ordinarySalesApi={ordinarySalesApi}
               />
             ) : adminWorkspaceView === "PAYMENTS" ? (
-              <>
-                <AdminPendingPaymentsPanel
-                  authState={authState}
-                  deviceId={deviceId}
-                  env={env}
-                  isOnline={isOnline}
-                  pendingPaymentsApi={pendingPaymentsApi}
-                  syncDocuments={syncDocuments}
-                />
-                <AdminPaymentDirectoryPanel
-                  adminPaymentDirectoryApi={adminPaymentDirectoryApi}
-                  authState={authState}
-                  deviceId={deviceId}
-                  env={env}
-                  isOnline={isOnline}
-                />
-              </>
+              <AdminPendingPaymentsPanel
+                authState={authState}
+                deviceId={deviceId}
+                env={env}
+                isOnline={isOnline}
+                pendingPaymentsApi={pendingPaymentsApi}
+                syncDocuments={syncDocuments}
+              />
+            ) : adminWorkspaceView === "PAYMENT_HISTORY" ? (
+              <AdminPaymentDirectoryPanel
+                adminPaymentDirectoryApi={adminPaymentDirectoryApi}
+                authState={authState}
+                deviceId={deviceId}
+                env={env}
+                isOnline={isOnline}
+              />
             ) : adminWorkspaceView === "WORKERS" ? (
               <WorkerDirectoryPanel
                 authState={authState}
@@ -1064,11 +1299,13 @@ export function App({
                   authState={authState}
                   env={env}
                   userDirectoryApi={userDirectoryApi}
+                  workerDirectoryApi={workerDirectoryApi}
                 />
                 <AdminRegistrationInvitationsPanel
                   authState={authState}
                   env={env}
                   registrationInvitationsApi={registrationInvitationsApi}
+                  workerDirectoryApi={workerDirectoryApi}
                 />
                 <AdminDeviceDirectoryPanel
                   authState={authState}

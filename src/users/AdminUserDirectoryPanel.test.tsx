@@ -3,6 +3,11 @@ import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
 import type { UserProfile } from "../domain/identity";
+import type { WorkerDirectoryApi } from "../workers/WorkerDirectoryPanel";
+import type {
+  WorkerDirectoryListItem,
+  WorkerDirectoryResult
+} from "../workers/workerDirectory";
 import {
   AdminUserDirectoryPanel,
   type UserDirectoryApi
@@ -65,6 +70,33 @@ const profile = ({
 });
 
 const env = {};
+
+const createWorkerDirectoryApi = (
+  workers: WorkerDirectoryListItem[] = []
+): WorkerDirectoryApi => ({
+  list: vi.fn<WorkerDirectoryApi["list"]>().mockResolvedValue({
+    workers,
+    plans: [],
+    profiles: [],
+    invalidWorkers: [],
+    invalidPlans: [],
+    invalidRateVersions: [],
+    invalidProfiles: [],
+    invalidAuditEvents: []
+  } satisfies WorkerDirectoryResult)
+});
+
+const worker = (
+  id: string,
+  displayName: string,
+  linkedUser: UserProfile | null = null
+): WorkerDirectoryListItem =>
+  ({
+    id,
+    displayName,
+    active: true,
+    linkedUser
+  }) as WorkerDirectoryListItem;
 
 describe("AdminUserDirectoryPanel", () => {
   it("requires a signed-in administrator", () => {
@@ -277,12 +309,18 @@ describe("AdminUserDirectoryPanel", () => {
         authState={adminState}
         env={env}
         userDirectoryApi={{ list, updateRoleAndWorker }}
+        workerDirectoryApi={createWorkerDirectoryApi([
+          worker("worker-operator", "Operator Zbieracz")
+        ])}
       />
     );
 
     await screen.findByText("Operator Test");
     await user.selectOptions(screen.getByLabelText("Nowa rola"), "PICKER");
-    await user.type(screen.getByLabelText("workerId"), "worker-operator");
+    await user.selectOptions(
+      screen.getByLabelText("Powiązany zbieracz"),
+      "worker-operator"
+    );
     await user.type(screen.getByLabelText("Powód zmiany roli"), "Przypisanie zbieracza");
     await user.click(screen.getByLabelText("Potwierdzam zmiane roli i powiazania"));
     await user.click(screen.getByRole("button", { name: "Zapisz zmiane" }));
@@ -355,6 +393,9 @@ describe("AdminUserDirectoryPanel", () => {
         authState={adminState}
         env={env}
         userDirectoryApi={{ list, updateActivation }}
+        workerDirectoryApi={createWorkerDirectoryApi([
+          worker("worker-reactivated", "Reaktywowany Zbieracz")
+        ])}
       />
     );
 
@@ -434,6 +475,9 @@ describe("AdminUserDirectoryPanel", () => {
         authState={adminState}
         env={env}
         userDirectoryApi={{ list, updateActivation }}
+        workerDirectoryApi={createWorkerDirectoryApi([
+          worker("worker-reactivated", "Reaktywowany Zbieracz")
+        ])}
       />
     );
 
@@ -443,8 +487,8 @@ describe("AdminUserDirectoryPanel", () => {
       expect(screen.getByLabelText("Rola po reaktywacji")).not.toBeDisabled();
     });
     await user.selectOptions(screen.getByLabelText("Rola po reaktywacji"), "PICKER");
-    await user.type(
-      screen.getByLabelText("workerId po reaktywacji"),
+    await user.selectOptions(
+      screen.getByLabelText("Zbieracz po reaktywacji"),
       "worker-reactivated"
     );
     await user.type(screen.getByLabelText("Powód zmiany statusu"), "Wyjasniono blokade");

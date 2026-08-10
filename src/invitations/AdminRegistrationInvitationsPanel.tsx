@@ -3,6 +3,12 @@ import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { InfoHint } from "../ui/InfoHint";
+import {
+  defaultWorkerDirectoryApi,
+  type WorkerDirectoryApi
+} from "../workers/WorkerDirectoryPanel";
+import type { WorkerDirectoryListItem } from "../workers/workerDirectory";
 import {
   INVITATION_STATUSES,
   USER_ROLES,
@@ -82,11 +88,13 @@ const initialInvitationFormState: InvitationFormState = {
 export function AdminRegistrationInvitationsPanel({
   authState,
   env,
-  registrationInvitationsApi = defaultRegistrationInvitationsApi
+  registrationInvitationsApi = defaultRegistrationInvitationsApi,
+  workerDirectoryApi = defaultWorkerDirectoryApi
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   registrationInvitationsApi?: RegistrationInvitationsApi;
+  workerDirectoryApi?: WorkerDirectoryApi;
 }) {
   const [filters, setFilters] = useState<RegistrationInvitationFilters>(
     defaultRegistrationInvitationFilters
@@ -101,6 +109,9 @@ export function AdminRegistrationInvitationsPanel({
   const [isMutating, setIsMutating] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [workers, setWorkers] = useState<WorkerDirectoryListItem[]>([]);
+  const [workersLoading, setWorkersLoading] = useState(false);
+  const [workersError, setWorkersError] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -143,6 +154,41 @@ export function AdminRegistrationInvitationsPanel({
     };
   }, [env, isAdmin, registrationInvitationsApi, reloadToken]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!isAdmin) {
+      setWorkers([]);
+      return undefined;
+    }
+
+    setWorkersLoading(true);
+    setWorkersError(false);
+
+    void workerDirectoryApi
+      .list(env, { viewerRole: "ADMIN" })
+      .then((result) => {
+        if (isMounted) {
+          setWorkers(result.workers);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setWorkers([]);
+          setWorkersError(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setWorkersLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [env, isAdmin, reloadToken, workerDirectoryApi]);
+
   const filteredInvitations = useMemo(
     () =>
       invitationsState.result
@@ -154,6 +200,21 @@ export function AdminRegistrationInvitationsPanel({
     invitationsState.result?.invitations.filter(
       (invitation) => invitation.status === "PENDING"
     ).length ?? 0;
+  const unavailableWorkerIds = new Set(
+    invitationsState.result?.invitations
+      .filter((invitation) => invitation.status === "PENDING" && invitation.workerId)
+      .flatMap((invitation) =>
+        invitation.workerId === null ? [] : [invitation.workerId]
+      ) ?? []
+  );
+  const availableWorkers = workers
+    .filter(
+      (worker) =>
+        worker.active &&
+        worker.linkedUser === null &&
+        !unavailableWorkerIds.has(worker.id)
+    )
+    .sort((left, right) => left.displayName.localeCompare(right.displayName, "pl"));
 
   if (authState.status !== "READY") {
     return (
@@ -319,8 +380,12 @@ export function AdminRegistrationInvitationsPanel({
         </label>
 
         <label className="field">
-          <span>workerId</span>
-          <input
+          <span className="field__label">
+            Zbieracz
+            <InfoHint text="Wybierz osobę utworzoną wcześniej w zakładce Zbieracze. Konto zostanie automatycznie powiązane z jej zbiorami i rozliczeniami." />
+          </span>
+          <select
+            aria-label="Zbieracz dla konta"
             disabled={formState.targetRole !== "PICKER" || isMutating}
             onChange={(event) => {
               setFormState((current) => ({
@@ -328,9 +393,23 @@ export function AdminRegistrationInvitationsPanel({
                 workerId: event.target.value
               }));
             }}
-            type="text"
             value={formState.workerId}
-          />
+          >
+            <option value="">
+              {workersLoading
+                ? "Pobieranie zbieraczy..."
+                : workersError
+                  ? "Nie udało się pobrać zbieraczy"
+                  : availableWorkers.length === 0
+                    ? "Brak dostępnych zbieraczy"
+                    : "Wybierz zbieracza"}
+            </option>
+            {availableWorkers.map((worker) => (
+              <option key={worker.id} value={worker.id}>
+                {worker.displayName}
+              </option>
+            ))}
+          </select>
         </label>
 
         <button
@@ -382,7 +461,7 @@ export function AdminRegistrationInvitationsPanel({
                 <th scope="col">E-mail</th>
                 <th scope="col">Rola</th>
                 <th scope="col">Status</th>
-                <th scope="col">workerId</th>
+                <th scope="col">Zbieracz</th>
                 <th scope="col">Akcja</th>
               </tr>
             </thead>
@@ -393,7 +472,12 @@ export function AdminRegistrationInvitationsPanel({
                   <td>{invitation.emailNormalized}</td>
                   <td>{userRoleLabel(invitation.targetRole)}</td>
                   <td>{invitationStatusLabel(invitation.status)}</td>
-                  <td>{invitation.workerId ?? "brak"}</td>
+                  <td>
+                    {invitation.workerId
+                      ? (workers.find((worker) => worker.id === invitation.workerId)
+                          ?.displayName ?? "Powiązany zbieracz")
+                      : "Nie dotyczy"}
+                  </td>
                   <td>
                     {canCancelRegistrationInvitation(invitation) ? (
                       <button
@@ -551,7 +635,7 @@ function validateInvitationForm(formState: InvitationFormState): string | null {
   }
 
   if (formState.targetRole === "PICKER" && !formState.workerId.trim()) {
-    return "Zaproszenie dla zbieracza wymaga workerId.";
+    return "Wybierz zbieracza, którego dane ma widzieć właściciel konta.";
   }
 
   return null;

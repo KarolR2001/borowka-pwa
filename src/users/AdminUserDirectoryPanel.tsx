@@ -12,6 +12,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { InfoHint } from "../ui/InfoHint";
+import {
+  defaultWorkerDirectoryApi,
+  type WorkerDirectoryApi
+} from "../workers/WorkerDirectoryPanel";
+import type { WorkerDirectoryListItem } from "../workers/workerDirectory";
 import {
   REGISTRATION_STATUSES,
   USER_ROLES,
@@ -118,11 +124,13 @@ const initialAccountStatusDraft: AccountStatusDraft = {
 export function AdminUserDirectoryPanel({
   authState,
   env,
-  userDirectoryApi = defaultUserDirectoryApi
+  userDirectoryApi = defaultUserDirectoryApi,
+  workerDirectoryApi = defaultWorkerDirectoryApi
 }: {
   authState: AuthSessionState;
   env: FirebaseEnv;
   userDirectoryApi?: UserDirectoryApi;
+  workerDirectoryApi?: WorkerDirectoryApi;
 }) {
   const [filters, setFilters] = useState<UserDirectoryFilters>(
     defaultUserDirectoryFilters
@@ -140,6 +148,9 @@ export function AdminUserDirectoryPanel({
   const [accountStatusFeedback, setAccountStatusFeedback] = useState<string | null>(null);
   const [accountStatusError, setAccountStatusError] = useState<string | null>(null);
   const [isAccountStatusSubmitting, setIsAccountStatusSubmitting] = useState(false);
+  const [workers, setWorkers] = useState<WorkerDirectoryListItem[]>([]);
+  const [workersLoading, setWorkersLoading] = useState(false);
+  const [workersError, setWorkersError] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
   const currentUserUid = authState.status === "READY" ? authState.user.uid : null;
 
@@ -182,6 +193,41 @@ export function AdminUserDirectoryPanel({
       isMounted = false;
     };
   }, [env, isAdmin, userDirectoryApi]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!isAdmin) {
+      setWorkers([]);
+      return undefined;
+    }
+
+    setWorkersLoading(true);
+    setWorkersError(false);
+
+    void workerDirectoryApi
+      .list(env, { viewerRole: "ADMIN" })
+      .then((result) => {
+        if (isMounted) {
+          setWorkers(result.workers);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setWorkers([]);
+          setWorkersError(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setWorkersLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [env, isAdmin, workerDirectoryApi]);
 
   const filteredProfiles = useMemo(
     () =>
@@ -530,6 +576,9 @@ export function AdminUserDirectoryPanel({
               void handleRoleChangeSubmit();
             }}
             profiles={editableRoleChangeProfiles}
+            workers={workers}
+            workersError={workersError}
+            workersLoading={workersLoading}
           />
           <AccountStatusForm
             draft={accountStatusDraft}
@@ -541,6 +590,9 @@ export function AdminUserDirectoryPanel({
               void handleAccountStatusSubmit();
             }}
             profiles={editableAccountStatusProfiles}
+            workers={workers}
+            workersError={workersError}
+            workersLoading={workersLoading}
           />
         </>
       ) : null}
@@ -579,7 +631,7 @@ export function AdminUserDirectoryPanel({
                 <th scope="col">Rola</th>
                 <th scope="col">Status</th>
                 <th scope="col">Aktywne</th>
-                <th scope="col">workerId</th>
+                <th scope="col">Powiązany zbieracz</th>
               </tr>
             </thead>
             <tbody>
@@ -590,7 +642,7 @@ export function AdminUserDirectoryPanel({
                   <td>{userRoleLabel(profile.role)}</td>
                   <td>{registrationStatusLabel(profile.registrationStatus)}</td>
                   <td>{profile.active ? "Tak" : "Nie"}</td>
-                  <td>{profile.workerId ?? "brak"}</td>
+                  <td>{workerNameForProfile(workers, profile)}</td>
                 </tr>
               ))}
             </tbody>
@@ -623,6 +675,61 @@ function getDefaultActivationAction(profile: UserProfile): UserActivationAction 
   return profile.active && profile.registrationStatus === "APPROVED"
     ? "BLOCK"
     : "REACTIVATE";
+}
+
+function workerNameForProfile(
+  workers: WorkerDirectoryListItem[],
+  profile: UserProfile
+): string {
+  if (!profile.workerId) {
+    return "Nie powiązano";
+  }
+
+  return (
+    workers.find((worker) => worker.id === profile.workerId)?.displayName ??
+    "Powiązany zbieracz"
+  );
+}
+
+function WorkerOptions({
+  currentWorkerId,
+  targetUid,
+  workers,
+  workersError,
+  workersLoading
+}: {
+  currentWorkerId: string;
+  targetUid: string;
+  workers: WorkerDirectoryListItem[];
+  workersError: boolean;
+  workersLoading: boolean;
+}) {
+  const selectableWorkers = workers
+    .filter(
+      (worker) =>
+        (worker.active && worker.linkedUser === null) ||
+        worker.id === currentWorkerId ||
+        worker.linkedUser?.uid === targetUid
+    )
+    .sort((left, right) => left.displayName.localeCompare(right.displayName, "pl"));
+
+  return (
+    <>
+      <option value="">
+        {workersLoading
+          ? "Pobieranie zbieraczy..."
+          : workersError
+            ? "Nie udało się pobrać zbieraczy"
+            : "Nie powiązano"}
+      </option>
+      {selectableWorkers.map((worker) => (
+        <option key={worker.id} value={worker.id}>
+          {worker.displayName}
+          {worker.active ? "" : " (archiwalny)"}
+        </option>
+      ))}
+    </>
+  );
 }
 
 function DirectoryFilters({
@@ -730,7 +837,10 @@ function RoleChangeForm({
   isSubmitting,
   onChange,
   onSubmit,
-  profiles
+  profiles,
+  workers,
+  workersError,
+  workersLoading
 }: {
   draft: RoleChangeDraft;
   error: string | null;
@@ -739,6 +849,9 @@ function RoleChangeForm({
   onChange: (draft: RoleChangeDraft) => void;
   onSubmit: () => void;
   profiles: UserProfile[];
+  workers: WorkerDirectoryListItem[];
+  workersError: boolean;
+  workersLoading: boolean;
 }) {
   return (
     <form
@@ -804,8 +917,12 @@ function RoleChangeForm({
       </label>
 
       <label className="field">
-        <span>workerId</span>
-        <input
+        <span className="field__label">
+          Powiązany zbieracz
+          <InfoHint text="Wybierz zbieracza, którego zbiory i rozliczenia ma widzieć to konto. Dla roli Zbieracz wybór jest wymagany." />
+        </span>
+        <select
+          aria-label="Powiązany zbieracz"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -814,9 +931,16 @@ function RoleChangeForm({
               confirmed: false
             });
           }}
-          type="text"
           value={draft.targetWorkerId}
-        />
+        >
+          <WorkerOptions
+            currentWorkerId={draft.targetWorkerId}
+            targetUid={draft.targetUid}
+            workers={workers}
+            workersError={workersError}
+            workersLoading={workersLoading}
+          />
+        </select>
       </label>
 
       <label className="field">
@@ -872,7 +996,10 @@ function AccountStatusForm({
   isSubmitting,
   onChange,
   onSubmit,
-  profiles
+  profiles,
+  workers,
+  workersError,
+  workersLoading
 }: {
   draft: AccountStatusDraft;
   error: string | null;
@@ -881,6 +1008,9 @@ function AccountStatusForm({
   onChange: (draft: AccountStatusDraft) => void;
   onSubmit: () => void;
   profiles: UserProfile[];
+  workers: WorkerDirectoryListItem[];
+  workersError: boolean;
+  workersLoading: boolean;
 }) {
   const isReactivation = draft.action === "REACTIVATE";
   const SubmitIcon = isReactivation ? UserCheck : UserX;
@@ -976,8 +1106,12 @@ function AccountStatusForm({
       </label>
 
       <label className="field">
-        <span>workerId po reaktywacji</span>
-        <input
+        <span className="field__label">
+          Zbieracz po reaktywacji
+          <InfoHint text="Wybierz zbieracza, którego dane będzie widzieć reaktywowane konto. Wymagane dla roli Zbieracz." />
+        </span>
+        <select
+          aria-label="Zbieracz po reaktywacji"
           disabled={isSubmitting || !isReactivation}
           onChange={(event) => {
             onChange({
@@ -986,9 +1120,16 @@ function AccountStatusForm({
               confirmed: false
             });
           }}
-          type="text"
           value={draft.targetWorkerId}
-        />
+        >
+          <WorkerOptions
+            currentWorkerId={draft.targetWorkerId}
+            targetUid={draft.targetUid}
+            workers={workers}
+            workersError={workersError}
+            workersLoading={workersLoading}
+          />
+        </select>
       </label>
 
       <label className="field">
