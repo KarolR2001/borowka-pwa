@@ -28,6 +28,8 @@
     "typecheck": "tsc --noEmit",
     "firebase": "node scripts/firebase-cli.mjs",
     "export:verify-portability": "node scripts/verify-full-cloud-export.mjs",
+    "requirements:check": "node scripts/requirement-traceability.mjs",
+    "requirements:write": "node scripts/requirement-traceability.mjs --write",
     "migration:secure-source": "node scripts/secure-migration-source.mjs",
     "migration:verify-source": "node scripts/verify-migration-source.mjs",
     "emulators:start": "node scripts/firebase-cli.mjs emulators:start --project demo-borowka-pwa-dev --only auth,firestore,hosting",
