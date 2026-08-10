@@ -210,7 +210,7 @@ export function AdminPaymentDirectoryPanel({
   }
 
   return (
-    <section className="payment-directory" aria-labelledby="payment-directory-title">
+    <section className="payment-directory" aria-label="Historia wypłat">
       <header className="directory-header">
         <div className="payment-directory__header-actions">
           <button
