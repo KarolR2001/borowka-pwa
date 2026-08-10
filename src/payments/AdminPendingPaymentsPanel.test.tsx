@@ -112,7 +112,6 @@ describe("AdminPendingPaymentsPanel", () => {
     );
   });
 
-
   it("refreshes the list and warns after another administrator paid first", async () => {
     const user = userEvent.setup();
     const api: PendingPaymentsApi = {
