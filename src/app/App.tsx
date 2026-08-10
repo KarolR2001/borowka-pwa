@@ -1941,15 +1941,6 @@ function authPrimaryActionLabel(mode: "login" | "reset" | "register"): string {
   }
 }
 
-function AuthSummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="auth-summary__row">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
 function createSkippedSynchronizationResult(
   trigger: SynchronizationTrigger,
   message: string,
@@ -1996,108 +1987,10 @@ function hasAuthenticatedUser(
   return "user" in state;
 }
 
-function authStatusLabel(state: AuthSessionState): string {
-  switch (state.status) {
-    case "READY":
-      return `Konto: ${roleLabel(state.profile.role)}`;
-    case "SIGNED_OUT":
-      return "Konto: niezalogowany";
-    case "LOADING":
-      return "Konto: sprawdzanie";
-    case "PROFILE_LOADING":
-      return "Konto: profil";
-    case "CONFIGURATION_REQUIRED":
-      return "Konto: brak konfiguracji";
-    case "ERROR":
-      return "Konto: blad sesji";
-    case "MISSING_PROFILE":
-      return "Konto: brak profilu";
-    case "BLOCKED":
-      return "Konto: zablokowane";
-    case "PENDING_APPROVAL":
-      return "Konto: niezatwierdzone";
-    case "INVALID_PICKER_PROFILE":
-      return "Konto: blad pickera";
-    case "INVALID_PROFILE":
-      return "Konto: profil bledny";
-    case "PROFILE_UNAVAILABLE":
-      return "Konto: profil niedostepny";
-  }
-}
-
-function authStatusTone(state: AuthSessionState): "ok" | "warn" | "neutral" {
-  if (state.status === "READY") {
-    return "ok";
-  }
-
-  if (state.status === "SIGNED_OUT" || state.status === "LOADING") {
-    return "neutral";
-  }
-
-  return "warn";
-}
-
-function profileStateTitle(state: AuthSessionState & { user: AuthenticatedUser }) {
-  switch (state.status) {
-    case "READY":
-      return "Profil aktywny";
-    case "PROFILE_LOADING":
-      return "Pobieranie profilu";
-    case "MISSING_PROFILE":
-      return "Brak profilu";
-    case "BLOCKED":
-      return "Konto zablokowane";
-    case "PENDING_APPROVAL":
-      return "Konto niezatwierdzone";
-    case "INVALID_PICKER_PROFILE":
-      return "Profil pickera";
-    case "INVALID_PROFILE":
-      return "Profil bledny";
-    case "PROFILE_UNAVAILABLE":
-      return "Profil niedostepny";
-  }
-}
-
 function displaySessionName(state: AuthSessionState & { user: AuthenticatedUser }) {
   if ("profile" in state) {
     return state.profile.displayName;
   }
 
   return state.user.displayName ?? state.user.email ?? state.user.uid;
-}
-
-function accountStatusLabel(profile: UserProfile): string {
-  if (!profile.active || profile.registrationStatus === "BLOCKED") {
-    return "zablokowane";
-  }
-
-  return registrationStatusLabel(profile.registrationStatus);
-}
-
-function registrationStatusLabel(status: UserProfile["registrationStatus"]): string {
-  switch (status) {
-    case "APPROVED":
-      return "zatwierdzone";
-    case "REJECTED":
-      return "odrzucone";
-    case "BLOCKED":
-      return "zablokowane";
-  }
-}
-
-function offlineConsentLabel(offlineConsent: boolean): string {
-  return offlineConsent ? "zgoda aktywna" : "brak zgody";
-}
-
-function roleLabel(role: string): string {
-  switch (role) {
-    case "ADMIN":
-      return "Administrator";
-    case "OPERATOR":
-      return "Operator";
-    case "PICKER":
-      return "Zbieracz";
-    default:
-      return role;
-  }
 }

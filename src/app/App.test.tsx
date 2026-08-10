@@ -610,7 +610,6 @@ describe("App shell", () => {
   });
 
   it("opens the private picker dashboard from the application shell", async () => {
-    const user = userEvent.setup();
     const load = vi.fn<PickerDashboardApi["load"]>().mockResolvedValue({
       accruedAmountGrosz: 5000,
       dataSource: "SERVER",
