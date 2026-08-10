@@ -179,3 +179,11 @@
 - Decyzja: zakres funkcjonalny opisany w `docs/release/release-candidate-scope.md` otrzymuje wersje `1.0.0-rc.1` i zostaje zamrozony. Nowe moduly wymagaja jawnego odmrozenia przez wlasciciela produktu.
 - Uzasadnienie: po zakonczeniu funkcji MVP praca przechodzi z rozbudowy do pelnej walidacji, pilotazu i przygotowania kontrolowanego wdrozenia.
 - Skutki: dozwolone sa poprawki bledow, bezpieczenstwa, dostepnosci, niezbednego UX, testow, dokumentacji i wdrozenia. Numer RC nie zamyka bramek telefonu, realistycznego DEV, UAT ani PROD.
+
+## DEC-0023 - Statusy macierzy wymagan RC
+
+- Status: zaakceptowana technicznie do walidacji etapu 10
+- Data: 2026-08-10
+- Decyzja: kazdy z 392 unikalnych identyfikatorow wymagan, regul i kryteriow PRD musi wystapic dokladnie raz w generowanej macierzy. Statusy rozrozniaja dowod automatyczny, pokrycie czesciowe, oczekujacy test manualny, odroczenie urzadzeniowe, jawne wykluczenie zakresu i brak pokrycia.
+- Uzasadnienie: samo wskazanie pliku testowego nie moze oznaczac zaliczenia bramki manualnej ani urzadzeniowej. Wersjonowany generator pozwala wykryc pominiecie, duplikat, nieistniejacy dowod i nieaktualny raport.
+- Skutki: `GAP`, niezaakceptowany test manualny oraz niezamkniete wymaganie krytyczne blokuja decyzje o gotowosci RC. `BR-CALC-020` ma status `EXCLUDED_SCOPE` na podstawie DEC-0021; scenariusze `OFF-T01`-`OFF-T06` pozostaja `DEFERRED_DEVICE` do czasu dostepnosci telefonu.
