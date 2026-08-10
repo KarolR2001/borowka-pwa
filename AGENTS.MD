@@ -154,7 +154,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `6f7a7e2`; nie implementuj go ponownie.
 - Pakiet `9.19 - testy uprawnien eksportu` zostal scalony do `main` jako
   `1c7b3b5`; nie implementuj go ponownie.
-- Biezacy pakiet: `10.1 - zamrozenie zakresu release candidate`.
+- Pakiet `10.1 - zamrozenie zakresu release candidate` zostal scalony do
+  `main` jako `b263986`; nie implementuj go ponownie.
+- Biezacy pakiet: `10.2 - pelna macierz wymagan do testow`.
+- `docs/testing/requirements-traceability.md` jest generowany; nie edytuj go
+  recznie. Zmien przypisania w `scripts/requirement-traceability.mjs`, a potem
+  uruchom `npm run requirements:write` i `npm run requirements:check`.
 - Po zamrozeniu RC nowe funkcje wymagaja jawnej decyzji produktowej; dozwolone
   sa poprawki bledow, bezpieczenstwa, dostepnosci, niezbednego UX, testow,
   dokumentacji i wdrozenia.

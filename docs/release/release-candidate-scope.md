@@ -64,7 +64,8 @@ Nie moze zostac dolaczona pod nazwa poprawki technicznej.
 | Android PWA i tryb offline na fizycznym urzadzeniu | `DEFERRED` | Test na dostepnym telefonie                              |
 | iOS Safari/PWA i tryb offline                      | `DEFERRED` | Test na dostepnym iPhonie                                |
 | Uzytkownicy i urzadzenia pilotazowe                | `PENDING`  | Jawna lista wlascicieli i rol                            |
-| Pelna macierz wymagan, UAT i pilotaz               | `PENDING`  | Raporty etapow 10.x                                      |
+| Macierz 392 wymagan PRD                            | `PARTIAL`  | Zamkniecie statusow innych niz automatyczne/wykluczone   |
+| UAT i pilotaz                                      | `PENDING`  | Raporty i decyzje pakietow 10.13-10.20                   |
 | Konfiguracja, checklista i decyzja PROD            | `PENDING`  | Etapy 11-12 i jawne Go                                   |
 
 Brak telefonu pozwala kontynuowac implementacje i automatyczne testy, ale nie
