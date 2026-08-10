@@ -1,6 +1,6 @@
 {
   "name": "borowka-pwa",
-  "version": "0.1.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "description": "Borowka PWA - system ewidencji zbiorow, sprzedazy i rozliczen zbieraczy.",
   "type": "module",

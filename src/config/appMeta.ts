@@ -1,3 +1,5 @@
+import packageJson from "../../package.json";
+
 const viteEnv = import.meta.env as unknown as Record<string, unknown>;
 
 function readStringEnv(value: unknown, fallback: string): string {
@@ -6,10 +8,10 @@ function readStringEnv(value: unknown, fallback: string): string {
 
 export const APP_META = {
   name: "Borowka PWA",
-  version: "0.1.0",
+  version: packageJson.version,
   buildId: readStringEnv(viteEnv.VITE_BUILD_ID, "local"),
   schemaVersion: "schema-0001",
   calculationVersion: "calc-0001",
-  buildDate: "2026-07-15",
+  buildDate: "2026-08-10",
   environment: readStringEnv(viteEnv.VITE_APP_ENV, "local")
 } as const;
