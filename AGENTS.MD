@@ -142,10 +142,15 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `9d872a4`; nie implementuj go ponownie.
 - Pakiet `9.4 - rozdzielenie eksportow` zostal scalony do `main` jako `56b2eb7`;
   nie implementuj go ponownie.
-- Pakiet `9.5 - zabezpieczenie zrodel migracji` jest biezacym zakresem. Piec
-  HTML ma prywatne, zweryfikowane kopie, ale status jednej wersji HTML i
-  dostepnosc XLSX sa `PENDING`; nie rozpoczynaj analizy 9.6 przy
-  `analysisAllowed = false`.
+- Pakiet `9.5 - zabezpieczenie zrodel migracji` zostal scalony do `main` jako
+  `fa43f0d`; nie implementuj go ponownie.
+- Decyzja wlasciciela produktu z 2026-08-10: aplikacja rozpoczyna prace od
+  nowego sezonu. Nie analizuj ani nie importuj danych z poprzednich sezonow.
+  Pakiety `9.6-9.17` oraz produkcyjne `12.10-12.11` sa `POMINIETE` i nie sa
+  bramkami wdrozenia.
+- Techniczne migracje schematu, eksport przenosny i przyszle przeniesienie
+  danych wytworzonych w Borowka PWA pozostaja w zakresie.
+- Biezacy pakiet: `9.18 - test przenosnosci eksportu`.
 - Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
   `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
   `PASS`.

@@ -108,3 +108,40 @@ i nie moze byc przechowywany ani opisywany jako jego zamiennik.
 
 Pelne porownanie obu mechanizmow znajduje sie w
 `docs/domain/export-mechanism-boundaries.md`.
+
+## Niezalezna walidacja przenosnosci
+
+Pakiet 9.18 dostarcza walidator Node, ktory dziala bez uruchamiania aplikacji i
+bez polaczenia z Firebase. Po pobraniu eksportu administrator zapisuje ten sam
+plik w dwoch niezaleznych, zabezpieczonych lokalizacjach, a nastepnie uruchamia:
+
+```bash
+npm run export:verify-portability -- \
+  --archive /bezpieczna-lokalizacja-a/borowka-full-cloud-export-....zip \
+  --archive /bezpieczna-lokalizacja-b/borowka-full-cloud-export-....zip
+```
+
+Rozne sciezki sa warunkiem technicznym. Operator nadal odpowiada za to, aby byly
+to rzeczywiscie niezalezne nosniki albo systemy skladowania, a nie dwa katalogi
+na tym samym dysku.
+
+Walidator:
+
+- potwierdza identyczny SHA-256 obu kopii;
+- otwiera ZIP i odrzuca niebezpieczne albo nadmiarowe sciezki;
+- sprawdza nazwe i wersje formatu, srodowisko, autora i czas eksportu;
+- porownuje rozmiar i SHA-256 kazdego pliku z manifestem;
+- wymaga dokladnie 15 kanonicznych kolekcji oraz `errors.json`;
+- odtwarza dokumenty w pamieci, sprawdza unikalnosc ID i liczby dokumentow;
+- niezaleznie przelicza podsumowanie oraz sumy kontrolne sezonow;
+- zwraca raport JSON z `valid: true` tylko po przejsciu wszystkich kontroli.
+
+Raport jawnie wskazuje, ze konta Firebase Authentication nie sa czescia
+Firestore i nie znajduja sie w archiwum. Odtworzenie kont wymaga osobnej
+procedury administracyjnej; hasel nie da sie odtworzyc z tego eksportu.
+
+Walidator jest kontrolnym narzedziem interpretacji i integralnosci. Nie zapisuje
+danych do projektu Firebase i nie stanowi automatycznego przywracania produkcji.
+Przed PROD trzeba dodatkowo wykonac te procedure na rzeczywistym eksporcie DEV
+o realistycznej objetosci i umiescic kopie w dwoch faktycznie niezaleznych
+lokalizacjach. Test syntetyczny w CI nie potwierdza niezaleznosci nosnikow.
