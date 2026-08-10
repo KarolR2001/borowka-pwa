@@ -140,8 +140,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `6a0a2e7`; nie implementuj go ponownie.
 - Pakiet `9.3 - pelny eksport przenosny` zostal scalony do `main` jako
   `9d872a4`; nie implementuj go ponownie.
-- Pakiet `9.4 - rozdzielenie eksportow` jest biezacym zakresem. Po jego zielonym
-  CI i scaleniu kontynuuj od pakietu `9.5`.
+- Pakiet `9.4 - rozdzielenie eksportow` zostal scalony do `main` jako `56b2eb7`;
+  nie implementuj go ponownie.
+- Pakiet `9.5 - zabezpieczenie zrodel migracji` jest biezacym zakresem. Piec
+  HTML ma prywatne, zweryfikowane kopie, ale status jednej wersji HTML i
+  dostepnosc XLSX sa `PENDING`; nie rozpoczynaj analizy 9.6 przy
+  `analysisAllowed = false`.
 - Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
   `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
   `PASS`.

@@ -27,6 +27,8 @@
     "test:watch": "node scripts/ensure-temp-dir.mjs && cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest src",
     "typecheck": "tsc --noEmit",
     "firebase": "node scripts/firebase-cli.mjs",
+    "migration:secure-source": "node scripts/secure-migration-source.mjs",
+    "migration:verify-source": "node scripts/verify-migration-source.mjs",
     "emulators:start": "node scripts/firebase-cli.mjs emulators:start --project demo-borowka-pwa-dev --only auth,firestore,hosting",
     "lint": "eslint .",
     "format": "prettier . --write",

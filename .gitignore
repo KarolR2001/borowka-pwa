@@ -32,6 +32,11 @@ notes/
 *.local.md
 *.notes.md
 
+# private migration inputs and generated custody records
+.migration-private/
+migration-private/
+migration-sources/
+
 # OS/editor
 .DS_Store
 Thumbs.db
