@@ -83,7 +83,8 @@ export function AdminFullCloudExportPanel({
       </header>
 
       <p className="form-message form-message--warning">
-        Archiwum zawiera dane osobowe. Przechowuj je w zabezpieczonej lokalizacji.
+        Archiwum zawiera dane osobowe i finansowe. Przechowuj je w zabezpieczonej
+        lokalizacji.
       </p>
 
       <div className="form-actions">
@@ -135,7 +136,7 @@ export function AdminFullCloudExportPanel({
   );
 }
 
-function downloadFullCloudExport(archive: FullCloudExportArchive): void {
+export function downloadFullCloudExport(archive: FullCloudExportArchive): void {
   const bytes = new Uint8Array(archive.bytes.byteLength);
   bytes.set(archive.bytes);
   const url = URL.createObjectURL(new Blob([bytes.buffer], { type: "application/zip" }));

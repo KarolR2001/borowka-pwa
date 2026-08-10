@@ -223,6 +223,10 @@ export function PickerDataExportPanel({
       ) : null}
       {state.result?.enabled ? (
         <>
+          <p className="form-message form-message--warning">
+            Plik zawiera Twoje dane osobowe i finansowe. Przechowuj go w zabezpieczonej
+            lokalizacji.
+          </p>
           <div className="picker-data-export__filters" aria-label="Zakres eksportu">
             <ExportSeasonFilter
               filters={filters}

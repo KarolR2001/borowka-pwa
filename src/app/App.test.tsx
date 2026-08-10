@@ -685,6 +685,7 @@ describe("App shell", () => {
 
     expect(await screen.findByText("12,500 kg")).toBeInTheDocument();
     expect(screen.getByText("Picker Test / Anna Zbieracz")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
     expect(load).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -1131,6 +1132,9 @@ describe("App shell", () => {
     expect(
       screen.getByRole("heading", { name: "Eksport danych pickera" })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Pelny eksport chmury" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })
@@ -1269,5 +1273,6 @@ describe("App shell", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Pulpit operatora" })).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
   });
 });
