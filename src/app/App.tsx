@@ -1,15 +1,23 @@
 import {
   AlertTriangle,
-  CheckCircle2,
+  Banknote,
+  ClipboardList,
   CloudOff,
+  Database,
   Eye,
   EyeOff,
+  Flag,
+  LayoutDashboard,
   LogIn,
   LogOut,
   RefreshCw,
   RotateCcw,
+  Settings2,
+  ShoppingBasket,
   Trash2,
+  UserCog,
   UserRound,
+  Users,
   Wifi,
   type LucideIcon
 } from "lucide-react";
@@ -63,7 +71,6 @@ import {
   defaultDeviceDirectoryApi,
   type DeviceDirectoryApi
 } from "../devices/AdminDeviceDirectoryPanel";
-import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import {
   AdminSeasonsPanel,
@@ -193,7 +200,11 @@ import {
   defaultFullCloudExportApi,
   type FullCloudExportApi
 } from "../reports/AdminFullCloudExportPanel";
-import { navigationItems, type NavigationKey } from "./navigation";
+import {
+  homeNavigationForRole,
+  navigationItemsForRole,
+  type NavigationKey
+} from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
 import {
   isServiceWorkerReady,
@@ -255,12 +266,6 @@ export type AppProps = {
   synchronizationApi?: SynchronizationApi;
 };
 
-type PanelState = {
-  title: string;
-  status: string;
-  detail: string;
-};
-
 const defaultAuthSessionApi: AuthSessionApi = {
   getInitialState: getInitialAuthSessionState,
   subscribe: subscribeToAuthSession,
@@ -276,42 +281,41 @@ const defaultDeviceRegistryApi: DeviceRegistryApi = {
   register: registerCurrentDevice
 };
 
-const panelByNavigation: Record<NavigationKey, PanelState> = {
-  start: {
-    title: "Start",
-    status: "Szkielet aplikacji",
-    detail: "Gotowy ekran bazowy bez danych biznesowych."
-  },
-  login: {
-    title: "Logowanie",
-    status: "Sesja Firebase",
-    detail: "Pierwsze logowanie wymaga internetu i aktywnego profilu aplikacji."
-  },
-  admin: {
-    title: "Pulpit administratora",
-    status: "Konta i role",
-    detail: "Administrator widzi profile aplikacyjne i zaproszenia prerejestracji."
-  },
-  operator: {
-    title: "Pulpit operatora",
-    status: "Brak aktywnej sesji",
-    detail: "Proces zbioru powstanie po konfiguracji domeny."
-  },
-  picker: {
-    title: "Pulpit zbieracza",
-    status: "Prywatne podsumowanie",
-    detail: "Zbiory i rozliczenia sa ograniczone do powiazanego workerId."
-  },
-  settings: {
-    title: "Ustawienia",
-    status: "Tryb lokalny",
-    detail: "Konfiguracja środowiska jest rozdzielona przez zmienne Vite."
-  },
-  diagnostics: {
-    title: "Diagnostyka",
-    status: "Wersje systemowe",
-    detail: "Informacje diagnostyczne są dostępne od pierwszego etapu."
-  }
+type AdminWorkspaceView =
+  | "DASHBOARD"
+  | "HARVEST_CORRECTIONS"
+  | "SALES"
+  | "PAYMENTS"
+  | "WORKERS"
+  | "ACCESS"
+  | "ISSUES"
+  | "CONFIGURATION"
+  | "DATA";
+
+type OperatorWorkspaceView = "HARVESTS" | "DASHBOARD";
+
+const adminWorkspaceItems: readonly WorkspaceNavigationItem<AdminWorkspaceView>[] = [
+  { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard },
+  { key: "HARVEST_CORRECTIONS", label: "Korekty", icon: ClipboardList },
+  { key: "SALES", label: "Sprzedaz", icon: ShoppingBasket },
+  { key: "PAYMENTS", label: "Wyplaty", icon: Banknote },
+  { key: "WORKERS", label: "Zbieracze", icon: Users },
+  { key: "ACCESS", label: "Konta", icon: UserCog },
+  { key: "ISSUES", label: "Zgloszenia", icon: Flag },
+  { key: "CONFIGURATION", label: "Konfiguracja", icon: Settings2 },
+  { key: "DATA", label: "Dane", icon: Database }
+];
+
+const operatorWorkspaceItems: readonly WorkspaceNavigationItem<OperatorWorkspaceView>[] =
+  [
+    { key: "HARVESTS", label: "Zbiory", icon: ShoppingBasket },
+    { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard }
+  ];
+
+type WorkspaceNavigationItem<Key extends string> = {
+  key: Key;
+  label: string;
+  icon: LucideIcon;
 };
 
 export function App({
@@ -344,7 +348,11 @@ export function App({
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
   const env = import.meta.env as FirebaseEnv;
-  const [activeView, setActiveView] = useState<NavigationKey>("start");
+  const [activeView, setActiveView] = useState<NavigationKey>("account");
+  const [adminWorkspaceView, setAdminWorkspaceView] =
+    useState<AdminWorkspaceView>("DASHBOARD");
+  const [operatorWorkspaceView, setOperatorWorkspaceView] =
+    useState<OperatorWorkspaceView>("HARVESTS");
   const [authState, setAuthState] = useState<AuthSessionState>(() =>
     authSessionApi.getInitialState(env)
   );
@@ -375,7 +383,6 @@ export function App({
   const lastReadySyncUidRef = useRef<string | null>(null);
   const deviceIdentity = useMemo(() => readCurrentDeviceIdentity(), []);
   const deviceId = deviceIdentity.id;
-  const panel = panelByNavigation[activeView];
   const currentProfileUid = "profile" in authState ? authState.profile.uid : null;
   const syncDocuments =
     currentProfileUid === accountSyncState.ownerUid ? accountSyncState.documents : [];
@@ -385,6 +392,12 @@ export function App({
     (document) =>
       document.kind === "HARVEST_SESSION" && document.businessStatus === "OPEN"
   );
+  const readyRole = authState.status === "READY" ? authState.profile.role : null;
+  const roleNavigationItems = readyRole ? navigationItemsForRole(readyRole) : [];
+  const roleHomeView = readyRole ? homeNavigationForRole(readyRole) : "account";
+  const resolvedActiveView = roleNavigationItems.some((item) => item.key === activeView)
+    ? activeView
+    : roleHomeView;
 
   useEffect(() => {
     let isMounted = true;
@@ -461,6 +474,12 @@ export function App({
     setHasActiveForm(false);
     setHasActiveHarvestSession(false);
   }, [currentProfileUid]);
+
+  useEffect(() => {
+    if (readyRole) {
+      setActiveView(homeNavigationForRole(readyRole));
+    }
+  }, [readyRole]);
 
   const requestSynchronization = useCallback(
     async (trigger: SynchronizationTrigger): Promise<SynchronizationRunResult> => {
@@ -748,7 +767,6 @@ export function App({
     isOnline
   ]);
 
-  const today = useMemo(() => formatBusinessDate(APP_META.buildDate), []);
   const diagnostics = useMemo(
     () => ({
       deviceId,
@@ -840,17 +858,55 @@ export function App({
   }, [configurationCacheApi, deviceId, env, offlineStorageHealthApi, synchronizationApi]);
   const dashboardOwnerKey =
     authState.status === "READY" ? authState.profile.uid : authState.status;
+  const accountPanel = (
+    <AuthPanel
+      authSessionApi={authSessionApi}
+      authState={authState}
+      deviceIdentity={deviceIdentity}
+      deviceId={diagnostics.deviceId}
+      env={env}
+      isOnline={isOnline}
+      onActiveFormChange={setHasActiveForm}
+      onClearLocalAccountData={handleClearLocalAccountData}
+      onAuthStateUpdated={setAuthState}
+      onInspectLocalData={readAndStoreLocalDocuments}
+      onProfileUpdated={handleProfileUpdated}
+      onSynchronizeBeforeSignOut={handleManualSynchronization}
+      syncDocuments={syncDocuments}
+    />
+  );
+
+  if (authState.status !== "READY") {
+    return (
+      <main className="auth-screen">
+        <div className="auth-screen__content">
+          <header className="auth-screen__brand">
+            <p className="eyebrow">Ewidencja zbiorow</p>
+            <h1>Borowka</h1>
+          </header>
+          {accountPanel}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">System ewidencji</p>
-          <h1>Borowka PWA</h1>
+          <p className="eyebrow">Ewidencja zbiorow</p>
+          <h1>Borowka</h1>
         </div>
-        <div className="topbar__meta" aria-label="Metadane aplikacji">
-          <span>{APP_META.environment}</span>
-          <span>v{APP_META.version}</span>
+        <div className="topbar__context">
+          <span className={isOnline ? "connection-state" : "connection-state is-offline"}>
+            {isOnline ? (
+              <Wifi aria-hidden="true" size={17} strokeWidth={2.2} />
+            ) : (
+              <CloudOff aria-hidden="true" size={17} strokeWidth={2.2} />
+            )}
+            {isOnline ? "Online" : "Offline"}
+          </span>
+          <strong>{displaySessionName(authState)}</strong>
         </div>
       </header>
 
@@ -864,9 +920,9 @@ export function App({
       />
 
       <nav className="nav-tabs" aria-label="Nawigacja glowna">
-        {navigationItems.map((item) => {
+        {roleNavigationItems.map((item) => {
           const Icon = item.icon;
-          const isActive = item.key === activeView;
+          const isActive = item.key === resolvedActiveView;
 
           return (
             <button
@@ -887,226 +943,217 @@ export function App({
       </nav>
 
       <main className="workspace">
-        <section className="status-band" aria-label="Status aplikacji">
-          <StatusItem
-            icon={isOnline ? Wifi : CloudOff}
-            label={isOnline ? "Online" : "Offline"}
-            tone={isOnline ? "ok" : "warn"}
-          />
-          <StatusItem
-            icon={firebaseStatus.ready ? CheckCircle2 : AlertTriangle}
-            label={
-              firebaseStatus.ready ? "Firebase gotowy" : "Firebase brak konfiguracji"
-            }
-            tone={firebaseStatus.ready ? "ok" : "warn"}
-          />
-          <StatusItem label={`Schemat ${APP_META.schemaVersion}`} tone="neutral" />
-          <StatusItem
-            label={`Kalkulacje ${APP_META.calculationVersion}`}
-            tone="neutral"
-          />
-          <StatusItem
-            icon={firebaseServicesStatus.initialized ? CheckCircle2 : AlertTriangle}
-            label={
-              firebaseServicesStatus.initialized
-                ? "Uslugi Firebase gotowe"
-                : "Uslugi Firebase nieaktywne"
-            }
-            tone={firebaseServicesStatus.initialized ? "ok" : "warn"}
-          />
-          <StatusItem
-            icon={authState.status === "READY" ? UserRound : AlertTriangle}
-            label={authStatusLabel(authState)}
-            tone={authStatusTone(authState)}
-          />
-        </section>
-
-        <section className="primary-panel" aria-labelledby="active-panel-title">
-          <div>
-            <p className="eyebrow">{panel.status}</p>
-            <h2 id="active-panel-title">{panel.title}</h2>
-            <p className="panel-detail">{panel.detail}</p>
-          </div>
-
-          <dl className="metrics-grid" aria-label="Przyklady formatowania domenowego">
-            <Metric label="Data biznesowa" value={today} />
-            <Metric label="Masa" value={formatKilograms(631510)} />
-            <Metric label="Kwota" value={formatMoney(501615)} />
-          </dl>
-        </section>
-
-        {activeView === "diagnostics" ? (
-          <section className="diagnostics" aria-label="Diagnostyka">
-            <DiagnosticRow label="Srodowisko" value={APP_META.environment} />
-            <DiagnosticRow label="Wersja aplikacji" value={APP_META.version} />
-            <DiagnosticRow label="Identyfikator buildu" value={APP_META.buildId} />
-            <DiagnosticRow label="Wersja schematu" value={APP_META.schemaVersion} />
-            <DiagnosticRow label="Regula obliczen" value={APP_META.calculationVersion} />
-            <DiagnosticRow label="Ostatnie uruchomienie" value={diagnostics.launchedAt} />
-            <DiagnosticRow
-              label="Identyfikator urzadzenia"
-              value={diagnostics.deviceId}
-            />
-            <DiagnosticRow label="Nazwa urzadzenia" value={diagnostics.deviceName} />
-            <DiagnosticRow
-              label="Platforma urzadzenia"
-              value={diagnostics.devicePlatform}
-            />
-            <DiagnosticRow
-              label="Service worker"
-              value={serviceWorkerStatusLabel[serviceWorkerStatus]}
-            />
-            <DiagnosticRow label="Tryb Firebase" value={firebaseRuntimeStatus.label} />
-            <DiagnosticRow
-              label="Uslugi Firebase"
-              value={firebaseServicesStatus.message}
-            />
-            <DiagnosticRow
-              label="Auth i Firestore"
-              value={
-                firebaseServicesStatus.initialized
-                  ? "zainicjalizowane"
-                  : "niezainicjalizowane"
-              }
-            />
-            <DiagnosticRow label="Sesja logowania" value={authState.message} />
-            <DiagnosticRow
-              label="Ostrzezenia konfiguracji"
-              value={
-                firebaseRuntimeStatus.warnings.length > 0
-                  ? firebaseRuntimeStatus.warnings.join("; ")
-                  : "brak"
-              }
-            />
-            <DiagnosticRow
-              label="Firebase"
-              value={firebaseStatus.ready ? "skonfigurowany" : firebaseStatus.message}
-            />
-          </section>
-        ) : null}
-
-        {activeView === "login" ? (
-          <AuthPanel
-            authSessionApi={authSessionApi}
-            authState={authState}
-            deviceIdentity={deviceIdentity}
-            deviceId={diagnostics.deviceId}
-            env={env}
-            isOnline={isOnline}
-            onActiveFormChange={setHasActiveForm}
-            onClearLocalAccountData={handleClearLocalAccountData}
-            onAuthStateUpdated={setAuthState}
-            onInspectLocalData={readAndStoreLocalDocuments}
-            onProfileUpdated={handleProfileUpdated}
-            onSynchronizeBeforeSignOut={handleManualSynchronization}
-            syncDocuments={syncDocuments}
-          />
-        ) : null}
-
-        {activeView === "admin" ? (
+        {resolvedActiveView === "account" ? (
           <>
-            <AdminDashboardPanel
-              api={adminDashboardApi}
-              authState={authState}
-              env={env}
-              isOnline={isOnline}
-              key={`admin-dashboard-${dashboardOwnerKey}`}
-              syncDocuments={syncDocuments}
-            />
-            <AdminOrdinarySalesPanel
-              authState={authState}
-              deviceId={deviceId}
-              env={env}
-              isOnline={isOnline}
-              ordinarySalesApi={ordinarySalesApi}
-            />
-            <AdminPickerExportSettingsPanel
-              authState={authState}
-              env={env}
-              isOnline={isOnline}
-              settingsApi={pickerExportSettingsApi}
-            />
-            <AdminFullCloudExportPanel
-              api={fullCloudExportApi}
-              authState={authState}
-              env={env}
-              isOnline={isOnline}
-            />
-            <AdminPendingPaymentsPanel
-              authState={authState}
-              deviceId={deviceId}
-              env={env}
-              isOnline={isOnline}
-              pendingPaymentsApi={pendingPaymentsApi}
-              syncDocuments={syncDocuments}
-            />
-            <AdminPaymentDirectoryPanel
-              adminPaymentDirectoryApi={adminPaymentDirectoryApi}
-              authState={authState}
-              deviceId={deviceId}
-              env={env}
-              isOnline={isOnline}
-            />
-            <AdminIssueReportsPanel
-              authState={authState}
-              env={env}
-              isOnline={isOnline}
-              issueReportsApi={adminIssueReportsApi}
-            />
-            <AdminUserDirectoryPanel
-              authState={authState}
-              env={env}
-              userDirectoryApi={userDirectoryApi}
-            />
-            <AdminSeasonsPanel authState={authState} env={env} seasonsApi={seasonsApi} />
-            <AdminSettlementPlansPanel
-              authState={authState}
-              env={env}
-              settlementPlansApi={settlementPlansApi}
-            />
-            <WorkerDirectoryPanel
-              authState={authState}
-              env={env}
-              workerDirectoryApi={workerDirectoryApi}
-            />
-            <AdminRegistrationInvitationsPanel
-              authState={authState}
-              env={env}
-              registrationInvitationsApi={registrationInvitationsApi}
-            />
-            <AdminDeviceDirectoryPanel
-              authState={authState}
-              env={env}
-              deviceDirectoryApi={deviceDirectoryApi}
-            />
+            {accountPanel}
+            {authState.profile.role === "ADMIN" ? (
+              <details className="technical-details">
+                <summary>Informacje techniczne</summary>
+                <section className="diagnostics" aria-label="Diagnostyka">
+                  <DiagnosticRow label="Srodowisko" value={APP_META.environment} />
+                  <DiagnosticRow label="Wersja aplikacji" value={APP_META.version} />
+                  <DiagnosticRow label="Identyfikator buildu" value={APP_META.buildId} />
+                  <DiagnosticRow label="Wersja schematu" value={APP_META.schemaVersion} />
+                  <DiagnosticRow
+                    label="Regula obliczen"
+                    value={APP_META.calculationVersion}
+                  />
+                  <DiagnosticRow
+                    label="Ostatnie uruchomienie"
+                    value={diagnostics.launchedAt}
+                  />
+                  <DiagnosticRow
+                    label="Identyfikator urzadzenia"
+                    value={diagnostics.deviceId}
+                  />
+                  <DiagnosticRow
+                    label="Nazwa urzadzenia"
+                    value={diagnostics.deviceName}
+                  />
+                  <DiagnosticRow
+                    label="Platforma urzadzenia"
+                    value={diagnostics.devicePlatform}
+                  />
+                  <DiagnosticRow
+                    label="Service worker"
+                    value={serviceWorkerStatusLabel[serviceWorkerStatus]}
+                  />
+                  <DiagnosticRow
+                    label="Tryb Firebase"
+                    value={firebaseRuntimeStatus.label}
+                  />
+                  <DiagnosticRow
+                    label="Uslugi Firebase"
+                    value={firebaseServicesStatus.message}
+                  />
+                  <DiagnosticRow label="Sesja logowania" value={authState.message} />
+                  <DiagnosticRow
+                    label="Firebase"
+                    value={
+                      firebaseStatus.ready ? "skonfigurowany" : firebaseStatus.message
+                    }
+                  />
+                </section>
+              </details>
+            ) : null}
           </>
         ) : null}
 
-        {activeView === "operator" ? (
+        {resolvedActiveView === "admin" && authState.profile.role === "ADMIN" ? (
           <>
-            <OperatorDashboardPanel
-              api={operatorDashboardApi}
-              authState={authState}
-              env={env}
-              isOnline={isOnline}
-              key={`operator-dashboard-${dashboardOwnerKey}`}
-              syncDocuments={syncDocuments}
+            <WorkspaceNavigation
+              activeKey={adminWorkspaceView}
+              ariaLabel="Obszary administratora"
+              items={adminWorkspaceItems}
+              onChange={setAdminWorkspaceView}
             />
-            <OperatorHarvestSessionsPanel
-              authState={authState}
-              env={env}
-              firestoreCacheMode={firebaseServicesStatus.cacheMode}
-              harvestSessionsApi={harvestSessionsApi}
-              isOnline={isOnline}
-              onActiveFormChange={setHasActiveForm}
-              onActiveHarvestSessionChange={setHasActiveHarvestSession}
-              onLocalDocumentsChanged={handleLocalDocumentsChanged}
-              serviceWorkerReady={isServiceWorkerReady(serviceWorkerStatus)}
-            />
+            {adminWorkspaceView === "DASHBOARD" ? (
+              <AdminDashboardPanel
+                api={adminDashboardApi}
+                authState={authState}
+                env={env}
+                isOnline={isOnline}
+                key={`admin-dashboard-${dashboardOwnerKey}`}
+                syncDocuments={syncDocuments}
+              />
+            ) : adminWorkspaceView === "HARVEST_CORRECTIONS" ? (
+              <OperatorHarvestSessionsPanel
+                authState={authState}
+                env={env}
+                firestoreCacheMode={firebaseServicesStatus.cacheMode}
+                harvestSessionsApi={harvestSessionsApi}
+                isOnline={isOnline}
+                onActiveFormChange={setHasActiveForm}
+                onActiveHarvestSessionChange={setHasActiveHarvestSession}
+                onLocalDocumentsChanged={handleLocalDocumentsChanged}
+                serviceWorkerReady={isServiceWorkerReady(serviceWorkerStatus)}
+              />
+            ) : adminWorkspaceView === "SALES" ? (
+              <AdminOrdinarySalesPanel
+                authState={authState}
+                deviceId={deviceId}
+                env={env}
+                isOnline={isOnline}
+                ordinarySalesApi={ordinarySalesApi}
+              />
+            ) : adminWorkspaceView === "PAYMENTS" ? (
+              <>
+                <AdminPendingPaymentsPanel
+                  authState={authState}
+                  deviceId={deviceId}
+                  env={env}
+                  isOnline={isOnline}
+                  pendingPaymentsApi={pendingPaymentsApi}
+                  syncDocuments={syncDocuments}
+                />
+                <AdminPaymentDirectoryPanel
+                  adminPaymentDirectoryApi={adminPaymentDirectoryApi}
+                  authState={authState}
+                  deviceId={deviceId}
+                  env={env}
+                  isOnline={isOnline}
+                />
+              </>
+            ) : adminWorkspaceView === "WORKERS" ? (
+              <WorkerDirectoryPanel
+                authState={authState}
+                env={env}
+                workerDirectoryApi={workerDirectoryApi}
+              />
+            ) : adminWorkspaceView === "ACCESS" ? (
+              <>
+                <AdminUserDirectoryPanel
+                  authState={authState}
+                  env={env}
+                  userDirectoryApi={userDirectoryApi}
+                />
+                <AdminRegistrationInvitationsPanel
+                  authState={authState}
+                  env={env}
+                  registrationInvitationsApi={registrationInvitationsApi}
+                />
+                <AdminDeviceDirectoryPanel
+                  authState={authState}
+                  env={env}
+                  deviceDirectoryApi={deviceDirectoryApi}
+                />
+              </>
+            ) : adminWorkspaceView === "ISSUES" ? (
+              <AdminIssueReportsPanel
+                authState={authState}
+                env={env}
+                isOnline={isOnline}
+                issueReportsApi={adminIssueReportsApi}
+              />
+            ) : adminWorkspaceView === "CONFIGURATION" ? (
+              <>
+                <AdminSeasonsPanel
+                  authState={authState}
+                  env={env}
+                  seasonsApi={seasonsApi}
+                />
+                <AdminSettlementPlansPanel
+                  authState={authState}
+                  env={env}
+                  settlementPlansApi={settlementPlansApi}
+                />
+              </>
+            ) : (
+              <>
+                <AdminPickerExportSettingsPanel
+                  authState={authState}
+                  env={env}
+                  isOnline={isOnline}
+                  settingsApi={pickerExportSettingsApi}
+                />
+                <AdminFullCloudExportPanel
+                  api={fullCloudExportApi}
+                  authState={authState}
+                  env={env}
+                  isOnline={isOnline}
+                />
+              </>
+            )}
           </>
         ) : null}
 
-        {activeView === "picker" ? (
+        {resolvedActiveView === "operator" && authState.profile.role === "OPERATOR" ? (
+          <>
+            <WorkspaceNavigation
+              activeKey={operatorWorkspaceView}
+              ariaLabel="Obszary operatora"
+              items={operatorWorkspaceItems}
+              onChange={setOperatorWorkspaceView}
+            />
+            {operatorWorkspaceView === "HARVESTS" ? (
+              <OperatorHarvestSessionsPanel
+                authState={authState}
+                env={env}
+                firestoreCacheMode={firebaseServicesStatus.cacheMode}
+                harvestSessionsApi={harvestSessionsApi}
+                isOnline={isOnline}
+                onActiveFormChange={setHasActiveForm}
+                onActiveHarvestSessionChange={setHasActiveHarvestSession}
+                onLocalDocumentsChanged={handleLocalDocumentsChanged}
+                serviceWorkerReady={isServiceWorkerReady(serviceWorkerStatus)}
+              />
+            ) : (
+              <OperatorDashboardPanel
+                api={operatorDashboardApi}
+                authState={authState}
+                env={env}
+                isOnline={isOnline}
+                key={`operator-dashboard-${dashboardOwnerKey}`}
+                onNewHarvest={() => {
+                  setOperatorWorkspaceView("HARVESTS");
+                }}
+                syncDocuments={syncDocuments}
+              />
+            )}
+          </>
+        ) : null}
+
+        {resolvedActiveView === "picker" && authState.profile.role === "PICKER" ? (
           <PickerWorkspacePanel
             authState={authState}
             cacheMode={firebaseServicesStatus.cacheMode}
@@ -1125,7 +1172,8 @@ export function App({
           />
         ) : null}
 
-        {activeView === "settings" ? (
+        {resolvedActiveView === "settings" &&
+        (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR") ? (
           <ConfigurationCachePanel
             authState={authState}
             configurationCacheApi={configurationCacheApi}
@@ -1147,37 +1195,48 @@ export function App({
   );
 }
 
-function StatusItem({
-  icon: Icon,
-  label,
-  tone
-}: {
-  icon?: LucideIcon;
-  label: string;
-  tone: "ok" | "warn" | "neutral";
-}) {
-  return (
-    <div className={`status-item status-item--${tone}`}>
-      {Icon ? <Icon aria-hidden="true" size={18} strokeWidth={2.2} /> : null}
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
 function DiagnosticRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="diagnostics__row">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function WorkspaceNavigation<Key extends string>({
+  activeKey,
+  ariaLabel,
+  items,
+  onChange
+}: {
+  activeKey: Key;
+  ariaLabel: string;
+  items: readonly WorkspaceNavigationItem<Key>[];
+  onChange: (key: Key) => void;
+}) {
+  return (
+    <div className="workspace-tabs" role="tablist" aria-label={ariaLabel}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = item.key === activeKey;
+
+        return (
+          <button
+            aria-selected={isActive}
+            className={isActive ? "workspace-tab is-active" : "workspace-tab"}
+            key={item.key}
+            onClick={() => {
+              onChange(item.key);
+            }}
+            role="tab"
+            type="button"
+          >
+            <Icon aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1501,64 +1560,42 @@ function AuthPanel({
       <section className="auth-panel" aria-label="Sesja logowania">
         <div className="auth-card">
           <div>
-            <p className="eyebrow">{profileStateTitle(authState)}</p>
+            <p className="eyebrow">Konto</p>
             <h2>{displaySessionName(authState)}</h2>
-            <p className="panel-detail">{authState.message}</p>
+            {authState.status === "READY" ? (
+              <p className="panel-detail">{authState.user.email ?? ""}</p>
+            ) : (
+              <p className="panel-detail">{authState.message}</p>
+            )}
           </div>
 
-          <dl className="auth-summary" aria-label="Profil aplikacji">
-            <AuthSummaryRow label="Nazwa" value={displaySessionName(authState)} />
-            <AuthSummaryRow label="E-mail" value={authState.user.email ?? "brak"} />
-            {"profile" in authState ? (
-              <>
-                <AuthSummaryRow label="Rola" value={roleLabel(authState.profile.role)} />
-                <AuthSummaryRow
-                  label="Status konta"
-                  value={accountStatusLabel(authState.profile)}
-                />
-                <AuthSummaryRow
-                  label="Powiazany zbieracz"
-                  value={authState.profile.workerId ?? "brak"}
-                />
-                <AuthSummaryRow
-                  label="Zgoda offline"
-                  value={offlineConsentLabel(authState.profile.offlineConsent)}
-                />
-              </>
-            ) : null}
-            <AuthSummaryRow label="Identyfikator urzadzenia" value={deviceId} />
-            <AuthSummaryRow label="Nazwa urzadzenia" value={deviceIdentity.name} />
-            <AuthSummaryRow label="Wersja aplikacji" value={`v${APP_META.version}`} />
-          </dl>
-
-          {"profile" in authState ? (
-            <div className="offline-consent" aria-label="Zaufane urzadzenie offline">
-              <div className="worker-rate-form__heading">
-                <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
-                <h3>Zaufane urzadzenie offline</h3>
+          {authState.status === "READY" ? (
+            <details className="account-options">
+              <summary>Praca offline na tym urzadzeniu</summary>
+              <div className="offline-consent" aria-label="Zaufane urzadzenie offline">
+                <ul className="worker-profile__list">
+                  {TRUSTED_OFFLINE_STORAGE_DISCLOSURE.map((disclosure) => (
+                    <li key={disclosure}>{disclosure}</li>
+                  ))}
+                </ul>
+                <label className="checkbox-field">
+                  <input
+                    checked={authState.profile.offlineConsent}
+                    disabled={isSubmitting || !isOnline}
+                    onChange={(event) => {
+                      void handleOfflineConsentChange(event.target.checked);
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Zgoda na trwale dane offline</span>
+                </label>
+                {!isOnline ? (
+                  <p className="worker-form__warning">
+                    Zmiana zgody offline wymaga polaczenia online.
+                  </p>
+                ) : null}
               </div>
-              <ul className="worker-profile__list">
-                {TRUSTED_OFFLINE_STORAGE_DISCLOSURE.map((disclosure) => (
-                  <li key={disclosure}>{disclosure}</li>
-                ))}
-              </ul>
-              <label className="checkbox-field">
-                <input
-                  checked={authState.profile.offlineConsent}
-                  disabled={isSubmitting || !isOnline}
-                  onChange={(event) => {
-                    void handleOfflineConsentChange(event.target.checked);
-                  }}
-                  type="checkbox"
-                />
-                <span>Zgoda na trwale dane offline</span>
-              </label>
-              {!isOnline ? (
-                <p className="worker-form__warning">
-                  Zmiana zgody offline wymaga polaczenia online.
-                </p>
-              ) : null}
-            </div>
+            </details>
           ) : null}
 
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
@@ -1725,7 +1762,9 @@ function AuthPanel({
         <div>
           <p className="eyebrow">{authModeEyebrow(mode)}</p>
           <h2>{authModeTitle(mode)}</h2>
-          <p className="panel-detail">{authState.message}</p>
+          {authState.status !== "SIGNED_OUT" ? (
+            <p className="panel-detail">{authState.message}</p>
+          ) : null}
         </div>
 
         <label className="field">

@@ -1,16 +1,15 @@
 import {
-  Activity,
   CircleUserRound,
   ClipboardList,
-  Home,
-  MonitorCog,
+  LayoutDashboard,
   Settings,
-  ShieldCheck
+  UserRound,
+  type LucideIcon
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
-export type NavigationKey =
-  "start" | "login" | "admin" | "operator" | "picker" | "settings" | "diagnostics";
+import type { UserRole } from "../domain/identity";
+
+export type NavigationKey = "admin" | "operator" | "picker" | "settings" | "account";
 
 export type NavigationItem = {
   key: NavigationKey;
@@ -18,12 +17,36 @@ export type NavigationItem = {
   icon: LucideIcon;
 };
 
-export const navigationItems: NavigationItem[] = [
-  { key: "start", label: "Start", icon: Home },
-  { key: "login", label: "Logowanie", icon: ShieldCheck },
-  { key: "admin", label: "Administrator", icon: MonitorCog },
-  { key: "operator", label: "Operator", icon: ClipboardList },
-  { key: "picker", label: "Zbieracz", icon: CircleUserRound },
-  { key: "settings", label: "Ustawienia", icon: Settings },
-  { key: "diagnostics", label: "Diagnostyka", icon: Activity }
-];
+const accountItem = {
+  key: "account",
+  label: "Konto",
+  icon: UserRound
+} satisfies NavigationItem;
+
+const navigationByRole: Record<UserRole, readonly NavigationItem[]> = {
+  ADMIN: [
+    { key: "admin", label: "Pulpit", icon: LayoutDashboard },
+    { key: "settings", label: "Offline", icon: Settings },
+    accountItem
+  ],
+  OPERATOR: [
+    { key: "operator", label: "Zbiory", icon: ClipboardList },
+    { key: "settings", label: "Offline", icon: Settings },
+    accountItem
+  ],
+  PICKER: [{ key: "picker", label: "Moje dane", icon: CircleUserRound }, accountItem]
+};
+
+const homeByRole: Record<UserRole, NavigationKey> = {
+  ADMIN: "admin",
+  OPERATOR: "operator",
+  PICKER: "picker"
+};
+
+export function navigationItemsForRole(role: UserRole): readonly NavigationItem[] {
+  return navigationByRole[role];
+}
+
+export function homeNavigationForRole(role: UserRole): NavigationKey {
+  return homeByRole[role];
+}

@@ -63,6 +63,7 @@ export function OperatorDashboardPanel({
   authState,
   env,
   isOnline,
+  onNewHarvest,
   snapshotStorage,
   syncDocuments
 }: {
@@ -70,6 +71,7 @@ export function OperatorDashboardPanel({
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
+  onNewHarvest?: () => void;
   snapshotStorage?: DashboardSnapshotStorage | null;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
@@ -219,7 +221,14 @@ export function OperatorDashboardPanel({
         <div className="operator-dashboard__actions">
           <button
             className="primary-action"
-            onClick={focusNewHarvestSession}
+            onClick={() => {
+              if (onNewHarvest) {
+                onNewHarvest();
+                requestAnimationFrame(focusNewHarvestSession);
+              } else {
+                focusNewHarvestSession();
+              }
+            }}
             type="button"
           >
             <Plus aria-hidden="true" size={18} />
