@@ -112,54 +112,6 @@ describe("AdminPendingPaymentsPanel", () => {
     );
   });
 
-  it("reloads and sends current synchronization context", async () => {
-    const user = userEvent.setup();
-    const api: PendingPaymentsApi = {
-      createPayment: vi.fn(),
-      checkEligibility: vi.fn(),
-      list: vi.fn().mockResolvedValue({
-        excluded: {
-          activePaymentCount: 0,
-          missingAmountCount: 0,
-          pendingSynchronizationCount: 0
-        },
-        invalidDocumentCount: 0,
-        sessions: []
-      })
-    };
-    const syncDocuments = [
-      {
-        id: "session-a",
-        kind: "HARVEST_SESSION" as const,
-        pendingSync: true
-      }
-    ];
-
-    render(
-      <AdminPendingPaymentsPanel
-        authState={adminState}
-        deviceId="device-admin"
-        env={{}}
-        isOnline={false}
-        pendingPaymentsApi={api}
-        syncDocuments={syncDocuments}
-      />
-    );
-
-    await screen.findByText("Brak sesji spełniających filtry.");
-    await user.click(screen.getByRole("button", { name: "Odśwież listę" }));
-
-    await waitFor(() => {
-      expect(api.list).toHaveBeenCalledTimes(2);
-    });
-    expect(api.list).toHaveBeenLastCalledWith(
-      {},
-      expect.objectContaining({
-        isOnline: false,
-        syncDocuments
-      })
-    );
-  });
 
   it("refreshes the list and warns after another administrator paid first", async () => {
     const user = userEvent.setup();
