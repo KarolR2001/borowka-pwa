@@ -509,7 +509,7 @@ function sessionStatusLabel(status: OperatorDashboardSession["status"]): string 
 
 function focusNewHarvestSession(): void {
   const target = document.getElementById("new-harvest-session");
-  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   const control = target?.querySelector<HTMLElement>(
     "select:not(:disabled), input:not(:disabled), button:not(:disabled)"
   );
