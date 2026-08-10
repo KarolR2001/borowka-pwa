@@ -142,13 +142,13 @@ export function dashboardPeriodPresetLabel(preset: DashboardPeriodPreset): strin
     case "TODAY":
       return "Dzisiaj";
     case "CURRENT_WEEK":
-      return "Bieżący tydzien";
+      return "Bieżący tydzień";
     case "CURRENT_MONTH":
-      return "Bieżący miesiac";
+      return "Bieżący miesiąc";
     case "SEASON":
-      return "Caly sezon";
+      return "Cały sezon";
     case "CUSTOM":
-      return "Wlasny zakres";
+      return "Własny zakres";
   }
 }
 
