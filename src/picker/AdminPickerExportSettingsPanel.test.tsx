@@ -51,7 +51,7 @@ describe("AdminPickerExportSettingsPanel", () => {
     );
 
     const toggle = await screen.findByLabelText(
-      "Picker moze pobrac wlasne zestawienie CSV"
+      "Zbieracz może pobrać własne zestawienie CSV"
     );
     await user.click(toggle);
     await user.click(screen.getByRole("button", { name: "Zapisz ustawienie" }));
@@ -66,9 +66,9 @@ describe("AdminPickerExportSettingsPanel", () => {
       );
     });
     expect(
-      await screen.findByText("Zapisano dostepnosc eksportu pickera.")
+      await screen.findByText("Zapisano dostępność eksportu pickera.")
     ).toBeInTheDocument();
-    expect(screen.getByText("Status: wlaczony")).toBeInTheDocument();
+    expect(screen.getByText("Status: włączony")).toBeInTheDocument();
   });
 
   it("blocks changing the setting offline", async () => {
@@ -88,11 +88,10 @@ describe("AdminPickerExportSettingsPanel", () => {
       />
     );
 
+    await screen.findByText("Status: włączony");
+    expect(screen.queryByText(/wymaga połączenia/i)).not.toBeInTheDocument();
     expect(
-      await screen.findByText("Zmiana ustawienia wymaga polaczenia.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Picker moze pobrac wlasne zestawienie CSV")
+      screen.getByLabelText("Zbieracz może pobrać własne zestawienie CSV")
     ).toBeDisabled();
   });
 });

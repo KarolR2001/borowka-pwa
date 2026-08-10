@@ -103,9 +103,9 @@ describe("PaymentConfirmationForm", () => {
     await user.selectOptions(screen.getByLabelText("Metoda"), "BANK_TRANSFER");
     await user.type(screen.getByLabelText("Notatka"), "Rozliczenie tygodnia");
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
     expect(
       await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
@@ -120,7 +120,7 @@ describe("PaymentConfirmationForm", () => {
       })
     );
     expect(onConfirmed).toHaveBeenCalledWith(confirmedResult);
-    expect(screen.getByRole("button", { name: "Zapisz wyplate" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zapisz wypłatę" })).toBeDisabled();
   });
 
   it("requires explicit confirmation and supports cancel", async () => {
@@ -136,7 +136,7 @@ describe("PaymentConfirmationForm", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
     expect(await screen.findByText("Potwierdz wyplate calej sesji.")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Anuluj" }));
@@ -162,15 +162,15 @@ describe("PaymentConfirmationForm", () => {
     );
 
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
     expect(await screen.findByText(/Nie mozna potwierdzic wyniku wyplaty/)).toBeVisible();
     expect(
       screen.queryByText("Firestore potwierdzil wyplate dla Anna.")
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zapisz wyplate" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Zapisz wypłatę" })).toBeEnabled();
   });
 
   it("submits only once after a fast double click", async () => {
@@ -191,9 +191,9 @@ describe("PaymentConfirmationForm", () => {
     );
 
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.dblClick(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.dblClick(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Zapisywanie..." })).toBeDisabled();
@@ -220,9 +220,9 @@ describe("PaymentConfirmationForm", () => {
     );
 
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
     const conflict = await screen.findByText(/juz wyplacona przez admin-2/);
     expect(conflict).toHaveClass("form-message--warning");

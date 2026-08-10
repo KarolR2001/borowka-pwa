@@ -67,7 +67,7 @@ export function GenericQuantityEntryForm({
       await onSubmit(draft);
       setQuantity(DEFAULT_QUANTITY);
       setWeight("");
-      setFeedback("Wpis ilosciowy dodany lokalnie.");
+      setFeedback("Wpis ilościowy dodany lokalnie.");
       focusAfterSubmit = true;
     } catch (submitError: unknown) {
       setError(getGenericQuantityEntryFormErrorMessage(submitError));
@@ -85,7 +85,7 @@ export function GenericQuantityEntryForm({
 
   return (
     <form
-      aria-label="Formularz wpisu ilosciowego"
+      aria-label="Formularz wpisu ilościowego"
       className="generic-quantity-form"
       onSubmit={(event) => {
         void handleSubmit(event);
@@ -94,13 +94,13 @@ export function GenericQuantityEntryForm({
       <div className="generic-quantity-form__heading">
         <div>
           <h4>{plan.name}</h4>
-          <p>{plan.description ?? "Plan ilosciowy generowany z konfiguracji."}</p>
+          <p>{plan.description ?? "Plan ilościowy generowany z konfiguracji."}</p>
         </div>
         <span>{plan.weightRequired ? "Waga wymagana" : "Waga opcjonalna"}</span>
       </div>
 
       <label className="field" htmlFor="generic-quantity">
-        Ilosc {plan.unitLabelSingular}
+        Ilość {plan.unitLabelSingular}
         <input
           autoComplete="off"
           disabled={formDisabled}
@@ -142,11 +142,11 @@ export function GenericQuantityEntryForm({
 
       {!plan.weightRequired ? (
         <p className="generic-quantity-form__notice">
-          Wpis bez wagi nie zwiekszy stanu kilogramow.
+          Wpis bez wagi nie zwiększy stanu kilogramów.
         </p>
       ) : null}
 
-      <div className="generic-quantity-form__preview" aria-label="Przyklad obliczenia">
+      <div className="generic-quantity-form__preview" aria-label="Przykład obliczenia">
         <span>{preview.quantityLabel}</span>
         <span>{preview.weightLabel}</span>
         <span>{preview.amountLabel}</span>
@@ -180,11 +180,11 @@ export function createGenericQuantityEntryDraft({
   const quantityMilli = parseDecimalToScaledInteger(quantity, 3);
 
   if (quantityMilli <= 0) {
-    throw new Error("Ilosc musi byc wieksza od zera.");
+    throw new Error("Ilość musi być większa od zera.");
   }
 
   if (!isQuantityAllowedByPrecision(quantityMilli, plan.quantityPrecision)) {
-    throw new Error("Ilosc nie miesci sie w precyzji planu.");
+    throw new Error("Ilość nie mieści się w precyzji planu.");
   }
 
   if (!plan.allowBatchQuantity && quantityMilli > 1000) {
@@ -229,7 +229,7 @@ export function calculateQuantityPreviewGrosz(
   rateGroszPerUnit: number
 ): number {
   if (!Number.isSafeInteger(quantityMilli) || quantityMilli < 0) {
-    throw new Error("Ilosc musi byc bezpieczna liczba calkowita.");
+    throw new Error("Ilość musi być bezpieczną liczbą całkowitą.");
   }
 
   if (!Number.isSafeInteger(rateGroszPerUnit) || rateGroszPerUnit <= 0) {
@@ -338,7 +338,7 @@ function previewWeightLabel(weight: string): string {
   try {
     return `${formatWeight(parseDecimalToScaledInteger(normalizedWeight, 3))} kg`;
   } catch {
-    return "waga: blad";
+    return "waga: błąd";
   }
 }
 
@@ -350,5 +350,5 @@ function formatWeight(weightG: number): string {
 }
 
 function getGenericQuantityEntryFormErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Nie udalo sie przygotowac wpisu.";
+  return error instanceof Error ? error.message : "Nie udało się przygotować wpisu.";
 }

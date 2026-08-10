@@ -87,12 +87,12 @@ export const REPORT_CATALOG = [
       column("season_status", "Status sezonu", "STATUS"),
       column("from_date", "Okres od", "BUSINESS_DATE"),
       column("to_date", "Okres do", "BUSINESS_DATE"),
-      column("confirmed_harvest_weight_g", "Zebrano potwierdzone g", "GRAMS"),
+      column("confirmed_harvest_weight_g", "Zebrano Potwierdzone g", "GRAMS"),
       column("sold_weight_g", "Sprzedano g", "GRAMS"),
-      column("available_weight_g", "Dostepne g", "GRAMS"),
+      column("available_weight_g", "Dostępne g", "GRAMS"),
       column("accrued_grosz", "Naliczono grosze", "GROSZ"),
-      column("paid_grosz", "Wyplacono grosze", "GROSZ"),
-      column("due_grosz", "Do wyplaty grosze", "GROSZ"),
+      column("paid_grosz", "Wypłacono grosze", "GROSZ"),
+      column("due_grosz", "Do wypłaty grosze", "GROSZ"),
       column("revenue_grosz", "Przychod grosze", "GROSZ"),
       column("result_after_harvest_cost_grosz", "Wynik po koszcie zbioru grosze", "GROSZ")
     ],
@@ -103,9 +103,9 @@ export const REPORT_CATALOG = [
     sources: ["seasons", "harvestSessions", "payments", "sales", "workers"],
     summationRules: [
       "Potwierdzona masa obejmuje tylko sesje CLOSED i PAID.",
-      "Anulowane sesje, sprzedaze i wyplaty nie wchodza do aktywnych sum.",
-      "Stan to potwierdzona masa minus podpisany wplyw sprzedazy i korekt.",
-      "Wynik po koszcie zbioru to przychod minus naliczenia zbieraczy."
+      "Anulowane sesje, sprzedaże i wypłaty nie wchodza do aktywnych sum.",
+      "Stan to Potwierdzona masa minus podpisany wpływ sprzedaży i korekt.",
+      "Wynik po koszcie zbioru to przychód minus naliczenia zbieraczy."
     ]
   },
   {
@@ -118,10 +118,10 @@ export const REPORT_CATALOG = [
       column("business_date", "Data zbioru", "BUSINESS_DATE"),
       column("status", "Status sesji", "STATUS"),
       column("plan_name", "Plan rozliczenia", "TEXT"),
-      column("total_quantity_milli", "Ilosc milli", "MILLI_UNITS"),
+      column("total_quantity_milli", "Ilość milli", "MILLI_UNITS"),
       column("total_weight_g", "Masa g", "GRAMS"),
       column("amount_due_grosz", "Naliczenie grosze", "GROSZ"),
-      column("payment_id", "Id wyplaty", "IDENTIFIER"),
+      column("payment_id", "Id wypłaty", "IDENTIFIER"),
       column("legacy_import", "Dane importowane", "BOOLEAN")
     ],
     filters: ["SEASON", "WORKER", "BUSINESS_DATE_RANGE", "SESSION_STATUS"],
@@ -132,7 +132,7 @@ export const REPORT_CATALOG = [
     summationRules: [
       "Masa jest sumowana osobno dla aktywnych statusow sesji.",
       "Naliczenia obejmuja tylko CLOSED i PAID z niepusta oficjalna kwota.",
-      "Ilosci roznych planow i jednostek nie sa laczone w jedna sume.",
+      "Ilości roznych planow i jednostek nie są laczone w jedna sume.",
       "CANCELLED jest raportowany liczbowo, ale nie zwieksza masy ani naliczen."
     ]
   },
@@ -145,13 +145,13 @@ export const REPORT_CATALOG = [
       column("sequence_number", "Numer wpisu", "COUNT"),
       column("business_date", "Data zbioru", "BUSINESS_DATE"),
       column("status", "Status wpisu", "STATUS"),
-      column("quantity_milli", "Ilosc milli", "MILLI_UNITS"),
+      column("quantity_milli", "Ilość milli", "MILLI_UNITS"),
       column("weight_g", "Masa g", "GRAMS"),
       column("amount_preview_grosz", "Podglad kwoty grosze", "GROSZ"),
       column("replaces_entry_id", "Zastepuje wpis", "IDENTIFIER"),
       column("cancellation_reason", "Powod anulowania", "TEXT"),
-      column("created_device_id", "Id urzadzenia", "IDENTIFIER"),
-      column("created_at_device", "Czas urzadzenia", "DATETIME")
+      column("created_device_id", "Id urządzenia", "IDENTIFIER"),
+      column("created_at_device", "Czas urządzenia", "DATETIME")
     ],
     filters: ["SEASON", "SESSION", "ENTRY_STATUS"],
     id: "SESSION_ENTRIES",
@@ -161,7 +161,7 @@ export const REPORT_CATALOG = [
     summationRules: [
       "Sumy wpisow obejmuja tylko status ACTIVE.",
       "Korekty zachowuja lancuch replacesEntryId, a anulowane wpisy pozostaja widoczne.",
-      "Kwota wpisu jest podgladem; oficjalna kwota finansowa pochodzi z zamknietej sesji.",
+      "Kwota wpisu jest podgladem; oficjalna kwota finansowa pochodzi z zamkniętej sesji.",
       "Suma kontrolna wpisow jest porownywana z oficjalnymi sumami sesji."
     ]
   },
@@ -174,8 +174,8 @@ export const REPORT_CATALOG = [
       column("confirmed_session_count", "Liczba naliczonych sesji", "COUNT"),
       column("confirmed_weight_g", "Potwierdzona masa g", "GRAMS"),
       column("accrued_grosz", "Naliczono grosze", "GROSZ"),
-      column("paid_grosz", "Wyplacono grosze", "GROSZ"),
-      column("remaining_grosz", "Pozostalo grosze", "GROSZ")
+      column("paid_grosz", "Wypłacono grosze", "GROSZ"),
+      column("remaining_grosz", "Pozostało grosze", "GROSZ")
     ],
     filters: ["SEASON", "WORKER", "BUSINESS_DATE_RANGE"],
     id: "ACCRUALS_BY_WORKER",
@@ -184,36 +184,36 @@ export const REPORT_CATALOG = [
     sources: ["seasons", "workers", "harvestSessions", "payments"],
     summationRules: [
       "Naliczenia obejmuja sesje CLOSED i PAID wedlug businessDate.",
-      "Wyplacono obejmuje tylko aktywne wyplaty powiazanych sesji.",
-      "Pozostalo to naliczono minus aktywne wyplaty.",
+      "Wypłacono obejmuje tylko aktywne wypłaty powiazanych sesji.",
+      "Pozostało to naliczono minus aktywne wypłaty.",
       "Historyczna kwota sesji jest uzywana bez przeliczenia aktualna stawka."
     ]
   },
   {
     audiences: ADMIN_ONLY,
     columns: [
-      column("payment_id", "Id wyplaty", "IDENTIFIER"),
+      column("payment_id", "Id wypłaty", "IDENTIFIER"),
       column("season_id", "Id sezonu", "IDENTIFIER"),
       column("worker_id", "Id zbieracza", "IDENTIFIER"),
       column("worker_name", "Zbieracz", "TEXT"),
       column("session_id", "Id sesji", "IDENTIFIER"),
       column("session_business_date", "Data sesji", "BUSINESS_DATE"),
-      column("paid_business_date", "Data wyplaty", "BUSINESS_DATE"),
+      column("paid_business_date", "Data wypłaty", "BUSINESS_DATE"),
       column("payment_method", "Metoda", "TEXT"),
-      column("status", "Status wyplaty", "STATUS"),
+      column("status", "Status wypłaty", "STATUS"),
       column("amount_grosz", "Kwota grosze", "GROSZ"),
       column("cancellation_reason", "Powod anulowania", "TEXT"),
       column("legacy_import", "Dane importowane", "BOOLEAN")
     ],
     filters: ["SEASON", "WORKER", "PAYMENT_DATE_RANGE", "PAYMENT_STATUS"],
     id: "PAYMENTS_BY_WORKER_AND_DATE",
-    label: "Wyplaty wedlug osoby i daty",
+    label: "Wypłaty wedlug osoby i daty",
     requiredFeatureFlag: null,
     sources: ["seasons", "workers", "harvestSessions", "payments"],
     summationRules: [
       "Aktywna suma wyplat obejmuje tylko status ACTIVE wedlug paidBusinessDate.",
       "CANCELLED jest pokazany i sumowany oddzielnie, bez zmniejszania salda drugi raz.",
-      "Kwota pochodzi z dokumentu wyplaty i nie jest ponownie liczona z aktualnej stawki."
+      "Kwota pochodzi z dokumentu wypłaty i nie jest ponownie liczona z aktualnej stawki."
     ]
   },
   {
@@ -221,7 +221,7 @@ export const REPORT_CATALOG = [
     columns: [
       column("sale_id", "Id dokumentu", "IDENTIFIER"),
       column("season_id", "Id sezonu", "IDENTIFIER"),
-      column("business_date", "Data sprzedazy", "BUSINESS_DATE"),
+      column("business_date", "Data sprzedaży", "BUSINESS_DATE"),
       column("entry_type", "Typ dokumentu", "STATUS"),
       column("correction_direction", "Kierunek korekty", "STATUS"),
       column("status", "Status", "STATUS"),
@@ -235,13 +235,13 @@ export const REPORT_CATALOG = [
     ],
     filters: ["SEASON", "BUSINESS_DATE_RANGE", "SALE_TYPE", "SALE_STATUS", "AUTHOR"],
     id: "SALES",
-    label: "Sprzedaz",
+    label: "Sprzedaż",
     requiredFeatureFlag: null,
     sources: ["seasons", "sales", "users"],
     summationRules: [
-      "Aktywne zwykle sprzedaze zwiekszaja sprzedana mase i przychod.",
+      "Aktywne zwykle sprzedaże zwiekszaja sprzedana mase i przychód.",
       "Korekty sa sumowane ze znakiem wynikajacym z correctionDirection.",
-      "CANCELLED pozostaje w raporcie, ale ma zerowy aktywny wplyw.",
+      "CANCELLED pozostaje w raporcie, ale ma zerowy aktywny wpływ.",
       "Masa, cena i kwota z dokumentu sa zachowane bez ponownego przeliczenia."
     ]
   },
@@ -252,11 +252,11 @@ export const REPORT_CATALOG = [
       column("from_date", "Okres od", "BUSINESS_DATE"),
       column("to_date", "Okres do", "BUSINESS_DATE"),
       column("confirmed_harvest_weight_g", "Potwierdzony zbior g", "GRAMS"),
-      column("ordinary_sale_weight_g", "Zwykla sprzedaz g", "GRAMS"),
+      column("ordinary_sale_weight_g", "Zwykla sprzedaż g", "GRAMS"),
       column("correction_increase_weight_g", "Korekty zwiekszajace g", "GRAMS"),
       column("correction_decrease_weight_g", "Korekty zmniejszajace g", "GRAMS"),
       column("available_weight_g", "Dostepny stan g", "GRAMS"),
-      column("source_document_count", "Liczba dokumentow zrodlowych", "COUNT")
+      column("source_document_count", "Liczba dokumentow źródłowych", "COUNT")
     ],
     filters: ["SEASON", "BUSINESS_DATE_RANGE"],
     id: "STOCK",
@@ -264,9 +264,9 @@ export const REPORT_CATALOG = [
     requiredFeatureFlag: null,
     sources: ["harvestSessions", "sales"],
     summationRules: [
-      "Zrodlem stanu sa tylko sesje CLOSED lub PAID oraz aktywna sprzedaz i korekty.",
-      "Wyplaty i otwarte, anulowane lub bezwagowe sesje nie zmieniaja stanu.",
-      "Dostepny stan to zbior plus korekty zwiekszajace minus sprzedaz i korekty zmniejszajace."
+      "Zrodlem stanu sa tylko sesje CLOSED lub PAID oraz aktywna sprzedaż i korekty.",
+      "Wypłaty i otwarte, anulowane lub bezwagowe sesje nie zmieniaja stanu.",
+      "Dostepny stan to zbior plus korekty zwiekszajace minus sprzedaż i korekty zmniejszajace."
     ]
   },
   {
@@ -285,9 +285,9 @@ export const REPORT_CATALOG = [
     requiredFeatureFlag: null,
     sources: ["harvestSessions", "sales"],
     summationRules: [
-      "Przychod obejmuje aktywna sprzedaz i podpisany wplyw korekt.",
+      "Przychod obejmuje aktywna sprzedaż i podpisany wpływ korekt.",
       "Koszt zbioru obejmuje amountDueGrosz sesji CLOSED i PAID.",
-      "Wynik to przychod minus koszt zbioru; nie jest nazywany zyskiem i nie zawiera innych kosztow."
+      "Wynik to przychód minus koszt zbioru; nie jest nazywany zyskiem i nie zawiera innych kosztow."
     ]
   },
   {
@@ -300,18 +300,18 @@ export const REPORT_CATALOG = [
       column("business_date", "Data sesji", "BUSINESS_DATE"),
       column("closed_at", "Czas zamkniecia", "DATETIME"),
       column("total_weight_g", "Masa g", "GRAMS"),
-      column("amount_due_grosz", "Do wyplaty grosze", "GROSZ"),
-      column("calculation_version", "Wersja obliczen", "TEXT")
+      column("amount_due_grosz", "Do wypłaty grosze", "GROSZ"),
+      column("calculation_version", "Wersja obliczeń", "TEXT")
     ],
     filters: ["SEASON", "WORKER", "BUSINESS_DATE_RANGE"],
     id: "PAYABLE_SESSIONS",
-    label: "Lista sesji do wyplaty",
+    label: "Lista sesji do wypłaty",
     requiredFeatureFlag: null,
     sources: ["seasons", "workers", "harvestSessions", "payments"],
     summationRules: [
-      "Lista obejmuje tylko CLOSED z niepusta dodatnia amountDueGrosz i bez aktywnej wyplaty.",
-      "PAID, CANCELLED, OPEN i REVIEW_REQUIRED nie sa gotowe do nowej wyplaty.",
-      "Suma do wyplaty jest suma historycznych amountDueGrosz widocznych sesji."
+      "Lista obejmuje tylko CLOSED z niepusta dodatnia amountDueGrosz i bez aktywnej wypłaty.",
+      "PAID, CANCELLED, OPEN i REVIEW_REQUIRED nie są gotowe do nowej wypłaty.",
+      "Suma do wypłaty jest suma historycznych amountDueGrosz widocznych sesji."
     ]
   },
   {
@@ -325,7 +325,7 @@ export const REPORT_CATALOG = [
       column("status", "Status", "STATUS"),
       column("reason", "Powod", "TEXT"),
       column("created_at", "Czas wykrycia", "DATETIME"),
-      column("device_id", "Id urzadzenia", "IDENTIFIER")
+      column("device_id", "Id urządzenia", "IDENTIFIER")
     ],
     filters: ["SEASON", "WORKER", "SESSION_STATUS", "ISSUE_STATUS", "CONFLICT_STATUS"],
     id: "CONFLICTS_AND_REVIEW",
@@ -335,7 +335,7 @@ export const REPORT_CATALOG = [
     summationRules: [
       "Kazdy problem jest liczony raz wedlug stabilnego id zrodla i typu.",
       "REVIEW_REQUIRED pozostaje otwarte do jawnego rozstrzygniecia.",
-      "Konflikty lokalne sa widoczne tylko na urzadzeniu posiadajacym wpis dziennika synchronizacji."
+      "Konflikty lokalne są widoczne tylko na urządzeniu posiadajacym wpis dziennika synchronizacji."
     ]
   },
   {
@@ -344,9 +344,9 @@ export const REPORT_CATALOG = [
       column("source_collection", "Kolekcja", "TEXT"),
       column("document_id", "Id dokumentu", "IDENTIFIER"),
       column("season_id", "Id sezonu", "IDENTIFIER"),
-      column("business_date", "Data biznesowa", "BUSINESS_DATE"),
+      column("business_date", "Data", "BUSINESS_DATE"),
       column("legacy_source", "Zrodlo importu", "TEXT"),
-      column("legacy_source_rows", "Wiersze zrodlowe", "TEXT"),
+      column("legacy_source_rows", "Wiersze źródłowe", "TEXT"),
       column("status", "Status dokumentu", "STATUS"),
       column("weight_g", "Masa g", "GRAMS"),
       column("amount_grosz", "Kwota grosze", "GROSZ"),
@@ -360,7 +360,7 @@ export const REPORT_CATALOG = [
     summationRules: [
       "Raport obejmuje wylacznie dokumenty jawnie oznaczone jako legacyImport lub ze zrodlem legacy.",
       "Sumy sa rozdzielone wedlug kolekcji i statusu, a nastepnie uzgadniane z raportami domenowymi.",
-      "Bledne i pominiete wiersze sa liczone oddzielnie i nie sa doliczane do sum zaakceptowanych."
+      "bledne i pominiete wiersze sa liczone oddzielnie i nie są doliczane do sum zaakceptowanych."
     ]
   },
   {
@@ -372,24 +372,24 @@ export const REPORT_CATALOG = [
       column("business_date", "Data sesji", "BUSINESS_DATE"),
       column("session_status", "Status sesji", "STATUS"),
       column("plan_name", "Plan", "TEXT"),
-      column("quantity_milli", "Ilosc milli", "MILLI_UNITS"),
+      column("quantity_milli", "Ilość milli", "MILLI_UNITS"),
       column("weight_g", "Masa g", "GRAMS"),
       column("accrued_grosz", "Naliczenie grosze", "GROSZ"),
-      column("payment_id", "Id wyplaty", "IDENTIFIER"),
-      column("paid_business_date", "Data wyplaty", "BUSINESS_DATE"),
-      column("payment_status", "Status wyplaty", "STATUS"),
+      column("payment_id", "Id wypłaty", "IDENTIFIER"),
+      column("paid_business_date", "Data wypłaty", "BUSINESS_DATE"),
+      column("payment_status", "Status wypłaty", "STATUS"),
       column("paid_grosz", "Wyplata grosze", "GROSZ")
     ],
     filters: ["SEASON", "BUSINESS_DATE_RANGE"],
     id: "PICKER_OWN_SUMMARY",
-    label: "Wlasne zestawienie zbieracza",
+    label: "Własne zestawienie zbieracza",
     requiredFeatureFlag: "pickerOwnReportExportEnabled",
     sources: ["appSettings", "seasons", "harvestSessions", "payments"],
     summationRules: [
       "Zakres jest zawsze ograniczony do workerId z profilu zalogowanego pickera.",
-      "Naliczono obejmuje CLOSED i PAID, a wyplacono tylko aktywne wyplaty.",
-      "Pozostalo to naliczono minus aktywne wyplaty; anulowane wyplaty sa pokazane osobno.",
-      "Eksport z cache jest jawnie oznaczony jako niepelny."
+      "Naliczono obejmuje CLOSED i PAID, a wypłacono tylko aktywne wypłaty.",
+      "Pozostało to naliczono minus aktywne wypłaty; anulowane wypłaty sa pokazane osobno.",
+      "Eksport z cache jest jawnie oznaczony jako niepełny."
     ]
   }
 ] as const satisfies readonly ReportDefinition[];

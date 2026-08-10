@@ -311,10 +311,10 @@ function isDateWithinRateVersion(
 }
 
 function normalizeBusinessDate(value: string): string {
-  const trimmed = normalizeRequiredText(value, "Podaj date biznesowa.");
+  const trimmed = normalizeRequiredText(value, "Podaj datę.");
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    throw new Error("Podaj prawidlowa date biznesowa.");
+    throw new Error("Podaj prawidłową datę.");
   }
 
   const [year, month, day] = trimmed.split("-").map(Number);
@@ -325,7 +325,7 @@ function normalizeBusinessDate(value: string): string {
     date.getUTCMonth() !== month - 1 ||
     date.getUTCDate() !== day
   ) {
-    throw new Error("Podaj prawidlowa date biznesowa.");
+    throw new Error("Podaj prawidłową datę.");
   }
 
   return trimmed;

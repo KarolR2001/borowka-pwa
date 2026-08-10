@@ -1,11 +1,4 @@
-import {
-  Banknote,
-  CloudDownload,
-  FileSpreadsheet,
-  Flag,
-  LayoutDashboard,
-  List
-} from "lucide-react";
+import { Banknote, FileSpreadsheet, Flag, LayoutDashboard, List } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -26,17 +19,13 @@ import {
   type PickerPaymentListApi
 } from "./PickerPaymentListPanel";
 import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
-import {
-  PickerOfflineDataPanel,
-  type PickerOfflineDataApi
-} from "./PickerOfflineDataPanel";
+import type { PickerOfflineDataApi } from "./PickerOfflineDataPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "OFFLINE" | "EXPORT";
+type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "EXPORT";
 
 export function PickerWorkspacePanel({
   authState,
-  cacheMode,
   deviceId,
   env,
   isOnline,
@@ -45,7 +34,6 @@ export function PickerWorkspacePanel({
   pickerHarvestListApi,
   pickerPaymentListApi,
   pickerIssueReportsApi,
-  pickerOfflineDataApi,
   pickerSessionDetailsApi,
   onLocalDocumentsChanged,
   syncDocuments
@@ -93,7 +81,7 @@ export function PickerWorkspacePanel({
         <WorkspaceTab
           active={activeView === "ISSUES"}
           icon={Flag}
-          label="Moje zgloszenia"
+          label="Moje zgłoszenia"
           onClick={() => {
             setActiveView("ISSUES");
           }}
@@ -109,7 +97,7 @@ export function PickerWorkspacePanel({
         <WorkspaceTab
           active={activeView === "PAYMENTS"}
           icon={Banknote}
-          label="Moje wyplaty"
+          label="Moje wypłaty"
           onClick={() => {
             setActiveView("PAYMENTS");
           }}
@@ -120,14 +108,6 @@ export function PickerWorkspacePanel({
           label="Eksport CSV"
           onClick={() => {
             setActiveView("EXPORT");
-          }}
-        />
-        <WorkspaceTab
-          active={activeView === "OFFLINE"}
-          icon={CloudDownload}
-          label="Offline"
-          onClick={() => {
-            setActiveView("OFFLINE");
           }}
         />
       </div>
@@ -168,15 +148,6 @@ export function PickerWorkspacePanel({
           onLocalDocumentsChanged={onLocalDocumentsChanged}
           onInitialSessionHandled={handleInitialSessionHandled}
           sessionDetailsApi={pickerSessionDetailsApi}
-        />
-      ) : activeView === "OFFLINE" ? (
-        <PickerOfflineDataPanel
-          authState={authState}
-          cacheMode={cacheMode}
-          deviceId={deviceId}
-          env={env}
-          isOnline={isOnline}
-          offlineDataApi={pickerOfflineDataApi}
         />
       ) : (
         <PickerDataExportPanel

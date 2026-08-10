@@ -131,7 +131,7 @@ describe("PwaUpdateNotice", () => {
       />
     );
 
-    expect(await screen.findByText("Kontrola po aktualizacji zakonczona")).toBeVisible();
+    expect(await screen.findByText("Kontrola po aktualizacji zakończona.")).toBeVisible();
     await waitFor(() => {
       expect(storage.read()).toBeNull();
     });
@@ -199,7 +199,7 @@ describe("PwaUpdateNotice", () => {
       />
     );
 
-    expect(await screen.findByText("Kontrola po aktualizacji zakonczona")).toBeVisible();
+    expect(await screen.findByText("Kontrola po aktualizacji zakończona.")).toBeVisible();
     await waitFor(() => {
       expect(storage.read()).toBeNull();
     });

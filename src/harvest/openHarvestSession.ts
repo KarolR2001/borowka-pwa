@@ -127,7 +127,7 @@ export function prepareOpenHarvestSession(
   const createdBy = normalizeRequiredText(input.actorProfile.uid, "Sesja wymaga autora.");
   const createdDeviceId = normalizeRequiredText(
     input.createdDeviceId,
-    "Sesja wymaga urzadzenia tworzacego."
+    "Sesja wymaga urządzenia tworzącego."
   );
   const businessDate = normalizeBusinessDate(input.businessDate);
 
@@ -153,12 +153,12 @@ export function prepareOpenHarvestSession(
       status: "CONTINUE_EXISTING",
       existingOpenSessions,
       canCreateSecondSession: input.actorProfile.role === "ADMIN",
-      message: "Istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "Istnieje już otwarta sesja tej osoby z tą datą."
     };
   }
 
   if (existingOpenSessions.length > 0 && input.actorProfile.role !== "ADMIN") {
-    throw new Error("Tylko administrator moze utworzyc druga sesje tej osoby i daty.");
+    throw new Error("Tylko administrator może utworzyć drugą sesję tej osoby i daty.");
   }
 
   const session: HarvestSessionDocument = {
@@ -287,7 +287,7 @@ export function describeHarvestSessionCalculation(
 ): string {
   const formattedRate = formatMoney(session.rateGroszSnapshot);
   const basis =
-    session.calculationBasisSnapshot === "WEIGHT" ? "aktywnej wagi" : "aktywnej ilosci";
+    session.calculationBasisSnapshot === "WEIGHT" ? "aktywnej wagi" : "aktywnej ilości";
 
   return `${formattedRate} za ${session.unitLabelSnapshot}; oficjalna kwota powstaje przy zamknieciu z sumy ${basis}.`;
 }
@@ -303,7 +303,7 @@ function findActivePlanForRate(
   }
 
   if (!plan.active) {
-    throw new Error("Nie mozna otworzyc sesji na archiwalnym planie.");
+    throw new Error("Nie można otworzyć sesji na archiwalnym planie.");
   }
 
   return plan;
@@ -314,7 +314,7 @@ function assertOpenSeason(season: SeasonDocument, businessDate: string): void {
   const endDate = normalizeOptionalBusinessDate(season.endDate);
 
   if (season.status !== "OPEN") {
-    throw new Error("Sesje mozna otworzyc tylko w otwartym sezonie.");
+    throw new Error("Sesje można otworzyć tylko w otwartym sezonie.");
   }
 
   if (businessDate < startDate || (endDate !== null && businessDate > endDate)) {
@@ -327,13 +327,13 @@ function assertActiveWorker(worker: WorkerDocument): void {
   normalizeRequiredText(worker.displayName, "Zbieracz musi miec nazwe.");
 
   if (!worker.active) {
-    throw new Error("Nie mozna otworzyc sesji dla archiwalnego zbieracza.");
+    throw new Error("Nie można otworzyć sesji dla archiwalnego zbieracza.");
   }
 }
 
 function assertKnownDeviceTime(value: unknown): void {
   if (value === null || value === undefined) {
-    throw new Error("Sesja wymaga czasu utworzenia na urzadzeniu.");
+    throw new Error("Sesja wymaga czasu utworzenia na urządzeniu.");
   }
 }
 
@@ -369,7 +369,7 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
 function normalizeBusinessDate(
   value: string,
-  message = "Podaj prawidlowa date biznesowa."
+  message = "Podaj prawidłową datę."
 ): string {
   const trimmed = normalizeRequiredText(value, message);
   const match = /^\d{4}-\d{2}-\d{2}$/.exec(trimmed);

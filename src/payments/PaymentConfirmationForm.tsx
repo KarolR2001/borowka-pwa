@@ -60,7 +60,7 @@ export function PaymentConfirmationForm({
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie zapisac wyplaty."
+          : "Nie udało się zapisać wypłaty."
       );
     } finally {
       submissionInProgress.current = false;
@@ -77,18 +77,18 @@ export function PaymentConfirmationForm({
     >
       <header className="payment-confirmation-form__header">
         <div>
-          <p className="eyebrow">Potwierdzenie wyplaty</p>
+          <p className="eyebrow">Potwierdzenie wypłaty</p>
           <h3>{session.workerName}</h3>
         </div>
         <button
           className="secondary-button icon-button"
           disabled={isSubmitting}
           onClick={onCancel}
-          title="Anuluj potwierdzenie"
+          title="Anuluj Potwierdzenie"
           type="button"
         >
           <X aria-hidden="true" size={18} />
-          <span className="sr-only">Anuluj potwierdzenie</span>
+          <span className="sr-only">Anuluj Potwierdzenie</span>
         </button>
       </header>
 
@@ -107,11 +107,11 @@ export function PaymentConfirmationForm({
           value={`${formatQuantity(session.totalQuantityMilli)} ${session.unitLabel}, ${formatKilograms(session.totalWeightG)}`}
         />
         <SummaryItem
-          label="Sposob obliczenia"
+          label="Sposob obliczeńia"
           value={
             session.calculationBasis === "WEIGHT"
-              ? "Waga aktywnych wpisow"
-              : "Ilosc aktywnych jednostek"
+              ? "Waga aktywnych wpisów"
+              : "Ilość aktywnych jednostek"
           }
         />
         <SummaryItem label="Cala naleznosc" value={formatMoney(session.amountDueGrosz)} />
@@ -119,7 +119,7 @@ export function PaymentConfirmationForm({
 
       <div className="payment-confirmation-fields">
         <label className="field">
-          <span>Data biznesowa wyplaty</span>
+          <span>Data wypłaty</span>
           <input
             disabled={isSubmitting || confirmed !== null}
             onChange={(event) => {
@@ -181,7 +181,7 @@ export function PaymentConfirmationForm({
           }}
           type="checkbox"
         />
-        <span>Potwierdzam wyplate calej naleznosci za te sesje</span>
+        <span>Potwierdzam wypłatę całej należności za tę sesję</span>
       </label>
 
       {error ? <p className="form-message form-message--error">{error}</p> : null}
@@ -204,7 +204,7 @@ export function PaymentConfirmationForm({
           type="submit"
         >
           <Banknote aria-hidden="true" size={18} />
-          {isSubmitting ? "Zapisywanie..." : "Zapisz wyplate"}
+          {isSubmitting ? "Zapisywanie..." : "Zapisz wypłatę"}
         </button>
         <button
           className="secondary-button"

@@ -2,6 +2,7 @@ import { Ban, RefreshCw, Search, ShieldAlert, UserPlus, UsersRound } from "lucid
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   INVITATION_STATUSES,
   USER_ROLES,
@@ -68,7 +69,7 @@ type InvitationFormState = {
 const initialInvitationsState: InvitationsState = {
   status: "IDLE",
   result: null,
-  message: "Lista zaproszen nie zostala jeszcze pobrana."
+  message: "Lista zaproszeń nie została jeszcze pobrana."
 };
 
 const initialInvitationFormState: InvitationFormState = {
@@ -113,7 +114,7 @@ export function AdminRegistrationInvitationsPanel({
     setInvitationsState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie zaproszen."
+      message: "Pobieranie zaproszeń."
     }));
 
     void registrationInvitationsApi
@@ -123,7 +124,7 @@ export function AdminRegistrationInvitationsPanel({
           setInvitationsState({
             status: "READY",
             result,
-            message: "Lista zaproszen jest aktualna."
+            message: "Lista zaproszeń jest aktualna."
           });
         }
       })
@@ -132,7 +133,7 @@ export function AdminRegistrationInvitationsPanel({
           setInvitationsState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac listy zaproszen."
+            message: "Nie udało się pobrać listy zaproszeń."
           }));
         }
       });
@@ -162,7 +163,7 @@ export function AdminRegistrationInvitationsPanel({
       >
         <AccessNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator."
+          message="Zaloguj się jako administrator."
         />
       </section>
     );
@@ -175,8 +176,8 @@ export function AdminRegistrationInvitationsPanel({
         aria-label="Zaproszenia"
       >
         <AccessNotice
-          title="Brak dostepu"
-          message="Zaproszenia sa dostepne tylko dla administratora."
+          title="Brak dostępu"
+          message="Zaproszenia są dostępne tylko dla administratora."
         />
       </section>
     );
@@ -248,7 +249,7 @@ export function AdminRegistrationInvitationsPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
@@ -342,16 +343,18 @@ export function AdminRegistrationInvitationsPanel({
         </button>
       </form>
 
-      <InvitationFilters filters={filters} onChange={setFilters} />
+      <CollapsibleFilters>
+        <InvitationFilters filters={filters} onChange={setFilters} />
+      </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie zaproszen">
+      <div className="directory-summary" aria-label="Podsumowanie zaproszeń">
         <DirectoryStat
           label="Wszystkie zaproszenia"
           value={String(invitationsState.result?.invitations.length ?? 0)}
         />
         <DirectoryStat label="Oczekujace" value={String(pendingCount)} />
         <DirectoryStat
-          label="Bledne dokumenty"
+          label="Błędne dokumenty"
           value={String(invitationsState.result?.invalidInvitations.length ?? 0)}
         />
       </div>
@@ -363,11 +366,11 @@ export function AdminRegistrationInvitationsPanel({
       ) : null}
 
       {invitationsState.status === "LOADING" && !invitationsState.result ? (
-        <p className="empty-state">Pobieranie zaproszen.</p>
+        <p className="empty-state">Pobieranie zaproszeń.</p>
       ) : null}
 
       {invitationsState.result && filteredInvitations.length === 0 ? (
-        <p className="empty-state">Brak zaproszen dla wybranych filtrow.</p>
+        <p className="empty-state">Brak zaproszeń dla wybranych filtrów.</p>
       ) : null}
 
       {filteredInvitations.length > 0 ? (
@@ -418,12 +421,12 @@ export function AdminRegistrationInvitationsPanel({
 
       {invitationsState.result &&
       invitationsState.result.invalidInvitations.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Bledne zaproszenia">
+        <div className="invalid-profiles" aria-label="Błędne zaproszenia">
           <div className="access-notice__icon">
             <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <p className="eyebrow">Bledne dokumenty</p>
+            <p className="eyebrow">Błędne dokumenty</p>
             <ul>
               {invitationsState.result.invalidInvitations.map((invalidInvitation) => (
                 <li key={invalidInvitation.id}>
@@ -446,7 +449,7 @@ function InvitationFilters({
   onChange: (filters: RegistrationInvitationFilters) => void;
 }) {
   return (
-    <div className="directory-filters invitation-filters" aria-label="Filtry zaproszen">
+    <div className="directory-filters invitation-filters" aria-label="Filtry zaproszeń">
       <label className="field">
         <span>Szukaj</span>
         <span className="search-field">
@@ -544,7 +547,7 @@ function validateInvitationForm(formState: InvitationFormState): string | null {
   }
 
   if (!formState.displayName.trim()) {
-    return "Podaj nazwe zapraszanego uzytkownika.";
+    return "Podaj nazwe zapraszanego użytkownika.";
   }
 
   if (formState.targetRole === "PICKER" && !formState.workerId.trim()) {
@@ -559,5 +562,5 @@ function getInvitationActionErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Operacja na zaproszeniu nie powiodla sie.";
+  return "Operacja na zaproszeniu nie powiodła się.";
 }

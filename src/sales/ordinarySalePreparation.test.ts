@@ -120,7 +120,7 @@ describe("ordinary sale form model", () => {
         draft: draft({ businessDate: "2026-02-30" }),
         stockContexts
       })
-    ).toThrow("Podaj prawidlowa date biznesowa sprzedazy.");
+    ).toThrow("Podaj prawidłową datę sprzedaży.");
   });
 
   it("requires online preparation and a unique selected season context", () => {
@@ -130,7 +130,7 @@ describe("ordinary sale form model", () => {
         isOnline: false,
         stockContexts
       })
-    ).toThrow("Sprzedaz wymaga polaczenia z internetem.");
+    ).toThrow("Sprzedaż wymaga połączenia z internetem.");
 
     expect(() =>
       createOrdinarySalePreview({

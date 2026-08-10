@@ -100,8 +100,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByRole("heading", { name: "Anna Test" })).toBeInTheDocument();
     expect(screen.getByText("Sezon testowy 2026 · 17.07.2026")).toBeInTheDocument();
     expect(screen.getByText("W toku")).toBeInTheDocument();
-    expect(screen.getByText("Online")).toBeInTheDocument();
-    expect(screen.getByText("Oczekujace zapisy: 1")).toBeInTheDocument();
+    expect(screen.queryByText(/online|offline/i)).not.toBeInTheDocument();
     expect(screen.getByText("Za kilogram")).toBeInTheDocument();
     expect(screen.getByText("10,00 zł / kilogram")).toBeInTheDocument();
     expect(screen.getByText("3 kilogram")).toBeInTheDocument();
@@ -111,7 +110,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByText("Telefon operatora")).toBeInTheDocument();
     expect(screen.getAllByText("#2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeEnabled();
   });
 
   it("orders entries by newest sequence and shows pending sync state", () => {
@@ -240,7 +239,7 @@ describe("ActiveHarvestSessionPanel", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Dodaj wpis" }));
-    await user.click(screen.getByRole("button", { name: "Zamknij sesje" }));
+    await user.click(screen.getByRole("button", { name: "Zamknij sesję" }));
 
     expect(onAddEntry).toHaveBeenCalledTimes(1);
     expect(onCloseSession).toHaveBeenCalledTimes(1);
@@ -257,10 +256,9 @@ describe("ActiveHarvestSessionPanel", () => {
       />
     );
 
-    expect(screen.getByText("Offline")).toBeInTheDocument();
-    expect(screen.getByText("Oczekujace zapisy: 2")).toBeInTheDocument();
+    expect(screen.queryByText(/online|offline/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeDisabled();
   });
 
   it("shows a status notice and empty entries state", () => {
@@ -283,8 +281,8 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(
       screen.getByText("Sesja zostala zmieniona na innym urzadzeniu.")
     ).toBeInTheDocument();
-    expect(screen.getByText("Sesja nie ma jeszcze wpisow.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeDisabled();
+    expect(screen.getByText("Sesja nie ma jeszcze wpisów.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeDisabled();
   });
 
   it("renders empty active session placeholder before persistence is implemented", () => {
@@ -292,7 +290,7 @@ describe("ActiveHarvestSessionPanel", () => {
 
     expect(screen.getByText("Brak aktywnej sesji")).toBeInTheDocument();
     expect(
-      screen.getByText("Otwarte sesje zostana pokazane po wdrozeniu zapisu zbiorow.")
+      screen.getByText("Otwarte sesje zostaną pokazane po wdrożeniu zapisu zbiorów.")
     ).toBeInTheDocument();
   });
 
@@ -301,7 +299,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(formatSessionQuantity(1500, 1, "ubianka")).toBe("1,5 ubianka");
     expect(formatSessionQuantity(3495, 3, "kilogram")).toBe("3,495 kilogram");
     expect(() => formatSessionQuantity(1000, 4, "jednostka")).toThrow(
-      "Precyzja ilosci musi byc od 0 do 3."
+      "Precyzja ilości musi być od 0 do 3."
     );
   });
 });

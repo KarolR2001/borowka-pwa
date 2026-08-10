@@ -5,6 +5,7 @@ import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { harvestSessionStatusLabel } from "../harvest/harvestSessionState";
 import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   createAdminPaymentCsv,
   createAdminPaymentCsvFilename,
@@ -141,11 +142,11 @@ export function AdminPaymentDirectoryPanel({
 
   if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
     return (
-      <section className="access-notice" aria-label="Historia wyplat">
+      <section className="access-notice" aria-label="Historia wypłat">
         <Banknote aria-hidden="true" size={24} />
         <div>
-          <p className="eyebrow">Historia wyplat</p>
-          <p>Lista wyplat jest dostepna tylko dla administratora.</p>
+          <p className="eyebrow">Historia wypłat</p>
+          <p>Lista wypłat jest dostępna tylko dla administratora.</p>
         </div>
       </section>
     );
@@ -162,7 +163,7 @@ export function AdminPaymentDirectoryPanel({
       setFeedback(`Wyeksportowano rekordy: ${String(filteredPayments.length)}.`);
     } catch {
       setFeedback(null);
-      setExportError("Nie udalo sie zapisac pliku CSV.");
+      setExportError("Nie udało się zapisać pliku CSV.");
     }
   }
 
@@ -177,7 +178,7 @@ export function AdminPaymentDirectoryPanel({
     const payment = payments.find((item) => item.id === cancellationTargetId);
 
     if (!payment?.sourceSession || authState.status !== "READY") {
-      setExportError("Odswiez wyplate i jej sesje zrodlowa przed anulowaniem.");
+      setExportError("Odśwież wypłatę i jej sesję źródłową przed anulowaniem.");
       return;
     }
 
@@ -201,7 +202,7 @@ export function AdminPaymentDirectoryPanel({
       setReloadKey((current) => current + 1);
     } catch (error) {
       setExportError(
-        error instanceof Error ? error.message : "Nie udalo sie anulowac wyplaty."
+        error instanceof Error ? error.message : "Nie udało się anulować wypłaty."
       );
     } finally {
       setIsCancelling(false);
@@ -213,11 +214,11 @@ export function AdminPaymentDirectoryPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Rozliczenia</p>
-          <h2 id="payment-directory-title">Historia wyplat</h2>
+          <h2 id="payment-directory-title">Historia wypłat</h2>
           <p className="panel-detail">
             {state.status === "LOADING"
               ? "Pobieranie aktualnych danych z serwera."
-              : "Aktywne, anulowane i importowane wyplaty."}
+              : "Aktywne, anulowane i importowane wypłaty."}
           </p>
         </div>
         <div className="payment-directory__header-actions">
@@ -238,22 +239,24 @@ export function AdminPaymentDirectoryPanel({
               setFeedback(null);
               setReloadKey((current) => current + 1);
             }}
-            title="Odswiez historie wyplat"
+            title="Odśwież historię wypłat"
             type="button"
           >
             <RefreshCw aria-hidden="true" size={18} />
-            <span className="sr-only">Odswiez historie wyplat</span>
+            <span className="sr-only">Odśwież historię wypłat</span>
           </button>
         </div>
       </header>
 
-      <PaymentDirectoryFilterControls
-        filters={filters}
-        onChange={setFilters}
-        payments={payments}
-      />
+      <CollapsibleFilters>
+        <PaymentDirectoryFilterControls
+          filters={filters}
+          onChange={setFilters}
+          payments={payments}
+        />
+      </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie historii wyplat">
+      <div className="directory-summary" aria-label="Podsumowanie historii wypłat">
         <DirectoryStat label="Widoczne" value={String(summary.totalCount)} />
         <DirectoryStat label="Aktywne" value={String(summary.activeCount)} />
         <DirectoryStat
@@ -276,13 +279,13 @@ export function AdminPaymentDirectoryPanel({
             void submitCancellation();
           }}
         >
-          <h3>Anulowanie wyplaty</h3>
+          <h3>Anulowanie wypłaty</h3>
           <p>
-            Wyplata pozostanie w historii jako anulowana, a sesja wroci do zamknietych i
-            ponownie pojawi sie na liscie do wyplaty.
+            Wyplata pozostanie w historii jako anulowana, a sesja wroci do zamkniętych i
+            ponownie pojawi się na liscie do wypłaty.
           </p>
           <label className="field">
-            <span>Powod anulowania</span>
+            <span>Powód anulowania</span>
             <textarea
               maxLength={PAYMENT_CANCELLATION_REASON_MAX_LENGTH}
               onChange={(event) => {
@@ -301,7 +304,7 @@ export function AdminPaymentDirectoryPanel({
               type="checkbox"
             />
             <span>
-              Potwierdzam anulowanie wyplaty{" "}
+              Potwierdzam anulowanie wypłaty{" "}
               {formatMoney(
                 payments.find((item) => item.id === cancellationTargetId)?.amountGrosz ??
                   0
@@ -312,11 +315,6 @@ export function AdminPaymentDirectoryPanel({
               .
             </span>
           </label>
-          {!isOnline ? (
-            <p className="form-message form-message--warning">
-              Anulowanie wymaga polaczenia z internetem.
-            </p>
-          ) : null}
           <div className="form-actions">
             <button
               disabled={
@@ -328,7 +326,7 @@ export function AdminPaymentDirectoryPanel({
               type="submit"
             >
               <Ban aria-hidden="true" size={18} />
-              {isCancelling ? "Anulowanie..." : "Anuluj wyplate"}
+              {isCancelling ? "Anulowanie..." : "Anuluj wypłatę"}
             </button>
             <button
               className="secondary-button"
@@ -338,14 +336,14 @@ export function AdminPaymentDirectoryPanel({
               }}
               type="button"
             >
-              Zachowaj wyplate
+              Zachowaj wypłatę
             </button>
           </div>
         </form>
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac aktualnej historii wyplat.
+          Nie udało się pobrać aktualnej historii wypłat.
         </p>
       ) : null}
       {state.result &&
@@ -354,16 +352,16 @@ export function AdminPaymentDirectoryPanel({
         state.result.invalidSeasonCount > 0 ||
         state.result.missingSourceSessionCount > 0) ? (
         <p className="form-message form-message--warning">
-          Dane wymagajace kontroli: wyplaty {state.result.invalidPaymentCount}, sesje{" "}
+          Dane wymagające kontroli: wypłaty {state.result.invalidPaymentCount}, sesje{" "}
           {state.result.invalidSessionCount}, sezony {state.result.invalidSeasonCount},
-          brak sesji zrodlowej {state.result.missingSourceSessionCount}.
+          brak sesji źródłowej {state.result.missingSourceSessionCount}.
         </p>
       ) : null}
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie historii wyplat.</p>
+        <p className="empty-state">Pobieranie historii wypłat.</p>
       ) : null}
       {state.status !== "LOADING" && filteredPayments.length === 0 ? (
-        <p className="empty-state">Brak wyplat spelniajacych filtry.</p>
+        <p className="empty-state">Brak wypłat spełniających filtry.</p>
       ) : null}
       {filteredPayments.length > 0 ? (
         <PaymentDirectoryTable
@@ -397,7 +395,7 @@ function PaymentDirectoryFilterControls({
   const workerOptions = uniqueOptions(payments, "workerId", "workerName");
 
   return (
-    <div className="payment-directory-filters" aria-label="Filtry historii wyplat">
+    <div className="payment-directory-filters" aria-label="Filtry historii wypłat">
       <label className="field">
         <span>Sezon</span>
         <select
@@ -465,7 +463,7 @@ function PaymentDirectoryFilterControls({
         </select>
       </label>
       <DateRangeFields
-        fromLabel="Wyplata od"
+        fromLabel="Wypłata od"
         fromValue={filters.paidFromDate}
         onFromChange={(paidFromDate) => {
           onChange({ ...filters, paidFromDate });
@@ -473,7 +471,7 @@ function PaymentDirectoryFilterControls({
         onToChange={(paidToDate) => {
           onChange({ ...filters, paidToDate });
         }}
-        toLabel="Wyplata do"
+        toLabel="Wypłata do"
         toValue={filters.paidToDate}
       />
       <DateRangeFields
@@ -545,14 +543,14 @@ function PaymentDirectoryTable({
       <table className="directory-table payment-directory-table">
         <thead>
           <tr>
-            <th scope="col">Data wyplaty</th>
+            <th scope="col">Data wypłaty</th>
             <th scope="col">Zbieracz</th>
             <th scope="col">Kwota</th>
             <th scope="col">Metoda</th>
             <th scope="col">Status</th>
             <th scope="col">Data sesji</th>
             <th scope="col">Autor</th>
-            <th scope="col">Szczegoly</th>
+            <th scope="col">Szczegóły</th>
           </tr>
         </thead>
         <tbody>
@@ -580,11 +578,11 @@ function PaymentDirectoryTable({
                   onClick={() => {
                     onOpen(payment.id);
                   }}
-                  title={`Otworz szczegoly wyplaty ${payment.id}`}
+                  title={`Otwórz szczegóły wypłaty ${payment.id}`}
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />
-                  <span className="sr-only">Otworz szczegoly wyplaty {payment.id}</span>
+                  <span className="sr-only">Otwórz szczegóły wypłaty {payment.id}</span>
                 </button>
               </td>
             </tr>
@@ -611,26 +609,26 @@ function PaymentDirectoryDetails({
     >
       <header className="payment-directory-details__header">
         <div>
-          <p className="eyebrow">Szczegoly wyplaty</p>
+          <p className="eyebrow">Szczegóły wypłaty</p>
           <h3 id="payment-directory-details-title">{payment.workerName}</h3>
         </div>
         <button
           className="secondary-button icon-button"
           onClick={onClose}
-          title="Zamknij szczegoly"
+          title="Zamknij szczegóły"
           type="button"
         >
           <X aria-hidden="true" size={18} />
-          <span className="sr-only">Zamknij szczegoly</span>
+          <span className="sr-only">Zamknij szczegóły</span>
         </button>
       </header>
 
       <dl className="payment-directory-details__grid">
-        <Detail label="Id wyplaty" value={payment.id} />
+        <Detail label="Id wypłaty" value={payment.id} />
         <Detail label="Id sesji" value={payment.sessionId} />
         <Detail label="Kwota" value={formatMoney(payment.amountGrosz)} />
         <Detail
-          label="Data wyplaty"
+          label="Data wypłaty"
           value={formatBusinessDate(payment.paidBusinessDate)}
         />
         <Detail label="Metoda" value={paymentMethodLabel(payment.paymentMethod)} />
@@ -651,7 +649,7 @@ function PaymentDirectoryDetails({
               value={formatTimestamp(payment.cancelledAtIso)}
             />
             <Detail
-              label="Powod anulowania"
+              label="Powód anulowania"
               value={payment.cancellationReason ?? "brak"}
             />
           </>
@@ -660,7 +658,7 @@ function PaymentDirectoryDetails({
 
       {payment.sourceSession ? (
         <div className="payment-directory-source-session">
-          <h4>Sesja zrodlowa</h4>
+          <h4>Sesja źródłowa</h4>
           <dl className="payment-directory-details__grid">
             <Detail
               label="Data sesji"
@@ -672,11 +670,11 @@ function PaymentDirectoryDetails({
             />
             <Detail label="Plan" value={payment.sourceSession.planName} />
             <Detail
-              label="Sposob obliczenia"
+              label="Sposob obliczeńia"
               value={
                 payment.sourceSession.calculationBasis === "WEIGHT"
-                  ? "Waga aktywnych wpisow"
-                  : "Ilosc aktywnych jednostek"
+                  ? "Waga aktywnych wpisów"
+                  : "Ilość aktywnych jednostek"
               }
             />
             <Detail
@@ -707,7 +705,7 @@ function PaymentDirectoryDetails({
         </div>
       ) : (
         <p className="form-message form-message--warning">
-          Brak sesji zrodlowej dla tej wyplaty.
+          Brak sesji źródłowej dla tej wypłaty.
         </p>
       )}
 
@@ -824,7 +822,7 @@ function downloadAdminPaymentCsv(content: string, filename: string): void {
     typeof document === "undefined" ||
     typeof window.URL.createObjectURL !== "function"
   ) {
-    throw new Error("Eksport wyplat wymaga przegladarki z obsluga plikow.");
+    throw new Error("Eksport wypłat wymaga przegladarki z obsluga plikow.");
   }
 
   const blob = new Blob([content], {

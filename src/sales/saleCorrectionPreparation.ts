@@ -247,7 +247,7 @@ function normalizeCorrectionReason(value: string): string {
   const normalized = value.trim();
 
   if (normalized.length < SALE_CORRECTION_REASON_MIN_LENGTH) {
-    throw new Error("Powod korekty musi miec co najmniej 3 znaki.");
+    throw new Error("Powód korekty musi mieć co najmniej 3 znaki.");
   }
 
   if (normalized.length > SALE_CORRECTION_REASON_MAX_LENGTH) {

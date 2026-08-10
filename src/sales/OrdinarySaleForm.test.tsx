@@ -48,7 +48,7 @@ describe("OrdinarySaleForm", () => {
     expect(screen.getByText("87,655 kg")).toBeVisible();
     expect(
       screen.getByText(
-        "Obliczenie przychodu: 12,345 kg x 15,50 zł / kg = 191,35 zł. Pelne gramy, polowa grosza w gore (regula 1)."
+        "Obliczenie przychodu: 12,345 kg x 15,50 zł / kg = 191,35 zł. Pełne gramy, połowa grosza w górę (reguła 1)."
       )
     ).toBeVisible();
   });
@@ -64,7 +64,7 @@ describe("OrdinarySaleForm", () => {
     await user.type(screen.getByLabelText("Masa kg"), "12,345");
     await user.type(screen.getByLabelText("Cena za kg"), "15,50");
     await user.type(screen.getByLabelText("Notatka"), "Odbior przy gospodarstwie");
-    await user.click(screen.getByRole("button", { name: "Sprawdz i przejdz dalej" }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
 
     expect(onPrepare).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -80,7 +80,7 @@ describe("OrdinarySaleForm", () => {
       })
     );
     expect(
-      screen.getByText("Dane sprzedazy sa gotowe do ponownego sprawdzenia stanu.")
+      screen.getByText("Dane sprzedaży są gotowe do ponownego sprawdzenia stanu.")
     ).toBeVisible();
   });
 
@@ -89,9 +89,11 @@ describe("OrdinarySaleForm", () => {
       <OrdinarySaleForm isOnline={false} onPrepare={vi.fn()} stockContexts={contexts} />
     );
 
-    expect(screen.getByText("Sprzedaz wymaga polaczenia z internetem.")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Sprawdz i przejdz dalej" })
+      screen.queryByText(/offline|połączenia z internetem/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sprawdź i przejdź dalej" })
     ).toBeDisabled();
   });
 
@@ -105,7 +107,7 @@ describe("OrdinarySaleForm", () => {
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2025");
 
     expect(
-      screen.getByText("Stan moze byc nieaktualny. Odswiez dane przed zatwierdzeniem.")
+      screen.getByText("Stan może być nieaktualny. Odśwież dane przed zatwierdzeniem.")
     ).toBeVisible();
     expect(screen.getAllByText("20,000 kg")).toHaveLength(2);
   });
@@ -122,7 +124,7 @@ describe("OrdinarySaleForm", () => {
 
     expect(screen.getByText("-20,000 kg")).toBeVisible();
     expect(
-      screen.getByText("Sprzedaz przekracza widoczny stan o 20,000 kg.")
+      screen.getByText("Sprzedaż przekracza widoczny stan o 20,000 kg.")
     ).toBeVisible();
   });
 
@@ -136,7 +138,7 @@ describe("OrdinarySaleForm", () => {
 
     await user.type(screen.getByLabelText("Masa kg"), "1,2345");
     await user.type(screen.getByLabelText("Cena za kg"), "10");
-    await user.click(screen.getByRole("button", { name: "Sprawdz i przejdz dalej" }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
 
     expect(
       screen.getByText("Podaj mase w kilogramach z dokladnoscia do 3 miejsc.")
@@ -158,7 +160,7 @@ describe("OrdinarySaleForm", () => {
 
     await user.type(screen.getByLabelText("Masa kg"), "1");
     await user.type(screen.getByLabelText("Cena za kg"), "10");
-    await user.dblClick(screen.getByRole("button", { name: "Sprawdz i przejdz dalej" }));
+    await user.dblClick(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
 
     expect(onPrepare).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Sprawdzanie..." })).toBeDisabled();

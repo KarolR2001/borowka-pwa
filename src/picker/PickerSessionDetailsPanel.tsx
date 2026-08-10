@@ -1,4 +1,4 @@
-import { CloudOff, Flag, X } from "lucide-react";
+import { Flag, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -95,7 +95,7 @@ export function PickerSessionDetailsPanel({
     >
       <header>
         <div>
-          <p className="eyebrow">Szczegoly sesji</p>
+          <p className="eyebrow">Szczegóły sesji</p>
           <h3 id="picker-session-details-title">
             {result
               ? `Sesja z ${formatBusinessDate(result.businessDate)}`
@@ -103,10 +103,10 @@ export function PickerSessionDetailsPanel({
           </h3>
         </div>
         <button
-          aria-label="Zamknij szczegoly sesji"
+          aria-label="Zamknij szczegóły sesji"
           className="secondary-button icon-button"
           onClick={onClose}
-          title="Zamknij szczegoly sesji"
+          title="Zamknij szczegóły sesji"
           type="button"
         >
           <X aria-hidden="true" size={18} />
@@ -114,17 +114,11 @@ export function PickerSessionDetailsPanel({
       </header>
 
       {state.status === "LOADING" ? (
-        <p className="empty-state">Pobieranie szczegolow sesji.</p>
+        <p className="empty-state">Pobieranie szczegółów sesji.</p>
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac szczegolow tej sesji.
-        </p>
-      ) : null}
-      {result?.dataSource === "CACHE" ? (
-        <p className="picker-dashboard__source form-message form-message--warning">
-          <CloudOff aria-hidden="true" size={18} />
-          Szczegoly z pamieci offline
+          Nie udało się pobrać szczegółów tej sesji.
         </p>
       ) : null}
       {result ? (
@@ -158,12 +152,12 @@ export function PickerSessionDetailsPanel({
                   : formatMoney(result.amountDueGrosz)
               }
             />
-            <Fact label="Status wyplaty" value={paymentStatusLabel(result)} />
+            <Fact label="Status wypłaty" value={paymentStatusLabel(result)} />
           </dl>
 
           {result.payment ? (
             <section className="picker-session-details__payment">
-              <h4>Wyplata</h4>
+              <h4>Wypłata</h4>
               <dl>
                 <Fact
                   label="Data"
@@ -181,7 +175,7 @@ export function PickerSessionDetailsPanel({
           <section className="picker-session-details__entries">
             <h4>Wpisy</h4>
             {result.entries.length === 0 ? (
-              <p className="empty-state">Brak wpisow w tej sesji.</p>
+              <p className="empty-state">Brak wpisów w tej sesji.</p>
             ) : (
               <ol>
                 {result.entries.map((entry) => (
@@ -204,7 +198,7 @@ export function PickerSessionDetailsPanel({
                     </div>
                     <dl>
                       <Fact
-                        label="Ilosc"
+                        label="Ilość"
                         value={formatSessionQuantity(
                           entry.quantityMilli,
                           result.quantityPrecision,
@@ -219,7 +213,7 @@ export function PickerSessionDetailsPanel({
                       />
                     </dl>
                     {entry.status === "CANCELLED" && entry.cancellationReason ? (
-                      <p>Powod: {entry.cancellationReason}</p>
+                      <p>Powód: {entry.cancellationReason}</p>
                     ) : null}
                   </li>
                 ))}
@@ -229,7 +223,7 @@ export function PickerSessionDetailsPanel({
 
           {result.invalidEntryCount > 0 || result.invalidPayment ? (
             <p className="form-message form-message--warning">
-              Dane wymagajace kontroli: wpisy {result.invalidEntryCount}, wyplata{" "}
+              Dane wymagajace kontroli: wpisy {result.invalidEntryCount}, wypłata{" "}
               {result.invalidPayment ? "1" : "0"}.
             </p>
           ) : null}
@@ -242,7 +236,7 @@ export function PickerSessionDetailsPanel({
             type="button"
           >
             <Flag aria-hidden="true" size={18} />
-            Zglos niezgodnosc
+            Zgłoś niezgodność
           </button>
         </>
       ) : null}
@@ -274,7 +268,7 @@ function paymentMethodLabel(
 
 function paymentStatusLabel(result: PickerSessionDetailsResult): string {
   if (result.payment) {
-    return "Wyplacono";
+    return "Wypłacono";
   }
 
   if (result.invalidPayment || result.status === "PAID") {
@@ -283,7 +277,7 @@ function paymentStatusLabel(result: PickerSessionDetailsResult): string {
 
   switch (result.status) {
     case "CLOSED":
-      return "Do wyplaty";
+      return "Do wypłaty";
     case "CANCELLED":
       return "Nie dotyczy";
     case "OPEN":

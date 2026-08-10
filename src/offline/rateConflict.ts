@@ -86,7 +86,7 @@ export function evaluateOfflineRateConflict({
         ? createRateSnapshotView(currentEffectiveRate)
         : null,
       localSnapshot,
-      message: "Snapshot stawki pozostaje zgodny z data biznesowa sesji.",
+      message: "Zapisana stawka jest zgodna z datą sesji.",
       paymentBlocked: false,
       preservedAmountDueGrosz,
       recommendedSessionStatus: session.status,
@@ -218,7 +218,7 @@ function isRateEffectiveOn(
 
 function normalizeBusinessDate(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
-    throw new Error("Data biznesowa konfliktu stawki musi miec format YYYY-MM-DD.");
+    throw new Error("Data konfliktu stawki musi mieć format YYYY-MM-DD.");
   }
 
   return value;

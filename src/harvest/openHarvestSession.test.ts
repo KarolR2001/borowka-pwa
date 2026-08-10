@@ -197,7 +197,7 @@ describe("open harvest session preparation", () => {
       allowBatchQuantitySnapshot: true
     });
     expect(describeHarvestSessionCalculation(result.session)).toContain(
-      "aktywnej ilosci"
+      "aktywnej ilości"
     );
   });
 
@@ -216,7 +216,7 @@ describe("open harvest session preparation", () => {
       status: "CONTINUE_EXISTING",
       existingOpenSessions: existingSessions,
       canCreateSecondSession: false,
-      message: "Istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "Istnieje już otwarta sesja tej osoby z tą datą."
     });
   });
 
@@ -263,7 +263,7 @@ describe("open harvest session preparation", () => {
           secondSessionReason: "Drugi etap dnia."
         })
       )
-    ).toThrow("Tylko administrator moze utworzyc druga sesje tej osoby i daty.");
+    ).toThrow("Tylko administrator może utworzyć drugą sesję tej osoby i daty.");
   });
 
   it("finds only open sessions for the same worker and business date", () => {
@@ -305,10 +305,10 @@ describe("open harvest session preparation", () => {
     );
     expect(() =>
       prepareOpenHarvestSession(defaultInput({ createdDeviceId: "" }))
-    ).toThrow("Sesja wymaga urzadzenia tworzacego.");
+    ).toThrow("Sesja wymaga urządzenia tworzącego.");
     expect(() =>
       prepareOpenHarvestSession(defaultInput({ createdAtDevice: null }))
-    ).toThrow("Sesja wymaga czasu utworzenia na urzadzeniu.");
+    ).toThrow("Sesja wymaga czasu utworzenia na urządzeniu.");
   });
 
   it("validates season and business date constraints", () => {
@@ -321,13 +321,13 @@ describe("open harvest session preparation", () => {
           } satisfies SeasonDocument
         })
       )
-    ).toThrow("Sesje mozna otworzyc tylko w otwartym sezonie.");
+    ).toThrow("Sesje można otworzyć tylko w otwartym sezonie.");
     expect(() =>
       prepareOpenHarvestSession(defaultInput({ businessDate: "2026-10-01" }))
     ).toThrow("Data sesji musi miescic sie w zakresie sezonu.");
     expect(() =>
       prepareOpenHarvestSession(defaultInput({ businessDate: "2026-02-31" }))
-    ).toThrow("Podaj prawidlowa date biznesowa.");
+    ).toThrow("Podaj prawidłową datę.");
   });
 
   it("validates worker, plan and rate consistency", () => {
@@ -340,14 +340,14 @@ describe("open harvest session preparation", () => {
           }
         })
       )
-    ).toThrow("Nie mozna otworzyc sesji dla archiwalnego zbieracza.");
+    ).toThrow("Nie można otworzyć sesji dla archiwalnego zbieracza.");
     expect(() =>
       prepareOpenHarvestSession(
         defaultInput({
           plans: [{ ...seed.settlementPlans[0], active: false }]
         })
       )
-    ).toThrow("Nie mozna otworzyc sesji na archiwalnym planie.");
+    ).toThrow("Nie można otworzyć sesji na archiwalnym planie.");
     expect(() => prepareOpenHarvestSession(defaultInput({ rateVersions: [] }))).toThrow(
       "Brak stawki zbieracza obowiazujacej w dacie sesji."
     );

@@ -49,9 +49,9 @@ describe("PickerHarvestListPanel", () => {
     expect(screen.getAllByText("Wymaga przegladu")).toHaveLength(2);
     expect(screen.getAllByText("Anulowano")).toHaveLength(2);
     expect(screen.getAllByText("2 ubianki")).toHaveLength(4);
-    expect(screen.getByText("Dane z pamieci offline")).toBeInTheDocument();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Otworz sesje 29.07.2026" }));
+    await user.click(screen.getByRole("button", { name: "Otwórz sesję 29.07.2026" }));
 
     expect(
       screen.getByRole("heading", { name: "Sesja z 29.07.2026" })
@@ -85,17 +85,17 @@ describe("PickerHarvestListPanel", () => {
     await user.selectOptions(screen.getByLabelText("Status"), "PAID");
 
     expect(
-      screen.getByRole("button", { name: "Otworz sesje 28.07.2026" })
+      screen.getByRole("button", { name: "Otwórz sesję 28.07.2026" })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Otworz sesje 27.07.2026" })
+      screen.queryByRole("button", { name: "Otwórz sesję 27.07.2026" })
     ).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2025");
 
     await waitFor(() => {
       expect(
-        screen.getByText("Brak sesji spelniajacych wybrane filtry.")
+        screen.getByText("Brak sesji spełniających wybrane filtry.")
       ).toBeInTheDocument();
     });
   });

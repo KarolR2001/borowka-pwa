@@ -1,4 +1,10 @@
-import { CloudOff, Download, FileSpreadsheet, RefreshCw, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  RefreshCw,
+  UserRound
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -12,6 +18,7 @@ import {
 } from "../dashboard/dashboardPeriod";
 import { formatMoney } from "../domain/format";
 import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   createPickerDataExportCsv,
   createPickerDataExportFilename,
@@ -142,7 +149,7 @@ export function PickerDataExportPanel({
   function handleExport(): void {
     if (!state.result?.enabled || !filtered) {
       setFeedback(null);
-      setExportError("Nie mozna przygotowac eksportu dla wybranego zakresu.");
+      setExportError("Nie można przygotowac eksportu dla wybranego zakresu.");
       return;
     }
 
@@ -158,11 +165,11 @@ export function PickerDataExportPanel({
       );
       setExportError(null);
       setFeedback(
-        `Wyeksportowano sesje: ${String(filtered.sessions.length)}, wyplaty: ${String(filtered.payments.length)}.`
+        `Wyeksportowano sesje: ${String(filtered.sessions.length)}, wypłaty: ${String(filtered.payments.length)}.`
       );
     } catch {
       setFeedback(null);
-      setExportError("Nie udalo sie zapisac pliku CSV.");
+      setExportError("Nie udało się zapisać pliku CSV.");
     }
   }
 
@@ -186,22 +193,22 @@ export function PickerDataExportPanel({
     <section className="picker-data-export" aria-labelledby="picker-export-title">
       <header className="directory-header">
         <div>
-          <p className="eyebrow">Wlasne dane</p>
+          <p className="eyebrow">Własne dane</p>
           <h2 id="picker-export-title">Eksport CSV</h2>
           <p className="panel-detail">
             {state.result?.enabled
-              ? `Sesje: ${String(filtered?.sessions.length ?? 0)}, wyplaty: ${String(filtered?.payments.length ?? 0)}`
-              : "Dostepnosc eksportu jest kontrolowana przez administratora."}
+              ? `Sesje: ${String(filtered?.sessions.length ?? 0)}, wypłaty: ${String(filtered?.payments.length ?? 0)}`
+              : "Dostępność eksportu jest kontrolowana przez administratora."}
           </p>
         </div>
         <button
-          aria-label="Odswiez dane eksportu"
+          aria-label="Odśwież dane eksportu"
           className="secondary-button icon-button"
           disabled={state.status === "LOADING"}
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez dane eksportu"
+          title="Odśwież dane eksportu"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
@@ -213,12 +220,12 @@ export function PickerDataExportPanel({
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac danych do eksportu.
+          Nie udało się pobrać danych do eksportu.
         </p>
       ) : null}
       {state.result && !state.result.enabled ? (
         <p className="form-message form-message--warning">
-          Administrator nie wlaczyl eksportu wlasnego zestawienia.
+          Administrator nie włączył eksportu własnego zestawienia.
         </p>
       ) : null}
       {state.result?.enabled ? (
@@ -227,19 +234,21 @@ export function PickerDataExportPanel({
             Plik zawiera Twoje dane osobowe i finansowe. Przechowuj go w zabezpieczonej
             lokalizacji.
           </p>
-          <div className="picker-data-export__filters" aria-label="Zakres eksportu">
-            <ExportSeasonFilter
-              filters={filters}
-              onChange={setFilters}
-              seasons={state.result.seasons}
-            />
-            <DashboardPeriodFilter
-              idPrefix="picker-data-export"
-              onChange={handlePeriodChange}
-              selection={periodSelection}
-              todayBusinessDate={todayBusinessDate}
-            />
-          </div>
+          <CollapsibleFilters label="Zakres eksportu">
+            <div className="picker-data-export__filters" aria-label="Zakres eksportu">
+              <ExportSeasonFilter
+                filters={filters}
+                onChange={setFilters}
+                seasons={state.result.seasons}
+              />
+              <DashboardPeriodFilter
+                idPrefix="picker-data-export"
+                onChange={handlePeriodChange}
+                selection={periodSelection}
+                todayBusinessDate={todayBusinessDate}
+              />
+            </div>
+          </CollapsibleFilters>
           {resolvedPeriod ? (
             <p className="dashboard-period-summary">{resolvedPeriod.label}</p>
           ) : null}
@@ -249,22 +258,22 @@ export function PickerDataExportPanel({
               value={formatMoney(filtered?.summary.accruedAmountGrosz ?? 0)}
             />
             <ExportStat
-              label="Wyplacono"
+              label="Wypłacono"
               value={formatMoney(filtered?.summary.paidAmountGrosz ?? 0)}
             />
             <ExportStat
-              label="Pozostalo"
+              label="Pozostało"
               value={formatMoney(filtered?.summary.remainingAmountGrosz ?? 0)}
             />
             <ExportStat
-              label="Anulowane poza suma"
+              label="Anulowane poza sumą"
               value={formatMoney(filtered?.summary.cancelledPaymentAmountGrosz ?? 0)}
             />
           </div>
           {state.result.dataSource === "CACHE" ? (
             <p className="form-message form-message--warning">
-              <CloudOff aria-hidden="true" size={18} />
-              Eksport z cache bedzie wyraznie oznaczony jako niepelny.
+              <AlertTriangle aria-hidden="true" size={18} />
+              Dostępne dane są niepełne. Pobrany plik będzie wyraźnie oznaczony.
             </p>
           ) : null}
           {state.result.invalidPaymentCount > 0 ||
@@ -272,9 +281,9 @@ export function PickerDataExportPanel({
           state.result.invalidSeasonCount > 0 ||
           state.result.missingSourceSessionCount > 0 ? (
             <p className="form-message form-message--warning">
-              Pominiete lub niepelne dane: sesje {state.result.invalidSessionCount},
-              wyplaty {state.result.invalidPaymentCount}, sezony{" "}
-              {state.result.invalidSeasonCount}, brak sesji zrodlowej{" "}
+              Pominięte lub niepełne dane: sesje {state.result.invalidSessionCount},
+              wypłaty {state.result.invalidPaymentCount}, sezony{" "}
+              {state.result.invalidSeasonCount}, brak sesji źródłowej{" "}
               {state.result.missingSourceSessionCount}.
             </p>
           ) : null}
@@ -286,12 +295,12 @@ export function PickerDataExportPanel({
               type="button"
             >
               {state.result.dataSource === "CACHE" ? (
-                <CloudOff aria-hidden="true" size={18} />
+                <AlertTriangle aria-hidden="true" size={18} />
               ) : (
                 <Download aria-hidden="true" size={18} />
               )}
               {state.result.dataSource === "CACHE"
-                ? "Eksportuj niepelny CSV z cache"
+                ? "Pobierz niepełny CSV"
                 : "Pobierz CSV"}
             </button>
           </div>

@@ -66,7 +66,7 @@ export function SaleCancellationSection({
     if (!isOnline) {
       setCandidateState({
         candidates: [],
-        message: "Anulowanie operacji sprzedazy wymaga polaczenia z internetem.",
+        message: "Anulowanie operacji sprzedaży wymaga połączenia z internetem.",
         status: "ERROR"
       });
       return undefined;
@@ -100,7 +100,7 @@ export function SaleCancellationSection({
             message:
               caughtError instanceof Error
                 ? caughtError.message
-                : "Nie udalo sie pobrac aktywnych operacji sprzedazy.",
+                : "Nie udało się pobrać aktywnych operacji sprzedaży.",
             status: "ERROR"
           }));
         }
@@ -152,7 +152,7 @@ export function SaleCancellationSection({
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie anulowac operacji sprzedazy."
+          : "Nie udało się anulować operacji sprzedaży."
       );
     } finally {
       setIsSaving(false);
@@ -165,7 +165,7 @@ export function SaleCancellationSection({
         <div>
           <h3>Anulowanie aktywnej operacji</h3>
           <p>
-            Dokument nie zostanie usuniety. Anulowanie odwraca jego wplyw na stan i
+            Dokument nie zostanie usunięty. Anulowanie odwraca jego wpływ na stan i
             przychod.
           </p>
         </div>
@@ -176,11 +176,11 @@ export function SaleCancellationSection({
             setError(null);
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez aktywne operacje"
+          title="Odśwież aktywne operacje"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odswiez aktywne operacje</span>
+          <span className="sr-only">Odśwież aktywne operacje</span>
         </button>
       </div>
 
@@ -198,7 +198,7 @@ export function SaleCancellationSection({
 
       {candidateState.candidates.length > 0 ? (
         <fieldset className="sale-cancellation-list">
-          <legend>Wybierz operacje</legend>
+          <legend>Wybierz operację</legend>
           {candidateState.candidates.map((candidate) => {
             const { sale } = candidate;
 
@@ -219,7 +219,7 @@ export function SaleCancellationSection({
                 />
                 <span>
                   <strong>
-                    {sale.entryType === "SALE" ? "Sprzedaz" : "Korekta"} ·{" "}
+                    {sale.entryType === "SALE" ? "Sprzedaż" : "Korekta"} ·{" "}
                     {sale.businessDate}
                   </strong>
                   <span>
@@ -246,33 +246,33 @@ export function SaleCancellationSection({
                 Potwierdz skutki anulowania
               </h3>
               <p>
-                Aby poprawic dane, anuluj bledna operacje, a nastepnie dodaj nowa poprawna
-                operacje.
+                Aby poprawić dane, anuluj błędną operację, a następnie dodaj nową poprawną
+                operację.
               </p>
             </div>
           </div>
           <dl className="sale-stock-confirmation__summary">
             <CancellationValue
               label="Typ"
-              value={selectedCandidate.sale.entryType === "SALE" ? "Sprzedaz" : "Korekta"}
+              value={selectedCandidate.sale.entryType === "SALE" ? "Sprzedaż" : "Korekta"}
             />
             <CancellationValue
               label="Masa dokumentu"
               value={formatKilograms(selectedCandidate.sale.weightG)}
             />
             <CancellationValue
-              label="Wplyw na stan"
+              label="Wpływ na stan"
               value={formatSignedKilograms(impact.stockImpactG)}
             />
             <CancellationValue
-              label="Wplyw na przychod"
+              label="Wpływ na przychód"
               value={formatSignedMoney(impact.revenueImpactGrosz)}
             />
           </dl>
           <label className="form-field">
-            <span>Powod anulowania</span>
+            <span>Powód anulowania</span>
             <textarea
-              aria-label="Powod anulowania"
+              aria-label="Powód anulowania"
               disabled={isSaving}
               maxLength={SALE_CANCELLATION_REASON_MAX_LENGTH}
               onChange={(event) => {
@@ -322,7 +322,7 @@ export function SaleCancellationSection({
               type="button"
             >
               <Ban aria-hidden="true" size={18} />
-              {isSaving ? "Anulowanie..." : "Anuluj operacje"}
+              {isSaving ? "Anulowanie..." : "Anuluj operację"}
             </button>
           </div>
         </section>

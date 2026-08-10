@@ -76,7 +76,7 @@ describe("AdminSeasonsPanel", () => {
   it("blocks non-admin profiles", () => {
     render(<AdminSeasonsPanel authState={operatorState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads seasons for administrator and renders invalid documents", async () => {
@@ -109,7 +109,7 @@ describe("AdminSeasonsPanel", () => {
       expect(list).toHaveBeenCalled();
     });
     expect(
-      screen.getByRole("heading", { name: "Konfiguracja sezonow" })
+      screen.getByRole("heading", { name: "Konfiguracja sezonów" })
     ).toBeInTheDocument();
     expect(screen.getAllByText("Sezon 2026").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sezon 2027").length).toBeGreaterThan(0);
@@ -181,8 +181,8 @@ describe("AdminSeasonsPanel", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Sezon")).toHaveValue("season-2026");
     });
-    await user.type(screen.getByLabelText("Powod"), "Koniec testowego sezonu");
-    await user.click(screen.getByLabelText("Potwierdzam operacje na sezonie"));
+    await user.type(screen.getByLabelText("Powód"), "Koniec testowego sezonu");
+    await user.click(screen.getByLabelText("Potwierdzam operację na sezonie"));
     await user.click(screen.getByRole("button", { name: "Zapisz sezon" }));
 
     await waitFor(() => {

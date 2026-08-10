@@ -90,13 +90,13 @@ describe("dashboard period", () => {
         customToDate: "2026-07-29",
         preset: "CUSTOM"
       })
-    ).toBe("Podaj poczatek i koniec wlasnego zakresu.");
+    ).toBe("Podaj początek i koniec własnego zakresu.");
     expect(
       dashboardPeriodSelectionError({
         customFromDate: "2026-07-30",
         customToDate: "2026-07-29",
         preset: "CUSTOM"
       })
-    ).toBe("Data poczatkowa nie moze byc pozniejsza niz koncowa.");
+    ).toBe("Data początkowa nie może być późniejsza niż końcowa.");
   });
 });

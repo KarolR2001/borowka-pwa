@@ -1,4 +1,4 @@
-import { CloudOff, RefreshCw, UserRound } from "lucide-react";
+import { RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -160,7 +160,7 @@ export function PickerDashboardPanel({
               }}
               value={selectedSeasonId ?? result?.selectedSeasonId ?? ""}
             >
-              {!result?.seasons.length ? <option value="">Brak sezonow</option> : null}
+              {!result?.seasons.length ? <option value="">Brak sezonów</option> : null}
               {result?.seasons.map((season) => (
                 <option key={season.id} value={season.id}>
                   {season.name}
@@ -169,13 +169,13 @@ export function PickerDashboardPanel({
             </select>
           </label>
           <button
-            aria-label="Odswiez pulpit zbieracza"
+            aria-label="Odśwież pulpit zbieracza"
             className="secondary-button icon-button"
             disabled={state.status === "LOADING"}
             onClick={() => {
               setReloadKey((current) => current + 1);
             }}
-            title="Odswiez pulpit zbieracza"
+            title="Odśwież pulpit zbieracza"
             type="button"
           >
             <RefreshCw aria-hidden="true" size={18} />
@@ -193,18 +193,12 @@ export function PickerDashboardPanel({
         />
       </div>
 
-      {result?.dataSource === "CACHE" ? (
-        <p className="picker-dashboard__source form-message form-message--warning">
-          <CloudOff aria-hidden="true" size={18} />
-          Dane z pamieci offline
-        </p>
-      ) : null}
       {state.status === "LOADING" && !result ? (
         <p className="empty-state">Pobieranie podsumowania.</p>
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac danych pulpitu zbieracza.
+          Nie udało się pobrać danych pulpitu zbieracza.
         </p>
       ) : null}
       {result ? (
@@ -212,9 +206,9 @@ export function PickerDashboardPanel({
           {result.period ? (
             <p className="dashboard-period-summary">{result.period.label}</p>
           ) : null}
-          <div className="directory-summary" aria-label="Podsumowanie zbiorow">
+          <div className="directory-summary" aria-label="Podsumowanie zbiorów">
             <DashboardStat
-              label="Laczna masa"
+              label="Łączna masa"
               value={formatKilograms(result.totalWeightG)}
             />
             <DashboardStat
@@ -222,11 +216,11 @@ export function PickerDashboardPanel({
               value={formatMoney(result.accruedAmountGrosz)}
             />
             <DashboardStat
-              label="Wyplacono"
+              label="Wypłacono"
               value={formatMoney(result.paidAmountGrosz)}
             />
             <DashboardStat
-              label="Pozostalo"
+              label="Pozostało"
               value={formatMoney(result.remainingAmountGrosz)}
             />
           </div>
@@ -234,10 +228,10 @@ export function PickerDashboardPanel({
           <div className="picker-dashboard__status-grid" aria-label="Statusy sesji">
             <DashboardStat label="Otwarte" value={String(result.sessionCounts.open)} />
             <DashboardStat
-              label="Zamkniete"
+              label="Zamknięte"
               value={String(result.sessionCounts.closed)}
             />
-            <DashboardStat label="Wyplacone" value={String(result.sessionCounts.paid)} />
+            <DashboardStat label="Wypłacone" value={String(result.sessionCounts.paid)} />
           </div>
 
           {result.quantities.length > 0 ? (
@@ -245,7 +239,7 @@ export function PickerDashboardPanel({
               className="picker-dashboard__quantities"
               aria-labelledby="picker-quantity-title"
             >
-              <h3 id="picker-quantity-title">Jednostki planow ilosciowych</h3>
+              <h3 id="picker-quantity-title">Jednostki planów ilościowych</h3>
               <dl>
                 {result.quantities.map((quantity) => (
                   <div
@@ -272,20 +266,14 @@ export function PickerDashboardPanel({
             <p className="form-message form-message--warning">
               Dane wymagajace kontroli: profil pracownika{" "}
               {result.invalidWorker ? "1" : "0"}, sesje {result.invalidSessionCount},
-              wyplaty {result.invalidPaymentCount}, sezony {result.invalidSeasonCount}.
+              wypłaty {result.invalidPaymentCount}, sezony {result.invalidSeasonCount}.
             </p>
           ) : null}
           {result.remainingAmountGrosz < 0 ? (
             <p className="form-message form-message--warning">
-              Kwota wyplacona przekracza naliczona. Zglos rozbieznosc administratorowi.
+              Kwota wypłacona przekracza naliczoną. Zgłoś rozbieżność administratorowi.
             </p>
           ) : null}
-          <p className="picker-dashboard__refreshed">
-            {result.dataSource === "CACHE"
-              ? "Odczyt pamieci lokalnej"
-              : "Pobrano z serwera"}
-            : {formatRefreshTime(result.refreshedAtIso)}
-          </p>
         </>
       ) : null}
     </section>
@@ -308,19 +296,11 @@ function formatQuantity(quantityMilli: number, precision: number): string {
     precision < 0 ||
     precision > 3
   ) {
-    throw new Error("Nieprawidlowa ilosc do wyswietlenia.");
+    throw new Error("Nieprawidlowa ilość do wyświetlenia.");
   }
 
   return new Intl.NumberFormat("pl-PL", {
     minimumFractionDigits: 0,
     maximumFractionDigits: precision
   }).format(quantityMilli / 1000);
-}
-
-function formatRefreshTime(isoTimestamp: string): string {
-  return new Intl.DateTimeFormat("pl-PL", {
-    dateStyle: "short",
-    timeStyle: "medium",
-    timeZone: "Europe/Warsaw"
-  }).format(new Date(isoTimestamp));
 }

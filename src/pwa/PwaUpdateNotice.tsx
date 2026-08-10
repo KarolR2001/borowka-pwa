@@ -1,9 +1,10 @@
-import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Clock3, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
 import { APP_META } from "../config/appMeta";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { TransientToast } from "../ui/TransientToast";
 import {
   createBrowserPwaUpdateIntentStorage,
   createPwaUpdateIntent,
@@ -52,7 +53,7 @@ export function PwaUpdateController({
       setServiceWorkerRegistration(registration ?? null);
     },
     onRegisterError: () => {
-      setRegistrationError("Nie udalo sie zarejestrowac aktualizacji PWA.");
+      setRegistrationError("Nie udało się zarejestrować aktualizacji PWA.");
     }
   });
 
@@ -155,6 +156,12 @@ export function PwaUpdateNotice({
   }, [registration.needRefresh]);
 
   useEffect(() => {
+    if (registration.offlineReady) {
+      registration.dismissOfflineReady();
+    }
+  }, [registration.dismissOfflineReady, registration.offlineReady]);
+
+  useEffect(() => {
     let isMounted = true;
 
     try {
@@ -192,13 +199,13 @@ export function PwaUpdateNotice({
         .catch(() => {
           if (isMounted) {
             setError(
-              "Kontrola spojnosci po aktualizacji nie powiodla sie. Dane lokalne pozostaja zachowane."
+              "Kontrola spójności po aktualizacji nie powiodła się. Dane lokalne pozostają zachowane."
             );
           }
         });
     } catch {
       setError(
-        "Znacznik poprzedniej aktualizacji jest uszkodzony. Dane lokalne pozostaja zachowane."
+        "Znacznik poprzedniej aktualizacji jest uszkodzony. Dane lokalne pozostają zachowane."
       );
     }
 
@@ -230,39 +237,17 @@ export function PwaUpdateNotice({
       await registration.updateServiceWorker();
     } catch {
       storage.clear();
-      setError("Nie udalo sie zastosowac aktualizacji. Sprobuj ponownie.");
+      setError("Nie udało się zastosować aktualizacji. Spróbuj ponownie.");
       setIsApplying(false);
     }
   };
 
-  if (
-    !registration.needRefresh &&
-    !registration.offlineReady &&
-    !registrationError &&
-    !error &&
-    !integrityReport
-  ) {
+  if (!registration.needRefresh && !registrationError && !error && !integrityReport) {
     return null;
   }
 
   return (
     <section className="pwa-update-notice" aria-label="Aktualizacja aplikacji">
-      {registration.offlineReady ? (
-        <div className="pwa-update-notice__row">
-          <CheckCircle2 aria-hidden="true" size={20} strokeWidth={2.2} />
-          <p>Aplikacja i jej pliki sa gotowe do pracy offline.</p>
-          <button
-            aria-label="Zamknij komunikat gotowosci offline"
-            className="icon-action"
-            onClick={registration.dismissOfflineReady}
-            title="Zamknij"
-            type="button"
-          >
-            <X aria-hidden="true" size={18} strokeWidth={2.2} />
-          </button>
-        </div>
-      ) : null}
-
       {registration.needRefresh ? (
         <div className="pwa-update-notice__content">
           <div className="worker-rate-form__heading">
@@ -276,12 +261,12 @@ export function PwaUpdateNotice({
 
           {isDeferred ? (
             <p>
-              Nowa wersja pozostaje pobrana w tle. Wroc do decyzji, gdy praca bedzie
-              zakonczona.
+              Nowa wersja pozostaje pobrana w tle. Wróć do decyzji, gdy praca będzie
+              zakończona.
             </p>
           ) : decision.canApplyUpdate ? (
             <p>
-              Mozesz bezpiecznie uruchomic nowa wersje. Aktualizacja nie czysci cache
+              Możesz bezpiecznie uruchomić nowa wersje. Aktualizacja nie czysci cache
               Firestore ani lokalnych UUID.
             </p>
           ) : (
@@ -332,21 +317,21 @@ export function PwaUpdateNotice({
         </div>
       ) : null}
 
-      {integrityReport ? (
+      {integrityReport?.status === "READY" ? (
+        <TransientToast
+          message="Kontrola po aktualizacji zakończona."
+          onDismiss={() => {
+            setIntegrityReport(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : integrityReport ? (
         <div
           className={`pwa-update-notice__integrity pwa-update-notice__integrity--${integrityReport.status.toLowerCase()}`}
         >
-          {integrityReport.status === "READY" ? (
-            <CheckCircle2 aria-hidden="true" size={20} strokeWidth={2.2} />
-          ) : (
-            <AlertTriangle aria-hidden="true" size={20} strokeWidth={2.2} />
-          )}
+          <AlertTriangle aria-hidden="true" size={20} strokeWidth={2.2} />
           <div>
-            <strong>
-              {integrityReport.status === "READY"
-                ? "Kontrola po aktualizacji zakonczona"
-                : "Aktualizacja wymaga przegladu"}
-            </strong>
+            <strong>Aktualizacja wymaga przeglądu</strong>
             {integrityReport.issues.map((issue) => (
               <p key={issue.code}>{issue.message}</p>
             ))}

@@ -2,11 +2,9 @@ import {
   CheckCircle2,
   CirclePlus,
   ClipboardList,
-  CloudOff,
   Lock,
   Pencil,
-  Slash,
-  Wifi
+  Slash
 } from "lucide-react";
 
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
@@ -67,7 +65,7 @@ export function ActiveHarvestSessionPanel({
           </span>
           <div>
             <h3>Brak aktywnej sesji</h3>
-            <p>Otwarte sesje zostana pokazane po wdrozeniu zapisu zbiorow.</p>
+            <p>Otwarte sesje zostaną pokazane po wdrożeniu zapisu zbiorów.</p>
           </div>
         </div>
       </section>
@@ -117,19 +115,13 @@ export function ActiveHarvestSessionPanel({
             type="button"
           >
             <Lock aria-hidden="true" size={18} strokeWidth={2.2} />
-            Zamknij sesje
+            Zamknij sesję
           </button>
         </div>
       </div>
 
-      <div className="active-session__status" aria-label="Status sesji i synchronizacji">
+      <div className="active-session__status" aria-label="Status sesji">
         <SessionBadge label={harvestSessionStatusLabel(view.session.status)} />
-        <SessionBadge
-          icon={view.isOnline ? Wifi : CloudOff}
-          label={view.isOnline ? "Online" : "Offline"}
-          tone={view.isOnline ? "ok" : "warn"}
-        />
-        <SessionBadge label={`Oczekujace zapisy: ${String(view.pendingWriteCount)}`} />
       </div>
 
       {view.statusNotice ? (
@@ -169,7 +161,7 @@ export function ActiveHarvestSessionPanel({
           <strong>{view.createdByName}</strong>
         </div>
         <div>
-          <span>Urzadzenie</span>
+          <span>Urządzenie</span>
           <strong>{view.deviceName}</strong>
         </div>
         <div>
@@ -191,7 +183,7 @@ export function ActiveHarvestSessionPanel({
           <span>{sortedEntries.length}</span>
         </div>
         {sortedEntries.length > 0 ? (
-          <ol className="active-session__entry-list" aria-label="Lista wpisow sesji">
+          <ol className="active-session__entry-list" aria-label="Lista wpisów sesji">
             {sortedEntries.map((entry) => (
               <li key={entry.id} className="active-session__entry">
                 <div className="active-session__entry-heading">
@@ -200,7 +192,7 @@ export function ActiveHarvestSessionPanel({
                 </div>
                 <dl>
                   <div>
-                    <dt>Ilosc</dt>
+                    <dt>Ilość</dt>
                     <dd>
                       {formatSessionQuantity(
                         entry.quantityMilli,
@@ -284,7 +276,7 @@ export function ActiveHarvestSessionPanel({
             ))}
           </ol>
         ) : (
-          <p className="empty-state">Sesja nie ma jeszcze wpisow.</p>
+          <p className="empty-state">Sesja nie ma jeszcze wpisów.</p>
         )}
       </section>
     </section>
@@ -297,11 +289,11 @@ export function formatSessionQuantity(
   unitLabel: string
 ): string {
   if (!Number.isSafeInteger(quantityMilli)) {
-    throw new Error("Ilosc sesji musi byc bezpieczna liczba calkowita.");
+    throw new Error("Ilość sesji musi być bezpieczna liczba calkowita.");
   }
 
   if (!Number.isInteger(precision) || precision < 0 || precision > 3) {
-    throw new Error("Precyzja ilosci musi byc od 0 do 3.");
+    throw new Error("Precyzja ilości musi być od 0 do 3.");
   }
 
   const value = new Intl.NumberFormat("pl-PL", {

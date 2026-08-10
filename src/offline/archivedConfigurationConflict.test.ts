@@ -97,7 +97,7 @@ describe("archived configuration offline conflict", () => {
       auditRequired: false,
       entriesPreserved: false,
       localSessionPreserved: false,
-      message: "Nie mozna otworzyc nowej sesji z archiwalna konfiguracja.",
+      message: "Nie można otworzyć nowej sesji z archiwalną konfiguracją.",
       newSessionAllowed: false,
       paymentBlocked: true,
       recommendedSessionStatus: null,

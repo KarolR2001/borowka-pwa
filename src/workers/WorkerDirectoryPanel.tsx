@@ -16,6 +16,7 @@ import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import { userRoleLabel, type UserProfile } from "../domain/identity";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   archiveWorker,
   createWorkerRateVersion,
@@ -129,7 +130,7 @@ type ArchiveWorkerDraft = {
 const initialState: DirectoryState = {
   status: "IDLE",
   result: null,
-  message: "Lista zbieraczy nie zostala jeszcze pobrana."
+  message: "Lista zbieraczy nie została jeszcze pobrana."
 };
 
 export function WorkerDirectoryPanel({
@@ -209,7 +210,7 @@ export function WorkerDirectoryPanel({
           setState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac zbieraczy."
+            message: "Nie udało się pobrać zbieraczy."
           }));
         }
       });
@@ -327,7 +328,7 @@ export function WorkerDirectoryPanel({
         setState((current) => ({
           status: "ERROR",
           result: current.result,
-          message: "Nie udalo sie pobrac zbieraczy."
+          message: "Nie udało się pobrać zbieraczy."
         }));
       });
   };
@@ -341,19 +342,19 @@ export function WorkerDirectoryPanel({
     setError(null);
 
     if (!createDraft.confirmed) {
-      setError("Potwierdz utworzenie zbieracza.");
+      setError("Potwierdź utworzenie zbieracza.");
       return;
     }
 
     if (!navigator.onLine) {
-      setError("Tworzenie zbieracza wymaga polaczenia online.");
+      setError("Tworzenie zbieracza wymaga połączenia online.");
       return;
     }
 
     const create = workerDirectoryApi.create ?? defaultWorkerDirectoryApi.create;
 
     if (!create) {
-      setError("Operacja tworzenia zbieracza nie jest dostepna.");
+      setError("Operacja tworzenia zbieracza nie jest dostępna.");
       return;
     }
 
@@ -391,17 +392,17 @@ export function WorkerDirectoryPanel({
     setRateError(null);
 
     if (!rateDraft.confirmHistoricalSnapshotsUnchanged) {
-      setRateError("Potwierdz, ze historyczne snapshoty nie zostana przeliczone.");
+      setRateError("Potwierdź, że historyczne snapshoty nie zostaną przeliczone.");
       return;
     }
 
     if (rateDraft.validFrom < currentBusinessDate() && !rateDraft.confirmBackdatedRate) {
-      setRateError("Potwierdz zapis stawki z data wsteczna.");
+      setRateError("Potwierdź zapis stawki z data wsteczna.");
       return;
     }
 
     if (!navigator.onLine) {
-      setRateError("Dodanie stawki wymaga polaczenia online.");
+      setRateError("Dodanie stawki wymaga połączenia online.");
       return;
     }
 
@@ -409,7 +410,7 @@ export function WorkerDirectoryPanel({
       workerDirectoryApi.createRate ?? defaultWorkerDirectoryApi.createRate;
 
     if (!createRate) {
-      setRateError("Operacja dodawania stawki nie jest dostepna.");
+      setRateError("Operacja dodawania stawki nie jest dostępna.");
       return;
     }
 
@@ -449,12 +450,12 @@ export function WorkerDirectoryPanel({
     setAccountLinkError(null);
 
     if (!accountLinkDraft.confirmedPrivacy) {
-      setAccountLinkError("Potwierdz konsekwencje prywatnosci powiazania konta.");
+      setAccountLinkError("Potwierdź konsekwencje prywatności powiązania konta.");
       return;
     }
 
     if (!navigator.onLine) {
-      setAccountLinkError("Zmiana powiazania konta wymaga polaczenia online.");
+      setAccountLinkError("Zmiana powiązania konta wymaga połączenia online.");
       return;
     }
 
@@ -462,7 +463,7 @@ export function WorkerDirectoryPanel({
       workerDirectoryApi.updateAccountLink ?? defaultWorkerDirectoryApi.updateAccountLink;
 
     if (!updateAccountLink) {
-      setAccountLinkError("Operacja powiazania konta nie jest dostepna.");
+      setAccountLinkError("Operacja powiązania konta nie jest dostępna.");
       return;
     }
 
@@ -496,14 +497,14 @@ export function WorkerDirectoryPanel({
     setArchiveError(null);
 
     if (!navigator.onLine) {
-      setArchiveError("Archiwizacja zbieracza wymaga polaczenia online.");
+      setArchiveError("Archiwizacja zbieracza wymaga połączenia online.");
       return;
     }
 
     const archive = workerDirectoryApi.archive ?? defaultWorkerDirectoryApi.archive;
 
     if (!archive) {
-      setArchiveError("Operacja archiwizacji zbieracza nie jest dostepna.");
+      setArchiveError("Operacja archiwizacji zbieracza nie jest dostępna.");
       return;
     }
 
@@ -550,7 +551,7 @@ export function WorkerDirectoryPanel({
       <section className="worker-directory" aria-label="Lista zbieraczy">
         <AccessNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator albo operator."
+          message="Zaloguj się jako administrator albo operator."
         />
       </section>
     );
@@ -560,8 +561,8 @@ export function WorkerDirectoryPanel({
     return (
       <section className="worker-directory" aria-label="Lista zbieraczy">
         <AccessNotice
-          title="Brak dostepu"
-          message="Lista zbieraczy jest dostepna dla administratora i operatora."
+          title="Brak dostępu"
+          message="Lista zbieraczy jest dostępna dla administratora i operatora."
         />
       </section>
     );
@@ -582,15 +583,17 @@ export function WorkerDirectoryPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
-      <WorkerFilterControls
-        filters={filters}
-        onChange={setFilters}
-        plans={state.result?.plans ?? []}
-      />
+      <CollapsibleFilters>
+        <WorkerFilterControls
+          filters={filters}
+          onChange={setFilters}
+          plans={state.result?.plans ?? []}
+        />
+      </CollapsibleFilters>
 
       {isAdmin && state.result ? (
         <CreateWorkerForm
@@ -616,7 +619,7 @@ export function WorkerDirectoryPanel({
         <DirectoryStat label="Aktywni" value={String(activeWorkersCount)} />
         <DirectoryStat label="Archiwalni" value={String(archivedWorkersCount)} />
         <DirectoryStat label="Ostrzezenia" value={String(warningsCount)} />
-        <DirectoryStat label="Bledne dokumenty" value={String(invalidDocumentsCount)} />
+        <DirectoryStat label="Błędne dokumenty" value={String(invalidDocumentsCount)} />
       </div>
 
       {isAdmin && selectedWorker && state.result ? (
@@ -664,7 +667,7 @@ export function WorkerDirectoryPanel({
       ) : null}
 
       {state.result && filteredWorkers.length === 0 ? (
-        <p className="empty-state">Brak zbieraczy dla wybranych filtrow.</p>
+        <p className="empty-state">Brak zbieraczy dla wybranych filtrów.</p>
       ) : null}
 
       {filteredWorkers.length > 0 ? (
@@ -681,7 +684,7 @@ export function WorkerDirectoryPanel({
                 {isAdmin ? <th scope="col">Kg</th> : null}
                 {isAdmin ? <th scope="col">Naliczone</th> : null}
                 {isAdmin ? <th scope="col">Wyplacone</th> : null}
-                {isAdmin ? <th scope="col">Do wyplaty</th> : null}
+                {isAdmin ? <th scope="col">Do wypłaty</th> : null}
                 {isAdmin ? <th scope="col">Ostrzezenia</th> : null}
                 {isAdmin ? <th scope="col">Profil</th> : null}
               </tr>
@@ -745,35 +748,35 @@ export function WorkerDirectoryPanel({
       {state.result && state.result.invalidWorkers.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidWorkers}
-          title="Bledne dokumenty zbieraczy"
+          title="Błędne dokumenty zbieraczy"
         />
       ) : null}
 
       {state.result && state.result.invalidPlans.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidPlans}
-          title="Bledne dokumenty planow"
+          title="Błędne dokumenty planów"
         />
       ) : null}
 
       {state.result && state.result.invalidRateVersions.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidRateVersions}
-          title="Bledne dokumenty stawek"
+          title="Błędne dokumenty stawek"
         />
       ) : null}
 
       {state.result && state.result.invalidProfiles.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidProfiles}
-          title="Bledne dokumenty profili"
+          title="Błędne dokumenty profili"
         />
       ) : null}
 
       {state.result && state.result.invalidAuditEvents.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidAuditEvents}
-          title="Bledne dokumenty audytu"
+          title="Błędne dokumenty audytu"
         />
       ) : null}
     </section>
@@ -918,7 +921,7 @@ function WorkerProfilePanel({
               value={workerSummaryMoneyLabel(worker.seasonSummary.paidGrosz)}
             />
             <WorkerProfileFact
-              label="Do wyplaty"
+              label="Do wypłaty"
               value={workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}
             />
           </dl>
@@ -935,7 +938,7 @@ function WorkerProfilePanel({
           worker={worker}
         />
       ) : (
-        <WorkerProfileSection title="Powiazanie konta">
+        <WorkerProfileSection title="Powiązanie konta">
           <p className="worker-profile__empty">
             Zbieracz jest archiwalny; powiazanie konta pozostaje tylko w historii.
           </p>
@@ -974,7 +977,7 @@ function WorkerProfilePanel({
       ) : (
         <WorkerProfileSection title="Nowa stawka">
           <p className="worker-profile__empty">
-            Nie mozna dodawac stawek archiwalnemu zbieraczowi.
+            Nie można dodawac stawek archiwalnemu zbieraczowi.
           </p>
         </WorkerProfileSection>
       )}
@@ -1009,10 +1012,10 @@ function WorkerProfilePanel({
 
       <div className="worker-profile__grid">
         <WorkerProfileSection title="Sesje">
-          <p className="worker-profile__empty">Brak sesji do wyswietlenia.</p>
+          <p className="worker-profile__empty">Brak sesji do wyświetlenia.</p>
         </WorkerProfileSection>
-        <WorkerProfileSection title="Wyplaty">
-          <p className="worker-profile__empty">Brak wyplat do wyswietlenia.</p>
+        <WorkerProfileSection title="Wypłaty">
+          <p className="worker-profile__empty">Brak wypłat do wyświetlenia.</p>
         </WorkerProfileSection>
       </div>
     </section>
@@ -1062,7 +1065,7 @@ function WorkerAccountLinkForm({
 
   return (
     <form
-      aria-label="Powiazanie konta zbieracza"
+      aria-label="Powiązanie konta zbieracza"
       className="worker-account-link-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -1071,11 +1074,11 @@ function WorkerAccountLinkForm({
     >
       <div className="worker-rate-form__heading">
         <Link2 aria-hidden="true" size={18} strokeWidth={2.2} />
-        <h4>Powiazanie konta</h4>
+        <h4>Powiązanie konta</h4>
       </div>
 
       <label>
-        <span>Konto do powiazania</span>
+        <span>Konto do powiązania</span>
         <select
           onChange={(event) => {
             onChange({
@@ -1095,7 +1098,7 @@ function WorkerAccountLinkForm({
       </label>
 
       <label>
-        <span>Powod zmiany powiazania</span>
+        <span>Powód zmiany powiązania</span>
         <input
           onChange={(event) => {
             onChange({
@@ -1103,7 +1106,7 @@ function WorkerAccountLinkForm({
               reason: event.target.value
             });
           }}
-          placeholder="np. konto nalezy do tej osoby"
+          placeholder="np. konto należy do tej osoby"
           type="text"
           value={draft.reason}
         />
@@ -1121,7 +1124,7 @@ function WorkerAccountLinkForm({
           type="checkbox"
         />
         <span>
-          Potwierdzam, ze konto zobaczy dane tego zbieracza po ponownym pobraniu profilu
+          Potwierdzam, że konto zobaczy dane tego zbieracza po ponownym pobraniu profilu
         </span>
       </label>
 
@@ -1131,7 +1134,7 @@ function WorkerAccountLinkForm({
         type="submit"
       >
         <Link2 aria-hidden="true" size={17} strokeWidth={2.2} />
-        <span>{isSubmitting ? "Zapisywanie..." : "Zapisz powiazanie"}</span>
+        <span>{isSubmitting ? "Zapisywanie..." : "Zapisz powiązanie"}</span>
       </button>
     </form>
   );
@@ -1179,16 +1182,16 @@ function ArchiveWorkerForm({
       <div className="worker-archive-form__warnings">
         <p className="worker-form__warning">
           Archiwizacja nie zamyka sesji, nie usuwa historii i nie blokuje automatycznie
-          powiazanego konta.
+          powiązanego konta.
         </p>
         <ul className="worker-profile__list">
-          <li>Otwarte sesje: wymagane reczne sprawdzenie poza modulem zbieraczy.</li>
-          <li>Do wyplaty: {workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}.</li>
+          <li>Otwarte sesje: wymagane ręczne sprawdzenie poza modułem zbieraczy.</li>
+          <li>Do wypłaty: {workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}.</li>
           <li>
             Konto:{" "}
             {worker.linkedUser
               ? `${worker.linkedUser.email}, ${accountProfileStatus(worker.linkedUser)}`
-              : "brak powiazanego konta"}
+              : "brak powiązanego konta"}
             .
           </li>
           <li>
@@ -1199,7 +1202,7 @@ function ArchiveWorkerForm({
             .
           </li>
           <li>
-            Przyszle aktywne stawki:{" "}
+            Przyszłe aktywne stawki:{" "}
             {futureRates.length > 0
               ? futureRates.map((rateVersion) => rateVersion.validFrom).join(", ")
               : "brak"}
@@ -1209,7 +1212,7 @@ function ArchiveWorkerForm({
       </div>
 
       <label className="field worker-archive-form__reason">
-        <span>Powod archiwizacji</span>
+        <span>Powód archiwizacji</span>
         <input
           disabled={isSubmitting}
           onChange={(event) => {
@@ -1251,7 +1254,7 @@ function ArchiveWorkerForm({
             }}
             type="checkbox"
           />
-          <span>Potwierdzam sprawdzenie kwoty do wyplaty</span>
+          <span>Potwierdzam sprawdzenie kwoty do wypłaty</span>
         </label>
 
         <label className="checkbox-field worker-rate-form__confirmation">
@@ -1266,7 +1269,7 @@ function ArchiveWorkerForm({
             }}
             type="checkbox"
           />
-          <span>Potwierdzam, ze powiazane konto pozostaje aktywne do historii</span>
+          <span>Potwierdzam, że powiązane konto pozostaje aktywne do historii</span>
         </label>
 
         <label className="checkbox-field worker-rate-form__confirmation">
@@ -1281,7 +1284,7 @@ function ArchiveWorkerForm({
             }}
             type="checkbox"
           />
-          <span>Potwierdzam weryfikacje aktualnej stawki</span>
+          <span>Potwierdzam weryfikację aktualnej stawki</span>
         </label>
 
         <label className="checkbox-field worker-rate-form__confirmation">
@@ -1296,7 +1299,7 @@ function ArchiveWorkerForm({
             }}
             type="checkbox"
           />
-          <span>Potwierdzam weryfikacje przyszlych stawek</span>
+          <span>Potwierdzam weryfikację przyszłych stawek</span>
         </label>
       </div>
 
@@ -1316,7 +1319,7 @@ function WorkerRateConsistencyPanel({ worker }: { worker: WorkerDirectoryListIte
   const report = buildWorkerRateConsistencyReport(worker, currentBusinessDate());
 
   return (
-    <WorkerProfileSection title="Kontrola spojnosci stawek">
+    <WorkerProfileSection title="Kontrola spójności stawek">
       <div className="worker-rate-consistency">
         <p
           className={`worker-rate-consistency__status worker-rate-consistency__status--${report.level.toLocaleLowerCase("en-US")}`}
@@ -1362,7 +1365,7 @@ function WorkerRateHistoryTable({
   if (rateVersions.length === 0) {
     return (
       <WorkerProfileSection title="Historia stawek">
-        <p className="worker-profile__empty">Brak stawek do wyswietlenia.</p>
+        <p className="worker-profile__empty">Brak stawek do wyświetlenia.</p>
       </WorkerProfileSection>
     );
   }
@@ -1481,7 +1484,7 @@ function CreateWorkerRateForm({
           value={draft.planId}
         >
           {activePlans.length === 0 ? (
-            <option value="">Brak aktywnych planow</option>
+            <option value="">Brak aktywnych planów</option>
           ) : null}
           {activePlans.map((plan) => (
             <option key={plan.id} value={plan.id}>
@@ -1541,7 +1544,7 @@ function CreateWorkerRateForm({
 
       {isBackdated ? (
         <p className="worker-form__warning">
-          Data stawki jest wsteczna. Snapshoty istniejacych sesji nie zostana przeliczone.
+          Data stawki jest wsteczna. Snapshoty istniejacych sesji nie zostaną przeliczone.
         </p>
       ) : null}
 
@@ -1557,7 +1560,7 @@ function CreateWorkerRateForm({
           }}
           type="checkbox"
         />
-        <span>Potwierdzam, ze historyczne snapshoty nie zostana przeliczone</span>
+        <span>Potwierdzam, że historyczne snapshoty nie zostaną przeliczone</span>
       </label>
 
       <label className="checkbox-field worker-rate-form__confirmation">
@@ -1656,7 +1659,7 @@ function CreateWorkerForm({
           value={draft.planId}
         >
           {activePlans.length === 0 ? (
-            <option value="">Brak aktywnych planow</option>
+            <option value="">Brak aktywnych planów</option>
           ) : null}
           {activePlans.map((plan) => (
             <option key={plan.id} value={plan.id}>
@@ -1964,10 +1967,10 @@ function getEligibleAccountLinkProfiles(
 function accountLinkProfileLabel(profile: UserProfile, workerId: string): string {
   const linkLabel =
     profile.workerId === workerId
-      ? "powiazane z tym zbieraczem"
+      ? "powiązane z tym zbieraczem"
       : profile.workerId
-        ? `powiazane z ${profile.workerId}`
-        : "bez powiazania";
+        ? `powiązane z ${profile.workerId}`
+        : "bez powiązania";
 
   return `${profile.displayName} (${profile.email}) - ${userRoleLabel(profile.role)}, ${linkLabel}`;
 }
@@ -2002,7 +2005,7 @@ function auditActionLabel(
     case "WORKER_RATE_CHANGED":
       return "Zmiana stawki";
     case "USER_WORKER_LINK_CHANGED":
-      return "Zmiana powiazania konta";
+      return "Zmiana powiązania konta";
     case "USER_ROLE_CHANGED":
       return "Zmiana roli konta";
     case "USER_BLOCKED":
@@ -2063,7 +2066,7 @@ function parseWorkerRate(value: string): number {
     const parsed = parseDecimalToScaledInteger(value, 2);
 
     if (parsed <= 0) {
-      throw new Error("Stawka musi byc dodatnia.");
+      throw new Error("Stawka musi być dodatnia.");
     }
 
     return parsed;
@@ -2105,10 +2108,10 @@ function createAccountLinkFeedback(result: unknown): string {
     "privacyWarning" in result &&
     typeof result.privacyWarning === "string"
   ) {
-    return `Zapisano powiazanie konta. ${result.privacyWarning}`;
+    return `Zapisano powiązanie konta. ${result.privacyWarning}`;
   }
 
-  return "Zapisano powiazanie konta.";
+  return "Zapisano powiązanie konta.";
 }
 
 function createWorkerArchiveFeedback(result: unknown): string {
@@ -2130,5 +2133,5 @@ function getWorkerDirectoryErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie zapisac zbieracza.";
+  return "Nie udało się zapisać zbieracza.";
 }

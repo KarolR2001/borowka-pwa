@@ -51,8 +51,7 @@ describe("OperatorDashboardPanel", () => {
 
     expect(await screen.findByText("Pulpit operatora")).toBeVisible();
     expect(within(metric("Aktywny sezon")).getByText("Sezon 2026")).toBeVisible();
-    expect(within(metric("Dostepne operacyjnie")).getByText("12,500 kg")).toBeVisible();
-    expect(screen.getByText("Potwierdzony przez serwer")).toBeVisible();
+    expect(within(metric("Dostępne kilogramy")).getByText("12,500 kg")).toBeVisible();
     expect(screen.getAllByText("Zbieracz A")).toHaveLength(2);
     expect(screen.getByText("Moje konflikty synchronizacji")).toBeVisible();
     expect(
@@ -100,10 +99,10 @@ describe("OperatorDashboardPanel", () => {
     );
 
     await screen.findByText("Pulpit operatora");
-    await user.click(screen.getByRole("button", { name: "Nowy zbior" }));
+    await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
     expect(input).toHaveFocus();
 
-    await user.click(screen.getByRole("button", { name: "Odswiez pulpit operatora" }));
+    await user.click(screen.getByRole("button", { name: "Odśwież pulpit operatora" }));
     await waitFor(() => {
       expect(api.load).toHaveBeenCalledTimes(2);
     });
@@ -130,13 +129,10 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
+    await screen.findByText("Pulpit operatora");
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     expect(
-      await screen.findByText(
-        "Pracujesz offline. Stan kilogramow pochodzi z kopii lokalnej."
-      )
-    ).toBeVisible();
-    expect(
-      screen.getByText("Czesc zmian stanu kilogramow oczekuje na potwierdzenie.")
+      screen.getByText("Część zmian stanu kilogramów oczekuje na potwierdzenie.")
     ).toBeVisible();
 
     const pickerState: ReadyAuthState = {
@@ -159,7 +155,7 @@ describe("OperatorDashboardPanel", () => {
     );
 
     expect(
-      screen.getByText("Widok jest dostepny tylko dla aktywnego operatora.")
+      screen.getByText("Widok jest dostępny tylko dla aktywnego operatora.")
     ).toBeVisible();
     await waitFor(() => {
       expect(offlineApi.load).toHaveBeenCalledTimes(1);
@@ -189,18 +185,13 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    expect(
-      await screen.findByText(
-        "Tryb offline. Widoczny stan serwera nie jest stanem aktualnym."
-      )
-    ).toBeVisible();
-    expect(screen.getByText("Ostatni oficjalny stan serwera")).toBeVisible();
+    expect(screen.queryByText(/tryb offline/i)).not.toBeInTheDocument();
     expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
     expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
     expect(screen.getByLabelText("Okres")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Nowy zbior" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Nowy zbiór" })).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Odswiez pulpit operatora" })
+      screen.getByRole("button", { name: "Odśwież pulpit operatora" })
     ).toBeDisabled();
     expect(api.load).toHaveBeenCalledTimes(1);
   });
@@ -241,7 +232,7 @@ describe("OperatorDashboardPanel", () => {
     );
 
     expect(
-      await screen.findByText("Nie udalo sie pobrac pulpitu operatora.")
+      await screen.findByText("Nie udało się pobrać pulpitu operatora.")
     ).toBeVisible();
     expect(screen.queryByText("12,500 kg")).not.toBeInTheDocument();
     expect(load).toHaveBeenCalledTimes(2);

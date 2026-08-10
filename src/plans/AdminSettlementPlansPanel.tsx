@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { InfoHint } from "../ui/InfoHint";
 import {
   archiveSettlementPlan,
   createSettlementPlan,
@@ -65,16 +67,10 @@ type SettlementPlansState =
 
 type CreatePlanDraft = {
   name: string;
-  code: string;
   calculationBasis: "WEIGHT" | "QUANTITY";
   unitLabelSingular: string;
   unitLabelPlural: string;
-  unitSymbol: string;
-  quantityPrecision: number;
-  weightRequired: boolean;
-  allowBatchQuantity: boolean;
   description: string;
-  confirmed: boolean;
 };
 
 type EditPlanDraft = {
@@ -99,21 +95,15 @@ type ArchivePlanDraft = {
 const initialState: SettlementPlansState = {
   status: "IDLE",
   result: null,
-  message: "Lista planow nie zostala jeszcze pobrana."
+  message: "Lista planów nie została jeszcze pobrana."
 };
 
 const initialCreatePlanDraft: CreatePlanDraft = {
   name: "",
-  code: "",
   calculationBasis: "QUANTITY",
   unitLabelSingular: "",
   unitLabelPlural: "",
-  unitSymbol: "",
-  quantityPrecision: 1,
-  weightRequired: false,
-  allowBatchQuantity: true,
-  description: "",
-  confirmed: false
+  description: ""
 };
 
 export function AdminSettlementPlansPanel({
@@ -148,7 +138,7 @@ export function AdminSettlementPlansPanel({
     setState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie planow."
+      message: "Pobieranie planów."
     }));
 
     void settlementPlansApi
@@ -158,7 +148,7 @@ export function AdminSettlementPlansPanel({
           setState({
             status: "READY",
             result,
-            message: "Lista planow jest aktualna."
+            message: "Lista planów jest aktualna."
           });
         }
       })
@@ -167,7 +157,7 @@ export function AdminSettlementPlansPanel({
           setState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac planow."
+            message: "Nie udało się pobrać planów."
           }));
         }
       });
@@ -191,7 +181,7 @@ export function AdminSettlementPlansPanel({
     setState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie planow."
+      message: "Pobieranie planów."
     }));
 
     void settlementPlansApi
@@ -200,14 +190,14 @@ export function AdminSettlementPlansPanel({
         setState({
           status: "READY",
           result,
-          message: "Lista planow jest aktualna."
+          message: "Lista planów jest aktualna."
         });
       })
       .catch(() => {
         setState((current) => ({
           status: "ERROR",
           result: current.result,
-          message: "Nie udalo sie pobrac planow."
+          message: "Nie udało się pobrać planów."
         }));
       });
   };
@@ -220,20 +210,15 @@ export function AdminSettlementPlansPanel({
     setFeedback(null);
     setError(null);
 
-    if (!createDraft.confirmed) {
-      setError("Potwierdz utworzenie planu.");
-      return;
-    }
-
     if (!navigator.onLine) {
-      setError("Tworzenie planu wymaga polaczenia online.");
+      setError("Tworzenie planu wymaga połączenia z internetem.");
       return;
     }
 
     const create = settlementPlansApi.create ?? defaultSettlementPlansApi.create;
 
     if (!create) {
-      setError("Operacja tworzenia planu nie jest dostepna.");
+      setError("Operacja tworzenia planu nie jest dostępna.");
       return;
     }
 
@@ -243,14 +228,23 @@ export function AdminSettlementPlansPanel({
       const result = await create(env, {
         actorProfile: authState.profile,
         name: createDraft.name,
-        code: createDraft.code,
+        code: generatePlanCode(createDraft.name, state.result?.plans ?? []),
         calculationBasis: createDraft.calculationBasis,
-        unitLabelSingular: createDraft.unitLabelSingular,
-        unitLabelPlural: createDraft.unitLabelPlural,
-        unitSymbol: createDraft.unitSymbol,
-        quantityPrecision: createDraft.quantityPrecision,
-        weightRequired: createDraft.weightRequired,
-        allowBatchQuantity: createDraft.allowBatchQuantity,
+        unitLabelSingular:
+          createDraft.calculationBasis === "WEIGHT"
+            ? "kilogram"
+            : createDraft.unitLabelSingular,
+        unitLabelPlural:
+          createDraft.calculationBasis === "WEIGHT"
+            ? "kilogramy"
+            : createDraft.unitLabelPlural,
+        unitSymbol:
+          createDraft.calculationBasis === "WEIGHT"
+            ? "kg"
+            : createDraft.unitLabelSingular.trim(),
+        quantityPrecision: createDraft.calculationBasis === "WEIGHT" ? 3 : 1,
+        weightRequired: createDraft.calculationBasis === "WEIGHT",
+        allowBatchQuantity: true,
         description: createDraft.description,
         deviceId: getOrCreateDeviceId()
       });
@@ -302,14 +296,14 @@ export function AdminSettlementPlansPanel({
     setError(null);
 
     if (!navigator.onLine) {
-      setError("Edycja planu wymaga polaczenia online.");
+      setError("Edycja planu wymaga połączenia z internetem.");
       return;
     }
 
     const update = settlementPlansApi.update ?? defaultSettlementPlansApi.update;
 
     if (!update) {
-      setError("Operacja edycji planu nie jest dostepna.");
+      setError("Operacja edycji planu nie jest dostępna.");
       return;
     }
 
@@ -329,7 +323,7 @@ export function AdminSettlementPlansPanel({
         deviceId: getOrCreateDeviceId()
       });
       await reloadAfterSubmit();
-      setFeedback("Zapisano plan.");
+      setFeedback("Plan został zapisany.");
       setEditDraft(null);
     } catch (updateError: unknown) {
       setError(getSettlementPlansErrorMessage(updateError));
@@ -347,19 +341,19 @@ export function AdminSettlementPlansPanel({
     setError(null);
 
     if (!archiveDraft.confirmed) {
-      setError("Potwierdz archiwizacje planu.");
+      setError("Potwierdź archiwizację planu.");
       return;
     }
 
     if (!navigator.onLine) {
-      setError("Archiwizacja planu wymaga polaczenia online.");
+      setError("Archiwizacja planu wymaga połączenia z internetem.");
       return;
     }
 
     const archive = settlementPlansApi.archive ?? defaultSettlementPlansApi.archive;
 
     if (!archive) {
-      setError("Operacja archiwizacji planu nie jest dostepna.");
+      setError("Operacja archiwizacji planu nie jest dostępna.");
       return;
     }
 
@@ -373,7 +367,7 @@ export function AdminSettlementPlansPanel({
         deviceId: getOrCreateDeviceId()
       });
       await reloadAfterSubmit();
-      setFeedback("Zarchiwizowano plan.");
+      setFeedback("Plan został zarchiwizowany.");
       setArchiveDraft(null);
     } catch (archiveError: unknown) {
       setError(getSettlementPlansErrorMessage(archiveError));
@@ -388,16 +382,16 @@ export function AdminSettlementPlansPanel({
     setState({
       status: "READY",
       result,
-      message: "Lista planow jest aktualna."
+      message: "Lista planów jest aktualna."
     });
   };
 
   if (authState.status !== "READY") {
     return (
-      <section className="settlement-plan-directory" aria-label="Plany rozliczen">
+      <section className="settlement-plan-directory" aria-label="Plany rozliczeń">
         <AccessNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator."
+          message="Zaloguj się jako administrator."
         />
       </section>
     );
@@ -405,21 +399,21 @@ export function AdminSettlementPlansPanel({
 
   if (authState.profile.role !== "ADMIN") {
     return (
-      <section className="settlement-plan-directory" aria-label="Plany rozliczen">
+      <section className="settlement-plan-directory" aria-label="Plany rozliczeń">
         <AccessNotice
-          title="Brak dostepu"
-          message="Plany rozliczen sa zarzadzane tylko przez administratora."
+          title="Brak dostępu"
+          message="Planami rozliczeń zarządza administrator."
         />
       </section>
     );
   }
 
   return (
-    <section className="settlement-plan-directory" aria-label="Plany rozliczen">
+    <section className="settlement-plan-directory" aria-label="Plany rozliczeń">
       <div className="directory-header">
         <div>
           <p className="eyebrow">Plany</p>
-          <h2>Lista planow rozliczen</h2>
+          <h2>Lista planów rozliczeń</h2>
           <p className="panel-detail">{state.message}</p>
         </div>
         <button
@@ -429,11 +423,13 @@ export function AdminSettlementPlansPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
-      <SettlementPlanFilterControls filters={filters} onChange={setFilters} />
+      <CollapsibleFilters>
+        <SettlementPlanFilterControls filters={filters} onChange={setFilters} />
+      </CollapsibleFilters>
 
       {state.result ? (
         <CreateSettlementPlanForm
@@ -477,14 +473,14 @@ export function AdminSettlementPlansPanel({
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
-      <div className="directory-summary" aria-label="Podsumowanie planow">
+      <div className="directory-summary" aria-label="Podsumowanie planów">
         <DirectoryStat
           label="Wszystkie plany"
           value={String(state.result?.plans.length ?? 0)}
         />
         <DirectoryStat label="Aktywne" value={String(activePlansCount)} />
-        <DirectoryStat label="Uzyte w stawkach" value={String(usedPlansCount)} />
-        <DirectoryStat label="Bledne dokumenty" value={String(invalidDocumentsCount)} />
+        <DirectoryStat label="Użyte w stawkach" value={String(usedPlansCount)} />
+        <DirectoryStat label="Błędne dokumenty" value={String(invalidDocumentsCount)} />
       </div>
 
       {state.status === "ERROR" ? (
@@ -492,11 +488,11 @@ export function AdminSettlementPlansPanel({
       ) : null}
 
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie planow.</p>
+        <p className="empty-state">Pobieranie planów.</p>
       ) : null}
 
       {state.result && filteredPlans.length === 0 ? (
-        <p className="empty-state">Brak planow dla wybranych filtrow.</p>
+        <p className="empty-state">Brak planów dla wybranych filtrów.</p>
       ) : null}
 
       {filteredPlans.length > 0 ? (
@@ -511,7 +507,7 @@ export function AdminSettlementPlansPanel({
                 <th scope="col">Waga</th>
                 <th scope="col">Zbiorcze</th>
                 <th scope="col">Aktywne stawki</th>
-                <th scope="col">Uzyty</th>
+                <th scope="col">Użyty</th>
                 <th scope="col">Status</th>
                 <th scope="col">Akcje</th>
               </tr>
@@ -521,7 +517,6 @@ export function AdminSettlementPlansPanel({
                 <tr key={plan.id}>
                   <td>
                     <strong>{plan.name}</strong>
-                    <span className="directory-cell-note">{plan.code}</span>
                   </td>
                   <td>{settlementCalculationBasisLabel(plan.calculationBasis)}</td>
                   <td>
@@ -568,14 +563,14 @@ export function AdminSettlementPlansPanel({
       {state.result && state.result.invalidPlans.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidPlans}
-          title="Bledne dokumenty planow"
+          title="Błędne dokumenty planów"
         />
       ) : null}
 
       {state.result && state.result.invalidRateVersions.length > 0 ? (
         <InvalidDocuments
           documents={state.result.invalidRateVersions}
-          title="Bledne dokumenty stawek"
+          title="Błędne dokumenty stawek"
         />
       ) : null}
     </section>
@@ -593,231 +588,141 @@ function CreateSettlementPlanForm({
   onChange: (draft: CreatePlanDraft) => void;
   onSubmit: () => void;
 }) {
-  const effectiveDraft =
-    draft.calculationBasis === "WEIGHT" && !draft.weightRequired
-      ? {
-          ...draft,
-          weightRequired: true
-        }
-      : draft;
-  const example = createSettlementPlanExample(effectiveDraft);
-  const inventoryWarning =
-    effectiveDraft.calculationBasis === "QUANTITY" && !effectiveDraft.weightRequired
-      ? "Wpis bez wagi nie zwiekszy stanu kilogramow w magazynie."
-      : null;
+  const unitLabelSingular =
+    draft.calculationBasis === "WEIGHT" ? "kilogram" : draft.unitLabelSingular;
+  const unitLabelPlural =
+    draft.calculationBasis === "WEIGHT" ? "kilogramy" : draft.unitLabelPlural;
+  const example = createSettlementPlanExample({
+    calculationBasis: draft.calculationBasis,
+    quantityPrecision: draft.calculationBasis === "WEIGHT" ? 3 : 1,
+    unitLabelSingular,
+    unitLabelPlural,
+    unitSymbol:
+      draft.calculationBasis === "WEIGHT" ? "kg" : draft.unitLabelSingular.trim()
+  });
 
   return (
-    <form
-      aria-label="Tworzenie planu rozliczen"
-      className="settlement-plan-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
-      <label className="field">
-        <span>Nazwa planu</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              name: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.name}
-        />
-      </label>
-
-      <label className="field">
-        <span>Kod</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              code: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.code}
-        />
-      </label>
-
-      <label className="field">
-        <span>Podstawa</span>
-        <select
-          disabled={isSubmitting}
-          onChange={(event) => {
-            const nextBasis = event.target.value;
-
-            if (!isSettlementCalculationBasis(nextBasis)) {
-              return;
-            }
-
-            onChange({
-              ...draft,
-              calculationBasis: nextBasis,
-              weightRequired: nextBasis === "WEIGHT" ? true : draft.weightRequired,
-              quantityPrecision: nextBasis === "WEIGHT" ? 3 : draft.quantityPrecision,
-              confirmed: false
-            });
-          }}
-          value={draft.calculationBasis}
-        >
-          <option value="QUANTITY">Ilosc</option>
-          <option value="WEIGHT">Waga</option>
-        </select>
-      </label>
-
-      <label className="field">
-        <span>Jednostka</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitLabelSingular: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.unitLabelSingular}
-        />
-      </label>
-
-      <label className="field">
-        <span>Jednostki</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitLabelPlural: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.unitLabelPlural}
-        />
-      </label>
-
-      <label className="field">
-        <span>Symbol</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitSymbol: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.unitSymbol}
-        />
-      </label>
-
-      <label className="field">
-        <span>Precyzja</span>
-        <select
-          disabled={isSubmitting || draft.calculationBasis === "WEIGHT"}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              quantityPrecision: Number(event.target.value),
-              confirmed: false
-            });
-          }}
-          value={effectiveDraft.quantityPrecision}
-        >
-          <option value="0">0</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-        </select>
-      </label>
-
-      <label className="field settlement-plan-form__description">
-        <span>Opis</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              description: event.target.value,
-              confirmed: false
-            });
-          }}
-          type="text"
-          value={draft.description}
-        />
-      </label>
-
-      <label className="checkbox-field settlement-plan-form__confirmation">
-        <input
-          checked={effectiveDraft.weightRequired}
-          disabled={isSubmitting || draft.calculationBasis === "WEIGHT"}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              weightRequired: event.target.checked,
-              confirmed: false
-            });
-          }}
-          type="checkbox"
-        />
-        <span>Waga wymagana</span>
-      </label>
-
-      <label className="checkbox-field settlement-plan-form__confirmation">
-        <input
-          checked={draft.allowBatchQuantity}
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              allowBatchQuantity: event.target.checked,
-              confirmed: false
-            });
-          }}
-          type="checkbox"
-        />
-        <span>Wpis zbiorczy</span>
-      </label>
-
-      <label className="checkbox-field settlement-plan-form__confirmation">
-        <input
-          checked={draft.confirmed}
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...effectiveDraft,
-              confirmed: event.target.checked
-            });
-          }}
-          type="checkbox"
-        />
-        <span>Potwierdzam utworzenie planu</span>
-      </label>
-
-      <div className="settlement-plan-form__example" aria-label="Przyklad planu">
-        <strong>{example}</strong>
-        {inventoryWarning ? <span>{inventoryWarning}</span> : null}
-      </div>
-
-      <button
-        className="primary-action settlement-plan-form__submit"
-        disabled={isSubmitting}
-        type="submit"
-      >
+    <details className="creation-panel">
+      <summary>
         <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Dodaj plan</span>
-      </button>
-    </form>
+        <span>Nowy plan rozliczeń</span>
+      </summary>
+      <form
+        aria-label="Tworzenie planu rozliczeń"
+        className="settlement-plan-form settlement-plan-form--simple"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <label className="field">
+          <span className="field__label">
+            Nazwa planu
+            <InfoHint text="Nazwa będzie widoczna podczas przypisywania stawki, np. Zbiór na kilogramy." />
+          </span>
+          <input
+            aria-label="Nazwa planu"
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({ ...draft, name: event.target.value });
+            }}
+            placeholder="Np. Zbiór na kilogramy"
+            type="text"
+            value={draft.name}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">
+            Sposób rozliczenia
+            <InfoHint text="Wybierz wagę, gdy płacisz za kilogramy, albo liczbę opakowań, gdy płacisz za sztuki." />
+          </span>
+          <select
+            aria-label="Sposób rozliczenia"
+            disabled={isSubmitting}
+            onChange={(event) => {
+              const nextBasis = event.target.value;
+
+              if (isSettlementCalculationBasis(nextBasis)) {
+                onChange({ ...draft, calculationBasis: nextBasis });
+              }
+            }}
+            value={draft.calculationBasis}
+          >
+            <option value="QUANTITY">Liczba opakowań lub sztuk</option>
+            <option value="WEIGHT">Waga w kilogramach</option>
+          </select>
+        </label>
+
+        {draft.calculationBasis === "QUANTITY" ? (
+          <>
+            <label className="field">
+              <span className="field__label">
+                Jedna jednostka
+                <InfoHint text="Podaj nazwę jednej sztuki lub opakowania, np. łubianka albo skrzynka." />
+              </span>
+              <input
+                aria-label="Jedna jednostka"
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  onChange({ ...draft, unitLabelSingular: event.target.value });
+                }}
+                placeholder="Np. łubianka"
+                type="text"
+                value={draft.unitLabelSingular}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">
+                Wiele jednostek
+                <InfoHint text="Podaj nazwę używaną przy większej liczbie, np. łubianki albo skrzynki." />
+              </span>
+              <input
+                aria-label="Wiele jednostek"
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  onChange({ ...draft, unitLabelPlural: event.target.value });
+                }}
+                placeholder="Np. łubianki"
+                type="text"
+                value={draft.unitLabelPlural}
+              />
+            </label>
+          </>
+        ) : null}
+
+        <label className="field settlement-plan-form__description">
+          <span className="field__label">
+            Opis (opcjonalnie)
+            <InfoHint text="Dodaj krótką informację tylko wtedy, gdy pomaga odróżnić ten plan od pozostałych." />
+          </span>
+          <input
+            aria-label="Opis"
+            disabled={isSubmitting}
+            onChange={(event) => {
+              onChange({ ...draft, description: event.target.value });
+            }}
+            placeholder="Np. rozliczenie zbioru do chłodni"
+            type="text"
+            value={draft.description}
+          />
+        </label>
+
+        <div className="settlement-plan-form__example" aria-label="Przykład planu">
+          <span>Przykład rozliczenia</span>
+          <strong>{example}</strong>
+        </div>
+
+        <button
+          className="primary-action settlement-plan-form__submit"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Utwórz plan</span>
+        </button>
+      </form>
+    </details>
   );
 }
 
@@ -836,7 +741,7 @@ function EditSettlementPlanForm({
 }) {
   return (
     <form
-      aria-label="Edycja planu rozliczen"
+      aria-label="Edycja planu rozliczeń"
       className="settlement-plan-form settlement-plan-form--edit"
       onSubmit={(event) => {
         event.preventDefault();
@@ -935,7 +840,7 @@ function EditSettlementPlanForm({
             }}
             type="checkbox"
           />
-          <span>Potwierdzam, ze snapshoty historyczne pozostaja bez zmian</span>
+          <span>Potwierdzam, że snapshoty historyczne pozostają bez zmian</span>
         </label>
       ) : null}
 
@@ -976,7 +881,7 @@ function ArchiveSettlementPlanForm({
 }) {
   return (
     <form
-      aria-label="Archiwizacja planu rozliczen"
+      aria-label="Archiwizacja planu rozliczeń"
       className="settlement-plan-form settlement-plan-form--archive"
       onSubmit={(event) => {
         event.preventDefault();
@@ -988,7 +893,7 @@ function ArchiveSettlementPlanForm({
       </div>
 
       <label className="field settlement-plan-form__description">
-        <span>Powod</span>
+        <span>Powód</span>
         <input
           disabled={isSubmitting}
           onChange={(event) => {
@@ -1014,7 +919,7 @@ function ArchiveSettlementPlanForm({
           }}
           type="checkbox"
         />
-        <span>Potwierdzam archiwizacje planu</span>
+        <span>Potwierdzam archiwizację planu</span>
       </label>
 
       <div className="settlement-plan-form__actions">
@@ -1047,7 +952,7 @@ function SettlementPlanFilterControls({
   onChange: (filters: SettlementPlanFilters) => void;
 }) {
   return (
-    <div className="directory-filters settlement-plan-filters" aria-label="Filtry planow">
+    <div className="directory-filters settlement-plan-filters" aria-label="Filtry planów">
       <label className="field">
         <span>Szukaj</span>
         <span className="search-field">
@@ -1082,7 +987,7 @@ function SettlementPlanFilterControls({
         >
           <option value="ALL">Wszystkie</option>
           <option value="WEIGHT">Waga</option>
-          <option value="QUANTITY">Ilosc</option>
+          <option value="QUANTITY">Ilość</option>
         </select>
       </label>
 
@@ -1163,6 +1068,35 @@ function AccessNotice({ title, message }: { title: string; message: string }) {
   );
 }
 
+function generatePlanCode(
+  name: string,
+  existingPlans: readonly Pick<SettlementPlanListItem, "code">[]
+): string {
+  const normalizedBase = name
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 34);
+  const base = normalizedBase.length >= 2 ? normalizedBase : "PLAN";
+  const existingCodes = new Set(existingPlans.map((plan) => plan.code));
+
+  if (!existingCodes.has(base)) {
+    return base;
+  }
+
+  for (let suffix = 2; suffix < 100_000; suffix += 1) {
+    const candidate = `${base.slice(0, 34)}_${String(suffix)}`;
+    if (!existingCodes.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${base.slice(0, 24)}_${Date.now().toString(36).toUpperCase()}`;
+}
+
 function createPlanFeedback(result: unknown): string {
   if (
     typeof result === "object" &&
@@ -1181,5 +1115,5 @@ function getSettlementPlansErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie zapisac planu.";
+  return "Nie udało się zapisać planu.";
 }

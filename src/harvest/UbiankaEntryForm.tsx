@@ -101,7 +101,7 @@ export function UbiankaEntryForm({
       </div>
 
       <label className="field" htmlFor="ubianka-quantity">
-        Ilosc
+        Ilość
         <input
           id="ubianka-quantity"
           inputMode="decimal"
@@ -114,7 +114,7 @@ export function UbiankaEntryForm({
         />
       </label>
 
-      <div className="ubianka-entry-form__quick" aria-label="Szybkie ilosci">
+      <div className="ubianka-entry-form__quick" aria-label="Szybkie ilości">
         {QUICK_QUANTITIES.map((quickQuantity) => {
           const quickDisabled =
             formDisabled || (!allowBatchQuantity && quickQuantity.milli > 1000);
@@ -143,7 +143,7 @@ export function UbiankaEntryForm({
           type="button"
         >
           <RotateCcw aria-hidden="true" size={16} strokeWidth={2.2} />
-          Powtorz ilosc
+          Powtórz ilość
         </button>
       </div>
 
@@ -201,7 +201,7 @@ export function createUbiankaEntryDraft({
   const quantityMilli = parseDecimalToScaledInteger(quantity, 3);
 
   if (quantityMilli <= 0) {
-    throw new Error("Ilosc musi byc wieksza od zera.");
+    throw new Error("Ilość musi być większa od zera.");
   }
 
   if (!allowBatchQuantity && quantityMilli > 1000) {
@@ -248,5 +248,5 @@ function formatMilliForInput(quantityMilli: number): string {
 }
 
 function getUbiankaEntryFormErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Nie udalo sie przygotowac wpisu.";
+  return error instanceof Error ? error.message : "Nie udało się przygotować wpisu.";
 }

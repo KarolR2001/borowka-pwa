@@ -49,11 +49,9 @@ describe("PickerPaymentListPanel", () => {
     expect(await screen.findByText("125,00 zł")).toBeInTheDocument();
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
     expect(screen.getAllByText("75,00 zł")).toHaveLength(3);
-    expect(screen.getByText("Wyplacono (1)")).toBeInTheDocument();
-    expect(screen.getByText("Anulowane poza suma (1)")).toBeInTheDocument();
-    expect(
-      screen.getByText("Wyplaty z pamieci offline moga nie byc aktualne")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Wypłacono (1)")).toBeInTheDocument();
+    expect(screen.getByText("Anulowane poza sumą (1)")).toBeInTheDocument();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Status"), "CANCELLED");
 
@@ -61,7 +59,7 @@ describe("PickerPaymentListPanel", () => {
     expect(screen.queryByText("Przelew bankowy")).not.toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Otworz sesje wyplaty z 30.07.2026" })
+      screen.getByRole("button", { name: "Otwórz sesję wypłaty z 30.07.2026" })
     );
 
     expect(
@@ -76,9 +74,9 @@ describe("PickerPaymentListPanel", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: "Zglos niezgodnosc" }));
+    await user.click(screen.getByRole("button", { name: "Zgłoś niezgodność" }));
     expect(
-      screen.getByText("Sesja zostala wybrana do zgloszenia niezgodnosci.")
+      screen.getByText("Sesja została wybrana do zgłoszenia niezgodności.")
     ).toBeInTheDocument();
   });
 

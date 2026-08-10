@@ -2,14 +2,13 @@ import {
   CircleUserRound,
   ClipboardList,
   LayoutDashboard,
-  Settings,
   UserRound,
   type LucideIcon
 } from "lucide-react";
 
 import type { UserRole } from "../domain/identity";
 
-export type NavigationKey = "admin" | "operator" | "picker" | "settings" | "account";
+export type NavigationKey = "admin" | "operator" | "picker" | "account";
 
 export type NavigationItem = {
   key: NavigationKey;
@@ -24,16 +23,8 @@ const accountItem = {
 } satisfies NavigationItem;
 
 const navigationByRole: Record<UserRole, readonly NavigationItem[]> = {
-  ADMIN: [
-    { key: "admin", label: "Pulpit", icon: LayoutDashboard },
-    { key: "settings", label: "Offline", icon: Settings },
-    accountItem
-  ],
-  OPERATOR: [
-    { key: "operator", label: "Zbiory", icon: ClipboardList },
-    { key: "settings", label: "Offline", icon: Settings },
-    accountItem
-  ],
+  ADMIN: [{ key: "admin", label: "Pulpit", icon: LayoutDashboard }, accountItem],
+  OPERATOR: [{ key: "operator", label: "Zbiory", icon: ClipboardList }, accountItem],
   PICKER: [{ key: "picker", label: "Moje dane", icon: CircleUserRound }, accountItem]
 };
 

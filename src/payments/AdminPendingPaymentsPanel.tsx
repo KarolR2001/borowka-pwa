@@ -9,6 +9,7 @@ import {
   parseDecimalToScaledInteger
 } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   checkPaymentEligibility,
   type CheckPaymentEligibilityInput,
@@ -140,11 +141,11 @@ export function AdminPendingPaymentsPanel({
   );
 
   if (authState.status !== "READY") {
-    return <AccessNotice message="Zaloguj sie jako administrator." />;
+    return <AccessNotice message="Zaloguj się jako administrator." />;
   }
 
   if (!isAdmin) {
-    return <AccessNotice message="Lista sesji do wyplaty wymaga administratora." />;
+    return <AccessNotice message="Lista sesji do wypłaty wymaga administratora." />;
   }
 
   const actorProfile = authState.profile;
@@ -190,9 +191,9 @@ export function AdminPendingPaymentsPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Rozliczenia</p>
-          <h2 id="payments-title">Sesje oczekujace na wyplate</h2>
+          <h2 id="payments-title">Sesje oczekujące na wypłatę</h2>
           <p className="panel-detail">
-            Najstarsze potwierdzone zobowiazania sa wyswietlane jako pierwsze.
+            Najstarsze potwierdzone zobowiązania są wyświetlane jako pierwsze.
           </p>
         </div>
         <button
@@ -200,18 +201,20 @@ export function AdminPendingPaymentsPanel({
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez liste"
+          title="Odśwież listę"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odswiez liste</span>
+          <span className="sr-only">Odśwież listę</span>
         </button>
       </header>
 
-      <PaymentFilters filters={filters} onChange={setFilters} sessions={sessions} />
+      <CollapsibleFilters>
+        <PaymentFilters filters={filters} onChange={setFilters} sessions={sessions} />
+      </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie sesji do wyplaty">
-        <DirectoryStat label="Do wyplaty" value={String(sessions.length)} />
+      <div className="directory-summary" aria-label="Podsumowanie sesji do wypłaty">
+        <DirectoryStat label="Do wypłaty" value={String(sessions.length)} />
         <DirectoryStat
           label="Widoczne po filtrach"
           value={String(filteredSessions.length)}
@@ -233,7 +236,7 @@ export function AdminPendingPaymentsPanel({
       ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac listy sesji do wyplaty.
+          Nie udało się pobrać listy sesji do wypłaty.
         </p>
       ) : null}
       {confirmedPayment ? (
@@ -253,7 +256,7 @@ export function AdminPendingPaymentsPanel({
         </p>
       ) : null}
       {filteredSessions.length === 0 && state.status !== "LOADING" ? (
-        <p className="empty-state">Brak sesji spelniajacych filtry.</p>
+        <p className="empty-state">Brak sesji spełniających filtry.</p>
       ) : null}
       {filteredSessions.length > 0 ? (
         <PendingPaymentTable
@@ -378,7 +381,7 @@ function PendingPaymentTable({
             <th scope="col">Naliczono</th>
             <th scope="col">Zamkniecie</th>
             <th scope="col">Synchronizacja</th>
-            <th scope="col">Historia wyplaty</th>
+            <th scope="col">Historia wypłaty</th>
             <th scope="col">Akcja</th>
           </tr>
         </thead>
@@ -398,7 +401,7 @@ function PendingPaymentTable({
                 <span className="directory-cell-note">{session.unitLabel}</span>
               </td>
               <td>
-                {session.totalEntryCount} wpisow
+                {session.totalEntryCount} wpisów
                 <span className="directory-cell-note">
                   {formatQuantity(session.totalQuantityMilli)} /{" "}
                   {formatKilograms(session.totalWeightG)}
@@ -410,12 +413,14 @@ function PendingPaymentTable({
                 <span className="directory-cell-note">{session.closedBy}</span>
               </td>
               <td>
-                {session.syncStatus === "SYNCED" ? "Potwierdzona" : "Snapshot offline"}
+                {session.syncStatus === "SYNCED"
+                  ? "Potwierdzona"
+                  : "Oczekuje na potwierdzenie"}
               </td>
               <td>
                 {session.paymentHistory === "CANCELLED"
-                  ? "Anulowana wyplata"
-                  : "Brak wyplaty"}
+                  ? "Anulowana wypłata"
+                  : "Brak wypłaty"}
               </td>
               <td>
                 <PaymentAction
@@ -459,7 +464,7 @@ function PaymentAction({
         type="button"
       >
         <Banknote aria-hidden="true" size={17} />
-        Wyplac
+        Wypłać
       </button>
     );
   }
@@ -474,11 +479,11 @@ function PaymentAction({
         }}
         type="button"
       >
-        {isChecking ? "Sprawdzanie" : "Sprawdz warunki"}
+        {isChecking ? "Sprawdzanie" : "Sprawdź warunki"}
       </button>
       {result?.status === "BLOCKED" ? (
         <button className="primary-button directory-action" disabled type="button">
-          Wyplac
+          Wypłać
         </button>
       ) : null}
     </div>
@@ -510,7 +515,7 @@ function EligibilityPanel({
     return (
       <div className="payment-eligibility payment-eligibility--blocked">
         <ShieldX aria-hidden="true" size={22} />
-        <p>Nie udalo sie wykonac kontroli. Odswiez dane i sprobuj ponownie.</p>
+        <p>Nie udało się wykonać kontroli. Odśwież dane i spróbuj ponownie.</p>
       </div>
     );
   }
@@ -521,7 +526,7 @@ function EligibilityPanel({
         <div className="payment-eligibility payment-eligibility--ready">
           <ShieldCheck aria-hidden="true" size={22} />
           <div>
-            <strong>Sesja spelnia warunki wyplaty.</strong>
+            <strong>Sesja spełnia warunki wypłaty.</strong>
             <p>
               Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}, rewizja{" "}
               {state.result.sessionRevision}.

@@ -156,8 +156,8 @@ describe("App shell", () => {
   it("renders only the full-screen login for a signed-out user", () => {
     render(<App authSessionApi={createAuthSessionApi(signedOutState)} />);
 
-    expect(screen.getByRole("heading", { name: "Borowka" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Zaloguj sie" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Borówka" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zaloguj się" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.queryByText(/Firebase/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Administrator")).not.toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("App shell", () => {
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { signIn })} />);
 
     await user.type(screen.getByLabelText("E-mail"), "admin@example.test");
-    await user.type(screen.getByLabelText("Haslo"), "secret-password");
+    await user.type(screen.getByLabelText("Hasło"), "secret-password");
     await user.click(screen.getByRole("button", { name: "Zaloguj" }));
 
     await waitFor(() => {
@@ -197,9 +197,9 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Nie pamietam hasla" }));
+    await user.click(screen.getByRole("button", { name: "Nie pamietam hasła" }));
     await user.type(screen.getByLabelText("E-mail"), "admin@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyslij reset" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij reset" }));
 
     await waitFor(() => {
       expect(requestPasswordReset).toHaveBeenCalledWith(
@@ -216,13 +216,13 @@ describe("App shell", () => {
 
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
 
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
     await user.type(screen.getByLabelText("E-mail"), "operator@example.test");
-    await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
-    await user.type(screen.getByLabelText("Haslo"), "secret-password");
-    await user.type(screen.getByLabelText("Powtorz haslo"), "different-password");
-    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("Imię i nazwisko"), "Operator Test");
+    await user.type(screen.getByLabelText("Hasło"), "secret-password");
+    await user.type(screen.getByLabelText("Powtórz hasło"), "different-password");
+    await user.click(screen.getByLabelText("Akceptuję prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
 
     expect(register).not.toHaveBeenCalled();
     expect(screen.getByText("Hasla musza byc takie same.")).toBeInTheDocument();
@@ -234,13 +234,13 @@ describe("App shell", () => {
 
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
 
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
     await user.type(screen.getByLabelText("E-mail"), "Operator@Example.TEST");
-    await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
-    await user.type(screen.getByLabelText("Haslo"), "secret-password");
-    await user.type(screen.getByLabelText("Powtorz haslo"), "secret-password");
-    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("Imię i nazwisko"), "Operator Test");
+    await user.type(screen.getByLabelText("Hasło"), "secret-password");
+    await user.type(screen.getByLabelText("Powtórz hasło"), "secret-password");
+    await user.click(screen.getByLabelText("Akceptuję prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
 
     await waitFor(() => {
       expect(register).toHaveBeenCalledWith(expect.anything(), {
@@ -252,7 +252,7 @@ describe("App shell", () => {
       });
     });
     expect(
-      screen.getByText("Konto zostalo utworzone. Pobieram profil.")
+      screen.getByText("Konto zostało utworzone. Pobieram profil.")
     ).toBeInTheDocument();
   });
 
@@ -272,13 +272,13 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
     await user.type(screen.getByLabelText("E-mail"), "picker@example.test");
-    await user.type(screen.getByLabelText("Imie i nazwisko"), "Picker Test");
-    await user.type(screen.getByLabelText("Haslo"), "secret-password");
-    await user.type(screen.getByLabelText("Powtorz haslo"), "secret-password");
-    await user.click(screen.getByLabelText("Akceptuje prerejestracje administratora"));
-    await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
+    await user.type(screen.getByLabelText("Imię i nazwisko"), "Picker Test");
+    await user.type(screen.getByLabelText("Hasło"), "secret-password");
+    await user.type(screen.getByLabelText("Powtórz hasło"), "secret-password");
+    await user.click(screen.getByLabelText("Akceptuję prerejestracje administratora"));
+    await user.click(screen.getByRole("button", { name: "Załóż konto" }));
 
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
@@ -358,7 +358,7 @@ describe("App shell", () => {
     expect(screen.getByText("Anna Test")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Anuluj wylogowanie" })).toBeEnabled();
     expect(
-      screen.queryByRole("button", { name: "Wyloguj i wyczysc urzadzenie" })
+      screen.queryByRole("button", { name: "Wyloguj i wyczyść urządzenie" })
     ).not.toBeInTheDocument();
   });
 
@@ -401,16 +401,16 @@ describe("App shell", () => {
 
     await user.click(screen.getByRole("button", { name: "Konto" }));
     await user.click(
-      screen.getByRole("button", { name: "Wyloguj i wyczysc urzadzenie" })
+      screen.getByRole("button", { name: "Wyloguj i wyczyść urządzenie" })
     );
 
     const finalAction = screen.getByRole("button", {
-      name: "Wyczysc urzadzenie i wyloguj"
+      name: "Wyczyść urządzenie i wyloguj"
     });
 
     expect(finalAction).toBeDisabled();
     await user.type(
-      screen.getByLabelText(`Wpisz ${DEVICE_CLEAR_CONFIRMATION}, aby potwierdzic`),
+      screen.getByLabelText(`Wpisz ${DEVICE_CLEAR_CONFIRMATION}, aby potwierdzić`),
       DEVICE_CLEAR_CONFIRMATION
     );
     await user.click(finalAction);
@@ -573,7 +573,7 @@ describe("App shell", () => {
       />
     );
 
-    await screen.findByRole("navigation", { name: "Nawigacja glowna" });
+    await screen.findByRole("navigation", { name: "Nawigacja główna" });
     expect(screen.queryByRole("button", { name: "Moje dane" })).toBeNull();
 
     globalThis.dispatchEvent(new Event("focus"));
@@ -670,7 +670,7 @@ describe("App shell", () => {
     expect(await screen.findByText("12,500 kg")).toBeInTheDocument();
     expect(screen.getByText("Picker Test / Anna Zbieracz")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "Offline" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Offline" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pulpit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Zbiory" })).toBeNull();
     expect(load).toHaveBeenCalledWith(
@@ -709,54 +709,16 @@ describe("App shell", () => {
     expect(input.deviceName).toEqual(expect.any(String));
   });
 
-  it("updates offline consent from the user profile panel", async () => {
+  it("does not render offline configuration in the account view", async () => {
     const user = userEvent.setup();
-    const updateOfflineConsent = vi
-      .fn<AuthSessionApi["updateOfflineConsent"]>()
-      .mockResolvedValue(undefined);
 
-    render(
-      <App
-        authSessionApi={createAuthSessionApi(activeAdminState, {
-          updateOfflineConsent
-        })}
-      />
-    );
+    render(<App authSessionApi={createAuthSessionApi(activeAdminState)} />);
 
     await user.click(screen.getByRole("button", { name: "Konto" }));
-    await user.click(
-      screen.getByText("Praca offline na tym urzadzeniu", { selector: "summary" })
-    );
-    expect(screen.getByText(/Dane moga pozostac na tym urzadzeniu/)).toBeInTheDocument();
-    expect(screen.getByText(/Tryb prywatny przegladarki/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Wyloguj i wyczysc urzadzenie/).length).toBeGreaterThan(0);
 
-    await user.click(screen.getByLabelText("Zgoda na trwale dane offline"));
-
-    await waitFor(() => {
-      expect(updateOfflineConsent).toHaveBeenCalled();
-    });
-    const consentInput = updateOfflineConsent.mock.calls[0]?.[1];
-
-    expect(consentInput).toMatchObject({
-      uid: "admin-1",
-      offlineConsent: true
-    });
-    expect(typeof consentInput.deviceId).toBe("string");
-    expect(consentInput.deviceId.length).toBeGreaterThan(0);
-    const deviceName = consentInput.deviceName;
-
-    expect(typeof deviceName).toBe("string");
-    if (typeof deviceName !== "string") {
-      throw new Error("Expected trusted offline consent to include a device name.");
-    }
-    expect(deviceName.length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(
-        "Zgoda offline wlaczona. Uruchom ponownie PWA przed przygotowaniem offline."
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Zgoda na trwale dane offline")).toBeChecked();
+    expect(screen.queryByText(/Praca offline/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Zgoda.*offline/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Offline" })).not.toBeInTheDocument();
   });
 
   it("starts synchronization on launch and after online activation when local data exists", async () => {
@@ -895,117 +857,36 @@ describe("App shell", () => {
     onLineSpy.mockRestore();
   });
 
-  it("routes manual sync retry from the synchronization center", async () => {
-    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
-      vi.stubEnv(key, value);
-    }
+  it("shows only transient notifications when connectivity changes", async () => {
+    const onLineSpy = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
 
-    const user = userEvent.setup();
-    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
-      snapshot: null,
-      readiness: {
-        status: "NOT_READY",
-        missingRequirements: ["Brak lokalnego snapshotu konfiguracji."],
-        counts: {
-          workers: 0,
-          plans: 0,
-          rateVersions: 0,
-          openSessions: 0
-        }
-      }
+    render(<App authSessionApi={createAuthSessionApi(activeAdminState)} />);
+
+    onLineSpy.mockReturnValue(false);
+    act(() => {
+      globalThis.dispatchEvent(new Event("offline"));
     });
-    const synchronize = vi
-      .fn<SynchronizationApi["synchronize"]>()
-      .mockImplementation((_env, request) =>
-        Promise.resolve({
-          finishedAtIso: request.requestedAtIso,
-          message: "Synchronizacja reczna przyjeta.",
-          requestedAtIso: request.requestedAtIso,
-          status: "SUCCESS",
-          trigger: request.trigger
-        })
-      );
-
-    render(
-      <App
-        authSessionApi={createAuthSessionApi(activeAdminState)}
-        configurationCacheApi={{
-          read,
-          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
-          clear: vi.fn<ConfigurationCacheApi["clear"]>()
-        }}
-        synchronizationApi={createSynchronizationApi({
-          hasLocalData: vi
-            .fn<SynchronizationApi["hasLocalData"]>()
-            .mockResolvedValue(false),
-          synchronize
-        })}
-      />
-    );
-
-    await user.click(screen.getByRole("button", { name: "Offline" }));
-    await screen.findByRole("heading", { name: "Centrum synchronizacji" });
-    await user.click(screen.getByRole("button", { name: "Synchronizuj teraz" }));
-
-    await waitFor(() => {
-      expect(synchronize).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          pendingDocumentCount: 0,
-          trigger: "MANUAL_RETRY",
-          userUid: "admin-1"
-        })
-      );
-    });
-    expect(screen.getByText("Synchronizacja reczna przyjeta.")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Po odzyskaniu internetu ponownie otworz PWA, aby uruchomic synchronizacje."
-      )
+      await screen.findByText("Utracono połączenie. Aplikacja przeszła w tryb offline.")
     ).toBeInTheDocument();
+
+    onLineSpy.mockReturnValue(true);
+    act(() => {
+      globalThis.dispatchEvent(new Event("online"));
+    });
+    expect(
+      await screen.findByText("Połączenie zostało przywrócone. Pracujesz online.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Online$|^Offline$/)).not.toBeInTheDocument();
   });
 
-  it("renders configuration cache center from settings", async () => {
-    const user = userEvent.setup();
-    const read = vi.fn<ConfigurationCacheApi["read"]>().mockResolvedValue({
-      snapshot: null,
-      readiness: {
-        status: "NOT_READY",
-        missingRequirements: [
-          "Pliki PWA nie sa potwierdzone w cache service workera.",
-          "Brak lokalnego snapshotu konfiguracji."
-        ],
-        counts: {
-          workers: 0,
-          plans: 0,
-          rateVersions: 0,
-          openSessions: 0
-        }
-      }
-    });
+  it("does not expose the synchronization center in primary navigation", () => {
+    render(<App authSessionApi={createAuthSessionApi(activeAdminState)} />);
 
-    render(
-      <App
-        authSessionApi={createAuthSessionApi(activeAdminState)}
-        configurationCacheApi={{
-          read,
-          prepare: vi.fn<ConfigurationCacheApi["prepare"]>(),
-          clear: vi.fn<ConfigurationCacheApi["clear"]>()
-        }}
-      />
-    );
-
-    await user.click(screen.getByRole("button", { name: "Offline" }));
-
-    await waitFor(() => {
-      expect(read).toHaveBeenCalled();
-    });
+    expect(screen.queryByRole("button", { name: "Offline" })).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Centrum synchronizacji" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Brak lokalnego snapshotu konfiguracji.")
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Centrum synchronizacji" })
+    ).not.toBeInTheDocument();
   });
 
   it("renders administrator user directory from the admin tab", async () => {
@@ -1131,24 +1012,24 @@ describe("App shell", () => {
       expect(listSettlementPlans).toHaveBeenCalled();
     });
     expect(
-      screen.getByRole("heading", { name: "Konfiguracja sezonow" })
+      screen.getByRole("heading", { name: "Konfiguracja sezonów" })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Lista planow rozliczen" })
+      screen.getByRole("heading", { name: "Lista planów rozliczeń" })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Wyplaty" }));
+    await user.click(screen.getByRole("tab", { name: "Wypłaty" }));
     await waitFor(() => {
       expect(listPayments).toHaveBeenCalled();
     });
-    expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Historia wypłat" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Zgloszenia" }));
+    await user.click(screen.getByRole("tab", { name: "Zgłoszenia" }));
     await waitFor(() => {
       expect(listIssues).toHaveBeenCalled();
     });
     expect(
-      screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })
+      screen.getByRole("heading", { name: "Zgłoszenia niezgodności" })
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Dane" }));
@@ -1159,7 +1040,7 @@ describe("App shell", () => {
       screen.getByRole("heading", { name: "Eksport danych pickera" })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Pelny eksport chmury" })
+      screen.getByRole("heading", { name: "Pełny eksport chmury" })
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Lista kont" })).toBeNull();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
@@ -1291,7 +1172,7 @@ describe("App shell", () => {
     expect(screen.getByRole("heading", { name: "Pulpit operatora" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Otwarte sesje zbioru" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Nowy zbior" }));
+    await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
     expect(screen.getByRole("heading", { name: "Otwarte sesje zbioru" })).toBeVisible();
   });
 });

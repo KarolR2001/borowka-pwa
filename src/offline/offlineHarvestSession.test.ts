@@ -271,7 +271,7 @@ describe("offline harvest session preparation", () => {
           configurationSnapshot: createSnapshot(operatorProfile)
         })
       )
-    ).toThrow("Tylko administrator albo operator moze utworzyc sesje offline.");
+    ).toThrow("Tylko administrator albo operator może utworzyć sesję offline.");
     expect(() =>
       prepareOfflineHarvestSession(
         createInput({
@@ -300,7 +300,7 @@ describe("offline harvest session preparation", () => {
           createdDeviceId: "device-2"
         })
       )
-    ).toThrow("Snapshot offline zostal przygotowany dla innego urzadzenia.");
+    ).toThrow("Snapshot offline został przygotowany dla innego urządzenia.");
     expect(() =>
       prepareOfflineHarvestSession(
         createInput({
@@ -316,7 +316,7 @@ describe("offline harvest session preparation", () => {
           })
         })
       )
-    ).toThrow("Cache offline nie potwierdza zgody na trwale dane offline.");
+    ).toThrow("Cache offline nie potwierdza zgody na trwałe dane offline.");
   });
 
   it("blocks missing season, worker, plan and rate data from cache", () => {
@@ -335,7 +335,7 @@ describe("offline harvest session preparation", () => {
           workerId: "worker-missing"
         })
       )
-    ).toThrow("Wybrany zbieracz nie jest dostepny w cache offline.");
+    ).toThrow("Wybrany zbieracz nie jest dostępny w cache offline.");
     expect(() =>
       prepareOfflineHarvestSession(
         createInput({
@@ -393,7 +393,7 @@ describe("offline harvest session preparation", () => {
       cacheSnapshotId: "operator-1:device-1",
       existingOpenSessions: [existingSession],
       canCreateSecondSession: false,
-      message: "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "Istnieje już otwarta sesja tej osoby z tą datą."
     });
   });
 
@@ -430,6 +430,6 @@ describe("offline harvest session preparation", () => {
           secondSessionReason: "Drugi etap dnia."
         })
       )
-    ).toThrow("Tylko administrator moze utworzyc druga sesje offline tej osoby i daty.");
+    ).toThrow("Tylko administrator może utworzyć drugą sesję offline tej osoby i daty.");
   });
 });

@@ -48,7 +48,7 @@ describe("SaleCorrectionForm", () => {
 
     await user.click(screen.getByLabelText("Dodatkowy rozchod"));
     await fillCorrection(user);
-    await user.click(screen.getByRole("button", { name: "Sprawdz korekte" }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź korektę" }));
 
     await waitFor(() => {
       expect(onPrepare).toHaveBeenCalledTimes(1);
@@ -78,11 +78,11 @@ describe("SaleCorrectionForm", () => {
 
     await user.type(screen.getByLabelText("Masa kg"), "3");
     await user.type(screen.getByLabelText("Cena za kg"), "12,50");
-    await user.type(screen.getByLabelText("Powod korekty"), "OK");
-    await user.click(screen.getByRole("button", { name: "Sprawdz korekte" }));
+    await user.type(screen.getByLabelText("Powód korekty"), "OK");
+    await user.click(screen.getByRole("button", { name: "Sprawdź korektę" }));
 
     expect(
-      await screen.findByText("Powod korekty musi miec co najmniej 3 znaki.")
+      await screen.findByText("Powód korekty musi mieć co najmniej 3 znaki.")
     ).toBeVisible();
     expect(onPrepare).not.toHaveBeenCalled();
 
@@ -93,15 +93,15 @@ describe("SaleCorrectionForm", () => {
         stockContexts={stockContexts}
       />
     );
-    expect(screen.getByRole("button", { name: "Sprawdz korekte" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sprawdź korektę" })).toBeDisabled();
     expect(
-      screen.getByText("Korekta sprzedazy wymaga polaczenia z internetem.")
-    ).toBeVisible();
+      screen.queryByText(/offline|połączenia z internetem/i)
+    ).not.toBeInTheDocument();
   });
 });
 
 async function fillCorrection(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Masa kg"), "3");
   await user.type(screen.getByLabelText("Cena za kg"), "12,50");
-  await user.type(screen.getByLabelText("Powod korekty"), "Powod korekty sprzedazy");
+  await user.type(screen.getByLabelText("Powód korekty"), "Powod korekty sprzedazy");
 }

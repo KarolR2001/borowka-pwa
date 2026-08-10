@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   REGISTRATION_STATUSES,
   USER_ROLES,
@@ -94,7 +95,7 @@ type AccountStatusDraft = {
 const initialDirectoryState: DirectoryState = {
   status: "IDLE",
   result: null,
-  message: "Lista nie zostala jeszcze pobrana."
+  message: "Lista nie została jeszcze pobrana."
 };
 
 const initialRoleChangeDraft: RoleChangeDraft = {
@@ -153,7 +154,7 @@ export function AdminUserDirectoryPanel({
     setDirectoryState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie uzytkownikow."
+      message: "Pobieranie użytkowników."
     }));
 
     void userDirectoryApi
@@ -163,7 +164,7 @@ export function AdminUserDirectoryPanel({
           setDirectoryState({
             status: "READY",
             result,
-            message: "Lista uzytkownikow jest aktualna."
+            message: "Lista użytkowników jest aktualna."
           });
         }
       })
@@ -172,7 +173,7 @@ export function AdminUserDirectoryPanel({
           setDirectoryState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac listy uzytkownikow."
+            message: "Nie udało się pobrać listy użytkowników."
           }));
         }
       });
@@ -330,12 +331,12 @@ export function AdminUserDirectoryPanel({
     }
 
     if (!roleChangeDraft.confirmed) {
-      setRoleChangeError("Potwierdz zmiane roli i powiazania.");
+      setRoleChangeError("Potwierdź zmianę roli i powiązania.");
       return;
     }
 
     if (!navigator.onLine) {
-      setRoleChangeError("Zmiana roli wymaga polaczenia online.");
+      setRoleChangeError("Zmiana roli wymaga połączenia online.");
       return;
     }
 
@@ -343,7 +344,7 @@ export function AdminUserDirectoryPanel({
       userDirectoryApi.updateRoleAndWorker ?? defaultUserDirectoryApi.updateRoleAndWorker;
 
     if (!updateRoleAndWorker) {
-      setRoleChangeError("Operacja zmiany profilu nie jest dostepna.");
+      setRoleChangeError("Operacja zmiany profilu nie jest dostępna.");
       return;
     }
 
@@ -364,9 +365,9 @@ export function AdminUserDirectoryPanel({
       setDirectoryState({
         status: "READY",
         result,
-        message: "Lista uzytkownikow jest aktualna."
+        message: "Lista użytkowników jest aktualna."
       });
-      setRoleChangeFeedback("Zmieniono role lub powiazanie profilu.");
+      setRoleChangeFeedback("Zmieniono rolę lub powiązanie profilu.");
       setRoleChangeDraft((current) => ({
         ...current,
         reason: "",
@@ -393,12 +394,12 @@ export function AdminUserDirectoryPanel({
     }
 
     if (!accountStatusDraft.confirmed) {
-      setAccountStatusError("Potwierdz zmiane statusu konta.");
+      setAccountStatusError("Potwierdź zmiane statusu konta.");
       return;
     }
 
     if (!navigator.onLine) {
-      setAccountStatusError("Zmiana statusu wymaga polaczenia online.");
+      setAccountStatusError("Zmiana statusu wymaga połączenia online.");
       return;
     }
 
@@ -406,7 +407,7 @@ export function AdminUserDirectoryPanel({
       userDirectoryApi.updateActivation ?? defaultUserDirectoryApi.updateActivation;
 
     if (!updateActivation) {
-      setAccountStatusError("Operacja zmiany statusu nie jest dostepna.");
+      setAccountStatusError("Operacja zmiany statusu nie jest dostępna.");
       return;
     }
 
@@ -428,12 +429,12 @@ export function AdminUserDirectoryPanel({
       setDirectoryState({
         status: "READY",
         result,
-        message: "Lista uzytkownikow jest aktualna."
+        message: "Lista użytkowników jest aktualna."
       });
       setAccountStatusFeedback(
         accountStatusDraft.action === "BLOCK"
-          ? "Zablokowano konto uzytkownika."
-          : "Reaktywowano konto uzytkownika."
+          ? "Zablokowano konto użytkownika."
+          : "Reaktywowano konto użytkownika."
       );
       setAccountStatusDraft((current) => ({
         ...current,
@@ -450,10 +451,10 @@ export function AdminUserDirectoryPanel({
 
   if (authState.status !== "READY") {
     return (
-      <section className="user-directory" aria-label="Uzytkownicy">
+      <section className="user-directory" aria-label="Użytkownicy">
         <AccessNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator."
+          message="Zaloguj się jako administrator."
         />
       </section>
     );
@@ -461,20 +462,20 @@ export function AdminUserDirectoryPanel({
 
   if (authState.profile.role !== "ADMIN") {
     return (
-      <section className="user-directory" aria-label="Uzytkownicy">
+      <section className="user-directory" aria-label="Użytkownicy">
         <AccessNotice
-          title="Brak dostepu"
-          message="Lista uzytkownikow jest dostepna tylko dla administratora."
+          title="Brak dostępu"
+          message="Lista użytkowników jest dostępna tylko dla administratora."
         />
       </section>
     );
   }
 
   return (
-    <section className="user-directory" aria-label="Uzytkownicy">
+    <section className="user-directory" aria-label="Użytkownicy">
       <div className="directory-header">
         <div>
-          <p className="eyebrow">Uzytkownicy</p>
+          <p className="eyebrow">Użytkownicy</p>
           <h2>Lista kont</h2>
           <p className="panel-detail">{directoryState.message}</p>
         </div>
@@ -485,7 +486,7 @@ export function AdminUserDirectoryPanel({
             setDirectoryState((current) => ({
               status: "LOADING",
               result: current.result,
-              message: "Pobieranie uzytkownikow."
+              message: "Pobieranie użytkowników."
             }));
 
             void userDirectoryApi
@@ -494,25 +495,27 @@ export function AdminUserDirectoryPanel({
                 setDirectoryState({
                   status: "READY",
                   result,
-                  message: "Lista uzytkownikow jest aktualna."
+                  message: "Lista użytkowników jest aktualna."
                 });
               })
               .catch(() => {
                 setDirectoryState((current) => ({
                   status: "ERROR",
                   result: current.result,
-                  message: "Nie udalo sie pobrac listy uzytkownikow."
+                  message: "Nie udało się pobrać listy użytkowników."
                 }));
               });
           }}
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
-      <DirectoryFilters filters={filters} onChange={setFilters} />
+      <CollapsibleFilters>
+        <DirectoryFilters filters={filters} onChange={setFilters} />
+      </CollapsibleFilters>
 
       {directoryState.result ? (
         <>
@@ -542,14 +545,14 @@ export function AdminUserDirectoryPanel({
         </>
       ) : null}
 
-      <div className="directory-summary" aria-label="Podsumowanie uzytkownikow">
+      <div className="directory-summary" aria-label="Podsumowanie użytkowników">
         <DirectoryStat
           label="Wszystkie profile"
           value={String(directoryState.result?.profiles.length ?? 0)}
         />
         <DirectoryStat label="Po filtrach" value={String(filteredProfiles.length)} />
         <DirectoryStat
-          label="Bledne dokumenty"
+          label="Błędne dokumenty"
           value={String(directoryState.result?.invalidProfiles.length ?? 0)}
         />
       </div>
@@ -559,11 +562,11 @@ export function AdminUserDirectoryPanel({
       ) : null}
 
       {directoryState.status === "LOADING" && !directoryState.result ? (
-        <p className="empty-state">Pobieranie uzytkownikow.</p>
+        <p className="empty-state">Pobieranie użytkowników.</p>
       ) : null}
 
       {directoryState.result && filteredProfiles.length === 0 ? (
-        <p className="empty-state">Brak uzytkownikow dla wybranych filtrow.</p>
+        <p className="empty-state">Brak użytkowników dla wybranych filtrów.</p>
       ) : null}
 
       {filteredProfiles.length > 0 ? (
@@ -596,12 +599,12 @@ export function AdminUserDirectoryPanel({
       ) : null}
 
       {directoryState.result && directoryState.result.invalidProfiles.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Bledne profile">
+        <div className="invalid-profiles" aria-label="Błędne profile">
           <div className="access-notice__icon">
             <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <p className="eyebrow">Bledne dokumenty</p>
+            <p className="eyebrow">Błędne dokumenty</p>
             <ul>
               {directoryState.result.invalidProfiles.map((invalidProfile) => (
                 <li key={invalidProfile.id}>
@@ -630,7 +633,7 @@ function DirectoryFilters({
   onChange: (filters: UserDirectoryFilters) => void;
 }) {
   return (
-    <div className="directory-filters" aria-label="Filtry uzytkownikow">
+    <div className="directory-filters" aria-label="Filtry użytkowników">
       <label className="field">
         <span>Szukaj</span>
         <span className="search-field">
@@ -739,7 +742,7 @@ function RoleChangeForm({
 }) {
   return (
     <form
-      aria-label="Zmiana roli i powiazania"
+      aria-label="Zmiana roli i powiązania"
       className="role-change-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -817,7 +820,7 @@ function RoleChangeForm({
       </label>
 
       <label className="field">
-        <span>Powod zmiany roli</span>
+        <span>Powód zmiany roli</span>
         <input
           disabled={isSubmitting}
           onChange={(event) => {
@@ -989,7 +992,7 @@ function AccountStatusForm({
       </label>
 
       <label className="field">
-        <span>Powod zmiany statusu</span>
+        <span>Powód zmiany statusu</span>
         <input
           disabled={isSubmitting}
           onChange={(event) => {
@@ -1006,7 +1009,7 @@ function AccountStatusForm({
 
       <p className="account-status-form__warning">
         Blokada nie usuwa konta Authentication ani lokalnych oczekujacych danych na
-        urzadzeniach.
+        urządzeniach.
       </p>
 
       <label className="checkbox-field account-status-form__confirmation">
@@ -1057,7 +1060,7 @@ function getProfileUpdateErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie zapisac zmiany profilu.";
+  return "Nie udało się zapisać zmiany profilu.";
 }
 
 function AccessNotice({ title, message }: { title: string; message: string }) {
@@ -1083,7 +1086,7 @@ function LastAdminProtectionNotice() {
       <div>
         <p className="eyebrow">Ochrona administratora</p>
         <p className="panel-detail">
-          To jest jedyne aktywne konto administratora. Wlasne konto nie jest dostepne do
+          To jest jedyne aktywne konto administratora. Własne konto nie jest dostępne do
           zmiany roli ani blokady; przed pracami administracyjnymi dodaj drugiego
           administratora.
         </p>

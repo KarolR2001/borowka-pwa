@@ -48,14 +48,14 @@ describe("PickerDashboardPanel", () => {
 
     expect(await screen.findByText("19,500 kg")).toBeInTheDocument();
     expect(screen.getByText(/^67,50 /)).toBeInTheDocument();
-    expect(screen.getByText("Dane z pamieci offline")).toBeInTheDocument();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     expect(screen.getByText("4,5 ubianki")).toBeInTheDocument();
     expect(screen.getByText("Anna Konto / Anna Zbieracz")).toBeInTheDocument();
     expect(screen.getByText("Naliczono")).toBeInTheDocument();
-    expect(screen.getByText("Wyplacono")).toBeInTheDocument();
-    expect(screen.queryByText("Dostepne")).not.toBeInTheDocument();
+    expect(screen.getByText("Wypłacono")).toBeInTheDocument();
+    expect(screen.queryByText("Dostępne")).not.toBeInTheDocument();
     expect(screen.queryByText("Sprzedano")).not.toBeInTheDocument();
-    expect(screen.queryByText("Przychod")).not.toBeInTheDocument();
+    expect(screen.queryByText("Przychód")).not.toBeInTheDocument();
     expect(screen.queryByText("Wynik po koszcie zbioru")).not.toBeInTheDocument();
     expect(load).toHaveBeenCalledWith(
       {},
@@ -95,7 +95,7 @@ describe("PickerDashboardPanel", () => {
       );
     });
 
-    await user.click(screen.getByRole("button", { name: "Odswiez pulpit zbieracza" }));
+    await user.click(screen.getByRole("button", { name: "Odśwież pulpit zbieracza" }));
     await waitFor(() => {
       expect(load).toHaveBeenCalledTimes(3);
     });

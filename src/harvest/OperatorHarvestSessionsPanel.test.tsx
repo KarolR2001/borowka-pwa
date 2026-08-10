@@ -119,7 +119,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(screen.getByText("Sezon testowy 2026 · 17.07.2026")).toBeInTheDocument();
     expect(screen.getAllByText("1 kilogram").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Zamknij sesje" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeEnabled();
     const newSessionSection = document.getElementById("new-harvest-session");
 
     if (!newSessionSection) {
@@ -228,7 +228,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     await user.clear(screen.getByLabelText("Data"));
     await user.type(screen.getByLabelText("Data"), "2026-07-17");
     await user.type(screen.getByLabelText("Notatka"), "poranny zbior");
-    await user.click(screen.getByRole("button", { name: "Otworz sesje" }));
+    await user.click(screen.getByRole("button", { name: "Otwórz sesję" }));
 
     await waitFor(() => {
       expect(api.open).toHaveBeenCalledWith(
@@ -449,7 +449,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       );
 
       await screen.findByRole("heading", { name: "Anna Test" });
-      await user.click(screen.getByRole("button", { name: "Zamknij sesje" }));
+      await user.click(screen.getByRole("button", { name: "Zamknij sesję" }));
 
       await waitFor(() => {
         expect(api.close).toHaveBeenCalledWith(
@@ -464,7 +464,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       });
       expect(typeof vi.mocked(api.close).mock.calls.at(-1)?.[1].deviceId).toBe("string");
       expect(confirmSpy).toHaveBeenCalledWith(
-        "Zamknac sesje Anna Test z dnia 17.07.2026?"
+        "Zamknąć sesję Anna Test z dnia 17.07.2026?"
       );
       expect(list).toHaveBeenLastCalledWith(env, {
         actorProfile: operatorState.profile,
@@ -525,7 +525,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       await screen.findByRole("heading", { name: "Anna Test" });
       await user.click(screen.getByRole("button", { name: /^Anuluj$/i }));
       await screen.findByRole("form", { name: "Anulowanie wpisu zbioru" });
-      await user.type(screen.getByLabelText("Powod anulowania wpisu"), "Bledna waga");
+      await user.type(screen.getByLabelText("Powód anulowania wpisu"), "Bledna waga");
       await user.click(screen.getByRole("button", { name: "Anuluj wpis" }));
 
       await waitFor(() => {
@@ -602,8 +602,8 @@ describe("OperatorHarvestSessionsPanel", () => {
 
       await screen.findByRole("form", { name: "Ponowne otwarcie sesji zbioru" });
       expect(screen.getByText(/Dotychczasowa kwota: 10,00 zł/)).toBeInTheDocument();
-      await user.type(screen.getByLabelText("Powod ponownego otwarcia"), "Korekta wpisu");
-      await user.click(screen.getByRole("button", { name: "Otworz ponownie" }));
+      await user.type(screen.getByLabelText("Powód ponownego otwarcia"), "Korekta wpisu");
+      await user.click(screen.getByRole("button", { name: "Otwórz ponownie" }));
 
       await waitFor(() => {
         expect(api.reopen).toHaveBeenCalledWith(
@@ -619,7 +619,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       });
       expect(typeof vi.mocked(api.reopen).mock.calls.at(-1)?.[1].deviceId).toBe("string");
       expect(confirmSpy).toHaveBeenCalledWith(
-        "Ponownie otworzyc sesje Anna Test z dnia 17.07.2026?"
+        "Ponownie otworzyć sesję Anna Test z dnia 17.07.2026?"
       );
       expect(list).toHaveBeenLastCalledWith(env, {
         actorProfile: adminState.profile,
@@ -681,11 +681,11 @@ describe("OperatorHarvestSessionsPanel", () => {
       await screen.findByRole("form", { name: "Anulowanie sesji zbioru" });
       expect(
         screen.getByText(
-          "Wpisy pozostana historyczne. Sesja zostanie usunieta z sum rozliczen."
+          "Wpisy pozostaną historyczne. Sesja zostanie usunięta z sum rozliczeń."
         )
       ).toBeInTheDocument();
-      await user.type(screen.getByLabelText("Powod anulowania"), "Duplikat sesji");
-      await user.click(screen.getByRole("button", { name: "Anuluj sesje" }));
+      await user.type(screen.getByLabelText("Powód anulowania"), "Duplikat sesji");
+      await user.click(screen.getByRole("button", { name: "Anuluj sesję" }));
 
       await waitFor(() => {
         expect(api.cancel).toHaveBeenCalledWith(
@@ -701,7 +701,7 @@ describe("OperatorHarvestSessionsPanel", () => {
       });
       expect(typeof vi.mocked(api.cancel).mock.calls.at(-1)?.[1].deviceId).toBe("string");
       expect(confirmSpy).toHaveBeenCalledWith(
-        "Anulowac sesje Anna Test z dnia 17.07.2026?"
+        "Anulować sesję Anna Test z dnia 17.07.2026?"
       );
       expect(list).toHaveBeenLastCalledWith(env, {
         actorProfile: adminState.profile,
@@ -728,7 +728,7 @@ describe("OperatorHarvestSessionsPanel", () => {
     expect(api.list).not.toHaveBeenCalled();
     expect(api.listOpeningConfiguration).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", { name: "Brak dostepu do sesji zbioru" })
+      screen.getByRole("heading", { name: "Brak dostępu do sesji zbioru" })
     ).toBeInTheDocument();
   });
 });

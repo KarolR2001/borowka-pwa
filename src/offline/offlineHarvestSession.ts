@@ -73,7 +73,7 @@ export function prepareOfflineHarvestSession(
   const id = normalizeRequiredText(input.id, "Sesja offline wymaga identyfikatora UUID.");
   const createdDeviceId = normalizeRequiredText(
     input.createdDeviceId,
-    "Sesja offline wymaga urzadzenia tworzacego."
+    "Sesja offline wymaga urządzenia tworzacego."
   );
   const snapshot = assertReadyConfigurationSnapshot({
     actorProfile: input.actorProfile,
@@ -111,13 +111,13 @@ export function prepareOfflineHarvestSession(
       cacheSnapshotId: snapshot.id,
       existingOpenSessions,
       canCreateSecondSession: input.actorProfile.role === "ADMIN",
-      message: "W cache offline istnieje juz otwarta sesja tej osoby z ta data biznesowa."
+      message: "Istnieje już otwarta sesja tej osoby z tą datą."
     };
   }
 
   if (existingOpenSessions.length > 0 && input.actorProfile.role !== "ADMIN") {
     throw new Error(
-      "Tylko administrator moze utworzyc druga sesje offline tej osoby i daty."
+      "Tylko administrator może utworzyć drugą sesję offline tej osoby i daty."
     );
   }
 
@@ -191,7 +191,7 @@ function assertOfflineActorProfile(profile: UserProfile): void {
   }
 
   if (profile.role !== "ADMIN" && profile.role !== "OPERATOR") {
-    throw new Error("Tylko administrator albo operator moze utworzyc sesje offline.");
+    throw new Error("Tylko administrator albo operator może utworzyć sesję offline.");
   }
 
   if (!profile.offlineConsent) {
@@ -236,7 +236,7 @@ function assertReadyConfigurationSnapshot({
   }
 
   if (configurationSnapshot.userUid !== actorProfile.uid) {
-    throw new Error("Snapshot offline nalezy do innego konta.");
+    throw new Error("Snapshot offline należy do innego konta.");
   }
 
   if (configurationSnapshot.account.uid !== actorProfile.uid) {
@@ -248,15 +248,15 @@ function assertReadyConfigurationSnapshot({
   }
 
   if (!configurationSnapshot.account.offlineConsent) {
-    throw new Error("Cache offline nie potwierdza zgody na trwale dane offline.");
+    throw new Error("Cache offline nie potwierdza zgody na trwałe dane offline.");
   }
 
   if (configurationSnapshot.deviceId !== createdDeviceId.trim()) {
-    throw new Error("Snapshot offline zostal przygotowany dla innego urzadzenia.");
+    throw new Error("Snapshot offline został przygotowany dla innego urządzenia.");
   }
 
   if (configurationSnapshot.invalidDocumentCount > 0) {
-    throw new Error("Cache offline zawiera bledne dokumenty konfiguracji.");
+    throw new Error("Cache offline zawiera błędne dokumenty konfiguracji.");
   }
 
   return configurationSnapshot;
@@ -271,14 +271,14 @@ function assertCachedOpenSeason(
   }
 
   if (season.status !== "OPEN") {
-    throw new Error("Sesje offline mozna otworzyc tylko w otwartym sezonie.");
+    throw new Error("Sesje offline można otworzyc tylko w otwartym sezonie.");
   }
 
   const startDate = normalizeBusinessDate(season.startDate);
   const endDate = normalizeOptionalBusinessDate(season.endDate);
 
   if (businessDate < startDate || (endDate !== null && businessDate > endDate)) {
-    throw new Error("Data sesji musi miescic sie w zakresie sezonu z cache offline.");
+    throw new Error("Data sesji musi mieścić się w zakresie sezonu z cache offline.");
   }
 
   return season;
@@ -292,13 +292,13 @@ function findCachedWorker(
   const worker = workers.find((candidate) => candidate.id === normalizedWorkerId);
 
   if (!worker) {
-    throw new Error("Wybrany zbieracz nie jest dostepny w cache offline.");
+    throw new Error("Wybrany zbieracz nie jest dostępny w cache offline.");
   }
 
-  normalizeRequiredText(worker.displayName, "Zbieracz w cache offline musi miec nazwe.");
+  normalizeRequiredText(worker.displayName, "Zbieracz w cache offline musi mieć nazwę.");
 
   if (!worker.active) {
-    throw new Error("Nie mozna otworzyc sesji offline dla archiwalnego zbieracza.");
+    throw new Error("Nie można otworzyć sesji offline dla archiwalnego zbieracza.");
   }
 
   return worker;
@@ -314,7 +314,7 @@ function findEffectiveCachedRateVersion(
   );
 
   if (!hasCurrentRateInCache) {
-    throw new Error("Brak biezacej stawki zbieracza w cache offline.");
+    throw new Error("Brak bieżącej stawki zbieracza w cache offline.");
   }
 
   const effectiveRates = rateVersions
@@ -358,7 +358,7 @@ function findCachedPlan(
   }
 
   if (!plan.active) {
-    throw new Error("Nie mozna otworzyc sesji offline na archiwalnym planie.");
+    throw new Error("Nie można otworzyc sesji offline na archiwalnym planie.");
   }
 
   return plan;
@@ -376,7 +376,7 @@ function isCachedRateEffectiveOn(
 
 function assertKnownDeviceTime(value: unknown): void {
   if (value === null || value === undefined) {
-    throw new Error("Sesja offline wymaga czasu utworzenia na urzadzeniu.");
+    throw new Error("Sesja offline wymaga czasu utworzenia na urządzeniu.");
   }
 }
 
@@ -402,7 +402,7 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
 function normalizeBusinessDate(
   value: string,
-  message = "Podaj prawidlowa date biznesowa."
+  message = "Podaj prawidłową datę."
 ): string {
   const trimmed = normalizeRequiredText(value, message);
   const match = /^\d{4}-\d{2}-\d{2}$/.exec(trimmed);
