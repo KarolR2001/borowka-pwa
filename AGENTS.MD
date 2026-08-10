@@ -152,7 +152,12 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   danych wytworzonych w Borowka PWA pozostaja w zakresie.
 - Pakiet `9.18 - test przenosnosci eksportu` zostal scalony do `main` jako
   `6f7a7e2`; nie implementuj go ponownie.
-- Biezacy pakiet: `9.19 - testy uprawnien eksportu`.
+- Pakiet `9.19 - testy uprawnien eksportu` zostal scalony do `main` jako
+  `1c7b3b5`; nie implementuj go ponownie.
+- Biezacy pakiet: `10.1 - zamrozenie zakresu release candidate`.
+- Po zamrozeniu RC nowe funkcje wymagaja jawnej decyzji produktowej; dozwolone
+  sa poprawki bledow, bezpieczenstwa, dostepnosci, niezbednego UX, testow,
+  dokumentacji i wdrozenia.
 - Manualne otwarcie CSV w aktualnym Excelu i alternatywnym arkuszu pozostaje
   `PENDING`; automatyczne testy struktury nie pozwalaja oznaczyc tej bramki jako
   `PASS`.

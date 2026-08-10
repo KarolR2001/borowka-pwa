@@ -163,3 +163,19 @@
 - Decyzja: anulowanie zachowuje dokument `sales`, zmienia tylko status i trzy pola anulowania oraz tworzy atomowy audyt `SALE_CANCELLED`. Skutek magazynowy i finansowy jest dokladnym przeciwienstwem aktywnego dokumentu, rowniez dla obu kierunkow korekty.
 - Uzasadnienie: PRD zabrania usuwania historii i wymaga przywrocenia kilogramow oraz odjecia przychodu dla zwyklej sprzedazy. Uogolnienie odwrotnego znaku pozwala jednoznacznie anulowac takze korekty bez tworzenia sztucznego dokumentu kompensujacego.
 - Skutki: anulowanie jest dostepne administratorowi online takze po zamknieciu sezonu, wymaga powodu i potwierdzenia, a poprawienie blednych danych odbywa sie przez anulowanie i dodanie nowej poprawnej operacji.
+
+## DEC-0021 - Start bez danych z poprzednich sezonow
+
+- Status: zaakceptowana przez wlasciciela produktu
+- Data: 2026-08-10
+- Decyzja: aplikacja rozpoczyna prace od nowego sezonu. Nie wykonujemy inwentaryzacji, analizy ani importu danych z poprzednich sezonow. Pakiety 9.6-9.17 i 12.10-12.11 sa pominiete i nie blokuja wdrozenia.
+- Uzasadnienie: wlasciciel produktu nie chce przenosic danych historycznych ani utrzymywac procesu uzgodnienia starego arkusza.
+- Skutki: zabezpieczone zrodla 9.5 nie sa dalej otwierane; nie powstaje importer HTML/XLSX; produkcja startuje bez dokumentow legacy. Techniczne migracje schematu oraz eksport danych utworzonych w Borowka PWA pozostaja w zakresie.
+
+## DEC-0022 - Zamrozenie zakresu release candidate 1.0.0-rc.1
+
+- Status: zaakceptowana technicznie do utwardzenia i UAT
+- Data: 2026-08-10
+- Decyzja: zakres funkcjonalny opisany w `docs/release/release-candidate-scope.md` otrzymuje wersje `1.0.0-rc.1` i zostaje zamrozony. Nowe moduly wymagaja jawnego odmrozenia przez wlasciciela produktu.
+- Uzasadnienie: po zakonczeniu funkcji MVP praca przechodzi z rozbudowy do pelnej walidacji, pilotazu i przygotowania kontrolowanego wdrozenia.
+- Skutki: dozwolone sa poprawki bledow, bezpieczenstwa, dostepnosci, niezbednego UX, testow, dokumentacji i wdrozenia. Numer RC nie zamyka bramek telefonu, realistycznego DEV, UAT ani PROD.
