@@ -1,7 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 
-Object.defineProperty(Element.prototype, "scrollIntoView", {
-  configurable: true,
-  value: () => undefined,
-  writable: true
-});
+const elementConstructor = (globalThis as { Element?: typeof Element }).Element;
+
+if (elementConstructor) {
+  Object.defineProperty(elementConstructor.prototype, "scrollIntoView", {
+    configurable: true,
+    value: () => undefined,
+    writable: true
+  });
+}
