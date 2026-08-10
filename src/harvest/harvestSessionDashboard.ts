@@ -335,7 +335,7 @@ export function decodeHarvestSession(
   }
 
   if (!isBusinessDate(businessDate)) {
-    return invalidHarvestSession("Sesja ma nieprawidlowa date biznesowa.");
+    return invalidHarvestSession("Sesja ma nieprawidłową datę.");
   }
 
   if (!isHarvestSessionStatus(status)) {
@@ -465,7 +465,7 @@ export function decodeHarvestEntry(
   }
 
   if (!isBusinessDate(businessDate)) {
-    return invalidHarvestEntry("Wpis ma nieprawidlowa date biznesowa.");
+    return invalidHarvestEntry("Wpis ma nieprawidłową datę.");
   }
 
   if (status !== "ACTIVE" && status !== "CANCELLED") {

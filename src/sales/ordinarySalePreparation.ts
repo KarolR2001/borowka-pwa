@@ -119,7 +119,7 @@ export function prepareOrdinarySale({
   stockContexts: readonly SaleFormStockContext[];
 }): PreparedOrdinarySale {
   if (!isOnline) {
-    throw new Error("Sprzedaz wymaga polaczenia z internetem.");
+    throw new Error("Sprzedaż wymaga połączenia z internetem.");
   }
 
   const context = findStockContext(stockContexts, draft.seasonId);
@@ -237,7 +237,7 @@ function assertBusinessDate(value: string): void {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 
   if (!match) {
-    throw new Error("Podaj prawidlowa date biznesowa sprzedazy.");
+    throw new Error("Podaj prawidłową datę sprzedaży.");
   }
 
   const [, year, month, day] = match;
@@ -248,7 +248,7 @@ function assertBusinessDate(value: string): void {
     date.getUTCMonth() !== Number(month) - 1 ||
     date.getUTCDate() !== Number(day)
   ) {
-    throw new Error("Podaj prawidlowa date biznesowa sprzedazy.");
+    throw new Error("Podaj prawidłową datę sprzedaży.");
   }
 }
 

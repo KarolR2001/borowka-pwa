@@ -52,7 +52,7 @@ describe("PickerDataExportPanel", () => {
     expect(downloadCsv.mock.calls[0]?.[0]).toContain('"Typ rekordu"');
     expect(downloadCsv.mock.calls[0]?.[0]).toContain('"NALICZENIE"');
     expect(downloadCsv.mock.calls[0]?.[1]).toMatch(/^borowka-moje-dane-.*\.csv$/);
-    expect(screen.getByText("Wyeksportowano sesje: 1, wyplaty: 1.")).toBeInTheDocument();
+    expect(screen.getByText("Wyeksportowano sesje: 1, wypłaty: 1.")).toBeInTheDocument();
   });
 
   it("applies a custom business-date range to the exported report", async () => {
@@ -100,11 +100,11 @@ describe("PickerDataExportPanel", () => {
     );
 
     expect(
-      await screen.findByText("Eksport z cache bedzie wyraznie oznaczony jako niepelny.")
+      await screen.findByText(
+        "Dostępne dane są niepełne. Pobrany plik będzie wyraźnie oznaczony."
+      )
     ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Eksportuj niepelny CSV z cache" })
-    );
+    await user.click(screen.getByRole("button", { name: "Pobierz niepełny CSV" }));
 
     expect(downloadCsv.mock.calls[0]?.[0]).toContain(
       '"Kompletnosc";"NIEPELNY - DANE Z CACHE"'
@@ -132,7 +132,7 @@ describe("PickerDataExportPanel", () => {
     );
 
     expect(
-      await screen.findByText("Administrator nie wlaczyl eksportu wlasnego zestawienia.")
+      await screen.findByText("Administrator nie włączył eksportu własnego zestawienia.")
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pobierz CSV" })).not.toBeInTheDocument();
   });

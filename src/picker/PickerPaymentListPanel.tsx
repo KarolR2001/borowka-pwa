@@ -1,8 +1,9 @@
-import { CloudOff, Eye, RefreshCw, UserRound } from "lucide-react";
+import { Eye, RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatMoney } from "../domain/format";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   defaultPickerPaymentFilters,
   filterPickerPaymentItems,
@@ -113,10 +114,10 @@ export function PickerPaymentListPanel({
 
   if (!isPicker) {
     return (
-      <section className="access-notice" aria-label="Moje wyplaty">
+      <section className="access-notice" aria-label="Moje wypłaty">
         <UserRound aria-hidden="true" size={24} />
         <div>
-          <p className="eyebrow">Moje wyplaty</p>
+          <p className="eyebrow">Moje wypłaty</p>
           <p>Lista wymaga aktywnego konta zbieracza powiazanego z workerId.</p>
         </div>
       </section>
@@ -128,56 +129,52 @@ export function PickerPaymentListPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Rozliczenia</p>
-          <h2 id="picker-payment-title">Moje wyplaty</h2>
+          <h2 id="picker-payment-title">Moje wypłaty</h2>
           <p className="panel-detail">
-            Okres dotyczy dat sesji. Anulowane wyplaty pozostaja w historii.
+            Okres dotyczy dat sesji. Anulowane wypłaty pozostają w historii.
           </p>
         </div>
         <button
-          aria-label="Odswiez moje wyplaty"
+          aria-label="Odśwież moje wypłaty"
           className="secondary-button icon-button"
           disabled={state.status === "LOADING"}
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez moje wyplaty"
+          title="Odśwież moje wypłaty"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
         </button>
       </header>
 
-      <PickerPaymentFilters
-        filters={filters}
-        onChange={setFilters}
-        seasons={state.result?.seasons ?? []}
-      />
+      <CollapsibleFilters>
+        <PickerPaymentFilters
+          filters={filters}
+          onChange={setFilters}
+          seasons={state.result?.seasons ?? []}
+        />
+      </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie moich wyplat">
+      <div className="directory-summary" aria-label="Podsumowanie moich wypłat">
         <PaymentStat label="Naliczono" value={formatMoney(summary.accruedAmountGrosz)} />
         <PaymentStat
-          label={`Wyplacono (${String(summary.activePaymentCount)})`}
+          label={`Wypłacono (${String(summary.activePaymentCount)})`}
           value={formatMoney(summary.paidAmountGrosz)}
         />
         <PaymentStat
-          label="Pozostalo do wyplaty"
+          label="Pozostało do wypłaty"
           value={formatMoney(summary.remainingAmountGrosz)}
         />
         <PaymentStat
-          label={`Anulowane poza suma (${String(summary.cancelledPaymentCount)})`}
+          label={`Anulowane poza sumą (${String(summary.cancelledPaymentCount)})`}
           value={formatMoney(summary.cancelledAmountGrosz)}
         />
       </div>
 
-      {state.result?.dataSource === "CACHE" ? (
-        <p className="picker-dashboard__source form-message form-message--warning">
-          <CloudOff aria-hidden="true" size={18} />
-          Wyplaty z pamieci offline moga nie byc aktualne
-        </p>
-      ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac historii wlasnych wyplat.
+          Nie udało się pobrać historii własnych wypłat.
         </p>
       ) : null}
       {state.result &&
@@ -186,15 +183,15 @@ export function PickerPaymentListPanel({
         state.result.invalidSessionCount > 0 ||
         state.result.missingSourceSessionCount > 0) ? (
         <p className="form-message form-message--warning">
-          Dane wymagajace kontroli: wyplaty {state.result.invalidPaymentCount}, sesje{" "}
-          {state.result.invalidSessionCount}, brak sesji zrodlowej{" "}
+          Dane wymagające kontroli: wypłaty {state.result.invalidPaymentCount}, sesje{" "}
+          {state.result.invalidSessionCount}, brak sesji źródłowej{" "}
           {state.result.missingSourceSessionCount}, sezony{" "}
           {state.result.invalidSeasonCount}.
         </p>
       ) : null}
       {summary.remainingAmountGrosz < 0 ? (
         <p className="form-message form-message--warning">
-          Wyplacona kwota przekracza naliczenie dla wybranego okresu.
+          Wypłacona kwota przekracza naliczenie dla wybranego okresu.
         </p>
       ) : null}
       {selectedSessionId ? (
@@ -219,14 +216,14 @@ export function PickerPaymentListPanel({
       ) : null}
       {reportSessionId ? (
         <p className="form-message form-message--ok">
-          Sesja zostala wybrana do zgloszenia niezgodnosci.
+          Sesja została wybrana do zgłoszenia niezgodności.
         </p>
       ) : null}
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie historii wyplat.</p>
+        <p className="empty-state">Pobieranie historii wypłat.</p>
       ) : null}
       {state.result && visiblePayments.length === 0 ? (
-        <p className="empty-state">Brak wyplat spelniajacych wybrane filtry.</p>
+        <p className="empty-state">Brak wypłat spełniających wybrane filtry.</p>
       ) : null}
       {visiblePayments.length > 0 ? (
         <PaymentTable
@@ -251,7 +248,7 @@ function PickerPaymentFilters({
   seasons: readonly { id: string; name: string }[];
 }) {
   return (
-    <div className="picker-payment-filters" aria-label="Filtry moich wyplat">
+    <div className="picker-payment-filters" aria-label="Filtry moich wypłat">
       <label className="field">
         <span>Sezon</span>
         <select
@@ -320,14 +317,14 @@ function PaymentTable({
       <table className="directory-table picker-payment-table">
         <thead>
           <tr>
-            <th>Data wyplaty</th>
+            <th>Data wypłaty</th>
             <th>Data sesji</th>
             <th>Sezon</th>
             <th>Kwota</th>
             <th>Metoda</th>
             <th>Status</th>
             <th>
-              <span className="sr-only">Sesja zrodlowa</span>
+              <span className="sr-only">Sesja źródłowa</span>
             </th>
           </tr>
         </thead>
@@ -352,13 +349,13 @@ function PaymentTable({
               </td>
               <td>
                 <button
-                  aria-label={`Otworz sesje wyplaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
+                  aria-label={`Otwórz sesję wypłaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
                   className="secondary-button icon-button"
                   disabled={payment.sessionBusinessDate === null}
                   onClick={() => {
                     onOpenSession(payment.sessionId);
                   }}
-                  title="Otworz sesje zrodlowa"
+                  title="Otwórz sesję źródłową"
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />

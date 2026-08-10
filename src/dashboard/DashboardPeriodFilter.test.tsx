@@ -14,6 +14,7 @@ describe("DashboardPeriodFilter", () => {
 
     render(<FilterHarness />);
 
+    await user.click(screen.getByText("Zakres dat"));
     expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
     await user.selectOptions(screen.getByLabelText("Okres"), "CUSTOM");
 
@@ -21,7 +22,7 @@ describe("DashboardPeriodFilter", () => {
     expect(screen.getByLabelText("Do")).toHaveValue("2026-07-29");
 
     await user.clear(screen.getByLabelText("Od"));
-    expect(screen.getByText("Podaj poczatek i koniec wlasnego zakresu.")).toBeVisible();
+    expect(screen.getByText("Podaj początek i koniec własnego zakresu.")).toBeVisible();
   });
 });
 

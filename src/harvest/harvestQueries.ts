@@ -332,7 +332,7 @@ function normalizeBusinessDate(value: string): string {
   const normalized = normalizeId(value);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-    throw new Error("Zapytanie harvest wymaga daty biznesowej YYYY-MM-DD.");
+    throw new Error("Zapytanie zbiorów wymaga daty YYYY-MM-DD.");
   }
 
   return normalized;

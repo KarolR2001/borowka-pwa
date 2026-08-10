@@ -1,12 +1,4 @@
-import {
-  AlertTriangle,
-  ClipboardList,
-  Gauge,
-  Plus,
-  RefreshCw,
-  Wifi,
-  WifiOff
-} from "lucide-react";
+import { AlertTriangle, ClipboardList, Gauge, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -189,7 +181,7 @@ export function OperatorDashboardPanel({
         <Gauge aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Pulpit operatora</p>
-          <p>Widok jest dostepny tylko dla aktywnego operatora.</p>
+          <p>Widok jest dostępny tylko dla aktywnego operatora.</p>
         </div>
       </section>
     );
@@ -199,24 +191,9 @@ export function OperatorDashboardPanel({
     <section className="operator-dashboard" aria-labelledby="operator-dashboard-title">
       <header className="directory-header">
         <div>
-          <p className="eyebrow">
-            {isOnline ? (
-              <Wifi aria-hidden="true" size={15} />
-            ) : (
-              <WifiOff aria-hidden="true" size={15} />
-            )}
-            {isOnline ? "Online" : "Offline"}
-          </p>
+          <p className="eyebrow">Bieżące zbiory</p>
           <h2 id="operator-dashboard-title">Pulpit operatora</h2>
-          <p className="panel-detail">
-            {result
-              ? isOnline
-                ? `Dane z chmury odswiezono: ${formatTimestamp(result.refreshedAtIso)}.`
-                : result.lastServerSyncIso
-                  ? `Ostatni stan serwera: ${formatTimestamp(result.lastServerSyncIso)}.`
-                  : "Brak czasu ostatniego potwierdzonego odczytu serwera."
-              : "Pobieranie biezacego obrazu pracy."}
-          </p>
+          <p className="panel-detail">Najważniejsze informacje o bieżącej pracy.</p>
         </div>
         <div className="operator-dashboard__actions">
           <button
@@ -232,7 +209,7 @@ export function OperatorDashboardPanel({
             type="button"
           >
             <Plus aria-hidden="true" size={18} />
-            Nowy zbior
+            Nowy zbiór
           </button>
           <button
             className="secondary-action icon-button"
@@ -240,11 +217,11 @@ export function OperatorDashboardPanel({
             onClick={() => {
               setReloadKey((current) => current + 1);
             }}
-            title="Odswiez pulpit operatora"
+            title="Odśwież pulpit operatora"
             type="button"
           >
             <RefreshCw aria-hidden="true" size={18} />
-            <span className="sr-only">Odswiez pulpit operatora</span>
+            <span className="sr-only">Odśwież pulpit operatora</span>
           </button>
         </div>
       </header>
@@ -261,8 +238,8 @@ export function OperatorDashboardPanel({
 
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac pulpitu operatora
-          {result ? ". Widoczne sa ostatnie dostepne dane." : "."}
+          Nie udało się pobrać pulpitu operatora
+          {result ? ". Widoczne są ostatnie dostępne dane." : "."}
         </p>
       ) : null}
       {state.status === "LOADING" && !result ? (
@@ -278,8 +255,7 @@ export function OperatorDashboardPanel({
               value={result.activeSeason?.name ?? "Brak"}
             />
             <DashboardMetric
-              detail={stockSourceLabel(result.stock.dataSource)}
-              label={isOnline ? "Dostepne operacyjnie" : "Dostepne wg serwera"}
+              label="Dostępne kilogramy"
               tone={
                 result.metrics.availableWeightG === null ||
                 result.metrics.availableWeightG < 0
@@ -295,7 +271,7 @@ export function OperatorDashboardPanel({
             {!isOnline || localProjection.pendingSessionCount > 0 ? (
               <>
                 <DashboardMetric
-                  detail="Sesje biezacego urzadzenia poza oficjalnym stanem"
+                  detail="Sesje bieżącego urządzenia poza oficjalnym stanem"
                   label="Lokalne sesje poza stanem"
                   tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
                   value={String(localProjection.pendingSessionCount)}
@@ -305,7 +281,7 @@ export function OperatorDashboardPanel({
                     localProjection.pendingConfirmedWeightG
                   )} z ${String(
                     localProjection.pendingConfirmedSessionCount
-                  )} zamknietych sesji`}
+                  )} zamkniętych sesji`}
                   label="Przewidywane lokalnie"
                   tone="WARNING"
                   value={
@@ -327,13 +303,13 @@ export function OperatorDashboardPanel({
             <DashboardMetric
               label={
                 result.period.preset === "TODAY"
-                  ? "Moje zamkniete dzis"
-                  : "Moje zamkniete w okresie"
+                  ? "Moje zamknięte dziś"
+                  : "Moje zamknięte w okresie"
               }
               value={String(result.metrics.ownClosedSessionCount)}
             />
             <DashboardMetric
-              label="Lokalnie oczekujace"
+              label="Lokalnie oczekujące"
               tone={result.metrics.localPendingCount > 0 ? "WARNING" : "DEFAULT"}
               value={String(result.metrics.localPendingCount)}
             />
@@ -361,7 +337,7 @@ export function OperatorDashboardPanel({
             sessions={result.openSessions}
           />
           <DashboardSessionList
-            emptyMessage="Brak wlasnych sesji w wybranym okresie."
+            emptyMessage="Brak własnych sesji w wybranym okresie."
             label="Moje sesje w okresie"
             sessions={result.ownRecentSessions}
           />
@@ -449,47 +425,19 @@ function DashboardSessionList({
 function dashboardWarnings(result: OperatorDashboardResult): string[] {
   const warnings: string[] = [];
 
-  if (result.connection === "OFFLINE") {
-    warnings.push(
-      result.stock.dataSource === "LOCAL_SNAPSHOT"
-        ? "Tryb offline. Widoczny stan serwera nie jest stanem aktualnym."
-        : "Pracujesz offline. Stan kilogramow pochodzi z kopii lokalnej."
-    );
-    warnings.push(
-      "Inne urzadzenia moga miec niezsynchronizowane zmiany, ktorych tutaj nie widac."
-    );
-  } else if (result.stock.dataSource === "CACHE") {
-    warnings.push("Stan kilogramow pochodzi z kopii lokalnej, nie z serwera.");
-  }
-
   if (result.stock.invalidMovementCount > 0) {
-    warnings.push("Stan kilogramow jest niespojny i wymaga sprawdzenia.");
+    warnings.push("Stan kilogramów jest niespójny i wymaga sprawdzenia.");
   }
 
   if (result.stock.pendingMovementCount > 0) {
-    warnings.push("Czesc zmian stanu kilogramow oczekuje na potwierdzenie.");
+    warnings.push("Część zmian stanu kilogramów oczekuje na potwierdzenie.");
   }
 
   if (result.metrics.availableWeightG !== null && result.metrics.availableWeightG < 0) {
-    warnings.push("Dostepny stan kilogramow jest ujemny.");
+    warnings.push("Dostępny stan kilogramów jest ujemny.");
   }
 
   return warnings;
-}
-
-function stockSourceLabel(
-  source: OperatorDashboardResult["stock"]["dataSource"]
-): string {
-  switch (source) {
-    case "SERVER":
-      return "Potwierdzony przez serwer";
-    case "CACHE":
-      return "Kopia lokalna";
-    case "LOCAL_SNAPSHOT":
-      return "Ostatni oficjalny stan serwera";
-    case "UNAVAILABLE":
-      return "Brak aktywnego sezonu";
-  }
 }
 
 function sessionStatusLabel(status: OperatorDashboardSession["status"]): string {
@@ -497,7 +445,7 @@ function sessionStatusLabel(status: OperatorDashboardSession["status"]): string 
     case "OPEN":
       return "otwarta";
     case "CLOSED":
-      return "zamknieta";
+      return "zamknięta";
     case "PAID":
       return "wyplacona";
     case "CANCELLED":
@@ -514,9 +462,4 @@ function focusNewHarvestSession(): void {
     "select:not(:disabled), input:not(:disabled), button:not(:disabled)"
   );
   (control ?? target)?.focus();
-}
-
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pl-PL");
 }

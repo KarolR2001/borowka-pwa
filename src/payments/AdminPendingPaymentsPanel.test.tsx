@@ -73,7 +73,7 @@ describe("AdminPendingPaymentsPanel", () => {
     expect(await screen.findByText("125,00 zł")).toBeVisible();
     expect(within(screen.getByRole("table")).getByText("Anna")).toBeVisible();
     expect(within(screen.getByRole("table")).getByText("Barbara")).toBeVisible();
-    expect(screen.getByText("Anulowana wyplata")).toBeVisible();
+    expect(screen.getByText("Anulowana wypłata")).toBeVisible();
     expect(screen.getByText("Wykluczone pending")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Zbieracz"), "worker-a");
@@ -84,15 +84,15 @@ describe("AdminPendingPaymentsPanel", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
 
-    await user.click(screen.getByRole("button", { name: "Sprawdz warunki" }));
-    expect(await screen.findByText("Sesja spelnia warunki wyplaty.")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Wyplac" }));
-    expect(screen.getByText("Potwierdzenie wyplaty")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Sprawdź warunki" }));
+    expect(await screen.findByText("Sesja spełnia warunki wypłaty.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Wypłać" }));
+    expect(screen.getByText("Potwierdzenie wypłaty")).toBeVisible();
     expect(screen.getByText("Za kilogram, 10,00 zł / kilogramy")).toBeVisible();
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
     expect(
       await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
     ).toBeVisible();
@@ -146,8 +146,8 @@ describe("AdminPendingPaymentsPanel", () => {
       />
     );
 
-    await screen.findByText("Brak sesji spelniajacych filtry.");
-    await user.click(screen.getByRole("button", { name: "Odswiez liste" }));
+    await screen.findByText("Brak sesji spełniających filtry.");
+    await user.click(screen.getByRole("button", { name: "Odśwież listę" }));
 
     await waitFor(() => {
       expect(api.list).toHaveBeenCalledTimes(2);
@@ -207,12 +207,12 @@ describe("AdminPendingPaymentsPanel", () => {
       />
     );
 
-    await user.click(await screen.findByRole("button", { name: "Sprawdz warunki" }));
-    await user.click(await screen.findByRole("button", { name: "Wyplac" }));
+    await user.click(await screen.findByRole("button", { name: "Sprawdź warunki" }));
+    await user.click(await screen.findByRole("button", { name: "Wypłać" }));
     await user.click(
-      screen.getByLabelText("Potwierdzam wyplate calej naleznosci za te sesje")
+      screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
-    await user.click(screen.getByRole("button", { name: "Zapisz wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
     const warning = await screen.findByText(/juz wyplacona przez admin-2/);
     expect(warning).toHaveClass("form-message--warning");
@@ -220,7 +220,7 @@ describe("AdminPendingPaymentsPanel", () => {
     await waitFor(() => {
       expect(api.list).toHaveBeenCalledTimes(2);
     });
-    expect(await screen.findByText("Brak sesji spelniajacych filtry.")).toBeVisible();
+    expect(await screen.findByText("Brak sesji spełniających filtry.")).toBeVisible();
   });
 
   it("explains every blocker before leaving payment disabled", async () => {
@@ -269,11 +269,11 @@ describe("AdminPendingPaymentsPanel", () => {
       />
     );
 
-    await user.click(await screen.findByRole("button", { name: "Sprawdz warunki" }));
+    await user.click(await screen.findByRole("button", { name: "Sprawdź warunki" }));
 
     expect(await screen.findByText(/Wyplata wymaga internetu/)).toBeVisible();
     expect(screen.getByText(/Dane oczekuja na synchronizacje/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Wyplac" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Wypłać" })).toBeDisabled();
   });
 });
 

@@ -99,7 +99,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
   it("blocks non-admin profiles", () => {
     render(<AdminRegistrationInvitationsPanel authState={operatorState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads invitations for administrator and renders invalid documents", async () => {
@@ -191,7 +191,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
       />
     );
 
-    await screen.findByText("Brak zaproszen dla wybranych filtrow.");
+    await screen.findByText("Brak zaproszeń dla wybranych filtrów.");
     await user.type(screen.getByLabelText("E-mail"), "picker@example.test");
     await user.type(screen.getByLabelText("Nazwa"), "Picker Test");
     await user.selectOptions(screen.getByLabelText("Rola docelowa"), "PICKER");
@@ -221,7 +221,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
       />
     );
 
-    await screen.findByText("Brak zaproszen dla wybranych filtrow.");
+    await screen.findByText("Brak zaproszeń dla wybranych filtrów.");
     await user.type(screen.getByLabelText("E-mail"), "Operator@Example.TEST");
     await user.type(screen.getByLabelText("Nazwa"), "Operator Test");
     await user.click(screen.getByRole("button", { name: "Dodaj" }));

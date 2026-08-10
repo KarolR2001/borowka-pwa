@@ -60,7 +60,7 @@ describe("AdminIssueReportsPanel", () => {
 
     expect(await screen.findByText("Kwota jest nieprawidlowa.")).toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: "Otworz dane zrodlowe report-1" })
+      screen.getByRole("button", { name: "Otwórz dane źródłowe report-1" })
     );
     expect(await screen.findByText("Anna Zbieracz")).toBeInTheDocument();
     expect(screen.getByText("22,50 zł")).toBeInTheDocument();

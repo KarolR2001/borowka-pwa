@@ -57,7 +57,7 @@ describe("AdminOrdinarySalesPanel", () => {
       await screen.findByRole("heading", { name: "Alarm stanu: Sezon 2026" })
     ).toBeVisible();
     expect(screen.getByText("-1,500 kg")).toBeVisible();
-    await user.click(screen.getByText("Otworz raport skladowych"));
+    await user.click(screen.getByText("Otwórz raport składowych"));
     expect(screen.getByText("Stan ze zrodel")).toBeVisible();
     expect(screen.getByText("Stan projekcji")).toBeVisible();
 
@@ -65,16 +65,16 @@ describe("AdminOrdinarySalesPanel", () => {
     await user.type(screen.getByLabelText("Cena za kg"), "10");
     expect(
       screen.getByText(
-        "Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu."
+        "Zwykła sprzedaż jest zablokowana do czasu wyjaśnienia alarmu stanu."
       )
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Sprawdz i przejdz dalej" })
+      screen.getByRole("button", { name: "Sprawdź i przejdź dalej" })
     ).toBeDisabled();
     expect(api.checkStock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Korekta" }));
-    expect(screen.getByRole("button", { name: "Sprawdz korekte" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Sprawdź korektę" })).toBeEnabled();
   });
 
   it("updates changed stock and writes only after explicit confirmation", async () => {
@@ -91,7 +91,7 @@ describe("AdminOrdinarySalesPanel", () => {
     await fillAndPrepare(user);
 
     expect(
-      await screen.findByText("Stan zmienil sie od otwarcia formularza")
+      await screen.findByText("Stan zmienił się od otwarcia formularza")
     ).toBeVisible();
     expect(screen.getAllByText("5,000 kg")).toHaveLength(2);
     expect(api.create).not.toHaveBeenCalled();
@@ -194,11 +194,11 @@ describe("AdminOrdinarySalesPanel", () => {
     await user.click(screen.getByRole("button", { name: "Korekta" }));
     await user.type(screen.getByLabelText("Masa kg"), "3");
     await user.type(screen.getByLabelText("Cena za kg"), "12,50");
-    await user.type(screen.getByLabelText("Powod korekty"), "Powod korekty sprzedazy");
-    await user.click(screen.getByRole("button", { name: "Sprawdz korekte" }));
+    await user.type(screen.getByLabelText("Powód korekty"), "Powod korekty sprzedazy");
+    await user.click(screen.getByRole("button", { name: "Sprawdź korektę" }));
 
     const confirmButton = await screen.findByRole("button", {
-      name: "Potwierdz i zapisz korekte"
+      name: "Potwierdź i zapisz korektę"
     });
     expect(confirmButton).toBeDisabled();
     expect(api.createCorrection).not.toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe("AdminOrdinarySalesPanel", () => {
     renderPanel(api);
     await screen.findByRole("option", { name: "Sezon 2026" });
     await user.click(screen.getByRole("button", { name: "Anulowanie" }));
-    await user.click(await screen.findByRole("radio", { name: /Sprzedaz.*2026-07-29/ }));
+    await user.click(await screen.findByRole("radio", { name: /Sprzedaż.*2026-07-29/ }));
 
     const confirmation = screen.getByLabelText(
       "Potwierdzam anulowanie, jego wplyw na stan i przychod oraz podany powod."
@@ -241,9 +241,9 @@ describe("AdminOrdinarySalesPanel", () => {
     expect(screen.getByText("+3,000 kg")).toBeVisible();
     expect(screen.getByText(/-37,50/)).toBeVisible();
 
-    await user.type(screen.getByLabelText("Powod anulowania"), "Bledna masa");
+    await user.type(screen.getByLabelText("Powód anulowania"), "Bledna masa");
     await user.click(confirmation);
-    await user.click(screen.getByRole("button", { name: "Anuluj operacje" }));
+    await user.click(screen.getByRole("button", { name: "Anuluj operację" }));
 
     await waitFor(() => {
       expect(api.cancelSale).toHaveBeenCalledTimes(1);
@@ -284,7 +284,7 @@ describe("AdminOrdinarySalesPanel", () => {
     ]);
 
     renderPanel(api);
-    await user.click(await screen.findByTitle("Otworz szczegoly operacji sale-1"));
+    await user.click(await screen.findByTitle("Otwórz szczegóły operacji sale-1"));
     await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
 
     expect(screen.getByRole("button", { name: "Anulowanie" })).toHaveAttribute(
@@ -292,7 +292,7 @@ describe("AdminOrdinarySalesPanel", () => {
       "true"
     );
     expect(
-      await screen.findByRole("radio", { name: /Sprzedaz.*2026-07-29/ })
+      await screen.findByRole("radio", { name: /Sprzedaż.*2026-07-29/ })
     ).toBeChecked();
   });
 
@@ -313,7 +313,7 @@ describe("AdminOrdinarySalesPanel", () => {
     renderPanel(api, operatorState);
 
     expect(
-      screen.getByText("Sprzedaz jest dostepna tylko dla administratora.")
+      screen.getByText("Sprzedaż jest dostępna tylko dla administratora.")
     ).toBeVisible();
     expect(api.listStockContexts).not.toHaveBeenCalled();
   });
@@ -338,7 +338,7 @@ async function fillAndPrepare(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("option", { name: "Sezon 2026" });
   await user.type(screen.getByLabelText("Masa kg"), "3");
   await user.type(screen.getByLabelText("Cena za kg"), "12,50");
-  await user.click(screen.getByRole("button", { name: "Sprawdz i przejdz dalej" }));
+  await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
 }
 
 function createApi() {

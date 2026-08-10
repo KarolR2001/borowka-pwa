@@ -68,7 +68,7 @@ describe("AdminSaleDirectoryPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Lista sprzedazy")).toBeVisible();
+    expect(await screen.findByText("Lista sprzedaży")).toBeVisible();
     expect(screen.getByText("25,00 zł")).toBeVisible();
     expect(screen.getByText("3")).toBeVisible();
 
@@ -77,7 +77,7 @@ describe("AdminSaleDirectoryPanel", () => {
     expect(screen.queryByText("Odbiorca A")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Typ"), "ALL");
-    await user.click(screen.getByTitle("Otworz szczegoly operacji sale-1"));
+    await user.click(screen.getByTitle("Otwórz szczegóły operacji sale-1"));
     expect(await screen.findByText("Id operacji")).toBeVisible();
     expect(screen.getByText("sale-1")).toBeVisible();
 
@@ -104,7 +104,7 @@ describe("AdminSaleDirectoryPanel", () => {
     );
 
     expect(
-      screen.getByText("Lista finansowa jest dostepna tylko dla administratora.")
+      screen.getByText("Lista finansowa jest dostępna tylko dla administratora.")
     ).toBeVisible();
     await waitFor(() => {
       expect(api.list).not.toHaveBeenCalled();

@@ -87,7 +87,7 @@ describe("AdminSettlementPlansPanel", () => {
   it("blocks non-admin profiles", () => {
     render(<AdminSettlementPlansPanel authState={operatorState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads settlement plans for administrator", async () => {
@@ -144,7 +144,7 @@ describe("AdminSettlementPlansPanel", () => {
       expect(list).toHaveBeenCalled();
     });
     expect(
-      screen.getByRole("heading", { name: "Lista planow rozliczen" })
+      screen.getByRole("heading", { name: "Lista planów rozliczeń" })
     ).toBeInTheDocument();
     expect(screen.getByText("Za kilogram")).toBeInTheDocument();
     expect(screen.getByText("Za ubianke")).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe("AdminSettlementPlansPanel", () => {
     expect(screen.queryByText("Archiwalny plan")).not.toBeInTheDocument();
   });
 
-  it("creates a custom settlement plan after confirmation", async () => {
+  it("creates a custom settlement plan with generated technical fields", async () => {
     const user = userEvent.setup();
     const list = vi.fn<SettlementPlansApi["list"]>().mockResolvedValue({
       plans: [],
@@ -212,19 +212,16 @@ describe("AdminSettlementPlansPanel", () => {
       />
     );
 
+    await user.click(await screen.findByText("Nowy plan rozliczeń"));
     const form = within(
-      await screen.findByRole("form", { name: "Tworzenie planu rozliczen" })
+      await screen.findByRole("form", { name: "Tworzenie planu rozliczeń" })
     );
 
     await user.type(form.getByLabelText("Nazwa planu"), "Za skrzynke");
-    await user.type(form.getByLabelText("Kod"), "skrzynka");
-    await user.type(form.getByLabelText("Jednostka"), "skrzynka");
-    await user.type(form.getByLabelText("Jednostki"), "skrzynki");
-    await user.type(form.getByLabelText("Symbol"), "skrz.");
-    await user.selectOptions(form.getByLabelText("Precyzja"), "0");
+    await user.type(form.getByLabelText("Jedna jednostka"), "skrzynka");
+    await user.type(form.getByLabelText("Wiele jednostek"), "skrzynki");
     await user.type(form.getByLabelText("Opis"), "Rozliczenie za skrzynke.");
-    await user.click(form.getByLabelText("Potwierdzam utworzenie planu"));
-    await user.click(form.getByRole("button", { name: "Dodaj plan" }));
+    await user.click(form.getByRole("button", { name: "Utwórz plan" }));
 
     await waitFor(() => {
       expect(create).toHaveBeenCalled();
@@ -233,12 +230,12 @@ describe("AdminSettlementPlansPanel", () => {
     expect(createInput).toMatchObject({
       actorProfile: adminState.profile,
       name: "Za skrzynke",
-      code: "skrzynka",
+      code: "ZA_SKRZYNKE",
       calculationBasis: "QUANTITY",
       unitLabelSingular: "skrzynka",
       unitLabelPlural: "skrzynki",
-      unitSymbol: "skrz.",
-      quantityPrecision: 0,
+      unitSymbol: "skrzynka",
+      quantityPrecision: 1,
       weightRequired: false,
       allowBatchQuantity: true,
       description: "Rozliczenie za skrzynke."
@@ -287,14 +284,14 @@ describe("AdminSettlementPlansPanel", () => {
     await user.click(screen.getByRole("button", { name: "Edytuj" }));
 
     const form = within(
-      await screen.findByRole("form", { name: "Edycja planu rozliczen" })
+      await screen.findByRole("form", { name: "Edycja planu rozliczeń" })
     );
     await user.clear(form.getByLabelText("Nazwa planu"));
     await user.type(form.getByLabelText("Nazwa planu"), "Za pelna ubianke");
     await user.clear(form.getByLabelText("Jednostki"));
     await user.type(form.getByLabelText("Jednostki"), "pelne ubianki");
     await user.click(
-      form.getByLabelText("Potwierdzam, ze snapshoty historyczne pozostaja bez zmian")
+      form.getByLabelText("Potwierdzam, że snapshoty historyczne pozostają bez zmian")
     );
     await user.click(form.getByRole("button", { name: "Zapisz plan" }));
 
@@ -310,7 +307,7 @@ describe("AdminSettlementPlansPanel", () => {
       confirmHistoricalSnapshotsUnchanged: true
     });
     expect(updateInput.deviceId).toEqual(expect.any(String));
-    expect(screen.getByText("Zapisano plan.")).toBeInTheDocument();
+    expect(screen.getByText("Plan został zapisany.")).toBeInTheDocument();
   });
 
   it("archives an active settlement plan after confirmation", async () => {
@@ -343,10 +340,10 @@ describe("AdminSettlementPlansPanel", () => {
     await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
 
     const form = within(
-      await screen.findByRole("form", { name: "Archiwizacja planu rozliczen" })
+      await screen.findByRole("form", { name: "Archiwizacja planu rozliczeń" })
     );
-    await user.type(form.getByLabelText("Powod"), "Nie uzywamy w tym sezonie.");
-    await user.click(form.getByLabelText("Potwierdzam archiwizacje planu"));
+    await user.type(form.getByLabelText("Powód"), "Nie uzywamy w tym sezonie.");
+    await user.click(form.getByLabelText("Potwierdzam archiwizację planu"));
     await user.click(form.getByRole("button", { name: "Archiwizuj plan" }));
 
     await waitFor(() => {
@@ -359,6 +356,6 @@ describe("AdminSettlementPlansPanel", () => {
       reason: "Nie uzywamy w tym sezonie."
     });
     expect(archiveInput.deviceId).toEqual(expect.any(String));
-    expect(screen.getByText("Zarchiwizowano plan.")).toBeInTheDocument();
+    expect(screen.getByText("Plan został zarchiwizowany.")).toBeInTheDocument();
   });
 });

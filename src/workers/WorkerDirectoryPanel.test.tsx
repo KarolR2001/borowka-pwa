@@ -138,7 +138,7 @@ describe("WorkerDirectoryPanel", () => {
   it("blocks picker profiles", () => {
     render(<WorkerDirectoryPanel authState={pickerState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads administrator worker directory with account, financial placeholders and warnings", async () => {
@@ -343,7 +343,7 @@ describe("WorkerDirectoryPanel", () => {
     ).toBeGreaterThan(0);
     expect(
       within(profile).getByRole("heading", {
-        name: "Kontrola spojnosci stawek"
+        name: "Kontrola spójności stawek"
       })
     ).toBeInTheDocument();
     expect(
@@ -416,7 +416,7 @@ describe("WorkerDirectoryPanel", () => {
     await user.type(within(form).getByLabelText("Notatka"), "Nowa stawka.");
     await user.click(
       within(form).getByLabelText(
-        "Potwierdzam, ze historyczne snapshoty nie zostana przeliczone"
+        "Potwierdzam, że historyczne snapshoty nie zostaną przeliczone"
       )
     );
     await user.click(within(form).getByRole("button", { name: "Dodaj stawke" }));
@@ -505,23 +505,23 @@ describe("WorkerDirectoryPanel", () => {
     await user.click(screen.getByRole("button", { name: "Profil" }));
 
     const form = await screen.findByRole("form", {
-      name: "Powiazanie konta zbieracza"
+      name: "Powiązanie konta zbieracza"
     });
 
     await user.selectOptions(
-      within(form).getByLabelText("Konto do powiazania"),
+      within(form).getByLabelText("Konto do powiązania"),
       "operator-anna"
     );
     await user.type(
-      within(form).getByLabelText("Powod zmiany powiazania"),
+      within(form).getByLabelText("Powód zmiany powiązania"),
       "Konto nalezy do Anny."
     );
     await user.click(
       within(form).getByLabelText(
-        "Potwierdzam, ze konto zobaczy dane tego zbieracza po ponownym pobraniu profilu"
+        "Potwierdzam, że konto zobaczy dane tego zbieracza po ponownym pobraniu profilu"
       )
     );
-    await user.click(within(form).getByRole("button", { name: "Zapisz powiazanie" }));
+    await user.click(within(form).getByRole("button", { name: "Zapisz powiązanie" }));
 
     await waitFor(() => {
       expect(updateAccountLink).toHaveBeenCalled();
@@ -533,7 +533,7 @@ describe("WorkerDirectoryPanel", () => {
       reason: "Konto nalezy do Anny.",
       confirmPrivacyNotice: true
     });
-    expect(screen.getByText(/Zapisano powiazanie konta/)).toBeInTheDocument();
+    expect(screen.getByText(/Zapisano powiązanie konta/)).toBeInTheDocument();
   });
 
   it("archives a worker from administrator profile after confirmations", async () => {
@@ -636,29 +636,29 @@ describe("WorkerDirectoryPanel", () => {
       name: "Archiwizacja zbieracza"
     });
 
-    expect(within(form).getByText(/Do wyplaty: 15,00 zł/)).toBeInTheDocument();
+    expect(within(form).getByText(/Do wypłaty: 15,00 zł/)).toBeInTheDocument();
     expect(within(form).getByText(/2999-08-01/)).toBeInTheDocument();
 
     await user.type(
-      within(form).getByLabelText("Powod archiwizacji"),
+      within(form).getByLabelText("Powód archiwizacji"),
       "Koniec wspolpracy."
     );
     await user.click(
       within(form).getByLabelText("Potwierdzam sprawdzenie otwartych sesji poza systemem")
     );
     await user.click(
-      within(form).getByLabelText("Potwierdzam sprawdzenie kwoty do wyplaty")
+      within(form).getByLabelText("Potwierdzam sprawdzenie kwoty do wypłaty")
     );
     await user.click(
       within(form).getByLabelText(
-        "Potwierdzam, ze powiazane konto pozostaje aktywne do historii"
+        "Potwierdzam, że powiązane konto pozostaje aktywne do historii"
       )
     );
     await user.click(
-      within(form).getByLabelText("Potwierdzam weryfikacje aktualnej stawki")
+      within(form).getByLabelText("Potwierdzam weryfikację aktualnej stawki")
     );
     await user.click(
-      within(form).getByLabelText("Potwierdzam weryfikacje przyszlych stawek")
+      within(form).getByLabelText("Potwierdzam weryfikację przyszłych stawek")
     );
     await user.click(within(form).getByRole("button", { name: "Archiwizuj zbieracza" }));
 

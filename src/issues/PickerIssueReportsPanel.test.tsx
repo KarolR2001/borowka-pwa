@@ -59,10 +59,10 @@ describe("PickerIssueReportsPanel", () => {
     await user.selectOptions(screen.getByLabelText("Problem dotyczy"), "ENTRY");
     await user.selectOptions(screen.getByLabelText("Wpis"), "entry-1");
     await user.type(
-      screen.getByLabelText("Krotki opis"),
+      screen.getByLabelText("Krótki opis"),
       "Waga wpisu wymaga sprawdzenia."
     );
-    await user.click(screen.getByRole("button", { name: "Wyslij zgloszenie" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij zgłoszenie" }));
 
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith(
@@ -132,16 +132,13 @@ describe("PickerIssueReportsPanel", () => {
       />
     );
 
-    expect(
-      await screen.findByText(
-        "Zgloszenie zostanie zapisane lokalnie i wyslane po odzyskaniu polaczenia."
-      )
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText("Krótki opis")).toBeInTheDocument();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     await user.type(
-      screen.getByLabelText("Krotki opis"),
+      screen.getByLabelText("Krótki opis"),
       "Status wyplaty wymaga sprawdzenia."
     );
-    await user.click(screen.getByRole("button", { name: "Wyslij zgloszenie" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij zgłoszenie" }));
 
     expect(create).toHaveBeenCalledWith(
       {},

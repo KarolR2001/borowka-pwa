@@ -321,7 +321,7 @@ export function preparePaymentWrite({
   }
 
   if (!isBusinessDate(confirmation.paidBusinessDate)) {
-    throw new PaymentWriteValidationError("Wyplata ma nieprawidlowa date biznesowa.");
+    throw new PaymentWriteValidationError("Wypłata ma nieprawidłową datę.");
   }
 
   if (!PAYMENT_METHODS.includes(confirmation.paymentMethod)) {

@@ -45,7 +45,7 @@ describe("offline rate conflict", () => {
         validTo: null,
         workerId: "worker-1"
       },
-      message: "Snapshot stawki pozostaje zgodny z data biznesowa sesji.",
+      message: "Zapisana stawka jest zgodna z datą sesji.",
       paymentBlocked: false,
       preservedAmountDueGrosz: 4500,
       recommendedSessionStatus: "CLOSED",

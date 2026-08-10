@@ -31,7 +31,7 @@ export function formatPolishCsvBusinessDate(value: string): string {
     Number.isNaN(parsed.getTime()) ||
     parsed.toISOString().slice(0, 10) !== normalized
   ) {
-    throw new Error("CSV wymaga daty biznesowej YYYY-MM-DD.");
+    throw new Error("CSV wymaga daty YYYY-MM-DD.");
   }
 
   return normalized;

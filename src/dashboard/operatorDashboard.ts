@@ -595,7 +595,7 @@ function assertBusinessDate(value: string): void {
     Number.isNaN(parsed) ||
     new Date(parsed).toISOString().slice(0, 10) !== value
   ) {
-    throw new Error("Pulpit operatora wymaga poprawnej daty biznesowej.");
+    throw new Error("Pulpit operatora wymaga poprawnej daty.");
   }
 }
 

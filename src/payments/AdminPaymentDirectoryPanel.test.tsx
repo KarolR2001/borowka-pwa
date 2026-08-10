@@ -65,30 +65,30 @@ describe("AdminPaymentDirectoryPanel", () => {
     );
 
     expect(await screen.findByText("175,00 zł")).toBeVisible();
-    const summary = screen.getByLabelText("Podsumowanie historii wyplat");
+    const summary = screen.getByLabelText("Podsumowanie historii wypłat");
     expect(within(summary).getByText("Anulowane")).toBeVisible();
     expect(within(summary).getByText("Importowane")).toBeVisible();
 
     await user.click(
       screen.getByRole("button", {
-        name: "Otworz szczegoly wyplaty session-active"
+        name: "Otwórz szczegóły wypłaty session-active"
       })
     );
     expect(screen.getByRole("heading", { name: "Anna" })).toBeVisible();
     expect(screen.getByText("Rozliczenie tygodnia")).toBeVisible();
     expect(screen.getAllByText("admin-1").length).toBeGreaterThan(0);
-    expect(screen.getByText("Sesja zrodlowa")).toBeVisible();
+    expect(screen.getByText("Sesja źródłowa")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
     expect(onRequestCancellation).toHaveBeenCalledWith("session-active");
-    expect(screen.getByRole("heading", { name: "Anulowanie wyplaty" })).toBeVisible();
-    await user.type(screen.getByLabelText("Powod anulowania"), "Bledna metoda");
+    expect(screen.getByRole("heading", { name: "Anulowanie wypłaty" })).toBeVisible();
+    await user.type(screen.getByLabelText("Powód anulowania"), "Bledna metoda");
     await user.click(
       screen.getByRole("checkbox", {
-        name: /Potwierdzam anulowanie wyplaty/
+        name: /Potwierdzam anulowanie wypłaty/
       })
     );
-    await user.click(screen.getByRole("button", { name: "Anuluj wyplate" }));
+    await user.click(screen.getByRole("button", { name: "Anuluj wypłatę" }));
     expect(cancel).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
@@ -173,7 +173,7 @@ describe("AdminPaymentDirectoryPanel", () => {
     );
 
     expect(
-      screen.getByText("Lista wyplat jest dostepna tylko dla administratora.")
+      screen.getByText("Lista wypłat jest dostępna tylko dla administratora.")
     ).toBeVisible();
     await waitFor(() => {
       expect(api.list).not.toHaveBeenCalled();

@@ -116,7 +116,7 @@ describe("harvest query contract", () => {
 
   it("rejects unsafe query inputs", () => {
     expect(() => todayHarvestSessionsQuery("2026/07/17")).toThrow(
-      "Zapytanie harvest wymaga daty biznesowej YYYY-MM-DD."
+      "Zapytanie zbiorów wymaga daty YYYY-MM-DD."
     );
     expect(() => harvestEntriesForSessionQuery(" ")).toThrow(
       "Zapytanie harvest wymaga identyfikatora."

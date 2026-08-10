@@ -105,9 +105,9 @@ export function AdminPickerExportSettingsPanel({
       });
       setEnabled(result.enabled);
       setState({ result, status: "READY" });
-      setFeedback("Zapisano dostepnosc eksportu pickera.");
+      setFeedback("Zapisano dostępność eksportu pickera.");
     } catch {
-      setFeedback("Nie udalo sie zapisac ustawienia eksportu.");
+      setFeedback("Nie udało się zapisać ustawienia eksportu.");
     } finally {
       setIsSaving(false);
     }
@@ -123,14 +123,14 @@ export function AdminPickerExportSettingsPanel({
           <p className="eyebrow">Ustawienie funkcji</p>
           <h2 id="picker-export-settings-title">Eksport danych pickera</h2>
           <p className="panel-detail">
-            Status: {state.result?.enabled ? "wlaczony" : "wylaczony"}
+            Status: {state.result?.enabled ? "włączony" : "wyłączony"}
           </p>
         </div>
         <Settings2 aria-hidden="true" size={24} />
       </header>
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac ustawienia eksportu.
+          Nie udało się pobrać ustawienia eksportu.
         </p>
       ) : null}
       <label className="checkbox-row">
@@ -143,7 +143,7 @@ export function AdminPickerExportSettingsPanel({
           }}
           type="checkbox"
         />
-        <span>Picker moze pobrac wlasne zestawienie CSV</span>
+        <span>Zbieracz może pobrać własne zestawienie CSV</span>
       </label>
       <div className="form-actions">
         <button
@@ -163,11 +163,6 @@ export function AdminPickerExportSettingsPanel({
           {isSaving ? "Zapisywanie" : "Zapisz ustawienie"}
         </button>
       </div>
-      {!isOnline ? (
-        <p className="form-message form-message--warning">
-          Zmiana ustawienia wymaga polaczenia.
-        </p>
-      ) : null}
       {feedback ? (
         <p aria-live="polite" className="form-message">
           {feedback}

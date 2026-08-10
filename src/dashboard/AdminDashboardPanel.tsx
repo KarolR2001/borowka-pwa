@@ -200,7 +200,7 @@ export function AdminDashboardPanel({
         <Gauge aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Pulpit administratora</p>
-          <p>Metryki finansowe sa dostepne tylko dla administratora.</p>
+          <p>Metryki finansowe są dostępne tylko dla administratora.</p>
         </div>
       </section>
     );
@@ -210,17 +210,9 @@ export function AdminDashboardPanel({
     <section className="admin-dashboard" aria-labelledby="admin-dashboard-title">
       <header className="directory-header">
         <div>
-          <p className="eyebrow">Biezacy obraz sezonu</p>
+          <p className="eyebrow">Bieżący sezon</p>
           <h2 id="admin-dashboard-title">Pulpit administratora</h2>
-          <p className="panel-detail">
-            {visibleResult
-              ? isLocalSnapshot
-                ? `Ostatni stan serwera: ${formatTimestamp(visibleResult.refreshedAtIso)}.`
-                : `Dane z chmury odswiezono: ${formatTimestamp(
-                    visibleResult.refreshedAtIso
-                  )}.`
-              : "Metryki sa pobierane bezposrednio z serwera."}
-          </p>
+          <p className="panel-detail">Najważniejsze informacje o bieżącym sezonie.</p>
         </div>
         <button
           className="secondary-button icon-button"
@@ -228,11 +220,11 @@ export function AdminDashboardPanel({
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez pulpit administratora"
+          title="Odśwież pulpit administratora"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odswiez pulpit administratora</span>
+          <span className="sr-only">Odśwież pulpit administratora</span>
         </button>
       </header>
 
@@ -268,18 +260,9 @@ export function AdminDashboardPanel({
         />
       </div>
 
-      {!isOnline ? (
-        <p className="form-message form-message--warning">
-          {visibleResult
-            ? `Tryb offline. Widoczny jest ostatni stan serwera z ${formatTimestamp(
-                visibleResult.refreshedAtIso
-              )}; nie jest to stan aktualny.`
-            : "Tryb offline. Brak zapisanego stanu pulpitu administratora."}
-        </p>
-      ) : null}
       {state.status === "ERROR" && isOnline ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac aktualnych metryk administratora.
+          Nie udało się pobrać aktualnych metryk administratora.
         </p>
       ) : null}
       {state.status === "LOADING" && !visibleResult ? (
@@ -306,15 +289,14 @@ export function AdminDashboardPanel({
               value={formatKilograms(selectedSeason.metrics.soldWeightG)}
             />
             <DashboardMetric
-              detail={isLocalSnapshot ? "Ostatni oficjalny stan serwera" : undefined}
-              label="Dostepne"
+              label="Dostępne"
               tone={selectedSeason.metrics.availableWeightG < 0 ? "WARNING" : "DEFAULT"}
               value={formatKilograms(selectedSeason.metrics.availableWeightG)}
             />
             {isLocalSnapshot || localProjection.pendingSessionCount > 0 ? (
               <>
                 <DashboardMetric
-                  detail="Sesje biezacego urzadzenia, ktorych nie ma w oficjalnym stanie"
+                  detail="Sesje bieżącego urządzenia, których nie ma w oficjalnym stanie"
                   label="Lokalne sesje poza stanem"
                   tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
                   value={String(localProjection.pendingSessionCount)}
@@ -324,7 +306,7 @@ export function AdminDashboardPanel({
                     localProjection.pendingConfirmedWeightG
                   )} z ${String(
                     localProjection.pendingConfirmedSessionCount
-                  )} zamknietych sesji`}
+                  )} zamkniętych sesji`}
                   label="Przewidywane lokalnie"
                   tone="WARNING"
                   value={
@@ -340,20 +322,20 @@ export function AdminDashboardPanel({
               value={formatMoney(selectedSeason.metrics.accruedGrosz)}
             />
             <DashboardMetric
-              label="Wyplacone"
+              label="Wypłacone"
               value={formatMoney(selectedSeason.metrics.paidGrosz)}
             />
             <DashboardMetric
-              label="Do wyplaty"
+              label="Do wypłaty"
               tone={selectedSeason.metrics.dueGrosz < 0 ? "WARNING" : "DEFAULT"}
               value={formatMoney(selectedSeason.metrics.dueGrosz)}
             />
             <DashboardMetric
-              label="Przychod"
+              label="Przychód"
               value={formatMoney(selectedSeason.metrics.revenueGrosz)}
             />
             <DashboardMetric
-              detail="Przychod minus naliczenia zbieraczy; bez innych kosztow."
+              detail="Przychód minus naliczenia zbieraczy, bez innych kosztów."
               label="Wynik po koszcie zbioru"
               value={formatMoney(selectedSeason.metrics.resultAfterHarvestCostGrosz)}
             />
@@ -366,7 +348,7 @@ export function AdminDashboardPanel({
               value={String(selectedSeason.metrics.openSessionCount)}
             />
             <DashboardMetric
-              label="Wymagaja sprawdzenia"
+              label="Wymagają sprawdzenia"
               tone={
                 selectedSeason.metrics.reviewRequiredSessionCount > 0
                   ? "WARNING"
@@ -375,7 +357,7 @@ export function AdminDashboardPanel({
               value={String(selectedSeason.metrics.reviewRequiredSessionCount)}
             />
             <DashboardMetric
-              label="Lokalnie oczekujace"
+              label="Lokalnie oczekujące"
               tone={localPendingCount > 0 ? "WARNING" : "DEFAULT"}
               value={String(localPendingCount)}
             />
@@ -391,10 +373,6 @@ export function AdminDashboardPanel({
               </ul>
             </div>
           ) : null}
-          <p className="admin-dashboard__cloud-note">
-            Inne urzadzenia pracujace calkowicie offline moga miec sesje, ktorych chmura
-            jeszcze nie zna.
-          </p>
         </>
       ) : null}
     </section>
@@ -432,13 +410,8 @@ function seasonStatusLabel(status: AdminDashboardResult["seasons"][number]["stat
     case "PLANNED":
       return "planowany";
     case "CLOSED":
-      return "zamkniety";
+      return "zamknięty";
     case "ARCHIVED":
       return "archiwalny";
   }
-}
-
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pl-PL");
 }

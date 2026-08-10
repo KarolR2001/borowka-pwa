@@ -17,7 +17,7 @@ describe("UbiankaEntryForm", () => {
       />
     );
 
-    expect(screen.getByLabelText("Ilosc")).toHaveValue("1");
+    expect(screen.getByLabelText("Ilość")).toHaveValue("1");
     expect(screen.getByLabelText("Waga kg")).toHaveValue("");
     expect(screen.getByText("Waga opcjonalna")).toBeInTheDocument();
     expect(
@@ -39,14 +39,14 @@ describe("UbiankaEntryForm", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "0,5" }));
-    expect(screen.getByLabelText("Ilosc")).toHaveValue("0,5");
+    expect(screen.getByLabelText("Ilość")).toHaveValue("0,5");
     expect(screen.getByText("0,5 ubianka")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "2" }));
-    expect(screen.getByLabelText("Ilosc")).toHaveValue("2");
+    expect(screen.getByLabelText("Ilość")).toHaveValue("2");
 
-    await user.click(screen.getByRole("button", { name: "Powtorz ilosc" }));
-    expect(screen.getByLabelText("Ilosc")).toHaveValue("1,5");
+    await user.click(screen.getByRole("button", { name: "Powtórz ilość" }));
+    expect(screen.getByLabelText("Ilość")).toHaveValue("1,5");
   });
 
   it("submits a local draft and resets the form without repeating weight", async () => {
@@ -61,8 +61,8 @@ describe("UbiankaEntryForm", () => {
       />
     );
 
-    await user.clear(screen.getByLabelText("Ilosc"));
-    await user.type(screen.getByLabelText("Ilosc"), "2");
+    await user.clear(screen.getByLabelText("Ilość"));
+    await user.type(screen.getByLabelText("Ilość"), "2");
     await user.type(screen.getByLabelText("Waga kg"), "8,750");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
 
@@ -70,7 +70,7 @@ describe("UbiankaEntryForm", () => {
       quantityMilli: 2000,
       weightG: 8750
     });
-    expect(screen.getByLabelText("Ilosc")).toHaveValue("1");
+    expect(screen.getByLabelText("Ilość")).toHaveValue("1");
     expect(screen.getByLabelText("Waga kg")).toHaveValue("");
     expect(screen.getByText("Wpis dodany lokalnie.")).toBeInTheDocument();
 
@@ -164,8 +164,8 @@ describe("UbiankaEntryForm", () => {
 
     expect(screen.getByRole("button", { name: "2" })).toBeDisabled();
 
-    await user.clear(screen.getByLabelText("Ilosc"));
-    await user.type(screen.getByLabelText("Ilosc"), "2");
+    await user.clear(screen.getByLabelText("Ilość"));
+    await user.type(screen.getByLabelText("Ilość"), "2");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
 
     expect(onSubmit).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe("UbiankaEntryForm", () => {
         weightRequired: false,
         allowBatchQuantity: true
       })
-    ).toThrow("Ilosc musi byc wieksza od zera.");
+    ).toThrow("Ilość musi być większa od zera.");
     expect(() =>
       createUbiankaEntryDraft({
         quantity: "1",

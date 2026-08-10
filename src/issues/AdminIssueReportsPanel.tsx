@@ -2,6 +2,7 @@ import { CheckCircle2, Eye, RefreshCw, ShieldX, UserRound, X } from "lucide-reac
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import {
   listAdminIssueReports,
@@ -111,11 +112,11 @@ export function AdminIssueReportsPanel({
 
   if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
     return (
-      <section className="access-notice" aria-label="Zgloszenia niezgodnosci">
+      <section className="access-notice" aria-label="Zgłoszenia niezgodności">
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Niezgodnosci</p>
-          <p>Obsluga zgloszen wymaga aktywnego administratora.</p>
+          <p>Obsluga zgłoszeń wymaga aktywnego administratora.</p>
         </div>
       </section>
     );
@@ -166,65 +167,62 @@ export function AdminIssueReportsPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Kontrola danych</p>
-          <h2 id="admin-issues-title">Zgloszenia niezgodnosci</h2>
+          <h2 id="admin-issues-title">Zgłoszenia niezgodności</h2>
           <p className="panel-detail">
-            Otwarte zgloszenia wymagaja odpowiedzi i osobnego procesu korekty danych.
+            Otwarte zgłoszenia wymagaja odpowiedzi i osobnego procesu korekty danych.
           </p>
         </div>
         <button
-          aria-label="Odswiez zgloszenia"
+          aria-label="Odśwież zgłoszenia"
           className="secondary-button icon-button"
           disabled={!isOnline || state.status === "LOADING"}
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez zgloszenia"
+          title="Odśwież zgłoszenia"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
         </button>
       </header>
 
-      <div className="segmented-control" aria-label="Status zgloszen">
-        <button
-          aria-pressed={statusFilter === "OPEN"}
-          className={statusFilter === "OPEN" ? "is-active" : ""}
-          onClick={() => {
-            setStatusFilter("OPEN");
-          }}
-          type="button"
-        >
-          Otwarte
-        </button>
-        <button
-          aria-pressed={statusFilter === "ALL"}
-          className={statusFilter === "ALL" ? "is-active" : ""}
-          onClick={() => {
-            setStatusFilter("ALL");
-          }}
-          type="button"
-        >
-          Wszystkie
-        </button>
-      </div>
+      <CollapsibleFilters>
+        <div className="segmented-control" aria-label="Status zgłoszeń">
+          <button
+            aria-pressed={statusFilter === "OPEN"}
+            className={statusFilter === "OPEN" ? "is-active" : ""}
+            onClick={() => {
+              setStatusFilter("OPEN");
+            }}
+            type="button"
+          >
+            Otwarte
+          </button>
+          <button
+            aria-pressed={statusFilter === "ALL"}
+            className={statusFilter === "ALL" ? "is-active" : ""}
+            onClick={() => {
+              setStatusFilter("ALL");
+            }}
+            type="button"
+          >
+            Wszystkie
+          </button>
+        </div>
+      </CollapsibleFilters>
 
-      {!isOnline ? (
-        <p className="form-message form-message--warning">
-          Obsluga zgloszen administratora wymaga polaczenia.
-        </p>
-      ) : null}
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie zgloszen.</p>
+        <p className="empty-state">Pobieranie zgłoszeń.</p>
       ) : null}
       {state.status === "ERROR" ? (
-        <p className="form-message form-message--error">Nie udalo sie pobrac zgloszen.</p>
+        <p className="form-message form-message--error">Nie udało się pobrać zgłoszeń.</p>
       ) : null}
       {resolutionStatus === "SUCCESS" ? (
-        <p className="form-message form-message--ok">Odpowiedz zostala zapisana.</p>
+        <p className="form-message form-message--ok">Odpowiedź została zapisana.</p>
       ) : null}
       {resolutionStatus === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie rozstrzygnac zgloszenia. Odswiez liste i sprobuj ponownie.
+          Nie udało się rozstrzygnąć zgłoszenia. Odśwież listę i spróbuj ponownie.
         </p>
       ) : null}
       {state.result && state.result.invalidReportCount > 0 ? (
@@ -233,7 +231,7 @@ export function AdminIssueReportsPanel({
         </p>
       ) : null}
       {state.result && visibleReports.length === 0 ? (
-        <p className="empty-state">Brak zgloszen dla wybranego statusu.</p>
+        <p className="empty-state">Brak zgłoszeń dla wybranego statusu.</p>
       ) : null}
       {visibleReports.length > 0 ? (
         <div className="directory-table-wrap">
@@ -269,27 +267,27 @@ export function AdminIssueReportsPanel({
       ) : null}
 
       {sourceState.status === "LOADING" ? (
-        <p className="empty-state">Pobieranie danych zrodlowych.</p>
+        <p className="empty-state">Pobieranie danych źródłowych.</p>
       ) : null}
       {sourceState.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Powiazane dane zrodlowe sa niedostepne albo niespojne.
+          Powiązane dane źródłowe są niedostępne albo niespójne.
         </p>
       ) : null}
       {sourceState.status === "READY" ? (
-        <section className="issue-report-source" aria-label="Dane zrodlowe zgloszenia">
+        <section className="issue-report-source" aria-label="Dane źródłowe zgłoszenia">
           <header>
             <div>
-              <p className="eyebrow">Dane zrodlowe</p>
+              <p className="eyebrow">Dane źródłowe</p>
               <h3>{sourceState.result.session.workerName}</h3>
             </div>
             <button
-              aria-label="Zamknij dane zrodlowe"
+              aria-label="Zamknij dane źródłowe"
               className="secondary-button icon-button"
               onClick={() => {
                 setSourceState(initialSourceState);
               }}
-              title="Zamknij dane zrodlowe"
+              title="Zamknij dane źródłowe"
               type="button"
             >
               <X aria-hidden="true" size={18} />
@@ -310,7 +308,7 @@ export function AdminIssueReportsPanel({
               }
             />
             <Fact
-              label="Wyplata"
+              label="Wypłata"
               value={sourceState.result.session.paymentId ?? "Brak"}
             />
             <Fact
@@ -429,10 +427,10 @@ function IssueReportRow({
             Odpowiedz
           </button>
           <button
-            aria-label={`Otworz dane zrodlowe ${report.id}`}
+            aria-label={`Otwórz dane źródłowe ${report.id}`}
             className="secondary-button icon-button"
             onClick={onSource}
-            title="Otworz dane zrodlowe"
+            title="Otwórz dane źródłowe"
             type="button"
           >
             <Eye aria-hidden="true" size={18} />
@@ -461,7 +459,7 @@ function subjectLabel(report: Pick<AdminIssueReportItem, "subject">): string {
     case "AMOUNT":
       return "Naliczenie";
     case "PAYMENT_STATUS":
-      return "Status wyplaty";
+      return "Status wypłaty";
   }
 }
 

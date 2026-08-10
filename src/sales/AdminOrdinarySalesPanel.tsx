@@ -139,7 +139,7 @@ export function AdminOrdinarySalesPanel({
     if (!isOnline) {
       setStockState((current) => ({
         contexts: current.contexts,
-        message: "Sprzedaz wymaga polaczenia z internetem.",
+        message: "Sprzedaż wymaga połączenia z internetem.",
         status: "ERROR"
       }));
       return undefined;
@@ -166,7 +166,7 @@ export function AdminOrdinarySalesPanel({
             message:
               error instanceof Error
                 ? error.message
-                : "Nie udalo sie pobrac stanu sprzedazy.",
+                : "Nie udało się pobrać stanu sprzedaży.",
             status: "ERROR"
           }));
         }
@@ -178,11 +178,11 @@ export function AdminOrdinarySalesPanel({
   }, [authState, env, isAdmin, isOnline, ordinarySalesApi, reloadKey]);
 
   if (authState.status !== "READY") {
-    return <AccessNotice message="Zaloguj sie jako administrator." />;
+    return <AccessNotice message="Zaloguj się jako administrator." />;
   }
 
   if (!isAdmin) {
-    return <AccessNotice message="Sprzedaz jest dostepna tylko dla administratora." />;
+    return <AccessNotice message="Sprzedaż jest dostępna tylko dla administratora." />;
   }
 
   const actorProfile = authState.profile;
@@ -248,7 +248,7 @@ export function AdminOrdinarySalesPanel({
       setSaveError(
         error instanceof Error
           ? error.message
-          : "Nie udalo sie potwierdzic zapisu sprzedazy."
+          : "Nie udało się potwierdzić zapisu sprzedaży."
       );
     } finally {
       setIsSaving(false);
@@ -282,8 +282,8 @@ export function AdminOrdinarySalesPanel({
     >
       <header className="directory-header">
         <div>
-          <p className="eyebrow">Stan i przychod</p>
-          <h2 id="ordinary-sales-panel-title">Sprzedaz</h2>
+          <p className="eyebrow">Stan i przychód</p>
+          <h2 id="ordinary-sales-panel-title">Sprzedaż</h2>
           <p className="panel-detail">
             Stan jest pobierany ponownie z serwera przed kazdym zapisem.
           </p>
@@ -296,11 +296,11 @@ export function AdminOrdinarySalesPanel({
             setSaveError(null);
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez stan sprzedazy"
+          title="Odśwież stan sprzedaży"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odswiez stan sprzedazy</span>
+          <span className="sr-only">Odśwież stan sprzedaży</span>
         </button>
       </header>
 
@@ -311,7 +311,7 @@ export function AdminOrdinarySalesPanel({
         <p className="form-message form-message--error">{stockState.message}</p>
       ) : null}
       {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
-        <p className="empty-state">Brak otwartego sezonu do sprzedazy.</p>
+        <p className="empty-state">Brak otwartego sezonu do sprzedaży.</p>
       ) : null}
 
       {blockedStockContexts.map((context) =>
@@ -336,7 +336,7 @@ export function AdminOrdinarySalesPanel({
           }}
           type="button"
         >
-          Zwykla sprzedaz
+          Zwykła sprzedaż
         </button>
         <button
           aria-pressed={operationMode === "CORRECTION"}
@@ -458,8 +458,8 @@ export function AdminOrdinarySalesPanel({
       )}
 
       <p className="admin-ordinary-sales__concurrency-note">
-        Nie zapisuj sprzedazy rownoczesnie z innego urzadzenia. Bez zaufanej funkcji
-        serwerowej dwa rownolegle zapisy nie maja absolutnej gwarancji serializacji.
+        Nie zapisuj sprzedaży równocześnie z innego urządzenia. Bez zaufanej funkcji
+        serwerowej dwa równoległe zapisy nie mają absolutnej gwarancji serializacji.
       </p>
 
       <AdminSaleDirectoryPanel
@@ -572,7 +572,7 @@ function SaleCorrectionSection({
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie potwierdzic korekty."
+          : "Nie udało się potwierdzić korekty."
       );
     } finally {
       setIsSaving(false);
@@ -607,7 +607,7 @@ function SaleCorrectionSection({
             <div>
               <h3 id="sale-correction-confirmation-title">
                 {checkResult.check.stockChanged
-                  ? "Stan zmienil sie przed korekta"
+                  ? "Stan zmienił się przed korektą"
                   : "Potwierdz skutki korekty"}
               </h3>
               <p>
@@ -628,7 +628,7 @@ function SaleCorrectionSection({
               value={formatKilograms(checkResult.check.correction.availableWeightG)}
             />
             <ConfirmationValue
-              label="Wplyw na stan"
+              label="Wpływ na stan"
               value={formatSignedKilograms(checkResult.check.correction.stockImpactG)}
             />
             <ConfirmationValue
@@ -638,10 +638,10 @@ function SaleCorrectionSection({
               )}
             />
             <ConfirmationValue
-              label="Wplyw na przychod"
+              label="Wpływ na przychód"
               value={formatSignedMoney(checkResult.check.correction.revenueImpactGrosz)}
             />
-            <ConfirmationValue label="Powod" value={checkResult.check.correction.note} />
+            <ConfirmationValue label="Powód" value={checkResult.check.correction.note} />
           </dl>
           <label className="sale-correction-confirmation__acceptance">
             <input
@@ -677,7 +677,7 @@ function SaleCorrectionSection({
               type="button"
             >
               <Save aria-hidden="true" size={18} />
-              {isSaving ? "Ponowne sprawdzanie..." : "Potwierdz i zapisz korekte"}
+              {isSaving ? "Ponowne sprawdzanie..." : "Potwierdź i zapisz korektę"}
             </button>
           </div>
         </section>
@@ -731,12 +731,12 @@ function SaleConfirmation({
         <div>
           <h3 id="sale-stock-confirmation-title">
             {check.stockChanged
-              ? "Stan zmienil sie od otwarcia formularza"
-              : "Potwierdz sprzedaz na aktualnym stanie"}
+              ? "Stan zmienił się od otwarcia formularza"
+              : "Potwierdź sprzedaż na aktualnym stanie"}
           </h3>
           <p>
             {check.stockChanged
-              ? "Podsumowanie zostalo zaktualizowane. Zapis wymaga ponownego potwierdzenia."
+              ? "Podsumowanie zostało zaktualizowane. Zapis wymaga ponownego potwierdzenia."
               : "Przed zapisem stan zostanie sprawdzony na serwerze jeszcze raz."}
           </p>
         </div>
@@ -756,7 +756,7 @@ function SaleConfirmation({
           value={`${formatMoney(sale.priceGroszPerKg)} / kg`}
         />
         <ConfirmationValue
-          label="Przychod"
+          label="Przychód"
           value={formatMoney(sale.revenuePreviewGrosz)}
         />
       </dl>
@@ -834,8 +834,8 @@ function StockReconciliationAlert({
             Alarm stanu: {seasonName}
           </h3>
           <p>
-            Zwykla sprzedaz jest zablokowana. Wykonaj jawna korekte albo popraw dokument
-            zrodlowy, a nastepnie odswiez stan.
+            Zwykła sprzedaż jest zablokowana. Wykonaj jawną korektę albo popraw dokument
+            źródłowy, a następnie odśwież stan.
           </p>
         </div>
       </div>
@@ -850,14 +850,14 @@ function StockReconciliationAlert({
         ))}
       </ul>
       <details className="stock-reconciliation-report">
-        <summary>Otworz raport skladowych</summary>
+        <summary>Otwórz raport składowych</summary>
         <dl>
           <ConfirmationValue
             label="Zbiory potwierdzone"
             value={formatKilograms(report.source.confirmedHarvestWeightG)}
           />
           <ConfirmationValue
-            label="Sprzedaz zwykla"
+            label="Sprzedaż zwykła"
             value={formatKilograms(report.source.activeSaleWeightG)}
           />
           <ConfirmationValue
@@ -908,7 +908,7 @@ function StockReconciliationAlert({
 
 function AccessNotice({ message }: { message: string }) {
   return (
-    <section className="access-notice" aria-label="Dostep do sprzedazy">
+    <section className="access-notice" aria-label="Dostęp do sprzedaży">
       <TriangleAlert aria-hidden="true" size={18} />
       <p>{message}</p>
     </section>

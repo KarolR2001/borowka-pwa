@@ -1,4 +1,4 @@
-import { ArrowRight, CloudOff, Minus, Plus, TriangleAlert } from "lucide-react";
+import { ArrowRight, Minus, Plus, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type SyntheticEvent } from "react";
 
 import { formatKilograms, formatMoney } from "../domain/format";
@@ -86,7 +86,7 @@ export function SaleCorrectionForm({
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie przygotowac korekty."
+          : "Nie udało się przygotowac korekty."
       );
     } finally {
       submittingRef.current = false;
@@ -96,7 +96,7 @@ export function SaleCorrectionForm({
 
   return (
     <form
-      aria-label="Formularz korekty sprzedazy"
+      aria-label="Formularz korekty sprzedaży"
       className="sale-correction-form"
       onSubmit={(event) => {
         void handleSubmit(event);
@@ -105,11 +105,8 @@ export function SaleCorrectionForm({
       <header className="ordinary-sale-form__header">
         <div>
           <p className="eyebrow">Operacja administracyjna</p>
-          <h3>Korekta sprzedazy</h3>
+          <h3>Korekta sprzedaży</h3>
         </div>
-        <span className={`status-pill ${isOnline ? "is-active" : "is-blocked"}`}>
-          {isOnline ? "Online" : "Offline"}
-        </span>
       </header>
 
       <fieldset className="sale-correction-form__direction" disabled={formDisabled}>
@@ -167,7 +164,7 @@ export function SaleCorrectionForm({
         </label>
 
         <label className="field">
-          <span>Data biznesowa</span>
+          <span>Data</span>
           <input
             disabled={formDisabled}
             onChange={(event) => {
@@ -214,7 +211,7 @@ export function SaleCorrectionForm({
         </div>
 
         <label className="field ordinary-sale-form__note">
-          <span>Powod korekty</span>
+          <span>Powód korekty</span>
           <textarea
             disabled={formDisabled}
             maxLength={SALE_CORRECTION_REASON_MAX_LENGTH}
@@ -238,7 +235,7 @@ export function SaleCorrectionForm({
           }
         />
         <SummaryItem
-          label="Wplyw na stan"
+          label="Wpływ na stan"
           tone={preview?.stockImpactG && preview.stockImpactG < 0 ? "warning" : undefined}
           value={preview ? formatSignedKilograms(preview.stockImpactG) : "0,000 kg"}
         />
@@ -260,7 +257,7 @@ export function SaleCorrectionForm({
           }
         />
         <SummaryItem
-          label="Wplyw na przychod"
+          label="Wpływ na przychód"
           tone={
             preview?.revenueImpactGrosz && preview.revenueImpactGrosz < 0
               ? "warning"
@@ -274,21 +271,15 @@ export function SaleCorrectionForm({
         <p className="ordinary-sale-form__calculation">
           Kwota korekty: {formatKilograms(preview.weightG)} x{" "}
           {formatMoney(preview.priceGroszPerKg)} / kg ={" "}
-          {formatMoney(preview.revenueMagnitudeGrosz)}. Wplyw na przychod:{" "}
+          {formatMoney(preview.revenueMagnitudeGrosz)}. Wpływ na przychód:{" "}
           {formatSignedMoney(preview.revenueImpactGrosz)}.
         </p>
       ) : null}
 
-      {!isOnline ? (
-        <p className="ordinary-sale-form__warning" role="status">
-          <CloudOff aria-hidden="true" size={18} />
-          Korekta sprzedazy wymaga polaczenia z internetem.
-        </p>
-      ) : null}
       {staleStock ? (
         <p className="ordinary-sale-form__warning" role="status">
           <TriangleAlert aria-hidden="true" size={18} />
-          Stan moze byc nieaktualny. Zostanie pobrany z serwera przed zapisem.
+          Stan może być nieaktualny. Zostanie pobrany z serwera przed zapisem.
         </p>
       ) : null}
       {preview && preview.projectedAvailableWeightG < 0 ? (
@@ -307,7 +298,7 @@ export function SaleCorrectionForm({
           type="submit"
         >
           <ArrowRight aria-hidden="true" size={18} />
-          {isSubmitting ? "Sprawdzanie..." : "Sprawdz korekte"}
+          {isSubmitting ? "Sprawdzanie..." : "Sprawdź korektę"}
         </button>
       </div>
     </form>

@@ -220,7 +220,7 @@ export function decodeAuditEvent(
   }
 
   if (data.businessDate !== null && typeof data.businessDate !== "string") {
-    return invalidAuditEvent("Zdarzenie audytowe ma nieprawidlowa date biznesowa.");
+    return invalidAuditEvent("Zdarzenie audytowe ma nieprawidłową datę.");
   }
 
   if (data.reason !== null && typeof data.reason !== "string") {

@@ -57,7 +57,7 @@ describe("AdminFullCloudExportPanel", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Pobierz pelny eksport chmury" })
+      screen.getByRole("button", { name: "Pobierz pełny eksport chmury" })
     );
 
     await waitFor(() => {
@@ -109,11 +109,9 @@ describe("AdminFullCloudExportPanel", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Pobierz pelny eksport chmury" })
+      screen.getByRole("button", { name: "Pobierz pełny eksport chmury" })
     ).toBeDisabled();
-    expect(
-      screen.getByText("Pelny eksport chmury wymaga polaczenia z serwerem.")
-    ).toBeVisible();
+    expect(screen.queryByText(/wymaga połączenia|offline/i)).not.toBeInTheDocument();
   });
 
   it("downloads through a temporary blob URL and revokes it immediately", () => {

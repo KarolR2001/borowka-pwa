@@ -1,4 +1,4 @@
-import { CloudOff, Eye, RefreshCw, UserRound } from "lucide-react";
+import { Eye, RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -9,6 +9,7 @@ import {
   harvestSessionStatusLabel
 } from "../harvest/harvestSessionState";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   defaultPickerHarvestFilters,
   filterPickerHarvestItems,
@@ -142,44 +143,40 @@ export function PickerHarvestListPanel({
           <p className="panel-detail">
             {state.result
               ? `Widoczne sesje: ${String(filteredItems.length)}`
-              : "Pobieranie historii zbiorow."}
+              : "Pobieranie historii zbiorów."}
           </p>
         </div>
         <button
-          aria-label="Odswiez moje zbiory"
+          aria-label="Odśwież moje zbiory"
           className="secondary-button icon-button"
           disabled={state.status === "LOADING"}
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez moje zbiory"
+          title="Odśwież moje zbiory"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
         </button>
       </header>
 
-      <HarvestFilters
-        filters={filters}
-        onChange={setFilters}
-        seasons={state.result?.seasons ?? []}
-      />
+      <CollapsibleFilters>
+        <HarvestFilters
+          filters={filters}
+          onChange={setFilters}
+          seasons={state.result?.seasons ?? []}
+        />
+      </CollapsibleFilters>
 
-      {state.result?.dataSource === "CACHE" ? (
-        <p className="picker-dashboard__source form-message form-message--warning">
-          <CloudOff aria-hidden="true" size={18} />
-          Dane z pamieci offline
-        </p>
-      ) : null}
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac listy wlasnych zbiorow.
+          Nie udało się pobrać listy własnych zbiorów.
         </p>
       ) : null}
       {state.result &&
       (state.result.invalidSessionCount > 0 || state.result.invalidSeasonCount > 0) ? (
         <p className="form-message form-message--warning">
-          Dane wymagajace kontroli: sesje {state.result.invalidSessionCount}, sezony{" "}
+          Dane wymagające kontroli: sesje {state.result.invalidSessionCount}, sezony{" "}
           {state.result.invalidSeasonCount}.
         </p>
       ) : null}
@@ -205,14 +202,14 @@ export function PickerHarvestListPanel({
       ) : null}
       {reportSessionId ? (
         <p className="form-message form-message--ok">
-          Sesja zostala wybrana do zgloszenia niezgodnosci.
+          Sesja została wybrana do zgłoszenia niezgodności.
         </p>
       ) : null}
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie wlasnych sesji zbioru.</p>
+        <p className="empty-state">Pobieranie własnych sesji zbioru.</p>
       ) : null}
       {state.result && filteredItems.length === 0 ? (
-        <p className="empty-state">Brak sesji spelniajacych wybrane filtry.</p>
+        <p className="empty-state">Brak sesji spełniających wybrane filtry.</p>
       ) : null}
       {filteredItems.length > 0 ? (
         <HarvestTable
@@ -237,7 +234,7 @@ function HarvestFilters({
   seasons: readonly { id: string; name: string }[];
 }) {
   return (
-    <div className="picker-harvest-filters" aria-label="Filtry moich zbiorow">
+    <div className="picker-harvest-filters" aria-label="Filtry moich zbiorów">
       <label className="field">
         <span>Sezon</span>
         <select
@@ -318,7 +315,7 @@ function HarvestTable({
             <th>Status</th>
             <th>Synchronizacja</th>
             <th>
-              <span className="sr-only">Szczegoly</span>
+              <span className="sr-only">Szczegóły</span>
             </th>
           </tr>
         </thead>
@@ -353,12 +350,12 @@ function HarvestTable({
               <td>{item.syncIssue ?? "-"}</td>
               <td>
                 <button
-                  aria-label={`Otworz sesje ${formatBusinessDate(item.businessDate)}`}
+                  aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}
                   className="secondary-button icon-button"
                   onClick={() => {
                     onOpen(item.sessionId);
                   }}
-                  title="Otworz szczegoly sesji"
+                  title="Otwórz szczegóły sesji"
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />

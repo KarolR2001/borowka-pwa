@@ -76,7 +76,7 @@ describe("AdminUserDirectoryPanel", () => {
   it("blocks non-admin profiles", () => {
     render(<AdminUserDirectoryPanel authState={operatorState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads profiles for administrator and renders invalid documents", async () => {
@@ -283,7 +283,7 @@ describe("AdminUserDirectoryPanel", () => {
     await screen.findByText("Operator Test");
     await user.selectOptions(screen.getByLabelText("Nowa rola"), "PICKER");
     await user.type(screen.getByLabelText("workerId"), "worker-operator");
-    await user.type(screen.getByLabelText("Powod zmiany roli"), "Przypisanie zbieracza");
+    await user.type(screen.getByLabelText("Powód zmiany roli"), "Przypisanie zbieracza");
     await user.click(screen.getByLabelText("Potwierdzam zmiane roli i powiazania"));
     await user.click(screen.getByRole("button", { name: "Zapisz zmiane" }));
 
@@ -304,7 +304,7 @@ describe("AdminUserDirectoryPanel", () => {
       expect(list).toHaveBeenCalledTimes(2);
     });
     expect(
-      screen.getByText("Zmieniono role lub powiazanie profilu.")
+      screen.getByText("Zmieniono rolę lub powiązanie profilu.")
     ).toBeInTheDocument();
   });
 
@@ -359,7 +359,7 @@ describe("AdminUserDirectoryPanel", () => {
     );
 
     await screen.findByText("Operator Test");
-    await user.type(screen.getByLabelText("Powod zmiany statusu"), "Tymczasowa blokada");
+    await user.type(screen.getByLabelText("Powód zmiany statusu"), "Tymczasowa blokada");
     await user.click(screen.getByLabelText("Potwierdzam zmiane statusu konta"));
     await user.click(screen.getByRole("button", { name: "Zablokuj konto" }));
 
@@ -380,7 +380,7 @@ describe("AdminUserDirectoryPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByText("Zablokowano konto uzytkownika.")).toBeInTheDocument();
+    expect(screen.getByText("Zablokowano konto użytkownika.")).toBeInTheDocument();
   });
 
   it("submits account reactivation with role and worker link", async () => {
@@ -447,7 +447,7 @@ describe("AdminUserDirectoryPanel", () => {
       screen.getByLabelText("workerId po reaktywacji"),
       "worker-reactivated"
     );
-    await user.type(screen.getByLabelText("Powod zmiany statusu"), "Wyjasniono blokade");
+    await user.type(screen.getByLabelText("Powód zmiany statusu"), "Wyjasniono blokade");
     await user.click(screen.getByLabelText("Potwierdzam zmiane statusu konta"));
     await user.click(screen.getByRole("button", { name: "Reaktywuj konto" }));
 
@@ -467,6 +467,6 @@ describe("AdminUserDirectoryPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByText("Reaktywowano konto uzytkownika.")).toBeInTheDocument();
+    expect(screen.getByText("Reaktywowano konto użytkownika.")).toBeInTheDocument();
   });
 });

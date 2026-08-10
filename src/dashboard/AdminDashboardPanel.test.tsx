@@ -51,7 +51,7 @@ describe("AdminDashboardPanel", () => {
     expect(screen.getByText("15,000 kg")).toBeVisible();
     expect(screen.getByText("Wynik po koszcie zbioru")).toBeVisible();
     expect(
-      screen.getByText("Przychod minus naliczenia zbieraczy; bez innych kosztow.")
+      screen.getByText("Przychód minus naliczenia zbieraczy, bez innych kosztów.")
     ).toBeVisible();
     expect(screen.queryByText("Zysk")).not.toBeInTheDocument();
     expect(
@@ -61,20 +61,20 @@ describe("AdminDashboardPanel", () => {
       "Zebrano potwierdzone",
       "Zbiory w toku",
       "Sprzedano",
-      "Dostepne",
+      "Dostępne",
       "Naliczone zbieraczom",
-      "Wyplacone",
-      "Do wyplaty",
-      "Przychod",
+      "Wypłacone",
+      "Do wypłaty",
+      "Przychód",
       "Wynik po koszcie zbioru",
       "Aktywni zbieracze",
       "Otwarte sesje",
-      "Wymagaja sprawdzenia",
-      "Lokalnie oczekujace"
+      "Wymagają sprawdzenia",
+      "Lokalnie oczekujące"
     ]) {
       expect(dashboardMetric(label)).toBeVisible();
     }
-    expect(within(dashboardMetric("Lokalnie oczekujace")).getByText("1")).toBeVisible();
+    expect(within(dashboardMetric("Lokalnie oczekujące")).getByText("1")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2");
     await waitFor(() => {
@@ -82,11 +82,7 @@ describe("AdminDashboardPanel", () => {
         within(dashboardMetric("Zebrano potwierdzone")).getByText("8,000 kg")
       ).toBeVisible();
     });
-    expect(
-      screen.getByText(
-        "Inne urzadzenia pracujace calkowicie offline moga miec sesje, ktorych chmura jeszcze nie zna."
-      )
-    ).toBeVisible();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Okres"), "CURRENT_WEEK");
     await waitFor(() => {
       expect(api.load).toHaveBeenLastCalledWith(
@@ -134,7 +130,7 @@ describe("AdminDashboardPanel", () => {
     );
 
     expect(
-      screen.getByText("Metryki finansowe sa dostepne tylko dla administratora.")
+      screen.getByText("Metryki finansowe są dostępne tylko dla administratora.")
     ).toBeVisible();
     await waitFor(() => {
       expect(api.load).not.toHaveBeenCalled();
@@ -164,10 +160,7 @@ describe("AdminDashboardPanel", () => {
       />
     );
 
-    expect(
-      await screen.findByText(/Tryb offline.*nie jest to stan aktualny/)
-    ).toBeVisible();
-    expect(screen.getByText("Ostatni oficjalny stan serwera")).toBeVisible();
+    expect(screen.queryByText(/tryb offline/i)).not.toBeInTheDocument();
     expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
     expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
     expect(screen.getByLabelText("Sezon")).toBeDisabled();
@@ -196,7 +189,7 @@ describe("AdminDashboardPanel", () => {
 
     expect(await screen.findByText("15,000 kg")).toBeVisible();
     const refreshButton = screen.getByRole("button", {
-      name: "Odswiez pulpit administratora"
+      name: "Odśwież pulpit administratora"
     });
     await user.click(refreshButton);
 
@@ -241,16 +234,14 @@ describe("AdminDashboardPanel", () => {
       />
     );
 
-    expect(
-      await screen.findByText(
-        "Tryb offline. Brak zapisanego stanu pulpitu administratora."
-      )
-    ).toBeVisible();
-    expect(screen.queryByText("15,000 kg")).not.toBeInTheDocument();
-    expect(screen.queryByText("Przychod")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("15,000 kg")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Przychód")).not.toBeInTheDocument();
     expect(screen.queryByText("Wynik po koszcie zbioru")).not.toBeInTheDocument();
     expect(screen.queryByText("Naliczone zbieraczom")).not.toBeInTheDocument();
-    expect(screen.queryByText("Wyplacone")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wypłacone")).not.toBeInTheDocument();
     expect(api.load).toHaveBeenCalledTimes(1);
   });
 });

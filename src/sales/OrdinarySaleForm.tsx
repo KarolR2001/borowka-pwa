@@ -1,4 +1,4 @@
-import { ArrowRight, CloudOff, TriangleAlert } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type SyntheticEvent } from "react";
 
 import { formatKilograms, formatMoney } from "../domain/format";
@@ -86,12 +86,12 @@ export function OrdinarySaleForm({
       setError(null);
       setFeedback(null);
       await onPrepare(prepared);
-      setFeedback("Dane sprzedazy sa gotowe do ponownego sprawdzenia stanu.");
+      setFeedback("Dane sprzedaży są gotowe do ponownego sprawdzenia stanu.");
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Nie udalo sie przygotowac sprzedazy."
+          : "Nie udało się przygotowac sprzedaży."
       );
     } finally {
       submittingRef.current = false;
@@ -101,7 +101,7 @@ export function OrdinarySaleForm({
 
   return (
     <form
-      aria-label="Formularz zwyklej sprzedazy"
+      aria-label="Formularz zwyklej sprzedaży"
       className="ordinary-sale-form"
       onSubmit={(event) => {
         void handleSubmit(event);
@@ -109,12 +109,9 @@ export function OrdinarySaleForm({
     >
       <header className="ordinary-sale-form__header">
         <div>
-          <p className="eyebrow">Sprzedaz online</p>
-          <h2>Nowa sprzedaz</h2>
+          <p className="eyebrow">Sprzedaż</p>
+          <h2>Nowa sprzedaż</h2>
         </div>
-        <span className={`status-pill ${isOnline ? "is-active" : "is-blocked"}`}>
-          {isOnline ? "Online" : "Offline"}
-        </span>
       </header>
 
       <div className="ordinary-sale-form__fields">
@@ -139,7 +136,7 @@ export function OrdinarySaleForm({
         </label>
 
         <label className="field">
-          <span>Data biznesowa</span>
+          <span>Data</span>
           <input
             disabled={formDisabled}
             onChange={(event) => {
@@ -199,9 +196,9 @@ export function OrdinarySaleForm({
         </label>
       </div>
 
-      <dl className="ordinary-sale-form__summary" aria-label="Podglad sprzedazy">
+      <dl className="ordinary-sale-form__summary" aria-label="Podglad sprzedaży">
         <SummaryItem
-          label="Dostepny stan"
+          label="Dostępny stan"
           value={
             selectedContext
               ? formatKilograms(selectedContext.availableWeightG)
@@ -219,11 +216,11 @@ export function OrdinarySaleForm({
           }
         />
         <SummaryItem
-          label="Przychod"
+          label="Przychód"
           value={preview ? formatMoney(preview.revenuePreviewGrosz) : "0,00 zl"}
         />
         <SummaryItem
-          label="Stan po sprzedazy"
+          label="Stan po sprzedaży"
           tone={preview && preview.projectedAvailableWeightG < 0 ? "warning" : undefined}
           value={
             preview
@@ -234,7 +231,7 @@ export function OrdinarySaleForm({
           }
         />
         <SummaryItem
-          label="Odswiezenie stanu"
+          label="Odświeżenie stanu"
           value={
             selectedContext
               ? formatRefreshTime(selectedContext.refreshedAtIso)
@@ -247,33 +244,27 @@ export function OrdinarySaleForm({
         <p className="ordinary-sale-form__calculation">
           Obliczenie przychodu: {formatKilograms(preview.weightG)} x{" "}
           {formatMoney(preview.priceGroszPerKg)} / kg ={" "}
-          {formatMoney(preview.revenuePreviewGrosz)}. Pelne gramy, polowa grosza w gore
-          (regula {preview.revenueCalculationVersion}).
+          {formatMoney(preview.revenuePreviewGrosz)}. Pełne gramy, połowa grosza w górę
+          (reguła {preview.revenueCalculationVersion}).
         </p>
       ) : null}
 
-      {!isOnline ? (
-        <p className="ordinary-sale-form__warning" role="status">
-          <CloudOff aria-hidden="true" size={18} />
-          Sprzedaz wymaga polaczenia z internetem.
-        </p>
-      ) : null}
       {staleStock ? (
         <p className="ordinary-sale-form__warning" role="status">
           <TriangleAlert aria-hidden="true" size={18} />
-          Stan moze byc nieaktualny. Odswiez dane przed zatwierdzeniem.
+          Stan może być nieaktualny. Odśwież dane przed zatwierdzeniem.
         </p>
       ) : null}
       {reconciliationBlocked ? (
         <p className="ordinary-sale-form__warning" role="alert">
           <TriangleAlert aria-hidden="true" size={18} />
-          Zwykla sprzedaz jest zablokowana do czasu wyjasnienia alarmu stanu.
+          Zwykła sprzedaż jest zablokowana do czasu wyjaśnienia alarmu stanu.
         </p>
       ) : null}
       {preview && preview.projectedAvailableWeightG < 0 ? (
         <p className="ordinary-sale-form__warning" role="alert">
           <TriangleAlert aria-hidden="true" size={18} />
-          Sprzedaz przekracza widoczny stan o{" "}
+          Sprzedaż przekracza widoczny stan o{" "}
           {formatKilograms(-preview.projectedAvailableWeightG)}.
         </p>
       ) : null}
@@ -288,7 +279,7 @@ export function OrdinarySaleForm({
           type="submit"
         >
           <ArrowRight aria-hidden="true" size={18} />
-          {isSubmitting ? "Sprawdzanie..." : "Sprawdz i przejdz dalej"}
+          {isSubmitting ? "Sprawdzanie..." : "Sprawdź i przejdź dalej"}
         </button>
       </div>
     </form>

@@ -32,7 +32,7 @@ export const DEFAULT_DASHBOARD_PERIOD: DashboardPeriodSelection = {
 
 export function currentWarsawBusinessDate(now = new Date()): string {
   if (Number.isNaN(now.getTime())) {
-    throw new Error("Nie mozna wyznaczyc daty biznesowej z nieprawidlowego czasu.");
+    throw new Error("Nie można wyznaczyć daty z nieprawidłowego czasu.");
   }
 
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -63,11 +63,11 @@ export function dashboardPeriodSelectionError(
     !isBusinessDate(selection.customFromDate) ||
     !isBusinessDate(selection.customToDate)
   ) {
-    return "Podaj poczatek i koniec wlasnego zakresu.";
+    return "Podaj początek i koniec własnego zakresu.";
   }
 
   if (selection.customFromDate > selection.customToDate) {
-    return "Data poczatkowa nie moze byc pozniejsza niz koncowa.";
+    return "Data początkowa nie może być późniejsza niż końcowa.";
   }
 
   return null;
@@ -142,13 +142,13 @@ export function dashboardPeriodPresetLabel(preset: DashboardPeriodPreset): strin
     case "TODAY":
       return "Dzisiaj";
     case "CURRENT_WEEK":
-      return "Biezacy tydzien";
+      return "Bieżący tydzień";
     case "CURRENT_MONTH":
-      return "Biezacy miesiac";
+      return "Bieżący miesiąc";
     case "SEASON":
-      return "Caly sezon";
+      return "Cały sezon";
     case "CUSTOM":
-      return "Wlasny zakres";
+      return "Własny zakres";
   }
 }
 
@@ -234,7 +234,7 @@ function assertOptionalBusinessDate(value: string | null | undefined): void {
 
 function assertBusinessDate(value: string): void {
   if (!isBusinessDate(value)) {
-    throw new Error(`Nieprawidlowa data biznesowa: ${value}.`);
+    throw new Error(`Nieprawidłowa data: ${value}.`);
   }
 }
 
@@ -253,7 +253,7 @@ function partValue(
 ): string {
   const value = parts.find((part) => part.type === type)?.value;
   if (!value) {
-    throw new Error("Nie mozna wyznaczyc daty biznesowej Europe/Warsaw.");
+    throw new Error("Nie można wyznaczyć daty Europe/Warsaw.");
   }
 
   return value;

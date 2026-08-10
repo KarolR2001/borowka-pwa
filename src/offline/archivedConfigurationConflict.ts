@@ -151,7 +151,7 @@ export function evaluateArchivedConfigurationConflict({
       conflicts,
       entriesPreserved: false,
       localSessionPreserved: false,
-      message: "Nie mozna otworzyc nowej sesji z archiwalna konfiguracja.",
+      message: "Nie można otworzyć nowej sesji z archiwalną konfiguracją.",
       newSessionAllowed: false,
       paymentBlocked: true,
       plan,
@@ -170,7 +170,7 @@ export function evaluateArchivedConfigurationConflict({
       entriesPreserved: true,
       localSessionPreserved: true,
       message:
-        "Sesja zostaje przyjeta historycznie ze snapshotem zapisanym przed archiwizacja konfiguracji.",
+        "Sesja zostaje przyjęta historycznie ze snapshotem zapisanym przed archiwizacją konfiguracji.",
       newSessionAllowed: false,
       paymentBlocked: false,
       plan,
@@ -188,7 +188,7 @@ export function evaluateArchivedConfigurationConflict({
     entriesPreserved: true,
     localSessionPreserved: true,
     message:
-      "Sesja pozostaje zapisana, ale konfiguracja zostala zarchiwizowana po rozpoczeciu pracy. Wymagana jest decyzja administratora.",
+      "Sesja pozostaje zapisana, ale konfiguracja została zarchiwizowana po rozpoczęciu pracy. Wymagana jest decyzja administratora.",
     newSessionAllowed: false,
     paymentBlocked: true,
     plan,
@@ -327,7 +327,7 @@ function normalizeRequiredText(value: string, message: string): string {
 
 function normalizeBusinessDate(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
-    throw new Error("Data biznesowa konfliktu konfiguracji musi miec format YYYY-MM-DD.");
+    throw new Error("Data konfliktu konfiguracji musi mieć format YYYY-MM-DD.");
   }
 
   return value;

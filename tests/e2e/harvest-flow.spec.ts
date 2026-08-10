@@ -15,15 +15,16 @@ test.describe("Seeded harvest flow", () => {
     const operatorDashboard = page.locator(".operator-dashboard");
     await expect(operatorDashboard).toBeVisible();
     await expect(
-      operatorDashboard.getByRole("button", { name: "Nowy zbior" })
+      operatorDashboard.getByRole("button", { name: "Nowy zbiór" })
     ).toBeVisible();
-    await expect(operatorDashboard.getByText("Dostepne operacyjnie")).toBeVisible();
+    await expect(operatorDashboard.getByText("Dostępne kilogramy")).toBeVisible();
+    await operatorDashboard.getByText("Zakres dat", { exact: true }).click();
     const periodSelect = operatorDashboard.locator("#operator-dashboard-period");
     await expect(periodSelect).toHaveValue("TODAY");
     await periodSelect.selectOption("CUSTOM");
     await operatorDashboard.locator("#operator-dashboard-period-from").fill("2026-07-17");
     await operatorDashboard.locator("#operator-dashboard-period-to").fill("2026-07-17");
-    await expect(operatorDashboard.getByText("Wlasny zakres: 17.07.2026")).toBeVisible();
+    await expect(operatorDashboard.getByText("Własny zakres: 17.07.2026")).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     ).toBeLessThanOrEqual(0);
@@ -44,7 +45,7 @@ test.describe("Seeded harvest flow", () => {
     await expect(openSessionForm).toBeVisible();
     await expect(page.getByLabel("Zbieracz")).toBeEnabled();
     await page.getByLabel("Data").fill("2026-07-17");
-    await page.getByRole("button", { name: "Otworz sesje" }).click();
+    await page.getByRole("button", { name: "Otwórz sesję" }).click();
 
     await expect(page.getByText("Otworzono sesje dla Anna Test.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Anna Test" })).toBeVisible();
@@ -66,7 +67,7 @@ test.describe("Seeded harvest flow", () => {
     await expect(page.getByText("10 kilogram")).toBeVisible();
     await expect(page.getByText("10,000 kg")).toBeVisible();
 
-    await page.getByRole("button", { name: "Zamknij sesje" }).click();
+    await page.getByRole("button", { name: "Zamknij sesję" }).click();
 
     await expect(page.getByText("Zamknieto sesje dla Anna Test.")).toBeVisible();
     await expect(
@@ -81,8 +82,8 @@ test.describe("Seeded harvest flow", () => {
     await expect(
       page.getByRole("form", { name: "Ponowne otwarcie sesji zbioru" })
     ).toBeVisible();
-    await page.getByLabel("Powod ponownego otwarcia").fill("Korekta E2E");
-    await page.getByRole("button", { name: "Otworz ponownie" }).click();
+    await page.getByLabel("Powód ponownego otwarcia").fill("Korekta E2E");
+    await page.getByRole("button", { name: "Otwórz ponownie" }).click();
 
     await expect(page.getByText("Ponownie otwarto sesje dla Anna Test.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Anna Test" })).toBeVisible();
@@ -94,7 +95,7 @@ test.describe("Seeded harvest flow", () => {
     await expect(
       page.getByRole("form", { name: "Anulowanie wpisu zbioru" })
     ).toBeVisible();
-    await page.getByLabel("Powod anulowania wpisu").fill("Korekta E2E wpisu");
+    await page.getByLabel("Powód anulowania wpisu").fill("Korekta E2E wpisu");
     await page.getByRole("button", { name: "Anuluj wpis" }).click();
 
     await expect(page.getByText("Anulowano wpis #10.")).toBeVisible();
@@ -111,7 +112,7 @@ test.describe("Seeded harvest flow", () => {
     await expect(page.getByText("#11", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("10 kilogram")).toBeVisible();
 
-    await page.getByRole("button", { name: "Zamknij sesje" }).click();
+    await page.getByRole("button", { name: "Zamknij sesję" }).click();
 
     await expect(page.getByText("Zamknieto sesje dla Anna Test.")).toBeVisible();
     await expect(
@@ -119,8 +120,8 @@ test.describe("Seeded harvest flow", () => {
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Dodaj wpis" })).toHaveCount(0);
 
-    await page.getByLabel("Powod anulowania").fill("Test E2E anulowania");
-    await page.getByRole("button", { name: "Anuluj sesje" }).click();
+    await page.getByLabel("Powód anulowania").fill("Test E2E anulowania");
+    await page.getByRole("button", { name: "Anuluj sesję" }).click();
 
     await expect(page.getByText("Anulowano sesje dla Anna Test.")).toBeVisible();
     await expect(
@@ -131,7 +132,7 @@ test.describe("Seeded harvest flow", () => {
 });
 
 async function loginAs(page: Page, email: string, expectedDisplayName: string) {
-  await expect(page.getByRole("heading", { name: "Zaloguj sie" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
   await page.locator('input[autocomplete="current-password"]').fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Zaloguj" }).click();
@@ -143,5 +144,5 @@ async function loginAs(page: Page, email: string, expectedDisplayName: string) {
 async function signOut(page: Page) {
   await page.getByRole("button", { name: "Konto" }).click();
   await page.getByRole("button", { name: "Wyloguj", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Zaloguj sie" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
 }

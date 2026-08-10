@@ -69,7 +69,7 @@ export function preparePaymentConfirmation({
   }
 
   if (!isBusinessDate(draft.paidBusinessDate)) {
-    throw new Error("Podaj prawidlowa date biznesowa wyplaty.");
+    throw new Error("Podaj prawidłową datę wypłaty.");
   }
 
   if (!PAYMENT_METHODS.includes(draft.paymentMethod)) {

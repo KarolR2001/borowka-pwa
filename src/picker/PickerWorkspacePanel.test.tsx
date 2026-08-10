@@ -119,21 +119,21 @@ describe("PickerWorkspacePanel", () => {
     await user.click(screen.getByRole("tab", { name: "Moje zbiory" }));
 
     expect(
-      await screen.findByText("Brak sesji spelniajacych wybrane filtry.")
+      await screen.findByText("Brak sesji spełniających wybrane filtry.")
     ).toBeInTheDocument();
     expect(harvestLoad).toHaveBeenCalledTimes(1);
     expect(paymentLoad).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("tab", { name: "Moje wyplaty" }));
+    await user.click(screen.getByRole("tab", { name: "Moje wypłaty" }));
 
     expect(
-      await screen.findByText("Brak wyplat spelniajacych wybrane filtry.")
+      await screen.findByText("Brak wypłat spełniających wybrane filtry.")
     ).toBeInTheDocument();
     expect(paymentLoad).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("tab", { name: "Moje zgloszenia" }));
+    await user.click(screen.getByRole("tab", { name: "Moje zgłoszenia" }));
 
-    expect(await screen.findByText("Brak wyslanych zgloszen.")).toBeInTheDocument();
+    expect(await screen.findByText("Brak wysłanych zgłoszeń.")).toBeInTheDocument();
     expect(issueList).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("tab", { name: "Eksport CSV" }));
@@ -143,10 +143,6 @@ describe("PickerWorkspacePanel", () => {
     ).toBeInTheDocument();
     expect(exportLoad).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("tab", { name: "Offline" }));
-
-    expect(
-      await screen.findByRole("region", { name: "Gotowosc danych pickera offline" })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Offline" })).not.toBeInTheDocument();
   });
 });

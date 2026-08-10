@@ -108,7 +108,7 @@ describe("payment confirmation", () => {
         eligibility,
         session
       })
-    ).toThrow("Podaj prawidlowa date biznesowa wyplaty.");
+    ).toThrow("Podaj prawidłową datę wypłaty.");
 
     expect(() =>
       preparePaymentConfirmation({

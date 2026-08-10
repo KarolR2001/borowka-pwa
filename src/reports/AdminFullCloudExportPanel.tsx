@@ -65,7 +65,7 @@ export function AdminFullCloudExportPanel({
         message:
           error instanceof Error
             ? error.message
-            : "Nie udalo sie przygotowac pelnego eksportu.",
+            : "Nie udało się przygotowac pelnego eksportu.",
         status: "ERROR"
       });
     }
@@ -76,7 +76,7 @@ export function AdminFullCloudExportPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Archiwizacja</p>
-          <h2 id="full-cloud-export-title">Pelny eksport chmury</h2>
+          <h2 id="full-cloud-export-title">Pełny eksport chmury</h2>
           <p className="panel-detail">Dane potwierdzone w Firestore</p>
         </div>
         <Archive aria-hidden="true" size={24} />
@@ -99,15 +99,9 @@ export function AdminFullCloudExportPanel({
           <Download aria-hidden="true" size={18} />
           {state.status === "EXPORTING"
             ? "Przygotowywanie eksportu chmury"
-            : "Pobierz pelny eksport chmury"}
+            : "Pobierz pełny eksport chmury"}
         </button>
       </div>
-
-      {!isOnline ? (
-        <p className="form-message form-message--warning">
-          Pelny eksport chmury wymaga polaczenia z serwerem.
-        </p>
-      ) : null}
 
       {state.status === "EXPORTING" ? (
         <p aria-live="polite" className="form-message">

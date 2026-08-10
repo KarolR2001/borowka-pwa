@@ -1,4 +1,4 @@
-import { CloudOff, Flag, RefreshCw, Send, UserRound } from "lucide-react";
+import { Flag, RefreshCw, Send, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -184,11 +184,11 @@ export function PickerIssueReportsPanel({
     authState.profile.workerId === null
   ) {
     return (
-      <section className="access-notice" aria-label="Moje zgloszenia">
+      <section className="access-notice" aria-label="Moje zgłoszenia">
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Niezgodnosci</p>
-          <p>Zgloszenia wymagaja aktywnego konta pickera z workerId.</p>
+          <p>Zgłoszenia wymagają aktywnego konta zbieracza.</p>
         </div>
       </section>
     );
@@ -232,7 +232,7 @@ export function PickerIssueReportsPanel({
     } catch (error) {
       setSubmitStatus("ERROR");
       setSubmitMessage(
-        error instanceof Error ? error.message : "Nie udalo sie wyslac zgloszenia."
+        error instanceof Error ? error.message : "Nie udało się wysłać zgłoszenia."
       );
     }
   }
@@ -242,20 +242,20 @@ export function PickerIssueReportsPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Niezgodnosci</p>
-          <h2 id="picker-issues-title">Moje zgloszenia</h2>
+          <h2 id="picker-issues-title">Moje zgłoszenia</h2>
           <p className="panel-detail">
             Otwarte: {String(openCount)}. Odpowiedz administratora nie zmienia danych
-            sesji ani wyplaty.
+            sesji ani wypłaty.
           </p>
         </div>
         <button
-          aria-label="Odswiez moje zgloszenia"
+          aria-label="Odśwież moje zgłoszenia"
           className="secondary-button icon-button"
           disabled={listState.status === "LOADING"}
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez moje zgloszenia"
+          title="Odśwież moje zgłoszenia"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
@@ -263,11 +263,11 @@ export function PickerIssueReportsPanel({
       </header>
 
       {sourceState.status === "LOADING" ? (
-        <p className="empty-state">Pobieranie danych sesji do zgloszenia.</p>
+        <p className="empty-state">Pobieranie danych sesji do zgłoszenia.</p>
       ) : null}
       {sourceState.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie potwierdzic sesji zrodlowej.
+          Nie udało się potwierdzić sesji źródłowej.
         </p>
       ) : null}
       {sourceState.status === "READY" ? (
@@ -278,7 +278,7 @@ export function PickerIssueReportsPanel({
           }}
         >
           <div>
-            <p className="eyebrow">Nowe zgloszenie</p>
+            <p className="eyebrow">Nowe zgłoszenie</p>
             <h3>Sesja z {formatBusinessDate(sourceState.result.businessDate)}</h3>
           </div>
           <label className="field">
@@ -296,7 +296,7 @@ export function PickerIssueReportsPanel({
               <option value="SESSION">Calej sesji</option>
               <option value="ENTRY">Konkretnego wpisu</option>
               <option value="AMOUNT">Naliczonej kwoty</option>
-              <option value="PAYMENT_STATUS">Statusu wyplaty</option>
+              <option value="PAYMENT_STATUS">Statusu wypłaty</option>
             </select>
           </label>
           {subject === "ENTRY" ? (
@@ -320,7 +320,7 @@ export function PickerIssueReportsPanel({
             </label>
           ) : null}
           <label className="field">
-            <span>Krotki opis</span>
+            <span>Krótki opis</span>
             <textarea
               maxLength={500}
               minLength={5}
@@ -332,12 +332,6 @@ export function PickerIssueReportsPanel({
               value={message}
             />
           </label>
-          {!isOnline ? (
-            <p className="form-message form-message--warning">
-              <CloudOff aria-hidden="true" size={18} />
-              Zgloszenie zostanie zapisane lokalnie i wyslane po odzyskaniu polaczenia.
-            </p>
-          ) : null}
           <div className="form-actions">
             <button
               className="primary-button"
@@ -345,7 +339,7 @@ export function PickerIssueReportsPanel({
               type="submit"
             >
               <Send aria-hidden="true" size={18} />
-              {submitStatus === "SUBMITTING" ? "Wysylanie" : "Wyslij zgloszenie"}
+              {submitStatus === "SUBMITTING" ? "Wysyłanie" : "Wyślij zgłoszenie"}
             </button>
             <button
               className="secondary-button"
@@ -366,28 +360,22 @@ export function PickerIssueReportsPanel({
       {submitStatus === "ERROR" ? (
         <p className="form-message form-message--error">{submitMessage}</p>
       ) : null}
-      {listState.result?.dataSource === "CACHE" ? (
-        <p className="form-message form-message--warning">
-          <CloudOff aria-hidden="true" size={18} />
-          Historia z pamieci offline moze nie zawierac najnowszych odpowiedzi.
-        </p>
-      ) : null}
       {listState.status === "ERROR" ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac historii zgloszen.
+          Nie udało się pobrać historii zgłoszeń.
         </p>
       ) : null}
       {listState.result && listState.result.invalidReportCount > 0 ? (
         <p className="form-message form-message--warning">
-          Pominieto nieprawidlowe zgloszenia:{" "}
+          Pominieto nieprawidlowe zgłoszenia:{" "}
           {String(listState.result.invalidReportCount)}.
         </p>
       ) : null}
       {listState.status === "LOADING" && !listState.result ? (
-        <p className="empty-state">Pobieranie historii zgloszen.</p>
+        <p className="empty-state">Pobieranie historii zgłoszeń.</p>
       ) : null}
       {listState.result && reports.length === 0 ? (
-        <p className="empty-state">Brak wyslanych zgloszen.</p>
+        <p className="empty-state">Brak wysłanych zgłoszeń.</p>
       ) : null}
       {reports.length > 0 ? (
         <ol className="issue-report-list">
@@ -418,8 +406,8 @@ export function PickerIssueReportsPanel({
       {!sourceState.sessionId ? (
         <p className="issue-report-directory__hint">
           <Flag aria-hidden="true" size={18} />
-          Nowe zgloszenie rozpocznij ze szczegolow sesji w „Moje zbiory” lub „Moje
-          wyplaty”.
+          Nowe zgłoszenie rozpocznij ze szczegółów sesji w „Moje zbiory” lub „Moje
+          wypłaty”.
         </p>
       ) : null}
     </section>
@@ -435,7 +423,7 @@ function subjectLabel(subject: IssueReportSubject): string {
     case "AMOUNT":
       return "Naliczenie";
     case "PAYMENT_STATUS":
-      return "Status wyplaty";
+      return "Status wypłaty";
   }
 }
 

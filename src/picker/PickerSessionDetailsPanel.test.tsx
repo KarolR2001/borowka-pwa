@@ -93,12 +93,12 @@ describe("PickerSessionDetailsPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Korekta wpisu entry-1")).toBeInTheDocument();
     expect(screen.getByText("Aktywny")).toBeInTheDocument();
-    expect(screen.getByText("Powod: Bledna waga")).toBeInTheDocument();
+    expect(screen.getByText("Powód: Bledna waga")).toBeInTheDocument();
     expect(screen.getByText("Przelew bankowy")).toBeInTheDocument();
-    expect(screen.getByText("Szczegoly z pamieci offline")).toBeInTheDocument();
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/operator|administrator/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Zglos niezgodnosc" }));
+    await user.click(screen.getByRole("button", { name: "Zgłoś niezgodność" }));
     expect(onReportIssue).toHaveBeenCalledWith("session-paid");
   });
 
@@ -116,7 +116,7 @@ describe("PickerSessionDetailsPanel", () => {
     );
 
     expect(
-      await screen.findByText("Nie udalo sie pobrac szczegolow tej sesji.")
+      await screen.findByText("Nie udało się pobrać szczegółów tej sesji.")
     ).toBeInTheDocument();
     expect(screen.queryByText("foreign worker")).not.toBeInTheDocument();
   });

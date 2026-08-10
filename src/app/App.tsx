@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   Banknote,
   ClipboardList,
-  CloudOff,
   Database,
   Eye,
   EyeOff,
@@ -18,7 +17,6 @@ import {
   UserCog,
   UserRound,
   Users,
-  Wifi,
   type LucideIcon
 } from "lucide-react";
 import {
@@ -34,7 +32,6 @@ import {
   PASSWORD_RESET_CONFIRMATION,
   getInitialAuthSessionState,
   getLoginErrorMessage,
-  getOfflineConsentUpdateErrorMessage,
   getPasswordResetErrorMessage,
   refreshCurrentAuthSession,
   requestPasswordResetEmail,
@@ -62,16 +59,12 @@ import {
   registerCurrentDevice,
   type RegisterCurrentDeviceInput
 } from "../devices/deviceRegistry";
-import {
-  readCurrentDeviceIdentity,
-  type DeviceIdentity
-} from "../devices/deviceIdentity";
+import { readCurrentDeviceIdentity } from "../devices/deviceIdentity";
 import {
   AdminDeviceDirectoryPanel,
   defaultDeviceDirectoryApi,
   type DeviceDirectoryApi
 } from "../devices/AdminDeviceDirectoryPanel";
-import type { UserProfile } from "../domain/identity";
 import {
   AdminSeasonsPanel,
   defaultSeasonsApi,
@@ -98,12 +91,10 @@ import {
   type SettlementPlansApi
 } from "../plans/AdminSettlementPlansPanel";
 import {
-  ConfigurationCachePanel,
   defaultConfigurationCacheApi,
   type ConfigurationCacheApi
 } from "../offline/ConfigurationCachePanel";
 import {
-  TRUSTED_OFFLINE_STORAGE_DISCLOSURE,
   updateTrustedOfflineConsent,
   type TrustedOfflineConsentUpdateInput
 } from "../offline/trustedOfflineConsent";
@@ -212,6 +203,7 @@ import {
   useServiceWorkerStatus
 } from "./useServiceWorkerStatus";
 import { PwaUpdateController } from "../pwa/PwaUpdateNotice";
+import { TransientToast } from "../ui/TransientToast";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -297,11 +289,11 @@ type OperatorWorkspaceView = "HARVESTS" | "DASHBOARD";
 const adminWorkspaceItems: readonly WorkspaceNavigationItem<AdminWorkspaceView>[] = [
   { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard },
   { key: "HARVEST_CORRECTIONS", label: "Korekty", icon: ClipboardList },
-  { key: "SALES", label: "Sprzedaz", icon: ShoppingBasket },
-  { key: "PAYMENTS", label: "Wyplaty", icon: Banknote },
+  { key: "SALES", label: "Sprzedaż", icon: ShoppingBasket },
+  { key: "PAYMENTS", label: "Wypłaty", icon: Banknote },
   { key: "WORKERS", label: "Zbieracze", icon: Users },
   { key: "ACCESS", label: "Konta", icon: UserCog },
-  { key: "ISSUES", label: "Zgloszenia", icon: Flag },
+  { key: "ISSUES", label: "Zgłoszenia", icon: Flag },
   { key: "CONFIGURATION", label: "Konfiguracja", icon: Settings2 },
   { key: "DATA", label: "Dane", icon: Database }
 ];
@@ -357,6 +349,7 @@ export function App({
     authSessionApi.getInitialState(env)
   );
   const isOnline = useOnlineStatus();
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
   const serviceWorkerStatus = useServiceWorkerStatus();
   const firebaseStatus = getFirebaseClientConfigStatus(env);
   const firebaseRuntimeStatus = getFirebaseRuntimeStatus(env);
@@ -371,11 +364,12 @@ export function App({
     documents: [],
     ownerUid: null
   });
-  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [, setLastSyncError] = useState<string | null>(null);
   const [hasActiveForm, setHasActiveForm] = useState(false);
   const [hasActiveHarvestSession, setHasActiveHarvestSession] = useState(false);
   const latestAuthStateRef = useRef(authState);
   const latestIsOnlineRef = useRef(isOnline);
+  const previousOnlineStatusRef = useRef(isOnline);
   const refreshInFlightRef = useRef(false);
   const syncInFlightRef = useRef(false);
   const initialAuthReadyRef = useRef(authState.status === "READY");
@@ -419,7 +413,7 @@ export function App({
             cacheMode: "MEMORY",
             ready: false,
             initialized: false,
-            message: "Nie udalo sie uruchomic uslug Firebase."
+            message: "Nie udało się uruchomić uslug Firebase."
           });
         }
       });
@@ -451,7 +445,7 @@ export function App({
         if (isMounted) {
           setAuthState({
             status: "ERROR",
-            message: "Nie udalo sie uruchomic sesji logowania."
+            message: "Nie udało się uruchomić sesji logowania."
           });
         }
       });
@@ -468,7 +462,20 @@ export function App({
 
   useEffect(() => {
     latestIsOnlineRef.current = isOnline;
+
+    if (previousOnlineStatusRef.current !== isOnline) {
+      setConnectionMessage(
+        isOnline
+          ? "Połączenie zostało przywrócone. Pracujesz online."
+          : "Utracono połączenie. Aplikacja przeszła w tryb offline."
+      );
+      previousOnlineStatusRef.current = isOnline;
+    }
   }, [isOnline]);
+
+  const dismissConnectionMessage = useCallback(() => {
+    setConnectionMessage(null);
+  }, []);
 
   useEffect(() => {
     setHasActiveForm(false);
@@ -781,18 +788,6 @@ export function App({
     [deviceId, deviceIdentity]
   );
 
-  const handleProfileUpdated = (profile: UserProfile) => {
-    setAuthState((currentState) => {
-      if ("profile" in currentState && currentState.profile.uid === profile.uid) {
-        return {
-          ...currentState,
-          profile
-        };
-      }
-
-      return currentState;
-    });
-  };
   const handleManualSynchronization = useCallback(async () => {
     const result = await requestSynchronization("MANUAL_RETRY");
 
@@ -835,7 +830,7 @@ export function App({
     const currentAuthState = latestAuthStateRef.current;
 
     if (currentAuthState.status !== "READY") {
-      throw new Error("Czyszczenie urzadzenia wymaga aktywnego profilu.");
+      throw new Error("Czyszczenie urządzenia wymaga aktywnego profilu.");
     }
 
     const accountQuery = {
@@ -862,15 +857,12 @@ export function App({
     <AuthPanel
       authSessionApi={authSessionApi}
       authState={authState}
-      deviceIdentity={deviceIdentity}
-      deviceId={diagnostics.deviceId}
       env={env}
       isOnline={isOnline}
       onActiveFormChange={setHasActiveForm}
       onClearLocalAccountData={handleClearLocalAccountData}
       onAuthStateUpdated={setAuthState}
       onInspectLocalData={readAndStoreLocalDocuments}
-      onProfileUpdated={handleProfileUpdated}
       onSynchronizeBeforeSignOut={handleManualSynchronization}
       syncDocuments={syncDocuments}
     />
@@ -879,10 +871,17 @@ export function App({
   if (authState.status !== "READY") {
     return (
       <main className="auth-screen">
+        {connectionMessage ? (
+          <TransientToast
+            message={connectionMessage}
+            onDismiss={dismissConnectionMessage}
+            tone={isOnline ? "SUCCESS" : "WARNING"}
+          />
+        ) : null}
         <div className="auth-screen__content">
           <header className="auth-screen__brand">
-            <p className="eyebrow">Ewidencja zbiorow</p>
-            <h1>Borowka</h1>
+            <p className="eyebrow">Ewidencja zbiorów</p>
+            <h1>Borówka</h1>
           </header>
           {accountPanel}
         </div>
@@ -892,20 +891,19 @@ export function App({
 
   return (
     <div className="app-shell">
+      {connectionMessage ? (
+        <TransientToast
+          message={connectionMessage}
+          onDismiss={dismissConnectionMessage}
+          tone={isOnline ? "SUCCESS" : "WARNING"}
+        />
+      ) : null}
       <header className="topbar">
         <div>
-          <p className="eyebrow">Ewidencja zbiorow</p>
-          <h1>Borowka</h1>
+          <p className="eyebrow">Ewidencja zbiorów</p>
+          <h1>Borówka</h1>
         </div>
         <div className="topbar__context">
-          <span className={isOnline ? "connection-state" : "connection-state is-offline"}>
-            {isOnline ? (
-              <Wifi aria-hidden="true" size={17} strokeWidth={2.2} />
-            ) : (
-              <CloudOff aria-hidden="true" size={17} strokeWidth={2.2} />
-            )}
-            {isOnline ? "Online" : "Offline"}
-          </span>
           <strong>{displaySessionName(authState)}</strong>
         </div>
       </header>
@@ -919,7 +917,7 @@ export function App({
         syncDocuments={syncDocuments}
       />
 
-      <nav className="nav-tabs" aria-label="Nawigacja glowna">
+      <nav className="nav-tabs" aria-label="Nawigacja główna">
         {roleNavigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === resolvedActiveView;
@@ -950,12 +948,12 @@ export function App({
               <details className="technical-details">
                 <summary>Informacje techniczne</summary>
                 <section className="diagnostics" aria-label="Diagnostyka">
-                  <DiagnosticRow label="Srodowisko" value={APP_META.environment} />
+                  <DiagnosticRow label="Środowisko" value={APP_META.environment} />
                   <DiagnosticRow label="Wersja aplikacji" value={APP_META.version} />
                   <DiagnosticRow label="Identyfikator buildu" value={APP_META.buildId} />
                   <DiagnosticRow label="Wersja schematu" value={APP_META.schemaVersion} />
                   <DiagnosticRow
-                    label="Regula obliczen"
+                    label="Reguła obliczeń"
                     value={APP_META.calculationVersion}
                   />
                   <DiagnosticRow
@@ -963,15 +961,15 @@ export function App({
                     value={diagnostics.launchedAt}
                   />
                   <DiagnosticRow
-                    label="Identyfikator urzadzenia"
+                    label="Identyfikator urządzenia"
                     value={diagnostics.deviceId}
                   />
                   <DiagnosticRow
-                    label="Nazwa urzadzenia"
+                    label="Nazwa urządzenia"
                     value={diagnostics.deviceName}
                   />
                   <DiagnosticRow
-                    label="Platforma urzadzenia"
+                    label="Platforma urządzenia"
                     value={diagnostics.devicePlatform}
                   />
                   <DiagnosticRow
@@ -1171,25 +1169,6 @@ export function App({
             syncDocuments={syncDocuments}
           />
         ) : null}
-
-        {resolvedActiveView === "settings" &&
-        (authState.profile.role === "ADMIN" || authState.profile.role === "OPERATOR") ? (
-          <ConfigurationCachePanel
-            authState={authState}
-            configurationCacheApi={configurationCacheApi}
-            deviceId={deviceId}
-            deviceName={deviceIdentity.name}
-            devicePlatform={deviceIdentity.platform}
-            env={env}
-            firestoreCacheMode={firebaseServicesStatus.cacheMode}
-            isOnline={isOnline}
-            lastSyncError={lastSyncError}
-            onRetrySync={handleManualSynchronization}
-            offlineStorageHealthApi={offlineStorageHealthApi}
-            serviceWorkerStatus={serviceWorkerStatus}
-            syncDocuments={syncDocuments}
-          />
-        ) : null}
       </main>
     </div>
   );
@@ -1244,29 +1223,23 @@ function WorkspaceNavigation<Key extends string>({
 function AuthPanel({
   authSessionApi,
   authState,
-  deviceIdentity,
-  deviceId,
   env,
   isOnline,
   onActiveFormChange,
   onClearLocalAccountData,
   onAuthStateUpdated,
   onInspectLocalData,
-  onProfileUpdated,
   onSynchronizeBeforeSignOut,
   syncDocuments
 }: {
   authSessionApi: AuthSessionApi;
   authState: AuthSessionState;
-  deviceIdentity: DeviceIdentity;
-  deviceId: string;
   env: FirebaseEnv;
   isOnline: boolean;
   onActiveFormChange: (isActive: boolean) => void;
   onClearLocalAccountData: () => Promise<void>;
   onAuthStateUpdated: (state: AuthSessionState) => void;
   onInspectLocalData: () => Promise<readonly SyncDocumentMetadataInput[]>;
-  onProfileUpdated: (profile: UserProfile) => void;
   onSynchronizeBeforeSignOut: () => Promise<{ message?: string } | undefined>;
   syncDocuments: readonly SyncDocumentMetadataInput[];
 }) {
@@ -1321,7 +1294,7 @@ function AuthPanel({
     }
 
     if (mode === "login" && password.length === 0) {
-      setError("Podaj haslo.");
+      setError("Podaj hasło.");
       return;
     }
 
@@ -1365,8 +1338,8 @@ function AuthPanel({
         onAuthStateUpdated(nextAuthState);
         setFeedback(
           nextAuthState.status === "READY"
-            ? "Konto zostalo utworzone i profil jest aktywny."
-            : "Konto zostalo utworzone. Pobieram profil."
+            ? "Konto zostało utworzone i profil jest aktywny."
+            : "Konto zostało utworzone. Pobieram profil."
         );
         setDisplayName("");
         setPassword("");
@@ -1395,7 +1368,7 @@ function AuthPanel({
   useEffect(() => {
     if (isSignOutReviewOpen && safeSignOutModel.canSignOut) {
       setIsSignOutReviewOpen(false);
-      setFeedback("Wszystkie lokalne zmiany zostaly rozliczone. Mozesz sie wylogowac.");
+      setFeedback("Wszystkie lokalne zmiany zostały rozliczone. Możesz się wylogować.");
     }
   }, [isSignOutReviewOpen, safeSignOutModel.canSignOut]);
 
@@ -1421,7 +1394,7 @@ function AuthPanel({
       setFeedback("Wylogowano z aplikacji.");
     } catch {
       setError(
-        "Nie udalo sie sprawdzic danych lokalnych albo wylogowac. Wylogowanie pozostaje zablokowane."
+        "Nie udało się sprawdzić danych lokalnych albo wylogować. Wylogowanie pozostaje zablokowane."
       );
     } finally {
       setIsSubmitting(false);
@@ -1444,7 +1417,7 @@ function AuthPanel({
         setIsClearConfirmationOpen(false);
         setIsSignOutReviewOpen(true);
         setError(
-          "Urzadzenia nie mozna wyczysc, dopoki lokalne dane nie zostana zsynchronizowane."
+          "Urządzenia nie można wyczyścić, dopóki lokalne dane nie zostaną zsynchronizowane."
         );
         return;
       }
@@ -1453,7 +1426,7 @@ function AuthPanel({
       setIsClearConfirmationOpen(true);
     } catch {
       setError(
-        "Nie udalo sie sprawdzic danych lokalnych. Czyszczenie urzadzenia pozostaje zablokowane."
+        "Nie udało się sprawdzić danych lokalnych. Czyszczenie urządzenia pozostaje zablokowane."
       );
     } finally {
       setIsSubmitting(false);
@@ -1467,10 +1440,10 @@ function AuthPanel({
 
     try {
       const result = await onSynchronizeBeforeSignOut();
-      setFeedback(result?.message ?? "Synchronizacja zakonczona.");
+      setFeedback(result?.message ?? "Synchronizacja zakończona.");
     } catch {
       setError(
-        "Nie udalo sie zsynchronizowac danych. Wylogowanie pozostaje zablokowane."
+        "Nie udało się zsynchronizować danych. Wylogowanie pozostaje zablokowane."
       );
     } finally {
       setIsSubmitting(false);
@@ -1494,7 +1467,7 @@ function AuthPanel({
           setIsClearConfirmationOpen(false);
           setIsSignOutReviewOpen(true);
           setError(
-            "Pojawily sie lokalne dane oczekujace. Czyszczenie i wylogowanie zostalo zablokowane."
+            "Pojawiły się lokalne dane oczekujące. Czyszczenie i wylogowanie zostało zablokowane."
           );
         } else {
           setError(`Wpisz dokladnie: ${DEVICE_CLEAR_CONFIRMATION}.`);
@@ -1504,52 +1477,11 @@ function AuthPanel({
 
       await onClearLocalAccountData();
       await authSessionApi.signOut(env);
-      setFeedback("Dane lokalne urzadzenia zostaly wyczyszczone. Wylogowano.");
+      setFeedback("Dane lokalne urządzenia zostały wyczyszczone. Wylogowano.");
     } catch {
       setError(
-        "Nie udalo sie bezpiecznie wyczyscic urzadzenia i wylogowac. Sprobuj ponownie."
+        "Nie udało się bezpiecznie wyczyścić urządzenia i wylogować. Spróbuj ponownie."
       );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleOfflineConsentChange = async (offlineConsent: boolean) => {
-    if (!("profile" in authState)) {
-      return;
-    }
-
-    setFeedback(null);
-    setError(null);
-
-    if (!isOnline) {
-      setError("Zmiana zgody offline wymaga polaczenia online.");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const nextProfile = {
-      ...authState.profile,
-      offlineConsent
-    };
-
-    try {
-      await authSessionApi.updateOfflineConsent(env, {
-        uid: authState.profile.uid,
-        offlineConsent,
-        deviceId,
-        deviceName: deviceIdentity.name,
-        platform: deviceIdentity.platform
-      });
-      onProfileUpdated(nextProfile);
-      setFeedback(
-        offlineConsent
-          ? "Zgoda offline wlaczona. Uruchom ponownie PWA przed przygotowaniem offline."
-          : "Zgoda offline wylaczona. Wyczysc urzadzenie, aby usunac trwaly cache."
-      );
-    } catch (updateError: unknown) {
-      setError(getOfflineConsentUpdateErrorMessage(updateError));
     } finally {
       setIsSubmitting(false);
     }
@@ -1569,35 +1501,6 @@ function AuthPanel({
             )}
           </div>
 
-          {authState.status === "READY" ? (
-            <details className="account-options">
-              <summary>Praca offline na tym urzadzeniu</summary>
-              <div className="offline-consent" aria-label="Zaufane urzadzenie offline">
-                <ul className="worker-profile__list">
-                  {TRUSTED_OFFLINE_STORAGE_DISCLOSURE.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                  ))}
-                </ul>
-                <label className="checkbox-field">
-                  <input
-                    checked={authState.profile.offlineConsent}
-                    disabled={isSubmitting || !isOnline}
-                    onChange={(event) => {
-                      void handleOfflineConsentChange(event.target.checked);
-                    }}
-                    type="checkbox"
-                  />
-                  <span>Zgoda na trwale dane offline</span>
-                </label>
-                {!isOnline ? (
-                  <p className="worker-form__warning">
-                    Zmiana zgody offline wymaga polaczenia online.
-                  </p>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
           {error ? <p className="form-message form-message--error">{error}</p> : null}
 
@@ -1611,10 +1514,10 @@ function AuthPanel({
                 <h3>Najpierw zsynchronizuj dane</h3>
               </div>
               <p className="panel-detail">
-                Na tym urzadzeniu sa {safeSignOutModel.pendingDocumentCount} lokalne
+                Na tym urządzeniu są {safeSignOutModel.pendingDocumentCount} lokalne
                 dokumenty nalezace do konta {authState.user.email ?? authState.user.uid}.
                 Wylogowanie jest zablokowane, aby nie pozostawic ich nastepnemu
-                uzytkownikowi.
+                użytkownikowi.
               </p>
               {safeSignOutModel.sessions.length > 0 ? (
                 <ul className="safe-sign-out__sessions">
@@ -1622,7 +1525,7 @@ function AuthPanel({
                     <li key={session.sessionId}>
                       <strong>{session.workerName}</strong>
                       <span>
-                        {session.businessDate} - {session.pendingDocumentCount} dokumentow
+                        {session.businessDate} - {session.pendingDocumentCount} dokumentów
                       </span>
                       {session.lastError ? <span>{session.lastError}</span> : null}
                     </li>
@@ -1632,12 +1535,7 @@ function AuthPanel({
               {safeSignOutModel.unassignedPendingDocumentCount > 0 ? (
                 <p className="panel-detail">
                   Poza sesjami: {safeSignOutModel.unassignedPendingDocumentCount}
-                  dokumentow.
-                </p>
-              ) : null}
-              {!isOnline ? (
-                <p className="worker-form__warning">
-                  Synchronizacja wymaga polaczenia z internetem.
+                  dokumentów.
                 </p>
               ) : null}
               <div className="auth-actions">
@@ -1669,18 +1567,18 @@ function AuthPanel({
           {isClearConfirmationOpen ? (
             <div
               className="safe-sign-out"
-              aria-label="Potwierdzenie czyszczenia urzadzenia"
+              aria-label="Potwierdzenie czyszczenia urządzenia"
             >
               <div className="worker-rate-form__heading">
                 <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
-                <h3>Wyczysc lokalne dane urzadzenia</h3>
+                <h3>Wyczyść lokalne dane urządzenia</h3>
               </div>
               <p className="worker-form__warning">
-                Operacja usunie lokalna konfiguracje i kopie danych tego konta z tego
-                urzadzenia. Dane zsynchronizowane na serwerze pozostana bez zmian.
+                Operacja usunie lokalną konfigurację i kopię danych tego konta z tego
+                urządzenia. Dane zsynchronizowane na serwerze pozostaną bez zmian.
               </p>
               <label className="field">
-                <span>Wpisz {DEVICE_CLEAR_CONFIRMATION}, aby potwierdzic</span>
+                <span>Wpisz {DEVICE_CLEAR_CONFIRMATION}, aby potwierdzić</span>
                 <input
                   autoComplete="off"
                   disabled={isSubmitting}
@@ -1703,7 +1601,7 @@ function AuthPanel({
                   type="button"
                 >
                   <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
-                  <span>Wyczysc urzadzenie i wyloguj</span>
+                  <span>Wyczyść urządzenie i wyloguj</span>
                 </button>
                 <button
                   className="secondary-action"
@@ -1742,7 +1640,7 @@ function AuthPanel({
                 type="button"
               >
                 <Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />
-                <span>Wyloguj i wyczysc urzadzenie</span>
+                <span>Wyloguj i wyczyść urządzenie</span>
               </button>
             ) : null}
           </div>
@@ -1783,7 +1681,7 @@ function AuthPanel({
 
         {mode === "register" ? (
           <label className="field">
-            <span>Imie i nazwisko</span>
+            <span>Imię i nazwisko</span>
             <input
               autoComplete="name"
               disabled={isUnavailable || isSubmitting}
@@ -1798,7 +1696,7 @@ function AuthPanel({
 
         {mode === "login" || mode === "register" ? (
           <label className="field">
-            <span>Haslo</span>
+            <span>Hasło</span>
             <span className="password-field">
               <input
                 autoComplete={mode === "register" ? "new-password" : "current-password"}
@@ -1810,13 +1708,13 @@ function AuthPanel({
                 value={password}
               />
               <button
-                aria-label={showPassword ? "Ukryj haslo" : "Pokaz haslo"}
+                aria-label={showPassword ? "Ukryj hasło" : "Pokaz hasło"}
                 className="icon-button"
                 disabled={isUnavailable || isSubmitting}
                 onClick={() => {
                   setShowPassword((current) => !current);
                 }}
-                title={showPassword ? "Ukryj haslo" : "Pokaz haslo"}
+                title={showPassword ? "Ukryj hasło" : "Pokaz hasło"}
                 type="button"
               >
                 {showPassword ? (
@@ -1832,7 +1730,7 @@ function AuthPanel({
         {mode === "register" ? (
           <>
             <label className="field">
-              <span>Powtorz haslo</span>
+              <span>Powtórz hasło</span>
               <input
                 autoComplete="new-password"
                 disabled={isUnavailable || isSubmitting}
@@ -1853,7 +1751,7 @@ function AuthPanel({
                 }}
                 type="checkbox"
               />
-              <span>Akceptuje prerejestracje administratora</span>
+              <span>Akceptuję prerejestracje administratora</span>
             </label>
           </>
         ) : null}
@@ -1887,7 +1785,7 @@ function AuthPanel({
             }}
             type="button"
           >
-            {mode === "reset" ? "Wroc do logowania" : "Nie pamietam hasla"}
+            {mode === "reset" ? "Wroc do logowania" : "Nie pamietam hasła"}
           </button>
 
           <button
@@ -1900,7 +1798,7 @@ function AuthPanel({
             }}
             type="button"
           >
-            {mode === "register" ? "Wroc do logowania" : "Zaloz konto"}
+            {mode === "register" ? "Wroc do logowania" : "Załóż konto"}
           </button>
         </div>
       </form>
@@ -1911,9 +1809,9 @@ function AuthPanel({
 function authModeEyebrow(mode: "login" | "reset" | "register"): string {
   switch (mode) {
     case "login":
-      return "Dostep do aplikacji";
+      return "Dostęp do aplikacji";
     case "reset":
-      return "Reset hasla";
+      return "Reset hasła";
     case "register":
       return "Zaproszenie";
   }
@@ -1922,11 +1820,11 @@ function authModeEyebrow(mode: "login" | "reset" | "register"): string {
 function authModeTitle(mode: "login" | "reset" | "register"): string {
   switch (mode) {
     case "login":
-      return "Zaloguj sie";
+      return "Zaloguj się";
     case "reset":
-      return "Nie pamietam hasla";
+      return "Nie pamietam hasła";
     case "register":
-      return "Zaloz konto";
+      return "Załóż konto";
   }
 }
 
@@ -1935,9 +1833,9 @@ function authPrimaryActionLabel(mode: "login" | "reset" | "register"): string {
     case "login":
       return "Zaloguj";
     case "reset":
-      return "Wyslij reset";
+      return "Wyślij reset";
     case "register":
-      return "Zaloz konto";
+      return "Załóż konto";
   }
 }
 
@@ -1974,7 +1872,7 @@ function getSynchronizationErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie uruchomic synchronizacji.";
+  return "Nie udało się uruchomić synchronizacji.";
 }
 
 function isDocumentVisible(): boolean {

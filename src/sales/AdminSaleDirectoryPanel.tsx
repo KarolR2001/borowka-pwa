@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   activeSaleRevenueImpact,
   defaultSaleDirectoryFilters,
@@ -94,11 +95,11 @@ export function AdminSaleDirectoryPanel({
 
   if (!isAdmin) {
     return (
-      <section className="access-notice" aria-label="Historia sprzedazy">
+      <section className="access-notice" aria-label="Historia sprzedaży">
         <History aria-hidden="true" size={24} />
         <div>
-          <p className="eyebrow">Historia sprzedazy</p>
-          <p>Lista finansowa jest dostepna tylko dla administratora.</p>
+          <p className="eyebrow">Historia sprzedaży</p>
+          <p>Lista finansowa jest dostępna tylko dla administratora.</p>
         </div>
       </section>
     );
@@ -109,11 +110,11 @@ export function AdminSaleDirectoryPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Historia i kontrola</p>
-          <h3 id="sale-directory-title">Lista sprzedazy</h3>
+          <h3 id="sale-directory-title">Lista sprzedaży</h3>
           <p className="panel-detail">
             {state.status === "LOADING"
               ? "Pobieranie aktualnych danych z serwera."
-              : "Zwykle sprzedaze, korekty, anulowania i import historyczny."}
+              : "Zwykle sprzedaże, korekty, anulowania i import historyczny."}
           </p>
         </div>
         <button
@@ -122,25 +123,27 @@ export function AdminSaleDirectoryPanel({
           onClick={() => {
             setReloadKey((current) => current + 1);
           }}
-          title="Odswiez historie sprzedazy"
+          title="Odśwież historię sprzedaży"
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odswiez historie sprzedazy</span>
+          <span className="sr-only">Odśwież historię sprzedaży</span>
         </button>
       </header>
 
-      <SaleDirectoryFilterControls
-        filters={filters}
-        onChange={setFilters}
-        sales={sales}
-      />
+      <CollapsibleFilters>
+        <SaleDirectoryFilterControls
+          filters={filters}
+          onChange={setFilters}
+          sales={sales}
+        />
+      </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie listy sprzedazy">
+      <div className="directory-summary" aria-label="Podsumowanie listy sprzedaży">
         <DirectoryStat label="Widoczne" value={String(summary.totalCount)} />
         <DirectoryStat label="Aktywne" value={String(summary.activeCount)} />
         <DirectoryStat
-          label="Przychod aktywny"
+          label="Przychód aktywny"
           value={formatMoney(summary.activeRevenueGrosz)}
         />
         <DirectoryStat label="Korekty" value={String(summary.correctionCount)} />
@@ -148,14 +151,9 @@ export function AdminSaleDirectoryPanel({
         <DirectoryStat label="Importowane" value={String(summary.importedCount)} />
       </div>
 
-      {!isOnline ? (
-        <p className="form-message form-message--warning">
-          Historia sprzedazy wymaga polaczenia z internetem.
-        </p>
-      ) : null}
       {state.status === "ERROR" && isOnline ? (
         <p className="form-message form-message--error">
-          Nie udalo sie pobrac aktualnej historii sprzedazy.
+          Nie udało się pobrać aktualnej historii sprzedaży.
         </p>
       ) : null}
       {state.result &&
@@ -163,15 +161,15 @@ export function AdminSaleDirectoryPanel({
         state.result.invalidSeasonCount > 0 ||
         state.result.invalidUserCount > 0) ? (
         <p className="form-message form-message--warning">
-          Dane wymagajace kontroli: sprzedaz {state.result.invalidSaleCount}, sezony{" "}
+          Dane wymagajace kontroli: sprzedaż {state.result.invalidSaleCount}, sezony{" "}
           {state.result.invalidSeasonCount}, autorzy {state.result.invalidUserCount}.
         </p>
       ) : null}
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie historii sprzedazy.</p>
+        <p className="empty-state">Pobieranie historii sprzedaży.</p>
       ) : null}
       {state.status !== "LOADING" && filteredSales.length === 0 ? (
-        <p className="empty-state">Brak operacji spelniajacych filtry.</p>
+        <p className="empty-state">Brak operacji spełniających filtry.</p>
       ) : null}
       {filteredSales.length > 0 ? (
         <SaleDirectoryTable onOpen={setSelectedSaleId} sales={filteredSales} />
@@ -205,7 +203,7 @@ function SaleDirectoryFilterControls({
   const authors = uniqueOptions(sales, "createdBy", "authorName");
 
   return (
-    <div className="sale-directory-filters" aria-label="Filtry listy sprzedazy">
+    <div className="sale-directory-filters" aria-label="Filtry listy sprzedaży">
       <label className="field">
         <span>Sezon</span>
         <select
@@ -234,7 +232,7 @@ function SaleDirectoryFilterControls({
           value={filters.entryType}
         >
           <option value="ALL">Wszystkie typy</option>
-          <option value="SALE">Zwykla sprzedaz</option>
+          <option value="SALE">Zwykla sprzedaż</option>
           <option value="CORRECTION">Korekta</option>
         </select>
       </label>
@@ -309,12 +307,12 @@ function SaleDirectoryTable({
             <th scope="col">Data</th>
             <th scope="col">Masa</th>
             <th scope="col">Cena / kg</th>
-            <th scope="col">Przychod</th>
+            <th scope="col">Przychód</th>
             <th scope="col">Typ</th>
             <th scope="col">Status</th>
             <th scope="col">Autor</th>
             <th scope="col">Notatka</th>
-            <th scope="col">Szczegoly</th>
+            <th scope="col">Szczegóły</th>
           </tr>
         </thead>
         <tbody>
@@ -339,11 +337,11 @@ function SaleDirectoryTable({
                   onClick={() => {
                     onOpen(sale.id);
                   }}
-                  title={`Otworz szczegoly operacji ${sale.id}`}
+                  title={`Otwórz szczegóły operacji ${sale.id}`}
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />
-                  <span className="sr-only">Otworz szczegoly operacji {sale.id}</span>
+                  <span className="sr-only">Otwórz szczegóły operacji {sale.id}</span>
                 </button>
               </td>
             </tr>
@@ -370,7 +368,7 @@ function SaleDirectoryDetails({
     >
       <header className="sale-directory-details__header">
         <div>
-          <p className="eyebrow">Szczegoly operacji</p>
+          <p className="eyebrow">Szczegóły operacji</p>
           <h3 id="sale-directory-details-title">
             {formatBusinessDate(sale.businessDate)}
           </h3>
@@ -378,11 +376,11 @@ function SaleDirectoryDetails({
         <button
           className="secondary-button icon-button"
           onClick={onClose}
-          title="Zamknij szczegoly"
+          title="Zamknij szczegóły"
           type="button"
         >
           <X aria-hidden="true" size={18} />
-          <span className="sr-only">Zamknij szczegoly</span>
+          <span className="sr-only">Zamknij szczegóły</span>
         </button>
       </header>
       <dl className="sale-directory-details__grid">
@@ -395,16 +393,16 @@ function SaleDirectoryDetails({
         <Detail label="Cena za kg" value={formatMoney(sale.priceGroszPerKg)} />
         <Detail label="Kwota dokumentu" value={formatMoney(sale.totalGrosz)} />
         <Detail
-          label="Wplyw na przychod"
+          label="Wpływ na przychód"
           value={formatSignedMoney(documentRevenueImpact(sale))}
         />
-        <Detail label="Wersja obliczenia" value={sale.calculationVersion} />
+        <Detail label="Wersja obliczeńia" value={sale.calculationVersion} />
         <Detail label="Autor" value={`${sale.authorName} (${sale.createdBy})`} />
         <Detail label="Czas serwera" value={formatTimestamp(sale.createdAtIso)} />
         <Detail label="Notatka" value={sale.note ?? "brak"} />
         <Detail label="Import historyczny" value={sale.legacyImport ? "Tak" : "Nie"} />
         {sale.legacySourceRow ? (
-          <Detail label="Wiersz zrodlowy" value={sale.legacySourceRow} />
+          <Detail label="Wiersz źródłowy" value={sale.legacySourceRow} />
         ) : null}
         {sale.status === "CANCELLED" ? (
           <>
@@ -413,7 +411,7 @@ function SaleDirectoryDetails({
               label="Czas anulowania"
               value={formatTimestamp(sale.cancelledAtIso)}
             />
-            <Detail label="Powod anulowania" value={sale.cancellationReason ?? "brak"} />
+            <Detail label="Powód anulowania" value={sale.cancellationReason ?? "brak"} />
           </>
         ) : null}
       </dl>
@@ -487,7 +485,7 @@ function documentRevenueImpact(sale: AdminSaleDirectoryItem): number {
 
 function saleEntryTypeLabel(sale: AdminSaleDirectoryItem): string {
   if (sale.entryType === "SALE") {
-    return "Zwykla sprzedaz";
+    return "Zwykla sprzedaż";
   }
 
   return sale.correctionDirection === "INCREASE_STOCK"

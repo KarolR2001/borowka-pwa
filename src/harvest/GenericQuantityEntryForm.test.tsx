@@ -52,11 +52,11 @@ describe("GenericQuantityEntryForm", () => {
     render(<GenericQuantityEntryForm onSubmit={vi.fn()} plan={hourPlan} />);
 
     expect(
-      screen.getByText("Plan ilosciowy generowany z konfiguracji.")
+      screen.getByText("Plan ilościowy generowany z konfiguracji.")
     ).toBeInTheDocument();
     expect(screen.getByText("Waga opcjonalna")).toBeInTheDocument();
     expect(
-      screen.getByText("Wpis bez wagi nie zwiekszy stanu kilogramow.")
+      screen.getByText("Wpis bez wagi nie zwiększy stanu kilogramów.")
     ).toBeInTheDocument();
   });
 
@@ -66,8 +66,8 @@ describe("GenericQuantityEntryForm", () => {
 
     render(<GenericQuantityEntryForm onSubmit={onSubmit} plan={cratePlan} />);
 
-    await user.clear(screen.getByLabelText("Ilosc skrzynka"));
-    await user.type(screen.getByLabelText("Ilosc skrzynka"), "2");
+    await user.clear(screen.getByLabelText("Ilość skrzynka"));
+    await user.type(screen.getByLabelText("Ilość skrzynka"), "2");
     await user.type(screen.getByLabelText("Waga kg"), "14,250");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
 
@@ -76,12 +76,12 @@ describe("GenericQuantityEntryForm", () => {
       weightG: 14250,
       amountPreviewGrosz: 4400
     });
-    expect(screen.getByLabelText("Ilosc skrzynka")).toHaveValue("1");
+    expect(screen.getByLabelText("Ilość skrzynka")).toHaveValue("1");
     expect(screen.getByLabelText("Waga kg")).toHaveValue("");
-    expect(screen.getByText("Wpis ilosciowy dodany lokalnie.")).toBeInTheDocument();
+    expect(screen.getByText("Wpis ilościowy dodany lokalnie.")).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Ilosc skrzynka")).toHaveFocus();
+      expect(screen.getByLabelText("Ilość skrzynka")).toHaveFocus();
     });
   });
 
@@ -91,8 +91,8 @@ describe("GenericQuantityEntryForm", () => {
 
     render(<GenericQuantityEntryForm onSubmit={onSubmit} plan={hourPlan} />);
 
-    await user.clear(screen.getByLabelText("Ilosc godzina"));
-    await user.type(screen.getByLabelText("Ilosc godzina"), "1,25");
+    await user.clear(screen.getByLabelText("Ilość godzina"));
+    await user.type(screen.getByLabelText("Ilość godzina"), "1,25");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -135,14 +135,14 @@ describe("GenericQuantityEntryForm", () => {
 
     render(<GenericQuantityEntryForm onSubmit={onSubmit} plan={cratePlan} />);
 
-    await user.clear(screen.getByLabelText("Ilosc skrzynka"));
-    await user.type(screen.getByLabelText("Ilosc skrzynka"), "1,5");
+    await user.clear(screen.getByLabelText("Ilość skrzynka"));
+    await user.type(screen.getByLabelText("Ilość skrzynka"), "1,5");
     await user.type(screen.getByLabelText("Waga kg"), "10");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Ilosc nie miesci sie w precyzji planu.")
+      screen.getByText("Ilość nie mieści się w precyzji planu.")
     ).toBeInTheDocument();
   });
 
@@ -158,14 +158,14 @@ describe("GenericQuantityEntryForm", () => {
 
     expect(screen.getByText("Tylko 1 jednostka")).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText("Ilosc skrzynka"));
-    await user.type(screen.getByLabelText("Ilosc skrzynka"), "2");
+    await user.clear(screen.getByLabelText("Ilość skrzynka"));
+    await user.type(screen.getByLabelText("Ilość skrzynka"), "2");
     await user.type(screen.getByLabelText("Waga kg"), "10");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
     expect(screen.getByText("Plan nie dopuszcza wpisu zbiorczego.")).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText("Ilosc skrzynka"));
-    await user.type(screen.getByLabelText("Ilosc skrzynka"), "1");
+    await user.clear(screen.getByLabelText("Ilość skrzynka"));
+    await user.type(screen.getByLabelText("Ilość skrzynka"), "1");
     await user.clear(screen.getByLabelText("Waga kg"));
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
     expect(screen.getByText("Podaj wage wpisu.")).toBeInTheDocument();

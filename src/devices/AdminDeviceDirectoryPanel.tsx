@@ -34,7 +34,7 @@ type DeviceDirectoryState =
 const initialState: DeviceDirectoryState = {
   status: "IDLE",
   result: null,
-  message: "Lista urzadzen nie zostala jeszcze pobrana."
+  message: "Lista urządzeń nie została jeszcze pobrana."
 };
 
 export function AdminDeviceDirectoryPanel({
@@ -54,7 +54,7 @@ export function AdminDeviceDirectoryPanel({
     setDirectoryState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie urzadzen."
+      message: "Pobieranie urządzeń."
     }));
 
     void deviceDirectoryApi
@@ -63,14 +63,14 @@ export function AdminDeviceDirectoryPanel({
         setDirectoryState({
           status: "READY",
           result,
-          message: "Lista urzadzen jest aktualna."
+          message: "Lista urządzeń jest aktualna."
         });
       })
       .catch(() => {
         setDirectoryState((current) => ({
           status: "ERROR",
           result: current.result,
-          message: "Nie udalo sie pobrac listy urzadzen."
+          message: "Nie udało się pobrać listy urządzeń."
         }));
       });
   };
@@ -86,7 +86,7 @@ export function AdminDeviceDirectoryPanel({
     setDirectoryState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie urzadzen."
+      message: "Pobieranie urządzeń."
     }));
 
     void deviceDirectoryApi
@@ -96,7 +96,7 @@ export function AdminDeviceDirectoryPanel({
           setDirectoryState({
             status: "READY",
             result,
-            message: "Lista urzadzen jest aktualna."
+            message: "Lista urządzeń jest aktualna."
           });
         }
       })
@@ -105,7 +105,7 @@ export function AdminDeviceDirectoryPanel({
           setDirectoryState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac listy urzadzen."
+            message: "Nie udało się pobrać listy urządzeń."
           }));
         }
       });
@@ -117,10 +117,10 @@ export function AdminDeviceDirectoryPanel({
 
   if (authState.status !== "READY") {
     return (
-      <section className="device-directory" aria-label="Urzadzenia">
+      <section className="device-directory" aria-label="Urządzenia">
         <DeviceNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator."
+          message="Zaloguj się jako administrator."
         />
       </section>
     );
@@ -128,21 +128,21 @@ export function AdminDeviceDirectoryPanel({
 
   if (authState.profile.role !== "ADMIN") {
     return (
-      <section className="device-directory" aria-label="Urzadzenia">
+      <section className="device-directory" aria-label="Urządzenia">
         <DeviceNotice
-          title="Brak dostepu"
-          message="Lista urzadzen jest dostepna tylko dla administratora."
+          title="Brak dostępu"
+          message="Lista urządzeń jest dostępna tylko dla administratora."
         />
       </section>
     );
   }
 
   return (
-    <section className="device-directory" aria-label="Urzadzenia">
+    <section className="device-directory" aria-label="Urządzenia">
       <div className="directory-header">
         <div>
-          <p className="eyebrow">Urzadzenia</p>
-          <h2>Lista urzadzen</h2>
+          <p className="eyebrow">Urządzenia</p>
+          <h2>Lista urządzeń</h2>
           <p className="panel-detail">{directoryState.message}</p>
         </div>
         <button
@@ -152,13 +152,13 @@ export function AdminDeviceDirectoryPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
-      <div className="directory-summary" aria-label="Podsumowanie urzadzen">
+      <div className="directory-summary" aria-label="Podsumowanie urządzeń">
         <DeviceStat
-          label="Wszystkie urzadzenia"
+          label="Wszystkie urządzenia"
           value={String(directoryState.result?.devices.length ?? 0)}
         />
         <DeviceStat
@@ -168,7 +168,7 @@ export function AdminDeviceDirectoryPanel({
           )}
         />
         <DeviceStat
-          label="Bledne dokumenty"
+          label="Błędne dokumenty"
           value={String(directoryState.result?.invalidDevices.length ?? 0)}
         />
       </div>
@@ -178,11 +178,11 @@ export function AdminDeviceDirectoryPanel({
       ) : null}
 
       {directoryState.status === "LOADING" && !directoryState.result ? (
-        <p className="empty-state">Pobieranie urzadzen.</p>
+        <p className="empty-state">Pobieranie urządzeń.</p>
       ) : null}
 
       {directoryState.result?.devices.length === 0 ? (
-        <p className="empty-state">Brak zarejestrowanych urzadzen.</p>
+        <p className="empty-state">Brak zarejestrowanych urządzeń.</p>
       ) : null}
 
       {directoryState.result && directoryState.result.devices.length > 0 ? (
@@ -191,9 +191,8 @@ export function AdminDeviceDirectoryPanel({
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
-                <th scope="col">Uzytkownik</th>
+                <th scope="col">Użytkownik</th>
                 <th scope="col">Platforma</th>
-                <th scope="col">Offline</th>
                 <th scope="col">Aktywne</th>
                 <th scope="col">Id</th>
               </tr>
@@ -204,7 +203,6 @@ export function AdminDeviceDirectoryPanel({
                   <td>{device.deviceName}</td>
                   <td>{device.userUid}</td>
                   <td>{device.platform ?? "brak"}</td>
-                  <td>{device.trustedOfflineStorage ? "Tak" : "Nie"}</td>
                   <td>{device.active ? "Tak" : "Nie"}</td>
                   <td>{device.id}</td>
                 </tr>
@@ -215,12 +213,12 @@ export function AdminDeviceDirectoryPanel({
       ) : null}
 
       {directoryState.result && directoryState.result.invalidDevices.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Bledne urzadzenia">
+        <div className="invalid-profiles" aria-label="Błędne urządzenia">
           <div className="access-notice__icon">
             <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <p className="eyebrow">Bledne dokumenty</p>
+            <p className="eyebrow">Błędne dokumenty</p>
             <ul>
               {directoryState.result.invalidDevices.map((invalidDevice) => (
                 <li key={invalidDevice.id}>

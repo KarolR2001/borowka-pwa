@@ -62,7 +62,7 @@ describe("MVP report catalog", () => {
       "result_after_harvest_cost_grosz"
     );
     expect(result.summationRules.join(" ")).toContain(
-      "Wynik to przychod minus koszt zbioru"
+      "Wynik to przychód minus koszt zbioru"
     );
     expect(
       REPORT_CATALOG.flatMap((report) => [

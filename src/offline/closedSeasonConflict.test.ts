@@ -60,7 +60,7 @@ describe("closed season offline conflict", () => {
       },
       localSessionPreserved: true,
       message:
-        "Sesja pozostaje zapisana lokalnie, ale sezon zostal zamkniety przed synchronizacja. Wymagana jest decyzja administratora.",
+        "Sesja pozostaje zapisana lokalnie, ale sezon został zamknięty przed synchronizacją. Wymagana jest decyzja administratora.",
       paymentBlocked: true,
       recommendedSessionStatus: "REVIEW_REQUIRED",
       reviewRequired: true,

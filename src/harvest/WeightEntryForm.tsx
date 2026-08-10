@@ -187,5 +187,5 @@ function assertRate(rateGroszPerKg: number): void {
 }
 
 function getWeightEntryFormErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Nie udalo sie przygotowac wpisu.";
+  return error instanceof Error ? error.message : "Nie udało się przygotować wpisu.";
 }

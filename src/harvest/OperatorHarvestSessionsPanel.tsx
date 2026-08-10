@@ -202,13 +202,13 @@ type HarvestViewerProfile = UserProfile & {
 const initialDashboardState: DashboardState = {
   status: "IDLE",
   result: null,
-  message: "Sesje zbioru nie zostaly jeszcze pobrane."
+  message: "Sesje zbioru nie zostały jeszcze pobrane."
 };
 
 const initialOpeningConfigurationState: OpeningConfigurationState = {
   status: "IDLE",
   result: null,
-  message: "Konfiguracja otwarcia sesji nie zostala jeszcze pobrana."
+  message: "Konfiguracja otwarcia sesji nie została jeszcze pobrana."
 };
 
 export function OperatorHarvestSessionsPanel({
@@ -319,7 +319,7 @@ export function OperatorHarvestSessionsPanel({
           setState({
             status: "READY",
             result,
-            message: "Sesje zbioru sa aktualne."
+            message: "Sesje zbioru są aktualne."
           });
         }
       })
@@ -328,7 +328,7 @@ export function OperatorHarvestSessionsPanel({
           setState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac sesji zbioru."
+            message: "Nie udało się pobrać sesji zbioru."
           }));
         }
       });
@@ -374,7 +374,7 @@ export function OperatorHarvestSessionsPanel({
           setOpeningConfigurationState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac konfiguracji otwarcia sesji."
+            message: "Nie udało się pobrać konfiguracji otwarcia sesji."
           }));
         }
       });
@@ -410,13 +410,13 @@ export function OperatorHarvestSessionsPanel({
       setState({
         status: "READY",
         result,
-        message: "Sesje zbioru sa aktualne."
+        message: "Sesje zbioru są aktualne."
       });
     } catch {
       setState((current) => ({
         status: "ERROR",
         result: current.result,
-        message: "Nie udalo sie pobrac sesji zbioru."
+        message: "Nie udało się pobrać sesji zbioru."
       }));
     }
   };
@@ -448,7 +448,7 @@ export function OperatorHarvestSessionsPanel({
       setOpeningConfigurationState((current) => ({
         status: "ERROR",
         result: current.result,
-        message: "Nie udalo sie pobrac konfiguracji otwarcia sesji."
+        message: "Nie udało się pobrać konfiguracji otwarcia sesji."
       }));
     }
   };
@@ -504,7 +504,7 @@ export function OperatorHarvestSessionsPanel({
     const selectedSessionId = state.result?.selectedSessionId;
 
     if (!selectedSessionId) {
-      throw new Error("Wybierz otwarta sesje przed dodaniem wpisu.");
+      throw new Error("Wybierz otwartą sesję przed dodaniem wpisu.");
     }
 
     const currentAttempt = pendingEntryAttemptRef.current;
@@ -565,7 +565,7 @@ export function OperatorHarvestSessionsPanel({
     }
 
     if (!isOnline) {
-      setSessionError("Anulowanie wpisu wymaga polaczenia online.");
+      setSessionError("Anulowanie wpisu wymaga połączenia online.");
       return;
     }
 
@@ -620,12 +620,12 @@ export function OperatorHarvestSessionsPanel({
     setSessionError(null);
 
     if (!selectedSession) {
-      setSessionError("Wybierz otwarta sesje przed zamknieciem.");
+      setSessionError("Wybierz otwartą sesję przed zamknięciem.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Zamknac sesje ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+      `Zamknąć sesję ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedSession.businessDate
       )}?`
     );
@@ -678,17 +678,17 @@ export function OperatorHarvestSessionsPanel({
     setSessionError(null);
 
     if (!selectedClosedSession) {
-      setSessionError("Wybierz zamknieta sesje przed ponownym otwarciem.");
+      setSessionError("Wybierz zamkniętą sesję przed ponownym otwarciem.");
       return;
     }
 
     if (!isOnline) {
-      setSessionError("Ponowne otwarcie sesji wymaga polaczenia online.");
+      setSessionError("Ponowne otwarcie sesji wymaga połączenia online.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Ponownie otworzyc sesje ${selectedClosedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+      `Ponownie otworzyć sesję ${selectedClosedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedClosedSession.businessDate
       )}?`
     );
@@ -746,17 +746,17 @@ export function OperatorHarvestSessionsPanel({
     setSessionError(null);
 
     if (!selectedCancelSession) {
-      setSessionError("Wybierz sesje przed anulowaniem.");
+      setSessionError("Wybierz sesję przed anulowaniem.");
       return;
     }
 
     if (!isOnline) {
-      setSessionError("Anulowanie sesji wymaga polaczenia online.");
+      setSessionError("Anulowanie sesji wymaga połączenia online.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Anulowac sesje ${selectedCancelSession.workerNameSnapshot} z dnia ${formatBusinessDate(
+      `Anulować sesję ${selectedCancelSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedCancelSession.businessDate
       )}?`
     );
@@ -801,8 +801,8 @@ export function OperatorHarvestSessionsPanel({
             <ShieldAlert aria-hidden="true" size={22} strokeWidth={2.2} />
           </span>
           <div>
-            <h3>Brak dostepu do sesji zbioru</h3>
-            <p>Zaloguj sie jako administrator albo operator.</p>
+            <h3>Brak dostępu do sesji zbioru</h3>
+            <p>Zaloguj się jako administrator albo operator.</p>
           </div>
         </div>
       </section>
@@ -851,7 +851,7 @@ export function OperatorHarvestSessionsPanel({
     >
       <div className="directory-header">
         <div>
-          <p className="eyebrow">{isOnline ? "Sesje online" : "Sesje offline"}</p>
+          <p className="eyebrow">Ewidencja zbiorów</p>
           <h3>Otwarte sesje zbioru</h3>
           <p>{state.message}</p>
         </div>
@@ -864,7 +864,7 @@ export function OperatorHarvestSessionsPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          Odswiez
+          Odśwież
         </button>
       </div>
 
@@ -1071,7 +1071,7 @@ function AdminReopenHarvestSessionForm({
           value={draft.sessionId}
         >
           {sessions.length === 0 ? (
-            <option value="">Brak zamknietych sesji do korekty</option>
+            <option value="">Brak zamkniętych sesji do korekty</option>
           ) : null}
           {sessions.map((candidate) => (
             <option key={candidate.id} value={candidate.id}>
@@ -1083,7 +1083,7 @@ function AdminReopenHarvestSessionForm({
       </label>
 
       <label className="field open-session-form__note">
-        <span>Powod ponownego otwarcia</span>
+        <span>Powód ponownego otwarcia</span>
         <input
           disabled={isDisabled}
           onChange={(event) => {
@@ -1099,8 +1099,8 @@ function AdminReopenHarvestSessionForm({
 
       {session ? (
         <p className="open-session-form__warning">
-          Dotychczasowa kwota: {formatMoney(session.amountDueGrosz ?? 0)}. Raporty moga
-          sie zmienic po kolejnych wpisach i zamknieciu.
+          Dotychczasowa kwota: {formatMoney(session.amountDueGrosz ?? 0)}. Raporty mogą
+          się zmienic po kolejnych wpisach i zamknięciu.
         </p>
       ) : null}
 
@@ -1110,7 +1110,7 @@ function AdminReopenHarvestSessionForm({
         type="submit"
       >
         <RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Otworz ponownie</span>
+        <span>Otwórz ponownie</span>
       </button>
     </form>
   );
@@ -1164,14 +1164,14 @@ function AdminCancelHarvestSessionForm({
             <option key={candidate.id} value={candidate.id}>
               {candidate.workerNameSnapshot} ·{" "}
               {formatBusinessDate(candidate.businessDate)} ·{" "}
-              {candidate.status === "OPEN" ? "otwarta" : "zamknieta"}
+              {candidate.status === "OPEN" ? "otwarta" : "zamknięta"}
             </option>
           ))}
         </select>
       </label>
 
       <label className="field open-session-form__note">
-        <span>Powod anulowania</span>
+        <span>Powód anulowania</span>
         <input
           disabled={isDisabled}
           onChange={(event) => {
@@ -1187,7 +1187,7 @@ function AdminCancelHarvestSessionForm({
 
       {session ? (
         <p className="open-session-form__warning">
-          Wpisy pozostana historyczne. Sesja zostanie usunieta z sum rozliczen.
+          Wpisy pozostaną historyczne. Sesja zostanie usunięta z sum rozliczeń.
         </p>
       ) : null}
 
@@ -1197,7 +1197,7 @@ function AdminCancelHarvestSessionForm({
         type="submit"
       >
         <Ban aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Anuluj sesje</span>
+        <span>Anuluj sesję</span>
       </button>
     </form>
   );
@@ -1237,12 +1237,12 @@ function AdminCancelHarvestEntryForm({
         <p className="eyebrow">Korekta wpisu</p>
         <h4>{entry ? `Wpis #${String(entry.sequenceNumber)}` : "Wpis"}</h4>
         <p className="panel-detail">
-          Anulowany wpis zostanie w historii i nie bedzie liczony w sumach.
+          Anulowany wpis zostanie w historii i nie będzie liczony w sumach.
         </p>
       </div>
 
       <label className="field open-session-form__note">
-        <span>Powod anulowania wpisu</span>
+        <span>Powód anulowania wpisu</span>
         <input
           disabled={isDisabled}
           onChange={(event) => {
@@ -1424,7 +1424,7 @@ function OpenHarvestSessionForm({
           }}
           value={draft.seasonId}
         >
-          {seasons.length === 0 ? <option value="">Brak otwartych sezonow</option> : null}
+          {seasons.length === 0 ? <option value="">Brak otwartych sezonów</option> : null}
           {seasons.map((season) => (
             <option key={season.id} value={season.id}>
               {season.name}
@@ -1466,7 +1466,7 @@ function OpenHarvestSessionForm({
 
       {actorRole === "ADMIN" ? (
         <label className="field open-session-form__second-reason">
-          <span>Powod drugiej sesji</span>
+          <span>Powód drugiej sesji</span>
           <input
             disabled={isDisabled || existingOpenSessionsCount === 0}
             onChange={(event) => {
@@ -1497,7 +1497,7 @@ function OpenHarvestSessionForm({
         type="submit"
       >
         <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Otworz sesje</span>
+        <span>Otwórz sesję</span>
       </button>
     </form>
   );
@@ -1550,7 +1550,7 @@ function getOpenSessionErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie otworzyc sesji zbioru.";
+  return "Nie udało się otworzyć sesji zbioru.";
 }
 
 function getSessionOperationErrorMessage(error: unknown): string {
@@ -1558,5 +1558,5 @@ function getSessionOperationErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie wykonac operacji na sesji zbioru.";
+  return "Nie udało się wykonać operacji na sesji zbioru.";
 }

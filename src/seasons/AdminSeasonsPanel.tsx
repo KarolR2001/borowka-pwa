@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import type { SeasonDocument, SeasonStatus } from "../domain/domainConfiguration";
+import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import {
   createSeason,
   defaultSeasonFilters,
@@ -79,7 +80,7 @@ type SeasonActionDraft = {
 const initialSeasonsState: SeasonsState = {
   status: "IDLE",
   result: null,
-  message: "Lista sezonow nie zostala jeszcze pobrana."
+  message: "Lista sezonów nie została jeszcze pobrana."
 };
 
 const initialCreateSeasonDraft: CreateSeasonDraft = {
@@ -132,7 +133,7 @@ export function AdminSeasonsPanel({
     setState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie sezonow."
+      message: "Pobieranie sezonów."
     }));
 
     void seasonsApi
@@ -142,7 +143,7 @@ export function AdminSeasonsPanel({
           setState({
             status: "READY",
             result,
-            message: "Lista sezonow jest aktualna."
+            message: "Lista sezonów jest aktualna."
           });
         }
       })
@@ -151,7 +152,7 @@ export function AdminSeasonsPanel({
           setState((current) => ({
             status: "ERROR",
             result: current.result,
-            message: "Nie udalo sie pobrac sezonow."
+            message: "Nie udało się pobrać sezonów."
           }));
         }
       });
@@ -212,7 +213,7 @@ export function AdminSeasonsPanel({
     setState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie sezonow."
+      message: "Pobieranie sezonów."
     }));
 
     try {
@@ -221,13 +222,13 @@ export function AdminSeasonsPanel({
       setState({
         status: "READY",
         result,
-        message: "Lista sezonow jest aktualna."
+        message: "Lista sezonów jest aktualna."
       });
     } catch {
       setState((current) => ({
         status: "ERROR",
         result: current.result,
-        message: "Nie udalo sie pobrac sezonow."
+        message: "Nie udało się pobrać sezonów."
       }));
     }
   };
@@ -241,19 +242,19 @@ export function AdminSeasonsPanel({
     setError(null);
 
     if (!createDraft.confirmed) {
-      setError("Potwierdz utworzenie sezonu.");
+      setError("Potwierdź utworzenie sezonu.");
       return;
     }
 
     if (!navigator.onLine) {
-      setError("Tworzenie sezonu wymaga polaczenia online.");
+      setError("Tworzenie sezonu wymaga połączenia online.");
       return;
     }
 
     const create = seasonsApi.create ?? defaultSeasonsApi.create;
 
     if (!create) {
-      setError("Operacja tworzenia sezonu nie jest dostepna.");
+      setError("Operacja tworzenia sezonu nie jest dostępna.");
       return;
     }
 
@@ -294,24 +295,24 @@ export function AdminSeasonsPanel({
     }
 
     if (!selectedSeasonAction) {
-      setError("Wybrany sezon nie ma dostepnej operacji.");
+      setError("Wybrany sezon nie ma dostępnej operacji.");
       return;
     }
 
     if (!actionDraft.confirmed) {
-      setError("Potwierdz operacje na sezonie.");
+      setError("Potwierdź operację na sezonie.");
       return;
     }
 
     if (!navigator.onLine) {
-      setError("Zmiana sezonu wymaga polaczenia online.");
+      setError("Zmiana sezonu wymaga połączenia online.");
       return;
     }
 
     const updateStatus = seasonsApi.updateStatus ?? defaultSeasonsApi.updateStatus;
 
     if (!updateStatus) {
-      setError("Operacja zmiany sezonu nie jest dostepna.");
+      setError("Operacja zmiany sezonu nie jest dostępna.");
       return;
     }
 
@@ -344,7 +345,7 @@ export function AdminSeasonsPanel({
       <section className="season-directory" aria-label="Sezony">
         <AccessNotice
           title="Logowanie wymagane"
-          message="Zaloguj sie jako administrator."
+          message="Zaloguj się jako administrator."
         />
       </section>
     );
@@ -354,8 +355,8 @@ export function AdminSeasonsPanel({
     return (
       <section className="season-directory" aria-label="Sezony">
         <AccessNotice
-          title="Brak dostepu"
-          message="Sezony sa zarzadzane tylko przez administratora."
+          title="Brak dostępu"
+          message="Sezony są zarządzane tylko przez administratora."
         />
       </section>
     );
@@ -366,7 +367,7 @@ export function AdminSeasonsPanel({
       <div className="directory-header">
         <div>
           <p className="eyebrow">Sezony</p>
-          <h2>Konfiguracja sezonow</h2>
+          <h2>Konfiguracja sezonów</h2>
           <p className="panel-detail">{state.message}</p>
         </div>
         <button
@@ -378,11 +379,13 @@ export function AdminSeasonsPanel({
           type="button"
         >
           <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odswiez</span>
+          <span>Odśwież</span>
         </button>
       </div>
 
-      <SeasonFilterControls filters={filters} onChange={setFilters} />
+      <CollapsibleFilters>
+        <SeasonFilterControls filters={filters} onChange={setFilters} />
+      </CollapsibleFilters>
 
       {state.result ? (
         <>
@@ -411,14 +414,14 @@ export function AdminSeasonsPanel({
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
-      <div className="directory-summary" aria-label="Podsumowanie sezonow">
+      <div className="directory-summary" aria-label="Podsumowanie sezonów">
         <DirectoryStat
           label="Wszystkie sezony"
           value={String(state.result?.seasons.length ?? 0)}
         />
         <DirectoryStat label="Po filtrach" value={String(filteredSeasons.length)} />
         <DirectoryStat
-          label="Bledne dokumenty"
+          label="Błędne dokumenty"
           value={String(state.result?.invalidSeasons.length ?? 0)}
         />
       </div>
@@ -428,11 +431,11 @@ export function AdminSeasonsPanel({
       ) : null}
 
       {state.status === "LOADING" && !state.result ? (
-        <p className="empty-state">Pobieranie sezonow.</p>
+        <p className="empty-state">Pobieranie sezonów.</p>
       ) : null}
 
       {state.result && filteredSeasons.length === 0 ? (
-        <p className="empty-state">Brak sezonow dla wybranych filtrow.</p>
+        <p className="empty-state">Brak sezonów dla wybranych filtrów.</p>
       ) : null}
 
       {filteredSeasons.length > 0 ? (
@@ -463,12 +466,12 @@ export function AdminSeasonsPanel({
       ) : null}
 
       {state.result && state.result.invalidSeasons.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Bledne sezony">
+        <div className="invalid-profiles" aria-label="Błędne sezony">
           <div className="access-notice__icon">
             <CalendarDays aria-hidden="true" size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <p className="eyebrow">Bledne dokumenty sezonow</p>
+            <p className="eyebrow">Błędne dokumenty sezonów</p>
             <ul>
               {state.result.invalidSeasons.map((invalidSeason) => (
                 <li key={invalidSeason.id}>
@@ -491,7 +494,7 @@ function SeasonFilterControls({
   onChange: (filters: SeasonFilters) => void;
 }) {
   return (
-    <div className="directory-filters season-filters" aria-label="Filtry sezonow">
+    <div className="directory-filters season-filters" aria-label="Filtry sezonów">
       <label className="field">
         <span>Szukaj</span>
         <span className="search-field">
@@ -656,7 +659,7 @@ function CreateSeasonForm({
           }}
           type="checkbox"
         />
-        <span>Akceptuje nakladanie okresow</span>
+        <span>Akceptuję nakladanie okresow</span>
       </label>
 
       <label className="checkbox-field season-form__confirmation">
@@ -733,7 +736,7 @@ function SeasonActionForm({
           }}
           value={draft.targetSeasonId}
         >
-          {seasons.length === 0 ? <option value="">Brak sezonow</option> : null}
+          {seasons.length === 0 ? <option value="">Brak sezonów</option> : null}
           {seasons.map((season) => (
             <option key={season.id} value={season.id}>
               {season.name} ({seasonStatusLabel(season.status)})
@@ -773,7 +776,7 @@ function SeasonActionForm({
       </label>
 
       <label className="field">
-        <span>Powod</span>
+        <span>Powód</span>
         <input
           disabled={isSubmitting || seasons.length === 0}
           onChange={(event) => {
@@ -800,7 +803,7 @@ function SeasonActionForm({
           }}
           type="checkbox"
         />
-        <span>Potwierdzam operacje na sezonie</span>
+        <span>Potwierdzam operację na sezonie</span>
       </label>
 
       <button
@@ -894,11 +897,11 @@ function seasonActionIcon(action: SeasonStatusAction) {
 function seasonActionLabel(action: SeasonStatusAction): string {
   switch (action) {
     case "OPEN":
-      return "Otworz";
+      return "Otwórz";
     case "CLOSE":
       return "Zamknij";
     case "REOPEN":
-      return "Otworz ponownie";
+      return "Otwórz ponownie";
     case "ARCHIVE":
       return "Archiwizuj";
     case "SET_DEFAULT":
@@ -911,5 +914,5 @@ function getSeasonsErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Nie udalo sie zapisac sezonu.";
+  return "Nie udało się zapisać sezonu.";
 }

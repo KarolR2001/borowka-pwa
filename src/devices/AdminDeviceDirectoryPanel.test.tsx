@@ -60,7 +60,7 @@ describe("AdminDeviceDirectoryPanel", () => {
   it("blocks non-admin profiles", () => {
     render(<AdminDeviceDirectoryPanel authState={pickerState} env={env} />);
 
-    expect(screen.getByText("Brak dostepu")).toBeInTheDocument();
+    expect(screen.getByText("Brak dostępu")).toBeInTheDocument();
   });
 
   it("loads device records for administrator", async () => {
@@ -97,7 +97,7 @@ describe("AdminDeviceDirectoryPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
     });
-    expect(screen.getByRole("heading", { name: "Lista urzadzen" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lista urządzeń" })).toBeInTheDocument();
     expect(screen.getByText("Telefon Karola")).toBeInTheDocument();
     expect(screen.getByText("picker-1")).toBeInTheDocument();
     expect(screen.getByText("broken-device")).toBeInTheDocument();

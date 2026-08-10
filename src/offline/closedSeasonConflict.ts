@@ -83,7 +83,7 @@ export function evaluateClosedSeasonConflict({
     currentSeason: currentSeasonView,
     localSessionPreserved: true,
     message:
-      "Sesja pozostaje zapisana lokalnie, ale sezon zostal zamkniety przed synchronizacja. Wymagana jest decyzja administratora.",
+      "Sesja pozostaje zapisana lokalnie, ale sezon został zamknięty przed synchronizacją. Wymagana jest decyzja administratora.",
     paymentBlocked: true,
     recommendedSessionStatus: "REVIEW_REQUIRED",
     reviewRequired: true,
@@ -154,7 +154,7 @@ function createSeasonView(season: SeasonDocument): ClosedSeasonCurrentSeasonView
 
 function normalizeBusinessDate(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
-    throw new Error("Data biznesowa konfliktu sezonu musi miec format YYYY-MM-DD.");
+    throw new Error("Data konfliktu sezonu musi mieć format YYYY-MM-DD.");
   }
 
   return value;
