@@ -77,10 +77,11 @@ type EditPlanDraft = {
   planId: string;
   planName: string;
   wasUsed: boolean;
+  calculationBasis: "WEIGHT" | "QUANTITY";
+  quantityPrecision: number;
   name: string;
   unitLabelSingular: string;
   unitLabelPlural: string;
-  unitSymbol: string;
   description: string;
   confirmHistoricalSnapshotsUnchanged: boolean;
 };
@@ -266,10 +267,11 @@ export function AdminSettlementPlansPanel({
       planId: plan.id,
       planName: plan.name,
       wasUsed: plan.wasUsed,
+      calculationBasis: plan.calculationBasis,
+      quantityPrecision: plan.quantityPrecision,
       name: plan.name,
       unitLabelSingular: plan.unitLabelSingular,
       unitLabelPlural: plan.unitLabelPlural,
-      unitSymbol: plan.unitSymbol,
       description: plan.description ?? "",
       confirmHistoricalSnapshotsUnchanged: false
     });
@@ -314,9 +316,18 @@ export function AdminSettlementPlansPanel({
         actorProfile: authState.profile,
         planId: editDraft.planId,
         name: editDraft.name,
-        unitLabelSingular: editDraft.unitLabelSingular,
-        unitLabelPlural: editDraft.unitLabelPlural,
-        unitSymbol: editDraft.unitSymbol,
+        unitLabelSingular:
+          editDraft.calculationBasis === "WEIGHT"
+            ? "kilogram"
+            : editDraft.unitLabelSingular,
+        unitLabelPlural:
+          editDraft.calculationBasis === "WEIGHT"
+            ? "kilogramy"
+            : editDraft.unitLabelPlural,
+        unitSymbol:
+          editDraft.calculationBasis === "WEIGHT"
+            ? "kg"
+            : editDraft.unitLabelSingular.trim(),
         description: editDraft.description,
         confirmHistoricalSnapshotsUnchanged:
           editDraft.confirmHistoricalSnapshotsUnchanged,
@@ -739,6 +750,19 @@ function EditSettlementPlanForm({
   onChange: (draft: EditPlanDraft) => void;
   onSubmit: () => void;
 }) {
+  const unitLabelSingular =
+    draft.calculationBasis === "WEIGHT" ? "kilogram" : draft.unitLabelSingular;
+  const unitLabelPlural =
+    draft.calculationBasis === "WEIGHT" ? "kilogramy" : draft.unitLabelPlural;
+  const example = createSettlementPlanExample({
+    calculationBasis: draft.calculationBasis,
+    quantityPrecision: draft.quantityPrecision,
+    unitLabelSingular,
+    unitLabelPlural,
+    unitSymbol:
+      draft.calculationBasis === "WEIGHT" ? "kg" : draft.unitLabelSingular.trim()
+  });
+
   return (
     <form
       aria-label="Edycja planu rozliczeń"
@@ -753,8 +777,12 @@ function EditSettlementPlanForm({
       </div>
 
       <label className="field">
-        <span>Nazwa planu</span>
+        <span className="field__label">
+          Nazwa planu
+          <InfoHint text="Nazwa jest widoczna podczas przypisywania planu i stawki zbieraczowi." />
+        </span>
         <input
+          aria-label="Nazwa planu"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -768,53 +796,65 @@ function EditSettlementPlanForm({
       </label>
 
       <label className="field">
-        <span>Jednostka</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitLabelSingular: event.target.value
-            });
-          }}
-          type="text"
-          value={draft.unitLabelSingular}
-        />
+        <span className="field__label">
+          Sposób rozliczenia
+          <InfoHint text="Sposobu rozliczenia nie można zmienić podczas edycji, ponieważ wcześniejsze zbiory zachowują ten sam sposób obliczeń." />
+        </span>
+        <select aria-label="Sposób rozliczenia" disabled value={draft.calculationBasis}>
+          <option value="QUANTITY">Liczba opakowań lub sztuk</option>
+          <option value="WEIGHT">Waga w kilogramach</option>
+        </select>
       </label>
 
-      <label className="field">
-        <span>Jednostki</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitLabelPlural: event.target.value
-            });
-          }}
-          type="text"
-          value={draft.unitLabelPlural}
-        />
-      </label>
+      {draft.calculationBasis === "QUANTITY" ? (
+        <>
+          <label className="field">
+            <span className="field__label">
+              Jedna jednostka
+              <InfoHint text="Nazwa jednej sztuki lub opakowania, np. łubianka albo skrzynka." />
+            </span>
+            <input
+              aria-label="Jedna jednostka"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                onChange({
+                  ...draft,
+                  unitLabelSingular: event.target.value
+                });
+              }}
+              type="text"
+              value={draft.unitLabelSingular}
+            />
+          </label>
 
-      <label className="field">
-        <span>Symbol</span>
-        <input
-          disabled={isSubmitting}
-          onChange={(event) => {
-            onChange({
-              ...draft,
-              unitSymbol: event.target.value
-            });
-          }}
-          type="text"
-          value={draft.unitSymbol}
-        />
-      </label>
+          <label className="field">
+            <span className="field__label">
+              Wiele jednostek
+              <InfoHint text="Nazwa używana przy większej liczbie, np. łubianki albo skrzynki." />
+            </span>
+            <input
+              aria-label="Wiele jednostek"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                onChange({
+                  ...draft,
+                  unitLabelPlural: event.target.value
+                });
+              }}
+              type="text"
+              value={draft.unitLabelPlural}
+            />
+          </label>
+        </>
+      ) : null}
 
       <label className="field settlement-plan-form__description">
-        <span>Opis</span>
+        <span className="field__label">
+          Opis (opcjonalnie)
+          <InfoHint text="Krótka informacja pomagająca odróżnić ten plan od pozostałych." />
+        </span>
         <input
+          aria-label="Opis"
           disabled={isSubmitting}
           onChange={(event) => {
             onChange({
@@ -826,6 +866,11 @@ function EditSettlementPlanForm({
           value={draft.description}
         />
       </label>
+
+      <div className="settlement-plan-form__example" aria-label="Przykład planu">
+        <span>Przykład rozliczenia</span>
+        <strong>{example}</strong>
+      </div>
 
       {draft.wasUsed ? (
         <label className="checkbox-field settlement-plan-form__confirmation">

@@ -288,8 +288,9 @@ describe("AdminSettlementPlansPanel", () => {
     );
     await user.clear(form.getByLabelText("Nazwa planu"));
     await user.type(form.getByLabelText("Nazwa planu"), "Za pelna ubianke");
-    await user.clear(form.getByLabelText("Jednostki"));
-    await user.type(form.getByLabelText("Jednostki"), "pelne ubianki");
+    await user.clear(form.getByLabelText("Wiele jednostek"));
+    await user.type(form.getByLabelText("Wiele jednostek"), "pelne ubianki");
+    expect(form.queryByLabelText("Symbol")).not.toBeInTheDocument();
     await user.click(
       form.getByLabelText("Potwierdzam, że snapshoty historyczne pozostają bez zmian")
     );
