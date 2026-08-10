@@ -153,21 +153,16 @@ afterEach(() => {
 });
 
 describe("App shell", () => {
-  it("renders the product shell and diagnostics", async () => {
-    const user = userEvent.setup();
+  it("renders only the full-screen login for a signed-out user", () => {
+    render(<App authSessionApi={createAuthSessionApi(signedOutState)} />);
 
-    render(<App />);
-
-    expect(screen.getByRole("heading", { name: "Borowka PWA" })).toBeInTheDocument();
-    expect(screen.getByText("Firebase brak konfiguracji")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /diagnostyka/i }));
-
-    expect(screen.getByRole("heading", { name: "Diagnostyka" })).toBeInTheDocument();
-    expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
-    expect(screen.getByText("Identyfikator buildu")).toBeInTheDocument();
-    expect(screen.getByText("Nazwa urzadzenia")).toBeInTheDocument();
-    expect(screen.getByText("Platforma urzadzenia")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Borowka" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zaloguj sie" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Firebase/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Administrator")).not.toBeInTheDocument();
+    expect(screen.queryByText("Operator")).not.toBeInTheDocument();
+    expect(screen.queryByText("Zbieracz")).not.toBeInTheDocument();
   });
 
   it("submits email and password through the auth session API", async () => {
@@ -176,7 +171,6 @@ describe("App shell", () => {
 
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { signIn })} />);
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.type(screen.getByLabelText("E-mail"), "admin@example.test");
     await user.type(screen.getByLabelText("Haslo"), "secret-password");
     await user.click(screen.getByRole("button", { name: "Zaloguj" }));
@@ -203,7 +197,6 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.click(screen.getByRole("button", { name: "Nie pamietam hasla" }));
     await user.type(screen.getByLabelText("E-mail"), "admin@example.test");
     await user.click(screen.getByRole("button", { name: "Wyslij reset" }));
@@ -223,7 +216,6 @@ describe("App shell", () => {
 
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
     await user.type(screen.getByLabelText("E-mail"), "operator@example.test");
     await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
@@ -242,7 +234,6 @@ describe("App shell", () => {
 
     render(<App authSessionApi={createAuthSessionApi(signedOutState, { register })} />);
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
     await user.type(screen.getByLabelText("E-mail"), "Operator@Example.TEST");
     await user.type(screen.getByLabelText("Imie i nazwisko"), "Operator Test");
@@ -281,7 +272,6 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.click(screen.getByRole("button", { name: "Zaloz konto" }));
     await user.type(screen.getByLabelText("E-mail"), "picker@example.test");
     await user.type(screen.getByLabelText("Imie i nazwisko"), "Picker Test");
@@ -293,12 +283,10 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
-    expect(screen.getByRole("heading", { name: "Picker Test" })).toBeInTheDocument();
-    expect(screen.getAllByText("Zbieracz").length).toBeGreaterThan(0);
-    expect(screen.getByText("worker-1")).toBeInTheDocument();
-    expect(
-      screen.getByText("Konto zostalo utworzone i profil jest aktywny.")
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pulpit zbieracza" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Moje dane" })).toBeVisible();
+    expect(screen.queryByText("Administrator", { exact: true })).toBeNull();
+    expect(screen.queryByText("Operator", { exact: true })).toBeNull();
   });
 
   it("shows active profile state and sign out action", async () => {
@@ -312,18 +300,14 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Konto" }));
 
     expect(screen.getByRole("heading", { name: "Admin Test" })).toBeInTheDocument();
-    expect(screen.getAllByText("Administrator").length).toBeGreaterThan(0);
-    expect(screen.getByText("Status konta")).toBeInTheDocument();
-    expect(screen.getByText("zatwierdzone")).toBeInTheDocument();
-    expect(screen.getByText("Powiazany zbieracz")).toBeInTheDocument();
-    expect(screen.getByText("Zgoda offline")).toBeInTheDocument();
-    expect(screen.getByText("brak zgody")).toBeInTheDocument();
-    expect(screen.getByText("Identyfikator urzadzenia")).toBeInTheDocument();
-    expect(screen.getByText("Nazwa urzadzenia")).toBeInTheDocument();
-    expect(screen.getByText("Wersja aplikacji")).toBeInTheDocument();
+    expect(screen.getByText("admin@example.test")).toBeInTheDocument();
+    expect(screen.getByText("Informacje techniczne")).toBeInTheDocument();
+    expect(screen.getByText("Wersja aplikacji")).not.toBeVisible();
+    expect(screen.queryByRole("button", { name: "Zbiory" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Moje dane" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
 
@@ -364,7 +348,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(listLocalDocuments).toHaveBeenCalledTimes(2);
     });
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Konto" }));
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
 
     expect(signOut).not.toHaveBeenCalled();
@@ -415,7 +399,7 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Konto" }));
     await user.click(
       screen.getByRole("button", { name: "Wyloguj i wyczysc urzadzenie" })
     );
@@ -503,7 +487,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(listLocalDocuments).toHaveBeenCalledTimes(2);
     });
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Konto" }));
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
     expect(screen.getByText("Dane administratora")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Anuluj wylogowanie" }));
@@ -511,8 +495,9 @@ describe("App shell", () => {
     act(() => {
       sessionListener?.(activePickerState);
     });
-    await screen.findByRole("heading", { name: "Picker Test" });
+    await screen.findByRole("button", { name: "Moje dane" });
     expect(screen.queryByText("Dane administratora")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Konto" }));
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
     expect(signOut).not.toHaveBeenCalled();
     resolvePickerDocuments([]);
@@ -535,7 +520,6 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
 
     await waitFor(() => {
@@ -589,14 +573,16 @@ describe("App shell", () => {
       />
     );
 
-    await screen.findByText("Konto: Administrator");
+    await screen.findByRole("navigation", { name: "Nawigacja glowna" });
+    expect(screen.queryByRole("button", { name: "Moje dane" })).toBeNull();
 
     globalThis.dispatchEvent(new Event("focus"));
 
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
-    expect(screen.getByText("Konto: Operator")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Zbiory" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Moje dane" })).toBeNull();
   });
 
   it("refreshes the active profile on online event to detect account blocks", async () => {
@@ -612,18 +598,18 @@ describe("App shell", () => {
       />
     );
 
-    await screen.findByText("Konto: Zbieracz");
+    await screen.findByRole("button", { name: "Moje dane" });
 
     globalThis.dispatchEvent(new Event("online"));
 
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
-    expect(screen.getByText("Konto: zablokowane")).toBeInTheDocument();
+    expect(screen.getByText("Konto jest zablokowane.")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).toBeNull();
   });
 
   it("opens the private picker dashboard from the application shell", async () => {
-    const user = userEvent.setup();
     const load = vi.fn<PickerDashboardApi["load"]>().mockResolvedValue({
       accruedAmountGrosz: 5000,
       dataSource: "SERVER",
@@ -681,11 +667,12 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Zbieracz" }));
-
     expect(await screen.findByText("12,500 kg")).toBeInTheDocument();
     expect(screen.getByText("Picker Test / Anna Zbieracz")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Offline" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pulpit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Zbiory" })).toBeNull();
     expect(load).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -736,7 +723,10 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /logowanie/i }));
+    await user.click(screen.getByRole("button", { name: "Konto" }));
+    await user.click(
+      screen.getByText("Praca offline na tym urzadzeniu", { selector: "summary" })
+    );
     expect(screen.getByText(/Dane moga pozostac na tym urzadzeniu/)).toBeInTheDocument();
     expect(screen.getByText(/Tryb prywatny przegladarki/)).toBeInTheDocument();
     expect(screen.getAllByText(/Wyloguj i wyczysc urzadzenie/).length).toBeGreaterThan(0);
@@ -766,7 +756,7 @@ describe("App shell", () => {
         "Zgoda offline wlaczona. Uruchom ponownie PWA przed przygotowaniem offline."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("zgoda aktywna")).toBeInTheDocument();
+    expect(screen.getByLabelText("Zgoda na trwale dane offline")).toBeChecked();
   });
 
   it("starts synchronization on launch and after online activation when local data exists", async () => {
@@ -953,7 +943,7 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /ustawienia/i }));
+    await user.click(screen.getByRole("button", { name: "Offline" }));
     await screen.findByRole("heading", { name: "Centrum synchronizacji" });
     await user.click(screen.getByRole("button", { name: "Synchronizuj teraz" }));
 
@@ -1005,7 +995,7 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /ustawienia/i }));
+    await user.click(screen.getByRole("button", { name: "Offline" }));
 
     await waitFor(() => {
       expect(read).toHaveBeenCalled();
@@ -1113,43 +1103,65 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /^administrator$/i }));
+    expect(screen.getByRole("heading", { name: "Pulpit administratora" })).toBeVisible();
+    expect(list).not.toHaveBeenCalled();
+    expect(listWorkers).not.toHaveBeenCalled();
 
+    await user.click(screen.getByRole("tab", { name: "Konta" }));
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
       expect(listInvitations).toHaveBeenCalled();
       expect(listDevices).toHaveBeenCalled();
-      expect(listSeasons).toHaveBeenCalled();
-      expect(listSettlementPlans).toHaveBeenCalled();
-      expect(listPayments).toHaveBeenCalled();
-      expect(listIssues).toHaveBeenCalled();
-      expect(readPickerExportSetting).toHaveBeenCalled();
+    });
+    expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Zbieracze" }));
+    await waitFor(() => {
       expect(listWorkers).toHaveBeenCalledWith(expect.anything(), {
         viewerRole: "ADMIN"
       });
     });
-    expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Eksport danych pickera" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Pelny eksport chmury" })
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Lista kont" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Konfiguracja" }));
+    await waitFor(() => {
+      expect(listSeasons).toHaveBeenCalled();
+      expect(listSettlementPlans).toHaveBeenCalled();
+    });
     expect(
       screen.getByRole("heading", { name: "Konfiguracja sezonow" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Lista planow rozliczen" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Wyplaty" }));
+    await waitFor(() => {
+      expect(listPayments).toHaveBeenCalled();
+    });
+    expect(screen.getByRole("heading", { name: "Historia wyplat" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Zgloszenia" }));
+    await waitFor(() => {
+      expect(listIssues).toHaveBeenCalled();
+    });
     expect(
-      screen.getByRole("heading", { name: "Prerejestracja kont" })
+      screen.getByRole("heading", { name: "Zgloszenia niezgodnosci" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Lista urzadzen" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Dane" }));
+    await waitFor(() => {
+      expect(readPickerExportSetting).toHaveBeenCalled();
+    });
+    expect(
+      screen.getByRole("heading", { name: "Eksport danych pickera" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Pelny eksport chmury" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Lista kont" })).toBeNull();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 
@@ -1248,21 +1260,12 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /^operator$/i }));
-
     await waitFor(() => {
       expect(listHarvestSessions).toHaveBeenCalledWith(expect.anything(), {
         actorProfile: activeOperatorState.profile,
         selectedSessionId: null,
         isOnline: true
       });
-      expect(loadOperatorDashboard).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          actorProfile: activeOperatorState.profile,
-          isOnline: true
-        })
-      );
     });
     expect(listOpeningConfiguration).toHaveBeenCalledWith(expect.anything(), {
       actorProfile: activeOperatorState.profile,
@@ -1271,8 +1274,24 @@ describe("App shell", () => {
     expect(
       screen.getByRole("heading", { name: "Otwarte sesje zbioru" })
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { name: "Pulpit operatora" })).toHaveLength(2);
+    expect(loadOperatorDashboard).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Pulpit" }));
+    await waitFor(() => {
+      expect(loadOperatorDashboard).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          actorProfile: activeOperatorState.profile,
+          isOnline: true
+        })
+      );
+    });
+    expect(screen.getByRole("heading", { name: "Pulpit operatora" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Otwarte sesje zbioru" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Nowy zbior" }));
+    expect(screen.getByRole("heading", { name: "Otwarte sesje zbioru" })).toBeVisible();
   });
 });

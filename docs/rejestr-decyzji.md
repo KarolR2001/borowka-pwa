@@ -187,3 +187,10 @@
 - Decyzja: kazdy z 392 unikalnych identyfikatorow wymagan, regul i kryteriow PRD musi wystapic dokladnie raz w generowanej macierzy. Statusy rozrozniaja dowod automatyczny, pokrycie czesciowe, oczekujacy test manualny, odroczenie urzadzeniowe, jawne wykluczenie zakresu i brak pokrycia.
 - Uzasadnienie: samo wskazanie pliku testowego nie moze oznaczac zaliczenia bramki manualnej ani urzadzeniowej. Wersjonowany generator pozwala wykryc pominiecie, duplikat, nieistniejacy dowod i nieaktualny raport.
 - Skutki: `GAP`, niezaakceptowany test manualny oraz niezamkniete wymaganie krytyczne blokuja decyzje o gotowosci RC. `BR-CALC-020` ma status `EXCLUDED_SCOPE` na podstawie DEC-0021; scenariusze `OFF-T01`-`OFF-T06` pozostaja `DEFERRED_DEVICE` do czasu dostepnosci telefonu.
+
+## DEC-0024 - Powloka i widocznosc interfejsu wedlug roli
+
+- Data: 2026-08-10
+- Status: zaakceptowana
+- Decyzja: niezalogowany uzytkownik widzi tylko pelnoekranowy ekran logowania, a po zalogowaniu trafia na ekran glowny swojej roli. Nawigacja i moduly innych rol nie sa renderowane. Stale komunikaty techniczne zostaja usuniete z podstawowego interfejsu; diagnostyka jest zwijana i dostepna administratorowi.
+- Skutki: wspolna nawigacja `Administrator`/`Operator`/`Zbieracz` nie moze wrocic. Interfejs ma pozostac prosty i mobilny, a komunikaty systemowe maja byc chwilowe albo dostepne na zadanie. Korekty sesji pozostaja funkcja administratora w obszarze `Korekty`, bez udostepniania mu nawigacji operatora.

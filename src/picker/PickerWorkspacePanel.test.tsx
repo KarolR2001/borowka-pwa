@@ -142,5 +142,11 @@ describe("PickerWorkspacePanel", () => {
       await screen.findByRole("heading", { name: "Eksport CSV" })
     ).toBeInTheDocument();
     expect(exportLoad).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("tab", { name: "Offline" }));
+
+    expect(
+      await screen.findByRole("region", { name: "Gotowosc danych pickera offline" })
+    ).toBeInTheDocument();
   });
 });

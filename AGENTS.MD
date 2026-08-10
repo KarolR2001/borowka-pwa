@@ -10,7 +10,7 @@ Glowny cel to dokonczenie implementacji aplikacji zgodnie z dokumentami:
 - `../Plan_Implementacji.md`
 - `../Plan_Implementacji_Borowka_PWA_Szczegolowy.md`
 
-Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb offline-first, synchronizacja, wyplaty, sprzedaz, raporty, migracja danych, produkcja i stabilizacja.
+Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb offline-first, synchronizacja, wyplaty, sprzedaz, raporty, produkcja i stabilizacja. Import, inwentaryzacja i migracja danych z poprzednich sezonow sa poza zakresem.
 
 ## Srodowisko pracy
 
@@ -90,6 +90,16 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Firebase dev i prod traktuj jako oddzielne srodowiska.
 - Nie wdrazaj produkcji przypadkowo.
 
+## Zasady UX powloki aplikacji
+
+- Niezalogowany uzytkownik widzi na pelnym ekranie tylko logowanie, odzyskanie hasla i prerejestracje. Nie pokazuj mu nawigacji, pulpitow ani diagnostyki.
+- Po zalogowaniu otwieraj domyslny ekran przypisany do roli `ADMIN`, `OPERATOR` albo `PICKER`.
+- Kazda rola otrzymuje wlasna nawigacje i wlasne moduly. Elementow innych rol nie renderuj; nie zastepuj ich komunikatem o braku dostepu.
+- Pokazuj stale tylko informacje potrzebne do wykonania zadania. Szczegoly techniczne i systemowe umieszczaj w komunikatach chwilowych albo zamknietych sekcjach diagnostycznych dostepnych administratorowi.
+- Nie pokazuj stale komunikatow typu `Firebase gotowy`, wersji buildu ani stanu uslug technicznych.
+- Projektuj przede wszystkim dla telefonu: prosta hierarchia, malo krokow, duze cele dotykowe, brak poziomego przelewania calej strony.
+- Zachowuj wszystkie operacje biznesowe danej roli. Przy rozdzielaniu ekranow sprawdz, czy skroty akcji prowadza do nowej lokalizacji formularza.
+
 ## Firebase
 
 Firebase jest uzywany do:
@@ -156,7 +166,10 @@ W pozostalych przypadkach podejmuj rozsadne decyzje na podstawie dokumentacji, k
   `1c7b3b5`; nie implementuj go ponownie.
 - Pakiet `10.1 - zamrozenie zakresu release candidate` zostal scalony do
   `main` jako `b263986`; nie implementuj go ponownie.
-- Biezacy pakiet: `10.2 - pelna macierz wymagan do testow`.
+- Pakiet `10.2 - pelna macierz wymagan do testow` zostal scalony do `main` jako
+  `88504b7`; nie implementuj go ponownie.
+- Biezacy przyrost: niezbedna korekta UX RC - pelnoekranowe logowanie,
+  role-specific home i izolacja widocznych modulow wedlug DEC-0024.
 - `docs/testing/requirements-traceability.md` jest generowany; nie edytuj go
   recznie. Zmien przypisania w `scripts/requirement-traceability.mjs`, a potem
   uruchom `npm run requirements:write` i `npm run requirements:check`.

@@ -10,7 +10,7 @@ test.describe("Seeded harvest flow", () => {
     await page.goto("/");
 
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
-    await page.getByRole("button", { name: "Operator" }).click();
+    await page.getByRole("tab", { name: "Pulpit" }).click();
 
     const operatorDashboard = page.locator(".operator-dashboard");
     await expect(operatorDashboard).toBeVisible();
@@ -37,19 +37,12 @@ test.describe("Seeded harvest flow", () => {
     await page.goto("/");
 
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
-    await page.getByRole("button", { name: "Operator" }).click();
 
-    const operatorDashboard = page.locator(".operator-dashboard");
-    await expect(operatorDashboard).toBeVisible();
-    await expect(operatorDashboard.getByText("Dostepne operacyjnie")).toBeVisible();
-    await expect(operatorDashboard.getByText(/przychod/i)).toHaveCount(0);
     const openSessionForm = page.getByRole("form", {
       name: "Otwieranie sesji zbioru"
     });
     await expect(openSessionForm).toBeVisible();
     await expect(page.getByLabel("Zbieracz")).toBeEnabled();
-    await operatorDashboard.getByRole("button", { name: "Nowy zbior" }).click();
-    await expect(page.getByLabel("Zbieracz")).toBeFocused();
     await page.getByLabel("Data").fill("2026-07-17");
     await page.getByRole("button", { name: "Otworz sesje" }).click();
 
@@ -83,7 +76,7 @@ test.describe("Seeded harvest flow", () => {
 
     await signOut(page);
     await loginAs(page, ADMIN_EMAIL, "Admin E2E");
-    await page.getByRole("button", { name: "Operator" }).click();
+    await page.getByRole("tab", { name: "Korekty" }).click();
 
     await expect(
       page.getByRole("form", { name: "Ponowne otwarcie sesji zbioru" })
@@ -138,16 +131,17 @@ test.describe("Seeded harvest flow", () => {
 });
 
 async function loginAs(page: Page, email: string, expectedDisplayName: string) {
-  await page.getByRole("button", { name: "Logowanie" }).click();
   await expect(page.getByRole("heading", { name: "Zaloguj sie" })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
   await page.locator('input[autocomplete="current-password"]').fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Zaloguj" }).click();
-  await expect(page.getByRole("heading", { name: expectedDisplayName })).toBeVisible();
+  await expect(
+    page.locator(".topbar").getByText(expectedDisplayName, { exact: true })
+  ).toBeVisible();
 }
 
 async function signOut(page: Page) {
-  await page.getByRole("button", { name: "Logowanie" }).click();
+  await page.getByRole("button", { name: "Konto" }).click();
   await page.getByRole("button", { name: "Wyloguj", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Zaloguj sie" })).toBeVisible();
 }

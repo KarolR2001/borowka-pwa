@@ -1,4 +1,11 @@
-import { Banknote, FileSpreadsheet, Flag, LayoutDashboard, List } from "lucide-react";
+import {
+  Banknote,
+  CloudDownload,
+  FileSpreadsheet,
+  Flag,
+  LayoutDashboard,
+  List
+} from "lucide-react";
 import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -25,7 +32,7 @@ import {
 } from "./PickerOfflineDataPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "EXPORT";
+type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "OFFLINE" | "EXPORT";
 
 export function PickerWorkspacePanel({
   authState,
@@ -70,14 +77,6 @@ export function PickerWorkspacePanel({
 
   return (
     <section className="picker-workspace" aria-label="Strefa zbieracza">
-      <PickerOfflineDataPanel
-        authState={authState}
-        cacheMode={cacheMode}
-        deviceId={deviceId}
-        env={env}
-        isOnline={isOnline}
-        offlineDataApi={pickerOfflineDataApi}
-      />
       <div
         className="picker-workspace__tabs"
         role="tablist"
@@ -123,6 +122,14 @@ export function PickerWorkspacePanel({
             setActiveView("EXPORT");
           }}
         />
+        <WorkspaceTab
+          active={activeView === "OFFLINE"}
+          icon={CloudDownload}
+          label="Offline"
+          onClick={() => {
+            setActiveView("OFFLINE");
+          }}
+        />
       </div>
       {activeView === "SUMMARY" ? (
         <PickerDashboardPanel
@@ -161,6 +168,15 @@ export function PickerWorkspacePanel({
           onLocalDocumentsChanged={onLocalDocumentsChanged}
           onInitialSessionHandled={handleInitialSessionHandled}
           sessionDetailsApi={pickerSessionDetailsApi}
+        />
+      ) : activeView === "OFFLINE" ? (
+        <PickerOfflineDataPanel
+          authState={authState}
+          cacheMode={cacheMode}
+          deviceId={deviceId}
+          env={env}
+          isOnline={isOnline}
+          offlineDataApi={pickerOfflineDataApi}
         />
       ) : (
         <PickerDataExportPanel

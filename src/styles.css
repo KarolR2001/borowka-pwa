@@ -37,12 +37,45 @@ select {
   color: #173129;
 }
 
+.auth-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #173129;
+  background: #eef4ef;
+}
+
+.auth-screen__content {
+  width: min(100%, 430px);
+}
+
+.auth-screen__brand {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.auth-screen__brand h1 {
+  font-size: 2rem;
+}
+
+.auth-screen .auth-panel {
+  margin: 0;
+}
+
+.auth-screen .auth-card {
+  width: 100%;
+  padding: 26px;
+  box-shadow: 0 14px 36px rgb(23 49 41 / 8%);
+}
+
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 24px clamp(16px, 4vw, 48px);
+  padding: 16px clamp(16px, 4vw, 40px);
   background: #ffffff;
   border-bottom: 1px solid #dce6df;
 }
@@ -70,20 +103,26 @@ h2 {
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
 
-.topbar__meta {
+.topbar__context {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
   color: #274237;
   font-size: 0.88rem;
 }
 
-.topbar__meta span {
-  border: 1px solid #cbd8d0;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #f7faf7;
+.connection-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #17663f;
+  font-weight: 800;
+}
+
+.connection-state.is-offline {
+  color: #8a3b12;
 }
 
 .pwa-update-notice {
@@ -152,8 +191,8 @@ h2 {
 }
 
 .nav-tabs {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(92px, 1fr));
+  display: flex;
+  justify-content: center;
   gap: 1px;
   overflow-x: auto;
   background: #dce6df;
@@ -161,6 +200,8 @@ h2 {
 }
 
 .nav-tabs__button {
+  flex: 1 1 0;
+  max-width: 220px;
   min-height: 52px;
   border: 0;
   border-radius: 0;
@@ -184,7 +225,39 @@ h2 {
 .workspace {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 24px 0 48px;
+  padding: 20px 0 48px;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 1px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  border: 1px solid #d5e0d9;
+  border-radius: 8px;
+  background: #d5e0d9;
+}
+
+.workspace-tab {
+  min-width: max-content;
+  min-height: 46px;
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  padding: 9px 14px;
+  color: #41584c;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.workspace-tab:hover,
+.workspace-tab.is-active {
+  color: #0d4c2f;
+  background: #e8f4ec;
 }
 
 .status-band {
@@ -264,10 +337,43 @@ h2 {
 }
 
 .diagnostics {
-  margin-top: 20px;
+  margin-top: 12px;
   border: 1px solid #dce6df;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.technical-details,
+.account-options {
+  max-width: 760px;
+  margin-top: 16px;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.technical-details > summary,
+.account-options > summary {
+  padding: 14px 16px;
+  color: #314a3e;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.technical-details .diagnostics {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #dce6df;
+  border-radius: 0;
+}
+
+.account-options {
+  margin: 0;
+}
+
+.account-options .offline-consent {
+  border-top: 1px solid #dce6df;
+  padding: 16px;
 }
 
 .diagnostics__row {
@@ -3320,16 +3426,11 @@ h2 {
 
 @media (max-width: 860px) {
   .topbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .topbar__meta {
-    justify-content: flex-start;
+    gap: 12px;
   }
 
   .nav-tabs {
-    grid-template-columns: repeat(7, minmax(132px, 1fr));
+    justify-content: stretch;
   }
 
   .status-band,
@@ -3450,9 +3551,57 @@ h2 {
 }
 
 @media (max-width: 520px) {
+  .auth-screen {
+    align-items: start;
+    padding: 32px 12px 20px;
+  }
+
+  .auth-screen .auth-card {
+    padding: 20px;
+    box-shadow: none;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .topbar h1 {
+    font-size: 1.35rem;
+  }
+
+  .topbar__context {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+    font-size: 0.78rem;
+  }
+
+  .nav-tabs__button {
+    min-height: 48px;
+    padding: 8px;
+  }
+
+  .nav-tabs__button span {
+    font-size: 0.78rem;
+  }
+
   .workspace {
     width: min(100% - 20px, 1180px);
     padding-top: 16px;
+  }
+
+  .workspace-tabs {
+    margin-right: -10px;
+    margin-left: -10px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .workspace-tab {
+    min-height: 48px;
+    padding: 8px 12px;
   }
 
   .primary-panel {
