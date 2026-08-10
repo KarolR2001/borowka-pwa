@@ -254,7 +254,7 @@ export async function verifyFullCloudExportCopies(paths) {
 
   const copies = [];
   for (const path of resolvedPaths) {
-    const report = await validateFullCloudExportArchive(await readFile(path));
+    const report = validateFullCloudExportArchive(await readFile(path));
     copies.push({ path, report });
   }
   const expectedSha256 = copies[0].report.archiveSha256;
