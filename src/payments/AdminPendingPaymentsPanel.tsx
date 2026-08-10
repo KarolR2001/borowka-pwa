@@ -187,7 +187,10 @@ export function AdminPendingPaymentsPanel({
   }
 
   return (
-    <section className="pending-payment-directory" aria-labelledby="payments-title">
+    <section
+      className="pending-payment-directory"
+      aria-label="Sesje oczekujące na wypłatę"
+    >
       <CollapsibleFilters>
         <PaymentFilters filters={filters} onChange={setFilters} sessions={sessions} />
       </CollapsibleFilters>

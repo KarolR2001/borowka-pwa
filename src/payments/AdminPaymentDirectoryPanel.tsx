@@ -1,4 +1,4 @@
-import { Ban, Banknote, Download, Eye, RefreshCw, X } from "lucide-react";
+import { Ban, Banknote, Download, Eye, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -210,7 +210,7 @@ export function AdminPaymentDirectoryPanel({
   }
 
   return (
-    <section className="payment-directory" aria-labelledby="payment-directory-title">
+    <section className="payment-directory" aria-label="Historia wypłat">
       <header className="directory-header">
         <div className="payment-directory__header-actions">
           <button
@@ -221,20 +221,6 @@ export function AdminPaymentDirectoryPanel({
           >
             <Download aria-hidden="true" size={18} />
             Eksport CSV
-          </button>
-          <button
-            className="secondary-button icon-button"
-            disabled={state.status === "LOADING"}
-            onClick={() => {
-              setExportError(null);
-              setFeedback(null);
-              setReloadKey((current) => current + 1);
-            }}
-            title="Odśwież historię wypłat"
-            type="button"
-          >
-            <RefreshCw aria-hidden="true" size={18} />
-            <span className="sr-only">Odśwież historię wypłat</span>
           </button>
         </div>
       </header>
