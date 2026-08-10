@@ -100,6 +100,16 @@ Docelowo aplikacja ma nadawac sie do realnego uzycia: ewidencja zbiorow, tryb of
 - Projektuj przede wszystkim dla telefonu: prosta hierarchia, malo krokow, duze cele dotykowe, brak poziomego przelewania calej strony.
 - Zachowuj wszystkie operacje biznesowe danej roli. Przy rozdzielaniu ekranow sprawdz, czy skroty akcji prowadza do nowej lokalizacji formularza.
 
+## Zasady tresci i formularzy
+
+- Nie pokazuj stale informacji o trybie online lub offline. Po utracie polaczenia pokaz jedynie krotki, samoczynnie znikajacy popup, a po odzyskaniu polaczenia analogiczny popup o powrocie online.
+- Komunikaty o zakonczonej kontroli, odswiezeniu lub aktualizacji pokazuj jako samoczynnie znikajace popupy, a nie stale sekcje strony.
+- Filtry i drugorzedne ustawienia list umieszczaj w domyslnie zamknietej sekcji rozwijanej przyciskiem. Bez rozwijania pokazuj tylko informacje i akcje kluczowe dla danego ekranu.
+- Formularze maja byc zrozumiale bez wiedzy technicznej. Przy polach wyboru i polach tekstowych dodawaj dostepna pod klawiatura ikone informacji z krotkim wyjasnieniem celu pola, gdy etykieta nie wyjasnia go jednoznacznie.
+- Identyfikatory, kody i symbole techniczne generuj automatycznie. Nie wymagaj ich od uzytkownika, jezeli nie sa decyzja biznesowa; dotyczy to w szczegolnosci tworzenia planu rozliczen.
+- Wszystkie teksty widoczne dla uzytkownika zapisuj poprawna polszczyzna z polskimi znakami.
+- W interfejsie uzywaj slowa `data`, nigdy okreslenia `data biznesowa`.
+
 ## Firebase
 
 Firebase jest uzywany do:
