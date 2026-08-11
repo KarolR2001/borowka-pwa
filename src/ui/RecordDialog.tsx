@@ -10,11 +10,13 @@ export function RecordDialog({
   onClose: () => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const previouslyFocusedElement = document.activeElement;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
 
     surfaceRef.current?.focus();
@@ -25,7 +27,7 @@ export function RecordDialog({
         previouslyFocusedElement.focus();
       }
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

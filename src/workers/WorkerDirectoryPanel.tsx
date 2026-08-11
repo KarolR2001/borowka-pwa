@@ -668,7 +668,10 @@ export function WorkerDirectoryPanel({
                   {isAdmin ? <td>{workerRateLabel(worker.currentRateVersion)}</td> : null}
                   <td>{workerUnitLabel(worker.currentPlan)}</td>
                   {isAdmin ? (
-                    <td>{worker.linkedUser?.email ?? worker.linkedUserUid ?? "brak"}</td>
+                    <td>
+                      {worker.linkedUser?.email ??
+                        (worker.linkedUserUid ? "Powiązane konto" : "brak")}
+                    </td>
                   ) : null}
                   {isAdmin ? (
                     <td>{workerSummaryKgLabel(worker.seasonSummary.totalKgGrams)}</td>
@@ -839,7 +842,7 @@ function WorkerProfilePanel({
           <dl className="worker-profile__facts">
             <WorkerProfileFact
               label="Plan"
-              value={worker.currentPlan?.name ?? worker.currentPlanId}
+              value={worker.currentPlan?.name ?? "Plan niedostępny"}
             />
             <WorkerProfileFact
               label="Stawka"
@@ -860,7 +863,10 @@ function WorkerProfilePanel({
           <dl className="worker-profile__facts">
             <WorkerProfileFact
               label="Konto"
-              value={worker.linkedUser?.email ?? worker.linkedUserUid ?? "brak"}
+              value={
+                worker.linkedUser?.email ??
+                (worker.linkedUserUid ? "Powiązane konto" : "brak")
+              }
             />
             <WorkerProfileFact
               label="Status konta"
@@ -880,7 +886,7 @@ function WorkerProfilePanel({
               value={workerSummaryMoneyLabel(worker.seasonSummary.earnedGrosz)}
             />
             <WorkerProfileFact
-              label="Wyplacone"
+              label="Wypłacone"
               value={workerSummaryMoneyLabel(worker.seasonSummary.paidGrosz)}
             />
             <WorkerProfileFact
@@ -903,7 +909,7 @@ function WorkerProfilePanel({
       ) : (
         <WorkerProfileSection title="Powiązanie konta">
           <p className="worker-profile__empty">
-            Zbieracz jest archiwalny; powiazanie konta pozostaje tylko w historii.
+            Zbieracz jest archiwalny; powiązanie konta pozostaje tylko w historii.
           </p>
         </WorkerProfileSection>
       )}
@@ -915,7 +921,7 @@ function WorkerProfilePanel({
         <p className="form-message form-message--error">{accountLinkError}</p>
       ) : null}
 
-      <WorkerProfileSection title="Ostrzezenia">
+      <WorkerProfileSection title="Ostrzeżenia">
         {worker.warnings.length > 0 ? (
           <ul className="worker-profile__list">
             {worker.warnings.map((warning) => (
