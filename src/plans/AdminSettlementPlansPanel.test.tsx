@@ -143,10 +143,7 @@ describe("AdminSettlementPlansPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
     });
-    expect(
-      screen.getByRole("heading", { name: "Lista planów rozliczeń" })
-    ).toBeInTheDocument();
-    expect(screen.getByText("Za kilogram")).toBeInTheDocument();
+    expect(await screen.findByText("Za kilogram")).toBeInTheDocument();
     expect(screen.getByText("Za ubianke")).toBeInTheDocument();
     expect(screen.getByText("broken-plan")).toBeInTheDocument();
     expect(screen.getByText("broken-rate")).toBeInTheDocument();

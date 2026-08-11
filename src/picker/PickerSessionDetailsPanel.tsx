@@ -190,7 +190,7 @@ export function PickerSessionDetailsPanel({
                     <div>
                       <strong>Wpis {String(entry.sequenceNumber)}</strong>
                       {entry.kind === "CORRECTION" ? (
-                        <span>Korekta wpisu {entry.replacesEntryId}</span>
+                        <span>Korekta wcześniejszego wpisu</span>
                       ) : null}
                       <span>
                         {entry.status === "CANCELLED" ? "Anulowany" : "Aktywny"}
@@ -223,7 +223,7 @@ export function PickerSessionDetailsPanel({
 
           {result.invalidEntryCount > 0 || result.invalidPayment ? (
             <p className="form-message form-message--warning">
-              Dane wymagajace kontroli: wpisy {result.invalidEntryCount}, wypłata{" "}
+              Dane wymagające kontroli: wpisy {result.invalidEntryCount}, wypłata{" "}
               {result.invalidPayment ? "1" : "0"}.
             </p>
           ) : null}

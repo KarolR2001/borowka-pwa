@@ -93,10 +93,7 @@ export function PaymentConfirmationForm({
       </header>
 
       <dl className="payment-confirmation-summary">
-        <SummaryItem
-          label="Sesja"
-          value={`${formatBusinessDate(session.businessDate)} / ${session.sessionId}`}
-        />
+        <SummaryItem label="Sesja" value={formatBusinessDate(session.businessDate)} />
         <SummaryItem label="Zbieracz" value={session.workerName} />
         <SummaryItem
           label="Plan i stawka"

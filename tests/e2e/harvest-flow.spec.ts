@@ -45,6 +45,7 @@ test.describe("Seeded harvest flow", () => {
 
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
 
+    await page.locator("summary").filter({ hasText: "Otwórz nową sesję" }).click();
     const openSessionForm = page.getByRole("form", {
       name: "Otwieranie sesji zbioru"
     });
@@ -85,6 +86,7 @@ test.describe("Seeded harvest flow", () => {
     await loginAs(page, ADMIN_EMAIL, "Admin E2E");
     await page.getByRole("tab", { name: "Korekty" }).click();
 
+    await page.locator("summary").filter({ hasText: "Otwórz ponownie sesję" }).click();
     await expect(
       page.getByRole("form", { name: "Ponowne otwarcie sesji zbioru" })
     ).toBeVisible();
@@ -126,6 +128,7 @@ test.describe("Seeded harvest flow", () => {
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Dodaj wpis" })).toHaveCount(0);
 
+    await page.locator("summary").filter({ hasText: "Anuluj sesję" }).click();
     await page.getByLabel("Powód anulowania").fill("Test E2E anulowania");
     await page.getByRole("button", { name: "Anuluj sesję" }).click();
 

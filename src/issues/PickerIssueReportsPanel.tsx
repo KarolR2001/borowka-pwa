@@ -1,4 +1,4 @@
-import { Flag, RefreshCw, Send, UserRound } from "lucide-react";
+import { Flag, Send, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -187,7 +187,7 @@ export function PickerIssueReportsPanel({
       <section className="access-notice" aria-label="Moje zgłoszenia">
         <UserRound aria-hidden="true" size={24} />
         <div>
-          <p className="eyebrow">Niezgodnosci</p>
+          <p className="eyebrow">Niezgodności</p>
           <p>Zgłoszenia wymagają aktywnego konta zbieracza.</p>
         </div>
       </section>
@@ -241,25 +241,13 @@ export function PickerIssueReportsPanel({
     <section className="issue-report-directory" aria-labelledby="picker-issues-title">
       <header className="directory-header">
         <div>
-          <p className="eyebrow">Niezgodnosci</p>
+          <p className="eyebrow">Niezgodności</p>
           <h2 id="picker-issues-title">Moje zgłoszenia</h2>
           <p className="panel-detail">
             Otwarte: {String(openCount)}. Odpowiedz administratora nie zmienia danych
             sesji ani wypłaty.
           </p>
         </div>
-        <button
-          aria-label="Odśwież moje zgłoszenia"
-          className="secondary-button icon-button"
-          disabled={listState.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież moje zgłoszenia"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-        </button>
       </header>
 
       {sourceState.status === "LOADING" ? (
@@ -385,14 +373,11 @@ export function PickerIssueReportsPanel({
                 <strong>{subjectLabel(report.subject)}</strong>
                 <span className={statusClass(report.status)}>
                   {report.pendingSync
-                    ? "Oczekuje na synchronizacje"
+                    ? "Oczekuje na synchronizację"
                     : statusLabel(report.status)}
                 </span>
               </div>
-              <span>
-                Sesja: {report.sessionId}
-                {report.entryId ? `, wpis: ${report.entryId}` : ""}
-              </span>
+              <span>{formatIssueReportDate(report.createdAtIso)}</span>
               <p>{report.message}</p>
               {report.resolutionNote ? (
                 <p className="issue-report-list__response">
@@ -412,6 +397,18 @@ export function PickerIssueReportsPanel({
       ) : null}
     </section>
   );
+}
+
+function formatIssueReportDate(value: string | null): string {
+  if (!value) return "Oczekuje na wysłanie";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Data niedostępna";
+
+  return new Intl.DateTimeFormat("pl-PL", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
 }
 
 function subjectLabel(subject: IssueReportSubject): string {

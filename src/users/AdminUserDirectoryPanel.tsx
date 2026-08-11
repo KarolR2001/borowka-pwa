@@ -1,17 +1,10 @@
-import {
-  RefreshCw,
-  Search,
-  ShieldAlert,
-  UserCheck,
-  UserCog,
-  UsersRound,
-  UserX
-} from "lucide-react";
+import { Search, ShieldAlert, UserCheck, UserCog, UsersRound, UserX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
 import {
   defaultWorkerDirectoryApi,
@@ -519,83 +512,65 @@ export function AdminUserDirectoryPanel({
 
   return (
     <section className="user-directory" aria-label="Użytkownicy">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Użytkownicy</p>
-          <h2>Lista kont</h2>
-          <p className="panel-detail">{directoryState.message}</p>
+      {directoryState.result ? (
+        <div className="screen-actions" aria-label="Akcje kont">
+          {isLastActiveAdmin ? <LastAdminProtectionNotice /> : null}
+          <CollapsibleSection
+            icon={<UserCog aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Zmień rolę lub powiązanie"
+          >
+            <RoleChangeForm
+              draft={roleChangeDraft}
+              error={roleChangeError}
+              feedback={roleChangeFeedback}
+              isSubmitting={isRoleChangeSubmitting}
+              onChange={setRoleChangeDraft}
+              onSubmit={() => {
+                void handleRoleChangeSubmit();
+              }}
+              profiles={editableRoleChangeProfiles}
+              workers={workers}
+              workersError={workersError}
+              workersLoading={workersLoading}
+            />
+          </CollapsibleSection>
+          <CollapsibleSection
+            icon={<UserX aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Zablokuj lub przywróć konto"
+          >
+            <AccountStatusForm
+              draft={accountStatusDraft}
+              error={accountStatusError}
+              feedback={accountStatusFeedback}
+              isSubmitting={isAccountStatusSubmitting}
+              onChange={setAccountStatusDraft}
+              onSubmit={() => {
+                void handleAccountStatusSubmit();
+              }}
+              profiles={editableAccountStatusProfiles}
+              workers={workers}
+              workersError={workersError}
+              workersLoading={workersLoading}
+            />
+          </CollapsibleSection>
+          {directoryState.result.invalidProfiles.length > 0 ? (
+            <CollapsibleSection
+              icon={<ShieldAlert aria-hidden="true" size={18} strokeWidth={2.2} />}
+              label={`Problemy danych (${String(directoryState.result.invalidProfiles.length)})`}
+            >
+              <ul className="invalid-profiles__list">
+                {directoryState.result.invalidProfiles.map((invalidProfile) => (
+                  <li key={invalidProfile.id}>{invalidProfile.reason}</li>
+                ))}
+              </ul>
+            </CollapsibleSection>
+          ) : null}
         </div>
-        <button
-          className="secondary-action"
-          disabled={directoryState.status === "LOADING"}
-          onClick={() => {
-            setDirectoryState((current) => ({
-              status: "LOADING",
-              result: current.result,
-              message: "Pobieranie użytkowników."
-            }));
-
-            void userDirectoryApi
-              .list(env)
-              .then((result) => {
-                setDirectoryState({
-                  status: "READY",
-                  result,
-                  message: "Lista użytkowników jest aktualna."
-                });
-              })
-              .catch(() => {
-                setDirectoryState((current) => ({
-                  status: "ERROR",
-                  result: current.result,
-                  message: "Nie udało się pobrać listy użytkowników."
-                }));
-              });
-          }}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
-      </div>
+      ) : null}
 
       <CollapsibleFilters>
         <DirectoryFilters filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
-
-      {directoryState.result ? (
-        <>
-          {isLastActiveAdmin ? <LastAdminProtectionNotice /> : null}
-          <RoleChangeForm
-            draft={roleChangeDraft}
-            error={roleChangeError}
-            feedback={roleChangeFeedback}
-            isSubmitting={isRoleChangeSubmitting}
-            onChange={setRoleChangeDraft}
-            onSubmit={() => {
-              void handleRoleChangeSubmit();
-            }}
-            profiles={editableRoleChangeProfiles}
-            workers={workers}
-            workersError={workersError}
-            workersLoading={workersLoading}
-          />
-          <AccountStatusForm
-            draft={accountStatusDraft}
-            error={accountStatusError}
-            feedback={accountStatusFeedback}
-            isSubmitting={isAccountStatusSubmitting}
-            onChange={setAccountStatusDraft}
-            onSubmit={() => {
-              void handleAccountStatusSubmit();
-            }}
-            profiles={editableAccountStatusProfiles}
-            workers={workers}
-            workersError={workersError}
-            workersLoading={workersLoading}
-          />
-        </>
-      ) : null}
 
       <div className="directory-summary" aria-label="Podsumowanie użytkowników">
         <DirectoryStat
@@ -647,24 +622,6 @@ export function AdminUserDirectoryPanel({
               ))}
             </tbody>
           </table>
-        </div>
-      ) : null}
-
-      {directoryState.result && directoryState.result.invalidProfiles.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Błędne profile">
-          <div className="access-notice__icon">
-            <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
-          </div>
-          <div>
-            <p className="eyebrow">Błędne dokumenty</p>
-            <ul>
-              {directoryState.result.invalidProfiles.map((invalidProfile) => (
-                <li key={invalidProfile.id}>
-                  <strong>{invalidProfile.id}</strong>: {invalidProfile.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       ) : null}
     </section>

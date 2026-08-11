@@ -95,7 +95,7 @@ describe("PaymentConfirmationForm", () => {
       />
     );
 
-    expect(screen.getByText("20.07.2026 / session-1")).toBeVisible();
+    expect(screen.getByText("20.07.2026")).toBeVisible();
     expect(screen.getByText("Za kilogram, 10,00 zł / kilogramy")).toBeVisible();
     expect(screen.getByText("125,00 zł")).toBeVisible();
     expect(screen.queryByRole("textbox", { name: /kwota/i })).not.toBeInTheDocument();

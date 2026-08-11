@@ -2,7 +2,6 @@ import {
   Archive,
   Link2,
   Plus,
-  RefreshCw,
   Scale,
   Search,
   ShieldAlert,
@@ -17,7 +16,9 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import { userRoleLabel, type UserProfile } from "../domain/identity";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   archiveWorker,
   createWorkerRateVersion,
@@ -303,37 +304,6 @@ export function WorkerDirectoryPanel({
     }));
   }, [activePlans, createDraft.planId, isAdmin]);
 
-  const reload = () => {
-    if (!viewerRole) {
-      return;
-    }
-
-    setState((current) => ({
-      status: "LOADING",
-      result: current.result,
-      message: "Pobieranie zbieraczy."
-    }));
-
-    void workerDirectoryApi
-      .list(env, {
-        viewerRole
-      })
-      .then((result) => {
-        setState({
-          status: "READY",
-          result,
-          message: "Lista zbieraczy jest aktualna."
-        });
-      })
-      .catch(() => {
-        setState((current) => ({
-          status: "ERROR",
-          result: current.result,
-          message: "Nie udało się pobrać zbieraczy."
-        }));
-      });
-  };
-
   const handleCreateWorker = async () => {
     if (authState.status !== "READY" || authState.profile.role !== "ADMIN") {
       return;
@@ -571,22 +541,25 @@ export function WorkerDirectoryPanel({
 
   return (
     <section className="worker-directory" aria-label="Lista zbieraczy">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Zbieracze</p>
-          <h2>Lista zbieraczy</h2>
-          <p className="panel-detail">{state.message}</p>
+      {isAdmin && state.result ? (
+        <div className="screen-actions" aria-label="Akcje zbieraczy">
+          <CollapsibleSection
+            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Dodaj zbieracza"
+          >
+            <CreateWorkerForm
+              activePlans={activePlans}
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreateWorker();
+              }}
+              similarWorkerNames={similarWorkerNames}
+            />
+          </CollapsibleSection>
         </div>
-        <button
-          className="secondary-action"
-          disabled={state.status === "LOADING"}
-          onClick={reload}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
-      </div>
+      ) : null}
 
       <CollapsibleFilters>
         <WorkerFilterControls
@@ -595,19 +568,6 @@ export function WorkerDirectoryPanel({
           plans={state.result?.plans ?? []}
         />
       </CollapsibleFilters>
-
-      {isAdmin && state.result ? (
-        <CreateWorkerForm
-          activePlans={activePlans}
-          draft={createDraft}
-          isSubmitting={isSubmitting}
-          onChange={setCreateDraft}
-          onSubmit={() => {
-            void handleCreateWorker();
-          }}
-          similarWorkerNames={similarWorkerNames}
-        />
-      ) : null}
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
@@ -624,39 +584,46 @@ export function WorkerDirectoryPanel({
       </div>
 
       {isAdmin && selectedWorker && state.result ? (
-        <WorkerProfilePanel
-          accountLinkDraft={accountLinkDraft}
-          accountLinkError={accountLinkError}
-          accountLinkFeedback={accountLinkFeedback}
-          activePlans={activePlans}
-          archiveDraft={archiveDraft}
-          archiveError={archiveError}
-          archiveFeedback={archiveFeedback}
-          isAccountLinkSubmitting={isAccountLinkSubmitting}
-          isArchiveSubmitting={isArchiveSubmitting}
-          isRateSubmitting={isRateSubmitting}
+        <RecordDialog
+          label={`Profil zbieracza ${selectedWorker.displayName}`}
           onClose={() => {
             setSelectedWorkerId(null);
           }}
-          onAccountLinkChange={setAccountLinkDraft}
-          onAccountLinkSubmit={() => {
-            void handleUpdateAccountLink(selectedWorker);
-          }}
-          onArchiveChange={setArchiveDraft}
-          onArchiveSubmit={() => {
-            void handleArchiveWorker(selectedWorker);
-          }}
-          onRateChange={setRateDraft}
-          onRateSubmit={() => {
-            void handleCreateRate(selectedWorker);
-          }}
-          plans={state.result.plans}
-          profiles={state.result.profiles}
-          rateDraft={rateDraft}
-          rateError={rateError}
-          rateFeedback={rateFeedback}
-          worker={selectedWorker}
-        />
+        >
+          <WorkerProfilePanel
+            accountLinkDraft={accountLinkDraft}
+            accountLinkError={accountLinkError}
+            accountLinkFeedback={accountLinkFeedback}
+            activePlans={activePlans}
+            archiveDraft={archiveDraft}
+            archiveError={archiveError}
+            archiveFeedback={archiveFeedback}
+            isAccountLinkSubmitting={isAccountLinkSubmitting}
+            isArchiveSubmitting={isArchiveSubmitting}
+            isRateSubmitting={isRateSubmitting}
+            onClose={() => {
+              setSelectedWorkerId(null);
+            }}
+            onAccountLinkChange={setAccountLinkDraft}
+            onAccountLinkSubmit={() => {
+              void handleUpdateAccountLink(selectedWorker);
+            }}
+            onArchiveChange={setArchiveDraft}
+            onArchiveSubmit={() => {
+              void handleArchiveWorker(selectedWorker);
+            }}
+            onRateChange={setRateDraft}
+            onRateSubmit={() => {
+              void handleCreateRate(selectedWorker);
+            }}
+            plans={state.result.plans}
+            profiles={state.result.profiles}
+            rateDraft={rateDraft}
+            rateError={rateError}
+            rateFeedback={rateFeedback}
+            worker={selectedWorker}
+          />
+        </RecordDialog>
       ) : null}
 
       {state.status === "ERROR" ? (
@@ -1377,7 +1344,6 @@ function WorkerRateHistoryTable({
               <th scope="col">Stawka</th>
               <th scope="col">Od</th>
               <th scope="col">Do</th>
-              <th scope="col">Autor</th>
               <th scope="col">Notatka</th>
               <th scope="col">Ostrzezenia</th>
             </tr>
@@ -1390,14 +1356,13 @@ function WorkerRateHistoryTable({
                 <tr key={rateVersion.id}>
                   <td>
                     {rateVersion.id === currentRateVersionId
-                      ? "Biezaca"
+                      ? "Bieżąca"
                       : workerRateHistoryStatusLabel(historyItem.status)}
                   </td>
                   <td>{ratePlanLabel(rateVersion.planId, plans)}</td>
                   <td>{workerRateLabel(rateVersion)}</td>
                   <td>{rateVersion.validFrom}</td>
                   <td>{rateVersion.validTo ?? "bez terminu"}</td>
-                  <td>{rateVersion.createdBy}</td>
                   <td>{optionalProfileValue(rateVersion.note)}</td>
                   <td>{rateWarningsLabel(historyItem.warnings)}</td>
                 </tr>

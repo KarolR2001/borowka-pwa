@@ -1,9 +1,10 @@
-import { Ban, Eye, History, RefreshCw, X } from "lucide-react";
+import { Ban, Eye, History, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   activeSaleRevenueImpact,
   defaultSaleDirectoryFilters,
@@ -52,7 +53,6 @@ export function AdminSaleDirectoryPanel({
   const [filters, setFilters] = useState<SaleDirectoryFilters>(
     defaultSaleDirectoryFilters
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
@@ -86,7 +86,7 @@ export function AdminSaleDirectoryPanel({
     return () => {
       isMounted = false;
     };
-  }, [api, authState, env, isAdmin, isOnline, reloadKey]);
+  }, [api, authState, env, isAdmin, isOnline]);
 
   const sales = useMemo(() => state.result?.sales ?? [], [state.result]);
   const filteredSales = useMemo(() => filterAdminSales(sales, filters), [filters, sales]);
@@ -106,31 +106,7 @@ export function AdminSaleDirectoryPanel({
   }
 
   return (
-    <section className="sale-directory" aria-labelledby="sale-directory-title">
-      <header className="directory-header">
-        <div>
-          <p className="eyebrow">Historia i kontrola</p>
-          <h3 id="sale-directory-title">Lista sprzedaży</h3>
-          <p className="panel-detail">
-            {state.status === "LOADING"
-              ? "Pobieranie aktualnych danych z serwera."
-              : "Zwykle sprzedaże, korekty, anulowania i import historyczny."}
-          </p>
-        </div>
-        <button
-          className="secondary-button icon-button"
-          disabled={!isOnline || state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież historię sprzedaży"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odśwież historię sprzedaży</span>
-        </button>
-      </header>
-
+    <section className="sale-directory" aria-label="Lista sprzedaży">
       <CollapsibleFilters>
         <SaleDirectoryFilterControls
           filters={filters}
@@ -161,7 +137,7 @@ export function AdminSaleDirectoryPanel({
         state.result.invalidSeasonCount > 0 ||
         state.result.invalidUserCount > 0) ? (
         <p className="form-message form-message--warning">
-          Dane wymagajace kontroli: sprzedaż {state.result.invalidSaleCount}, sezony{" "}
+          Dane wymagające kontroli: sprzedaż {state.result.invalidSaleCount}, sezony{" "}
           {state.result.invalidSeasonCount}, autorzy {state.result.invalidUserCount}.
         </p>
       ) : null}
@@ -175,16 +151,23 @@ export function AdminSaleDirectoryPanel({
         <SaleDirectoryTable onOpen={setSelectedSaleId} sales={filteredSales} />
       ) : null}
       {selectedSale ? (
-        <SaleDirectoryDetails
+        <RecordDialog
+          label="Szczegóły sprzedaży"
           onClose={() => {
             setSelectedSaleId(null);
           }}
-          onRequestCancellation={(saleId) => {
-            setSelectedSaleId(null);
-            onRequestCancellation(saleId);
-          }}
-          sale={selectedSale}
-        />
+        >
+          <SaleDirectoryDetails
+            onClose={() => {
+              setSelectedSaleId(null);
+            }}
+            onRequestCancellation={(saleId) => {
+              setSelectedSaleId(null);
+              onRequestCancellation(saleId);
+            }}
+            sale={selectedSale}
+          />
+        </RecordDialog>
       ) : null}
     </section>
   );
@@ -333,15 +316,15 @@ function SaleDirectoryTable({
               <td title={sale.note ?? undefined}>{shortenNote(sale.note)}</td>
               <td>
                 <button
+                  aria-label={`Otwórz szczegóły: ${saleEntryTypeLabel(sale)} z ${formatBusinessDate(sale.businessDate)}`}
                   className="secondary-button icon-button"
                   onClick={() => {
                     onOpen(sale.id);
                   }}
-                  title={`Otwórz szczegóły operacji ${sale.id}`}
+                  title="Otwórz szczegóły operacji"
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />
-                  <span className="sr-only">Otwórz szczegóły operacji {sale.id}</span>
                 </button>
               </td>
             </tr>
@@ -384,7 +367,6 @@ function SaleDirectoryDetails({
         </button>
       </header>
       <dl className="sale-directory-details__grid">
-        <Detail label="Id operacji" value={sale.id} />
         <Detail label="Sezon" value={sale.seasonName} />
         <Detail label="Data" value={formatBusinessDate(sale.businessDate)} />
         <Detail label="Typ" value={saleEntryTypeLabel(sale)} />
@@ -396,17 +378,12 @@ function SaleDirectoryDetails({
           label="Wpływ na przychód"
           value={formatSignedMoney(documentRevenueImpact(sale))}
         />
-        <Detail label="Wersja obliczeńia" value={sale.calculationVersion} />
-        <Detail label="Autor" value={`${sale.authorName} (${sale.createdBy})`} />
-        <Detail label="Czas serwera" value={formatTimestamp(sale.createdAtIso)} />
+        <Detail label="Autor" value={sale.authorName} />
+        <Detail label="Godzina zapisu" value={formatTimestamp(sale.createdAtIso)} />
         <Detail label="Notatka" value={sale.note ?? "brak"} />
-        <Detail label="Import historyczny" value={sale.legacyImport ? "Tak" : "Nie"} />
-        {sale.legacySourceRow ? (
-          <Detail label="Wiersz źródłowy" value={sale.legacySourceRow} />
-        ) : null}
         {sale.status === "CANCELLED" ? (
           <>
-            <Detail label="Anulowal" value={sale.cancelledByName ?? "brak"} />
+            <Detail label="Anulował" value={sale.cancelledByName ?? "brak"} />
             <Detail
               label="Czas anulowania"
               value={formatTimestamp(sale.cancelledAtIso)}
@@ -424,7 +401,7 @@ function SaleDirectoryDetails({
           type="button"
         >
           <Ban aria-hidden="true" size={18} />
-          Przejdz do anulowania
+          Przejdź do anulowania
         </button>
       ) : null}
     </section>
@@ -441,7 +418,6 @@ function SaleStatusLabels({ sale }: { sale: AdminSaleDirectoryItem }) {
       >
         {saleStatusLabel(sale.status)}
       </span>
-      {sale.legacyImport ? <span className="status-badge">Importowana</span> : null}
     </span>
   );
 }

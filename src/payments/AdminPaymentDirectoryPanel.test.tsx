@@ -71,15 +71,15 @@ describe("AdminPaymentDirectoryPanel", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Otwórz szczegóły wypłaty session-active"
+        name: "Otwórz szczegóły wypłaty Anna z 20.07.2026"
       })
     );
     expect(screen.getByRole("heading", { name: "Anna" })).toBeVisible();
     expect(screen.getByText("Rozliczenie tygodnia")).toBeVisible();
-    expect(screen.getAllByText("admin-1").length).toBeGreaterThan(0);
+    expect(screen.queryByText("admin-1")).not.toBeInTheDocument();
     expect(screen.getByText("Sesja źródłowa")).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
+    await user.click(screen.getByRole("button", { name: "Przejdź do anulowania" }));
     expect(onRequestCancellation).toHaveBeenCalledWith("session-active");
     expect(screen.getByRole("heading", { name: "Anulowanie wypłaty" })).toBeVisible();
     await user.type(screen.getByLabelText("Powód anulowania"), "Bledna metoda");

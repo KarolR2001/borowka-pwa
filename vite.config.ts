@@ -41,6 +41,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/testing/setupTests.ts"],
-    css: true
+    css: true,
+    alias: {
+      "virtual:pwa-register/react": new URL(
+        "./src/testing/mock-pwa-register.ts",
+        import.meta.url
+      ).pathname
+    }
   }
 });

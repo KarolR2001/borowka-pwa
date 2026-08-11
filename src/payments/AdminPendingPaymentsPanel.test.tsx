@@ -74,7 +74,7 @@ describe("AdminPendingPaymentsPanel", () => {
     expect(within(screen.getByRole("table")).getByText("Anna")).toBeVisible();
     expect(within(screen.getByRole("table")).getByText("Barbara")).toBeVisible();
     expect(screen.getByText("Anulowana wypłata")).toBeVisible();
-    expect(screen.getByText("Wykluczone pending")).toBeVisible();
+    expect(screen.getByText("Oczekujące na synchronizację")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Zbieracz"), "worker-a");
 

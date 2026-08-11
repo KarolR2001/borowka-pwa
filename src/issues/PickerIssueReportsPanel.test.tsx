@@ -152,7 +152,7 @@ describe("PickerIssueReportsPanel", () => {
         "Zgloszenie zapisano lokalnie. Zostanie wyslane po odzyskaniu polaczenia."
       )
     ).toBeInTheDocument();
-    expect(await screen.findByText("Oczekuje na synchronizacje")).toBeInTheDocument();
+    expect(await screen.findByText("Oczekuje na synchronizację")).toBeInTheDocument();
     expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
   });
 });

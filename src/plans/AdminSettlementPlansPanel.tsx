@@ -1,17 +1,10 @@
-import {
-  Archive,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Scale,
-  Search,
-  ShieldAlert
-} from "lucide-react";
+import { Archive, Pencil, Plus, Scale, Search, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
 import {
   archiveSettlementPlan,
@@ -177,31 +170,6 @@ export function AdminSettlementPlansPanel({
   const invalidDocumentsCount =
     (state.result?.invalidPlans.length ?? 0) +
     (state.result?.invalidRateVersions.length ?? 0);
-
-  const reload = () => {
-    setState((current) => ({
-      status: "LOADING",
-      result: current.result,
-      message: "Pobieranie planów."
-    }));
-
-    void settlementPlansApi
-      .list(env)
-      .then((result) => {
-        setState({
-          status: "READY",
-          result,
-          message: "Lista planów jest aktualna."
-        });
-      })
-      .catch(() => {
-        setState((current) => ({
-          status: "ERROR",
-          result: current.result,
-          message: "Nie udało się pobrać planów."
-        }));
-      });
-  };
 
   const handleCreatePlan = async () => {
     if (authState.status !== "READY") {
@@ -421,65 +389,57 @@ export function AdminSettlementPlansPanel({
 
   return (
     <section className="settlement-plan-directory" aria-label="Plany rozliczeń">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Plany</p>
-          <h2>Lista planów rozliczeń</h2>
-          <p className="panel-detail">{state.message}</p>
+      {state.result ? (
+        <div className="screen-actions" aria-label="Akcje planów rozliczeń">
+          <CollapsibleSection
+            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Dodaj plan rozliczeń"
+          >
+            <CreateSettlementPlanForm
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreatePlan();
+              }}
+            />
+          </CollapsibleSection>
+          {editDraft ? (
+            <CollapsibleSection label="Edycja planu" open>
+              <EditSettlementPlanForm
+                draft={editDraft}
+                isSubmitting={isSubmitting}
+                onCancel={() => {
+                  setEditDraft(null);
+                }}
+                onChange={setEditDraft}
+                onSubmit={() => {
+                  void handleUpdatePlan();
+                }}
+              />
+            </CollapsibleSection>
+          ) : null}
+          {archiveDraft ? (
+            <CollapsibleSection label="Archiwizacja planu" open>
+              <ArchiveSettlementPlanForm
+                draft={archiveDraft}
+                isSubmitting={isSubmitting}
+                onCancel={() => {
+                  setArchiveDraft(null);
+                }}
+                onChange={setArchiveDraft}
+                onSubmit={() => {
+                  void handleArchivePlan();
+                }}
+              />
+            </CollapsibleSection>
+          ) : null}
         </div>
-        <button
-          className="secondary-action"
-          disabled={state.status === "LOADING"}
-          onClick={reload}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
-      </div>
+      ) : null}
 
       <CollapsibleFilters>
         <SettlementPlanFilterControls filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
-
-      {state.result ? (
-        <CreateSettlementPlanForm
-          draft={createDraft}
-          isSubmitting={isSubmitting}
-          onChange={setCreateDraft}
-          onSubmit={() => {
-            void handleCreatePlan();
-          }}
-        />
-      ) : null}
-
-      {editDraft ? (
-        <EditSettlementPlanForm
-          draft={editDraft}
-          isSubmitting={isSubmitting}
-          onCancel={() => {
-            setEditDraft(null);
-          }}
-          onChange={setEditDraft}
-          onSubmit={() => {
-            void handleUpdatePlan();
-          }}
-        />
-      ) : null}
-
-      {archiveDraft ? (
-        <ArchiveSettlementPlanForm
-          draft={archiveDraft}
-          isSubmitting={isSubmitting}
-          onCancel={() => {
-            setArchiveDraft(null);
-          }}
-          onChange={setArchiveDraft}
-          onSubmit={() => {
-            void handleArchivePlan();
-          }}
-        />
-      ) : null}
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}

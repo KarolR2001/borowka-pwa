@@ -1,4 +1,4 @@
-import { CheckCircle2, Pencil, RefreshCw, Save, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Pencil, Save, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -21,6 +21,7 @@ import {
   type SaleCancellationSectionApi
 } from "./SaleCancellationSection";
 import { SaleCorrectionForm } from "./SaleCorrectionForm";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import {
   correctionDirectionLabel,
   type PreparedSaleCorrection
@@ -276,191 +277,166 @@ export function AdminOrdinarySalesPanel({
   }
 
   return (
-    <section
-      className="admin-ordinary-sales"
-      aria-labelledby="ordinary-sales-panel-title"
-    >
-      <header className="directory-header">
-        <div>
-          <p className="eyebrow">Stan i przychód</p>
-          <h2 id="ordinary-sales-panel-title">Sprzedaż</h2>
-          <p className="panel-detail">
-            Stan jest pobierany ponownie z serwera przed kazdym zapisem.
-          </p>
-        </div>
-        <button
-          className="secondary-button icon-button"
-          disabled={!isOnline || stockState.status === "LOADING"}
-          onClick={() => {
-            setPreflight(null);
-            setSaveError(null);
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież stan sprzedaży"
-          type="button"
+    <section className="admin-ordinary-sales" aria-label="Sprzedaż">
+      <div className="screen-actions" aria-label="Akcje sprzedaży">
+        <CollapsibleSection
+          label="Nowa operacja"
+          open={requestedCancellationSaleId !== null}
         >
-          <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odśwież stan sprzedaży</span>
-        </button>
-      </header>
+          {stockState.status === "LOADING" && stockState.contexts.length === 0 ? (
+            <p className="empty-state">Pobieranie stanu z serwera.</p>
+          ) : null}
+          {stockState.status === "ERROR" ? (
+            <p className="form-message form-message--error">{stockState.message}</p>
+          ) : null}
+          {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
+            <p className="empty-state">Brak otwartego sezonu do sprzedaży.</p>
+          ) : null}
 
-      {stockState.status === "LOADING" && stockState.contexts.length === 0 ? (
-        <p className="empty-state">Pobieranie stanu z serwera.</p>
-      ) : null}
-      {stockState.status === "ERROR" ? (
-        <p className="form-message form-message--error">{stockState.message}</p>
-      ) : null}
-      {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
-        <p className="empty-state">Brak otwartego sezonu do sprzedaży.</p>
-      ) : null}
+          {blockedStockContexts.map((context) =>
+            context.reconciliation ? (
+              <StockReconciliationAlert
+                key={context.seasonId}
+                report={context.reconciliation}
+                seasonName={context.seasonName}
+              />
+            ) : null
+          )}
 
-      {blockedStockContexts.map((context) =>
-        context.reconciliation ? (
-          <StockReconciliationAlert
-            key={context.seasonId}
-            report={context.reconciliation}
-            seasonName={context.seasonName}
-          />
-        ) : null
-      )}
-
-      <div className="sales-operation-switch" role="group" aria-label="Typ operacji">
-        <button
-          aria-pressed={operationMode === "SALE"}
-          onClick={() => {
-            setOperationMode("SALE");
-            setRequestedCancellationSaleId(null);
-            setPreflight(null);
-            setConfirmed(null);
-            setSaveError(null);
-          }}
-          type="button"
-        >
-          Zwykła sprzedaż
-        </button>
-        <button
-          aria-pressed={operationMode === "CORRECTION"}
-          onClick={() => {
-            setOperationMode("CORRECTION");
-            setRequestedCancellationSaleId(null);
-            setPreflight(null);
-            setConfirmed(null);
-            setSaveError(null);
-          }}
-          type="button"
-        >
-          Korekta
-        </button>
-        <button
-          aria-pressed={operationMode === "CANCELLATION"}
-          onClick={() => {
-            setOperationMode("CANCELLATION");
-            setRequestedCancellationSaleId(null);
-            setPreflight(null);
-            setConfirmed(null);
-            setSaveError(null);
-          }}
-          type="button"
-        >
-          Anulowanie
-        </button>
-      </div>
-
-      {operationMode === "SALE" ? (
-        <>
-          <OrdinarySaleForm
-            disabled={
-              isSaving ||
-              stockState.status === "LOADING" ||
-              preflight?.status === "CONFIRMATION_REQUIRED"
-            }
-            isOnline={isOnline}
-            key={formKey}
-            onDraftChange={() => {
-              setPreflight(null);
-              setSaveError(null);
-            }}
-            onPrepare={handlePrepare}
-            stockContexts={stockState.contexts}
-          />
-
-          {preflight?.status === "CONFIRMATION_REQUIRED" ? (
-            <SaleConfirmation
-              isSaving={isSaving}
-              onEdit={() => {
+          <div className="sales-operation-switch" role="group" aria-label="Typ operacji">
+            <button
+              aria-pressed={operationMode === "SALE"}
+              onClick={() => {
+                setOperationMode("SALE");
+                setRequestedCancellationSaleId(null);
                 setPreflight(null);
+                setConfirmed(null);
                 setSaveError(null);
               }}
-              onConfirm={() => {
-                void handleConfirm();
+              type="button"
+            >
+              Zwykła sprzedaż
+            </button>
+            <button
+              aria-pressed={operationMode === "CORRECTION"}
+              onClick={() => {
+                setOperationMode("CORRECTION");
+                setRequestedCancellationSaleId(null);
+                setPreflight(null);
+                setConfirmed(null);
+                setSaveError(null);
               }}
-              result={preflight}
-            />
-          ) : null}
-          {preflight?.status === "BLOCKED" ? (
-            <p className="form-message form-message--error" role="alert">
-              {preflight.message}
-            </p>
-          ) : null}
-          {saveError ? (
-            <p className="form-message form-message--warning" role="alert">
-              {saveError}
-            </p>
-          ) : null}
-          {confirmed ? <ConfirmedSale result={confirmed} /> : null}
-        </>
-      ) : operationMode === "CORRECTION" ? (
-        <SaleCorrectionSection
-          actorProfile={actorProfile}
-          deviceId={deviceId}
-          env={env}
-          isOnline={isOnline}
-          onConfirmed={(result) => {
-            replaceStockContext({
-              availableWeightG: result.postWriteAvailableWeightG,
-              pendingDocumentCount: 0,
-              refreshedAtIso: new Date().toISOString(),
-              seasonId: result.correction.seasonId,
-              seasonName:
-                stockState.contexts.find(
-                  (context) => context.seasonId === result.correction.seasonId
-                )?.seasonName ?? result.correction.seasonId
-            });
-            setReloadKey((current) => current + 1);
-          }}
-          onStockContextChange={replaceStockContext}
-          ordinarySalesApi={ordinarySalesApi}
-          stockContexts={stockState.contexts}
-          stockLoading={stockState.status === "LOADING"}
-        />
-      ) : (
-        <SaleCancellationSection
-          actorProfile={actorProfile}
-          api={ordinarySalesApi}
-          deviceId={deviceId}
-          env={env}
-          isOnline={isOnline}
-          onConfirmed={(result) => {
-            setReloadKey((current) => current + 1);
-            replaceStockContext({
-              availableWeightG: result.postWriteAvailableWeightG,
-              pendingDocumentCount: 0,
-              refreshedAtIso: new Date().toISOString(),
-              seasonId: result.cancelledSale.seasonId,
-              seasonName:
-                stockState.contexts.find(
-                  (context) => context.seasonId === result.cancelledSale.seasonId
-                )?.seasonName ?? result.cancelledSale.seasonId
-            });
-          }}
-          requestedSaleId={requestedCancellationSaleId}
-        />
-      )}
+              type="button"
+            >
+              Korekta
+            </button>
+            <button
+              aria-pressed={operationMode === "CANCELLATION"}
+              onClick={() => {
+                setOperationMode("CANCELLATION");
+                setRequestedCancellationSaleId(null);
+                setPreflight(null);
+                setConfirmed(null);
+                setSaveError(null);
+              }}
+              type="button"
+            >
+              Anulowanie
+            </button>
+          </div>
 
-      <p className="admin-ordinary-sales__concurrency-note">
-        Nie zapisuj sprzedaży równocześnie z innego urządzenia. Bez zaufanej funkcji
-        serwerowej dwa równoległe zapisy nie mają absolutnej gwarancji serializacji.
-      </p>
+          {operationMode === "SALE" ? (
+            <>
+              <OrdinarySaleForm
+                disabled={
+                  isSaving ||
+                  stockState.status === "LOADING" ||
+                  preflight?.status === "CONFIRMATION_REQUIRED"
+                }
+                isOnline={isOnline}
+                key={formKey}
+                onDraftChange={() => {
+                  setPreflight(null);
+                  setSaveError(null);
+                }}
+                onPrepare={handlePrepare}
+                stockContexts={stockState.contexts}
+              />
+
+              {preflight?.status === "CONFIRMATION_REQUIRED" ? (
+                <SaleConfirmation
+                  isSaving={isSaving}
+                  onEdit={() => {
+                    setPreflight(null);
+                    setSaveError(null);
+                  }}
+                  onConfirm={() => {
+                    void handleConfirm();
+                  }}
+                  result={preflight}
+                />
+              ) : null}
+              {preflight?.status === "BLOCKED" ? (
+                <p className="form-message form-message--error" role="alert">
+                  {preflight.message}
+                </p>
+              ) : null}
+              {saveError ? (
+                <p className="form-message form-message--warning" role="alert">
+                  {saveError}
+                </p>
+              ) : null}
+              {confirmed ? <ConfirmedSale result={confirmed} /> : null}
+            </>
+          ) : operationMode === "CORRECTION" ? (
+            <SaleCorrectionSection
+              actorProfile={actorProfile}
+              deviceId={deviceId}
+              env={env}
+              isOnline={isOnline}
+              onConfirmed={(result) => {
+                replaceStockContext({
+                  availableWeightG: result.postWriteAvailableWeightG,
+                  pendingDocumentCount: 0,
+                  refreshedAtIso: new Date().toISOString(),
+                  seasonId: result.correction.seasonId,
+                  seasonName:
+                    stockState.contexts.find(
+                      (context) => context.seasonId === result.correction.seasonId
+                    )?.seasonName ?? result.correction.seasonId
+                });
+                setReloadKey((current) => current + 1);
+              }}
+              onStockContextChange={replaceStockContext}
+              ordinarySalesApi={ordinarySalesApi}
+              stockContexts={stockState.contexts}
+              stockLoading={stockState.status === "LOADING"}
+            />
+          ) : (
+            <SaleCancellationSection
+              actorProfile={actorProfile}
+              api={ordinarySalesApi}
+              deviceId={deviceId}
+              env={env}
+              isOnline={isOnline}
+              onConfirmed={(result) => {
+                setReloadKey((current) => current + 1);
+                replaceStockContext({
+                  availableWeightG: result.postWriteAvailableWeightG,
+                  pendingDocumentCount: 0,
+                  refreshedAtIso: new Date().toISOString(),
+                  seasonId: result.cancelledSale.seasonId,
+                  seasonName:
+                    stockState.contexts.find(
+                      (context) => context.seasonId === result.cancelledSale.seasonId
+                    )?.seasonName ?? result.cancelledSale.seasonId
+                });
+              }}
+              requestedSaleId={requestedCancellationSaleId}
+            />
+          )}
+        </CollapsibleSection>
+      </div>
 
       <AdminSaleDirectoryPanel
         api={ordinarySalesApi}
@@ -887,7 +863,7 @@ function StockReconciliationAlert({
         </dl>
         {report.issues.some((issue) => issue.documentIds.length > 0) ? (
           <div className="stock-reconciliation-report__documents">
-            <strong>Dokumenty wymagajace sprawdzenia</strong>
+            <strong>Dokumenty wymagające sprawdzenia</strong>
             {report.issues.map((issue) =>
               issue.documentIds.length > 0 ? (
                 <p key={issue.code}>

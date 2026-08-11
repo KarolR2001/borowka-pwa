@@ -1,8 +1,9 @@
-import { Ban, RefreshCw, Search, ShieldAlert, UserPlus, UsersRound } from "lucide-react";
+import { Ban, Search, ShieldAlert, UserPlus, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
 import {
   defaultWorkerDirectoryApi,
@@ -295,132 +296,22 @@ export function AdminRegistrationInvitationsPanel({
 
   return (
     <section className="user-directory registration-invitations" aria-label="Zaproszenia">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Zaproszenia</p>
-          <h2>Prerejestracja kont</h2>
-          <p className="panel-detail">{invitationsState.message}</p>
-        </div>
-        <button
-          className="secondary-action"
-          disabled={invitationsState.status === "LOADING" || isMutating}
-          onClick={() => {
-            setReloadToken((current) => current + 1);
-          }}
-          type="button"
+      <div className="screen-actions" aria-label="Akcje rejestracji">
+        <CollapsibleSection
+          icon={<UserPlus aria-hidden="true" size={18} strokeWidth={2.2} />}
+          label="Zarejestruj nowe konto"
         >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
+          <InvitationForm
+            availableWorkers={availableWorkers}
+            formState={formState}
+            isMutating={isMutating}
+            onChange={setFormState}
+            onSubmit={handleSubmit}
+            workersError={workersError}
+            workersLoading={workersLoading}
+          />
+        </CollapsibleSection>
       </div>
-
-      <form
-        aria-label="Nowe zaproszenie"
-        className="invitation-form"
-        onSubmit={(event) => {
-          void handleSubmit(event);
-        }}
-      >
-        <label className="field">
-          <span>E-mail</span>
-          <input
-            autoComplete="email"
-            disabled={isMutating}
-            inputMode="email"
-            onChange={(event) => {
-              setFormState((current) => ({
-                ...current,
-                email: event.target.value
-              }));
-            }}
-            type="email"
-            value={formState.email}
-          />
-        </label>
-
-        <label className="field">
-          <span>Nazwa</span>
-          <input
-            autoComplete="name"
-            disabled={isMutating}
-            onChange={(event) => {
-              setFormState((current) => ({
-                ...current,
-                displayName: event.target.value
-              }));
-            }}
-            type="text"
-            value={formState.displayName}
-          />
-        </label>
-
-        <label className="field">
-          <span>Rola docelowa</span>
-          <select
-            disabled={isMutating}
-            onChange={(event) => {
-              const nextRole = event.target.value;
-
-              if (isRegistrationInvitationRoleFilter(nextRole) && nextRole !== "ALL") {
-                setFormState((current) => ({
-                  ...current,
-                  targetRole: nextRole,
-                  workerId: nextRole === "PICKER" ? current.workerId : ""
-                }));
-              }
-            }}
-            value={formState.targetRole}
-          >
-            {USER_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {userRoleLabel(role)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span className="field__label">
-            Zbieracz
-            <InfoHint text="Wybierz osobę utworzoną wcześniej w zakładce Zbieracze. Konto zostanie automatycznie powiązane z jej zbiorami i rozliczeniami." />
-          </span>
-          <select
-            aria-label="Zbieracz dla konta"
-            disabled={formState.targetRole !== "PICKER" || isMutating}
-            onChange={(event) => {
-              setFormState((current) => ({
-                ...current,
-                workerId: event.target.value
-              }));
-            }}
-            value={formState.workerId}
-          >
-            <option value="">
-              {workersLoading
-                ? "Pobieranie zbieraczy..."
-                : workersError
-                  ? "Nie udało się pobrać zbieraczy"
-                  : availableWorkers.length === 0
-                    ? "Brak dostępnych zbieraczy"
-                    : "Wybierz zbieracza"}
-            </option>
-            {availableWorkers.map((worker) => (
-              <option key={worker.id} value={worker.id}>
-                {worker.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          className="primary-action invitation-form__submit"
-          disabled={isMutating}
-          type="submit"
-        >
-          <UserPlus aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Dodaj</span>
-        </button>
-      </form>
 
       <CollapsibleFilters>
         <InvitationFilters filters={filters} onChange={setFilters} />
@@ -522,6 +413,124 @@ export function AdminRegistrationInvitationsPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function InvitationForm({
+  availableWorkers,
+  formState,
+  isMutating,
+  onChange,
+  onSubmit,
+  workersError,
+  workersLoading
+}: {
+  availableWorkers: WorkerDirectoryListItem[];
+  formState: InvitationFormState;
+  isMutating: boolean;
+  onChange: (state: InvitationFormState) => void;
+  onSubmit: (event: SyntheticEvent<HTMLFormElement>) => Promise<void>;
+  workersError: boolean;
+  workersLoading: boolean;
+}) {
+  return (
+    <form
+      aria-label="Nowe zaproszenie"
+      className="invitation-form"
+      onSubmit={(event) => {
+        void onSubmit(event);
+      }}
+    >
+      <label className="field">
+        <span>E-mail</span>
+        <input
+          autoComplete="email"
+          disabled={isMutating}
+          inputMode="email"
+          onChange={(event) => {
+            onChange({ ...formState, email: event.target.value });
+          }}
+          type="email"
+          value={formState.email}
+        />
+      </label>
+
+      <label className="field">
+        <span>Nazwa</span>
+        <input
+          autoComplete="name"
+          disabled={isMutating}
+          onChange={(event) => {
+            onChange({ ...formState, displayName: event.target.value });
+          }}
+          type="text"
+          value={formState.displayName}
+        />
+      </label>
+
+      <label className="field">
+        <span>Rola docelowa</span>
+        <select
+          disabled={isMutating}
+          onChange={(event) => {
+            const nextRole = event.target.value;
+            if (isRegistrationInvitationRoleFilter(nextRole) && nextRole !== "ALL") {
+              onChange({
+                ...formState,
+                targetRole: nextRole,
+                workerId: nextRole === "PICKER" ? formState.workerId : ""
+              });
+            }
+          }}
+          value={formState.targetRole}
+        >
+          {USER_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {userRoleLabel(role)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span className="field__label">
+          Zbieracz
+          <InfoHint text="Wybierz osobę utworzoną wcześniej w zakładce Zbieracze. Konto zostanie automatycznie powiązane z jej zbiorami i rozliczeniami." />
+        </span>
+        <select
+          aria-label="Zbieracz dla konta"
+          disabled={formState.targetRole !== "PICKER" || isMutating}
+          onChange={(event) => {
+            onChange({ ...formState, workerId: event.target.value });
+          }}
+          value={formState.workerId}
+        >
+          <option value="">
+            {workersLoading
+              ? "Pobieranie zbieraczy..."
+              : workersError
+                ? "Nie udało się pobrać zbieraczy"
+                : availableWorkers.length === 0
+                  ? "Brak dostępnych zbieraczy"
+                  : "Wybierz zbieracza"}
+          </option>
+          {availableWorkers.map((worker) => (
+            <option key={worker.id} value={worker.id}>
+              {worker.displayName}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        className="primary-action invitation-form__submit"
+        disabled={isMutating}
+        type="submit"
+      >
+        <UserPlus aria-hidden="true" size={18} strokeWidth={2.2} />
+        <span>Dodaj</span>
+      </button>
+    </form>
   );
 }
 

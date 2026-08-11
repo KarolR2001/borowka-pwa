@@ -1,9 +1,10 @@
-import { Eye, RefreshCw, UserRound } from "lucide-react";
+import { Eye, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   defaultPickerPaymentFilters,
   filterPickerPaymentItems,
@@ -61,7 +62,6 @@ export function PickerPaymentListPanel({
   const [filters, setFilters] = useState<PickerPaymentFilters>(
     defaultPickerPaymentFilters
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [reportSessionId, setReportSessionId] = useState<string | null>(null);
   const isPicker =
@@ -97,7 +97,7 @@ export function PickerPaymentListPanel({
     return () => {
       isMounted = false;
     };
-  }, [authState, env, isOnline, isPicker, pickerPaymentListApi, reloadKey]);
+  }, [authState, env, isOnline, isPicker, pickerPaymentListApi]);
 
   const visiblePayments = useMemo(
     () => filterPickerPaymentItems(state.result?.payments ?? [], filters),
@@ -118,36 +118,14 @@ export function PickerPaymentListPanel({
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Moje wypłaty</p>
-          <p>Lista wymaga aktywnego konta zbieracza powiazanego z workerId.</p>
+          <p>Lista wymaga aktywnego konta powiązanego ze zbieraczem.</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="picker-payment-list" aria-labelledby="picker-payment-title">
-      <header className="directory-header">
-        <div>
-          <p className="eyebrow">Rozliczenia</p>
-          <h2 id="picker-payment-title">Moje wypłaty</h2>
-          <p className="panel-detail">
-            Okres dotyczy dat sesji. Anulowane wypłaty pozostają w historii.
-          </p>
-        </div>
-        <button
-          aria-label="Odśwież moje wypłaty"
-          className="secondary-button icon-button"
-          disabled={state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież moje wypłaty"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-        </button>
-      </header>
-
+    <section className="picker-payment-list" aria-label="Moje wypłaty">
       <CollapsibleFilters>
         <PickerPaymentFilters
           filters={filters}
@@ -195,24 +173,32 @@ export function PickerPaymentListPanel({
         </p>
       ) : null}
       {selectedSessionId ? (
-        <PickerSessionDetailsPanel
-          authState={authState}
-          detailsApi={pickerSessionDetailsApi}
-          env={env}
-          isOnline={isOnline}
+        <RecordDialog
+          label="Szczegóły wypłaty"
           onClose={() => {
             setSelectedSessionId(null);
             setReportSessionId(null);
           }}
-          onReportIssue={(sessionId) => {
-            if (onReportIssue) {
-              onReportIssue(sessionId);
-            } else {
-              setReportSessionId(sessionId);
-            }
-          }}
-          sessionId={selectedSessionId}
-        />
+        >
+          <PickerSessionDetailsPanel
+            authState={authState}
+            detailsApi={pickerSessionDetailsApi}
+            env={env}
+            isOnline={isOnline}
+            onClose={() => {
+              setSelectedSessionId(null);
+              setReportSessionId(null);
+            }}
+            onReportIssue={(sessionId) => {
+              if (onReportIssue) {
+                onReportIssue(sessionId);
+              } else {
+                setReportSessionId(sessionId);
+              }
+            }}
+            sessionId={selectedSessionId}
+          />
+        </RecordDialog>
       ) : null}
       {reportSessionId ? (
         <p className="form-message form-message--ok">
