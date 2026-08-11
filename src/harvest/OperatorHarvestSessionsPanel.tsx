@@ -6,6 +6,7 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import {
   addHarvestEntryOffline,
   closeHarvestSessionOffline,
@@ -841,6 +842,76 @@ export function OperatorHarvestSessionsPanel({
         setHasUnsavedFormInteraction(true);
       }}
     >
+      <div className="screen-actions" aria-label="Akcje sesji zbioru">
+        <CollapsibleSection
+          icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
+          label="Otwórz nową sesję"
+        >
+          <div
+            className="operator-sessions__new-session"
+            id="new-harvest-session"
+            tabIndex={-1}
+          >
+            <OpenHarvestSessionForm
+              actorRole={viewerProfile.role}
+              configuration={openingConfiguration}
+              configurationMessage={openingConfigurationState.message}
+              draft={openDraft}
+              error={openError}
+              existingOpenSessionsCount={existingOpenSessionsForDraft.length}
+              feedback={openFeedback}
+              isSubmitting={isOpeningSession}
+              onChange={setOpenDraft}
+              onSubmit={() => {
+                void handleOpenSession();
+              }}
+            />
+          </div>
+        </CollapsibleSection>
+        {viewerProfile.role === "ADMIN" ? (
+          <>
+            <CollapsibleSection
+              icon={<RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />}
+              label="Otwórz ponownie sesję"
+            >
+              <AdminReopenHarvestSessionForm
+                draft={{
+                  sessionId: reopenSession?.id ?? "",
+                  reason: reopenDraft.reason
+                }}
+                isOnline={isOnline}
+                isSubmitting={isReopeningSession}
+                onChange={setReopenDraft}
+                onSubmit={() => {
+                  void handleReopenSession();
+                }}
+                session={reopenSession}
+                sessions={result?.closedSessions ?? []}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<Ban aria-hidden="true" size={18} strokeWidth={2.2} />}
+              label="Anuluj sesję"
+            >
+              <AdminCancelHarvestSessionForm
+                draft={{
+                  sessionId: cancelSession?.id ?? "",
+                  reason: cancelDraft.reason
+                }}
+                isOnline={isOnline}
+                isSubmitting={isCancellingSession}
+                onChange={setCancelDraft}
+                onSubmit={() => {
+                  void handleCancelSession();
+                }}
+                session={cancelSession}
+                sessions={cancellableSessions}
+              />
+            </CollapsibleSection>
+          </>
+        ) : null}
+      </div>
+
       {invalidConfigurationCount > 0 ? (
         <p className="form-message form-message--error">
           Niepoprawne dokumenty konfiguracji otwarcia sesji: {invalidConfigurationCount}
@@ -881,27 +952,6 @@ export function OperatorHarvestSessionsPanel({
       {state.status === "READY" && result?.openSessions.length === 0 ? (
         <p className="empty-state">Brak otwartych sesji zbioru.</p>
       ) : null}
-
-      <div
-        className="operator-sessions__new-session"
-        id="new-harvest-session"
-        tabIndex={-1}
-      >
-        <OpenHarvestSessionForm
-          actorRole={viewerProfile.role}
-          configuration={openingConfiguration}
-          configurationMessage={openingConfigurationState.message}
-          draft={openDraft}
-          error={openError}
-          existingOpenSessionsCount={existingOpenSessionsForDraft.length}
-          feedback={openFeedback}
-          isSubmitting={isOpeningSession}
-          onChange={setOpenDraft}
-          onSubmit={() => {
-            void handleOpenSession();
-          }}
-        />
-      </div>
 
       <ActiveHarvestSessionPanel
         onAddEntry={() => {
@@ -965,39 +1015,6 @@ export function OperatorHarvestSessionsPanel({
           />
         </section>
       ) : null}
-
-      {viewerProfile.role === "ADMIN" ? (
-        <>
-          <AdminReopenHarvestSessionForm
-            draft={{
-              sessionId: reopenSession?.id ?? "",
-              reason: reopenDraft.reason
-            }}
-            isOnline={isOnline}
-            isSubmitting={isReopeningSession}
-            onChange={setReopenDraft}
-            onSubmit={() => {
-              void handleReopenSession();
-            }}
-            session={reopenSession}
-            sessions={result?.closedSessions ?? []}
-          />
-          <AdminCancelHarvestSessionForm
-            draft={{
-              sessionId: cancelSession?.id ?? "",
-              reason: cancelDraft.reason
-            }}
-            isOnline={isOnline}
-            isSubmitting={isCancellingSession}
-            onChange={setCancelDraft}
-            onSubmit={() => {
-              void handleCancelSession();
-            }}
-            session={cancelSession}
-            sessions={cancellableSessions}
-          />
-        </>
-      ) : null}
     </section>
   );
 }
@@ -1032,7 +1049,7 @@ function AdminReopenHarvestSessionForm({
       }}
     >
       <label className="field">
-        <span>Zamknieta sesja</span>
+        <span>Zamknięta sesja</span>
         <select
           disabled={isDisabled}
           onChange={(event) => {
@@ -1073,7 +1090,7 @@ function AdminReopenHarvestSessionForm({
       {session ? (
         <p className="open-session-form__warning">
           Dotychczasowa kwota: {formatMoney(session.amountDueGrosz ?? 0)}. Raporty mogą
-          się zmienic po kolejnych wpisach i zamknięciu.
+          się zmienić po kolejnych wpisach i zamknięciu.
         </p>
       ) : null}
 

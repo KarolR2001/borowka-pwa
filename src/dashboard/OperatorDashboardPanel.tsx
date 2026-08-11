@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardList, Gauge, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, ClipboardList, Gauge, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -75,7 +75,6 @@ export function OperatorDashboardPanel({
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_OPERATOR_DASHBOARD_PERIOD
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
   const periodError = dashboardPeriodSelectionError(periodSelection);
   const isOperator =
@@ -155,7 +154,6 @@ export function OperatorDashboardPanel({
     isOperator,
     periodError,
     periodSelection,
-    reloadKey,
     snapshotStorage,
     syncDocuments,
     todayBusinessDate
@@ -188,13 +186,8 @@ export function OperatorDashboardPanel({
   }
 
   return (
-    <section className="operator-dashboard" aria-labelledby="operator-dashboard-title">
+    <section className="operator-dashboard" aria-label="Pulpit operatora">
       <header className="directory-header">
-        <div>
-          <p className="eyebrow">Bieżące zbiory</p>
-          <h2 id="operator-dashboard-title">Pulpit operatora</h2>
-          <p className="panel-detail">Najważniejsze informacje o bieżącej pracy.</p>
-        </div>
         <div className="operator-dashboard__actions">
           <button
             className="primary-action"
@@ -210,18 +203,6 @@ export function OperatorDashboardPanel({
           >
             <Plus aria-hidden="true" size={18} />
             Nowy zbiór
-          </button>
-          <button
-            className="secondary-action icon-button"
-            disabled={!isOnline || state.status === "LOADING"}
-            onClick={() => {
-              setReloadKey((current) => current + 1);
-            }}
-            title="Odśwież pulpit operatora"
-            type="button"
-          >
-            <RefreshCw aria-hidden="true" size={18} />
-            <span className="sr-only">Odśwież pulpit operatora</span>
           </button>
         </div>
       </header>

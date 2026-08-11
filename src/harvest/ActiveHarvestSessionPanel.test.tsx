@@ -106,14 +106,13 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByText("3 kilogram")).toBeInTheDocument();
     expect(screen.getByText("6,310 kg")).toBeInTheDocument();
     expect(screen.getByText("63,10 zł")).toBeInTheDocument();
-    expect(screen.getAllByText("Operator Test").length).toBeGreaterThan(0);
-    expect(screen.getByText("Telefon operatora")).toBeInTheDocument();
+    expect(screen.queryByText("Telefon operatora")).not.toBeInTheDocument();
     expect(screen.getAllByText("#2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeEnabled();
   });
 
-  it("orders entries by newest sequence and shows pending sync state", () => {
+  it("orders entries by newest sequence without technical sync details", () => {
     render(<ActiveHarvestSessionPanel view={createSessionView()} />);
 
     const entries = screen.getAllByRole("listitem");
@@ -123,12 +122,14 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(within(entries[0]).getByText("3,310 kg")).toBeInTheDocument();
     expect(within(entries[0]).getByText("33,10 zł")).toBeInTheDocument();
     expect(within(entries[0]).getByText("10:06")).toBeInTheDocument();
-    expect(within(entries[0]).getByText("Operator Test")).toBeInTheDocument();
-    expect(within(entries[0]).getByText("Oczekuje synchronizacji")).toBeInTheDocument();
+    expect(within(entries[0]).queryByText("Operator Test")).not.toBeInTheDocument();
+    expect(
+      within(entries[0]).queryByText("Oczekuje synchronizacji")
+    ).not.toBeInTheDocument();
     expect(within(entries[0]).getByText("Korekta lokalna")).toBeInTheDocument();
     expect(within(entries[0]).getByText("Aktywny")).toBeInTheDocument();
     expect(within(entries[1]).getByText("#1")).toBeInTheDocument();
-    expect(within(entries[1]).getByText("Potwierdzony")).toBeInTheDocument();
+    expect(within(entries[1]).queryByText("Potwierdzony")).not.toBeInTheDocument();
   });
 
   it("deduplicates local and server snapshots of the same entry id", () => {
@@ -165,7 +166,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(entries).toHaveLength(1);
     expect(within(entries[0]).getByText("#1")).toBeInTheDocument();
     expect(within(entries[0]).getByText("Aktywny")).toBeInTheDocument();
-    expect(within(entries[0]).getByText("Potwierdzony")).toBeInTheDocument();
+    expect(within(entries[0]).queryByText("Potwierdzony")).not.toBeInTheDocument();
     expect(
       within(entries[0]).queryByText("Oczekuje synchronizacji")
     ).not.toBeInTheDocument();

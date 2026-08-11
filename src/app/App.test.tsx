@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PASSWORD_RESET_CONFIRMATION, type AuthSessionState } from "../auth/authSession";
@@ -291,7 +291,7 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(refresh).toHaveBeenCalledWith(expect.anything());
     });
-    expect(screen.getByRole("heading", { name: "Pulpit zbieracza" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Pulpit zbieracza" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Otwórz menu" }));
     expect(screen.getByRole("button", { name: "Moje dane" })).toBeVisible();
     expect(screen.queryByText("Administrator", { exact: true })).toBeNull();
@@ -1051,11 +1051,24 @@ describe("App shell", () => {
     await user.click(screen.getByRole("tab", { name: "Konta" }));
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
+    });
+    expect(listInvitations).not.toHaveBeenCalled();
+    expect(listDevices).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Użytkownicy" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Lista zbieraczy" })).toBeNull();
+
+    const accessTabs = within(
+      screen.getByRole("tablist", { name: "Obszary zarządzania kontami" })
+    );
+    await user.click(accessTabs.getByRole("tab", { name: "Rejestracja" }));
+    await waitFor(() => {
       expect(listInvitations).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("region", { name: "Użytkownicy" })).toBeNull();
+    await user.click(accessTabs.getByRole("tab", { name: "Urządzenia" }));
+    await waitFor(() => {
       expect(listDevices).toHaveBeenCalled();
     });
-    expect(screen.getByRole("heading", { name: "Lista kont" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Zbieracze" }));
     await waitFor(() => {
@@ -1063,20 +1076,21 @@ describe("App shell", () => {
         viewerRole: "ADMIN"
       });
     });
-    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Lista kont" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Lista zbieraczy" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Użytkownicy" })).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Konfiguracja" }));
     await waitFor(() => {
       expect(listSeasons).toHaveBeenCalled();
+    });
+    expect(listSettlementPlans).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Sezony" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Plany rozliczeń" }));
+    await waitFor(() => {
       expect(listSettlementPlans).toHaveBeenCalled();
     });
-    expect(
-      screen.getByRole("heading", { name: "Konfiguracja sezonów" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Lista planów rozliczeń" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Plany rozliczeń" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Sezony" })).toBeNull();
 
     expect(screen.getByRole("tab", { name: "Do wypłaty" })).toBeVisible();
     await user.click(screen.getByRole("tab", { name: "Historia wypłat" }));
@@ -1101,9 +1115,13 @@ describe("App shell", () => {
       screen.getByRole("heading", { name: "Eksport danych pickera" })
     ).toBeInTheDocument();
     expect(
+      screen.queryByRole("heading", { name: "Pełny eksport chmury" })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Pełny eksport" }));
+    expect(
       screen.getByRole("heading", { name: "Pełny eksport chmury" })
     ).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Lista kont" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Użytkownicy" })).toBeNull();
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
   });
 
@@ -1215,7 +1233,7 @@ describe("App shell", () => {
     });
     expect(screen.getByRole("heading", { name: "Zbiory" })).toBeInTheDocument();
     expect(loadOperatorDashboard).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: "Lista zbieraczy" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Lista zbieraczy" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Pelny eksport chmury" })).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Pulpit" }));
@@ -1228,8 +1246,8 @@ describe("App shell", () => {
         })
       );
     });
-    expect(screen.getByRole("heading", { name: "Pulpit operatora" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Zbiory" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Pulpit operatora" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Moje zbiory" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
     expect(screen.getByRole("heading", { name: "Zbiory" })).toBeVisible();

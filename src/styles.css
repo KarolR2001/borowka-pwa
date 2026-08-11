@@ -255,14 +255,16 @@ h2 {
 }
 
 .collapsible-filters,
-.creation-panel {
+.creation-panel,
+.collapsible-section {
   border: 1px solid #dce6df;
   border-radius: 8px;
   background: #ffffff;
 }
 
 .collapsible-filters > summary,
-.creation-panel > summary {
+.creation-panel > summary,
+.collapsible-section > summary {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -275,12 +277,14 @@ h2 {
 }
 
 .collapsible-filters > summary::-webkit-details-marker,
-.creation-panel > summary::-webkit-details-marker {
+.creation-panel > summary::-webkit-details-marker,
+.collapsible-section > summary::-webkit-details-marker {
   display: none;
 }
 
 .collapsible-filters[open] > summary,
-.creation-panel[open] > summary {
+.creation-panel[open] > summary,
+.collapsible-section[open] > summary {
   border-bottom: 1px solid #dce6df;
 }
 
@@ -297,8 +301,49 @@ h2 {
 }
 
 .collapsible-filters__content,
-.creation-panel > form {
+.creation-panel > form,
+.collapsible-section__content {
   padding: 14px;
+}
+
+.screen-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.collapsible-section > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: #526b60;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.collapsible-section[open] > summary::after {
+  content: "-";
+}
+
+.record-dialog {
+  position: fixed;
+  z-index: 900;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(18 37 29 / 56%);
+}
+
+.record-dialog__surface {
+  width: min(960px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(18 37 29 / 28%);
+}
+
+.record-dialog__surface > * {
+  margin: 0;
 }
 
 .collapsible-filters__content > :first-child {
@@ -459,6 +504,17 @@ h2 {
   border: 1px solid #d5e0d9;
   border-radius: 8px;
   background: #d5e0d9;
+}
+
+.workspace-tabs + .workspace-tabs {
+  margin-top: -10px;
+  border-color: #cbd8d0;
+  background: #cbd8d0;
+}
+
+.workspace-tabs + .workspace-tabs .workspace-tab {
+  min-height: 42px;
+  font-size: 0.9rem;
 }
 
 .workspace-tab {
@@ -3973,6 +4029,19 @@ h2 {
   .workspace-tab {
     min-height: 48px;
     padding: 8px 12px;
+  }
+
+  .workspace-tabs + .workspace-tabs {
+    margin-top: -10px;
+  }
+
+  .record-dialog {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .record-dialog__surface {
+    max-height: calc(100dvh - 20px);
   }
 
   .primary-panel {

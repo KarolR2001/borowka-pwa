@@ -1,4 +1,4 @@
-import { Eye, RefreshCw, UserRound } from "lucide-react";
+import { Eye, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -10,6 +10,7 @@ import {
 } from "../harvest/harvestSessionState";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   defaultPickerHarvestFilters,
   filterPickerHarvestItems,
@@ -68,7 +69,6 @@ export function PickerHarvestListPanel({
   const [filters, setFilters] = useState<PickerHarvestFilters>(
     defaultPickerHarvestFilters
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [reportSessionId, setReportSessionId] = useState<string | null>(null);
   const isPicker =
@@ -105,15 +105,7 @@ export function PickerHarvestListPanel({
     return () => {
       isMounted = false;
     };
-  }, [
-    authState,
-    env,
-    isOnline,
-    isPicker,
-    pickerHarvestListApi,
-    reloadKey,
-    syncDocuments
-  ]);
+  }, [authState, env, isOnline, isPicker, pickerHarvestListApi, syncDocuments]);
 
   const filteredItems = useMemo(
     () => filterPickerHarvestItems(state.result?.items ?? [], filters),
@@ -128,38 +120,14 @@ export function PickerHarvestListPanel({
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Moje zbiory</p>
-          <p>Lista wymaga aktywnego konta zbieracza powiazanego z workerId.</p>
+          <p>Lista wymaga aktywnego konta powiązanego ze zbieraczem.</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="picker-harvest-list" aria-labelledby="picker-harvest-title">
-      <header className="directory-header">
-        <div>
-          <p className="eyebrow">Historia sesji</p>
-          <h2 id="picker-harvest-title">Moje zbiory</h2>
-          <p className="panel-detail">
-            {state.result
-              ? `Widoczne sesje: ${String(filteredItems.length)}`
-              : "Pobieranie historii zbiorów."}
-          </p>
-        </div>
-        <button
-          aria-label="Odśwież moje zbiory"
-          className="secondary-button icon-button"
-          disabled={state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież moje zbiory"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-        </button>
-      </header>
-
+    <section className="picker-harvest-list" aria-label="Moje zbiory">
       <CollapsibleFilters>
         <HarvestFilters
           filters={filters}
@@ -181,24 +149,32 @@ export function PickerHarvestListPanel({
         </p>
       ) : null}
       {selectedItem ? (
-        <PickerSessionDetailsPanel
-          authState={authState}
-          detailsApi={pickerSessionDetailsApi}
-          env={env}
-          isOnline={isOnline}
+        <RecordDialog
+          label="Szczegóły zbioru"
           onClose={() => {
             setSelectedSessionId(null);
             setReportSessionId(null);
           }}
-          onReportIssue={(sessionId) => {
-            if (onReportIssue) {
-              onReportIssue(sessionId);
-            } else {
-              setReportSessionId(sessionId);
-            }
-          }}
-          sessionId={selectedItem.sessionId}
-        />
+        >
+          <PickerSessionDetailsPanel
+            authState={authState}
+            detailsApi={pickerSessionDetailsApi}
+            env={env}
+            isOnline={isOnline}
+            onClose={() => {
+              setSelectedSessionId(null);
+              setReportSessionId(null);
+            }}
+            onReportIssue={(sessionId) => {
+              if (onReportIssue) {
+                onReportIssue(sessionId);
+              } else {
+                setReportSessionId(sessionId);
+              }
+            }}
+            sessionId={selectedItem.sessionId}
+          />
+        </RecordDialog>
       ) : null}
       {reportSessionId ? (
         <p className="form-message form-message--ok">
@@ -313,7 +289,6 @@ function HarvestTable({
             <th>Kg</th>
             <th>Naliczenie</th>
             <th>Status</th>
-            <th>Synchronizacja</th>
             <th>
               <span className="sr-only">Szczegóły</span>
             </th>
@@ -347,7 +322,6 @@ function HarvestTable({
                   {harvestSessionStatusLabel(item.status)}
                 </span>
               </td>
-              <td>{item.syncIssue ?? "-"}</td>
               <td>
                 <button
                   aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}

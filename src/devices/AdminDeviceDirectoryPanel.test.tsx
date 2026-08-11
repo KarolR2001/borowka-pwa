@@ -97,9 +97,8 @@ describe("AdminDeviceDirectoryPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
     });
-    expect(screen.getByRole("heading", { name: "Lista urządzeń" })).toBeInTheDocument();
-    expect(screen.getByText("Telefon Karola")).toBeInTheDocument();
-    expect(screen.getByText("picker-1")).toBeInTheDocument();
+    expect(await screen.findByText("Telefon Karola")).toBeInTheDocument();
+    expect(screen.queryByText("picker-1")).not.toBeInTheDocument();
     expect(screen.getByText("broken-device")).toBeInTheDocument();
   });
 });

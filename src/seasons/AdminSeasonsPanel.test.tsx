@@ -108,10 +108,7 @@ describe("AdminSeasonsPanel", () => {
     await waitFor(() => {
       expect(list).toHaveBeenCalled();
     });
-    expect(
-      screen.getByRole("heading", { name: "Konfiguracja sezonów" })
-    ).toBeInTheDocument();
-    expect(screen.getAllByText("Sezon 2026").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Sezon 2026")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sezon 2027").length).toBeGreaterThan(0);
     expect(screen.getByText("broken-season")).toBeInTheDocument();
   });

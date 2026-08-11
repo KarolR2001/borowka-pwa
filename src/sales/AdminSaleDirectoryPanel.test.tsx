@@ -68,7 +68,7 @@ describe("AdminSaleDirectoryPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Lista sprzedaży")).toBeVisible();
+    expect(await screen.findByLabelText("Lista sprzedaży")).toBeVisible();
     expect(screen.getByText("25,00 zł")).toBeVisible();
     expect(screen.getByText("3")).toBeVisible();
 
@@ -77,11 +77,18 @@ describe("AdminSaleDirectoryPanel", () => {
     expect(screen.queryByText("Odbiorca A")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Typ"), "ALL");
-    await user.click(screen.getByTitle("Otwórz szczegóły operacji sale-1"));
-    expect(await screen.findByText("Id operacji")).toBeVisible();
-    expect(screen.getByText("sale-1")).toBeVisible();
+    await user.click(
+      screen.getByRole("button", {
+        name: "Otwórz szczegóły: Zwykla sprzedaż z 29.07.2026"
+      })
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Szczegóły sprzedaży" })
+    ).toBeVisible();
+    expect(screen.queryByText("Id operacji")).not.toBeInTheDocument();
+    expect(screen.queryByText("sale-1")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
+    await user.click(screen.getByRole("button", { name: "Przejdź do anulowania" }));
     expect(onRequestCancellation).toHaveBeenCalledWith("sale-1");
   });
 

@@ -1,4 +1,4 @@
-import { CheckCircle2, Eye, RefreshCw, ShieldX, UserRound, X } from "lucide-react";
+import { CheckCircle2, Eye, ShieldX, UserRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -115,7 +115,7 @@ export function AdminIssueReportsPanel({
       <section className="access-notice" aria-label="Zgłoszenia niezgodności">
         <UserRound aria-hidden="true" size={24} />
         <div>
-          <p className="eyebrow">Niezgodnosci</p>
+          <p className="eyebrow">Niezgodności</p>
           <p>Obsluga zgłoszeń wymaga aktywnego administratora.</p>
         </div>
       </section>
@@ -169,21 +169,9 @@ export function AdminIssueReportsPanel({
           <p className="eyebrow">Kontrola danych</p>
           <h2 id="admin-issues-title">Zgłoszenia niezgodności</h2>
           <p className="panel-detail">
-            Otwarte zgłoszenia wymagaja odpowiedzi i osobnego procesu korekty danych.
+            Otwarte zgłoszenia wymagają odpowiedzi i osobnego procesu korekty danych.
           </p>
         </div>
-        <button
-          aria-label="Odśwież zgłoszenia"
-          className="secondary-button icon-button"
-          disabled={!isOnline || state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież zgłoszenia"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-        </button>
       </header>
 
       <CollapsibleFilters>
@@ -239,8 +227,6 @@ export function AdminIssueReportsPanel({
             <thead>
               <tr>
                 <th>Temat</th>
-                <th>Picker</th>
-                <th>Sesja / wpis</th>
                 <th>Opis</th>
                 <th>Status</th>
                 <th>Akcje</th>
@@ -309,7 +295,7 @@ export function AdminIssueReportsPanel({
             />
             <Fact
               label="Wypłata"
-              value={sourceState.result.session.paymentId ?? "Brak"}
+              value={sourceState.result.session.paymentId ? "Zarejestrowana" : "Brak"}
             />
             <Fact
               label="Wpis"
@@ -405,16 +391,6 @@ function IssueReportRow({
   return (
     <tr>
       <td>{subjectLabel(report)}</td>
-      <td>
-        {report.workerId}
-        <span className="directory-cell-note">{report.reporterUid}</span>
-      </td>
-      <td>
-        {report.sessionId}
-        {report.entryId ? (
-          <span className="directory-cell-note">Wpis: {report.entryId}</span>
-        ) : null}
-      </td>
       <td>{report.message}</td>
       <td>{statusLabel(report.status)}</td>
       <td>
@@ -427,7 +403,7 @@ function IssueReportRow({
             Odpowiedz
           </button>
           <button
-            aria-label={`Otwórz dane źródłowe ${report.id}`}
+            aria-label={`Otwórz dane źródłowe: ${subjectLabel(report)}`}
             className="secondary-button icon-button"
             onClick={onSource}
             title="Otwórz dane źródłowe"

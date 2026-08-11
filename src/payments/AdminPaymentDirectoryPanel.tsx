@@ -6,6 +6,7 @@ import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/form
 import { harvestSessionStatusLabel } from "../harvest/harvestSessionState";
 import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   createAdminPaymentCsv,
   createAdminPaymentCsvFilename,
@@ -211,7 +212,7 @@ export function AdminPaymentDirectoryPanel({
 
   return (
     <section className="payment-directory" aria-label="Historia wypłat">
-      <header className="directory-header">
+      <div className="screen-actions" aria-label="Akcje historii wypłat">
         <div className="payment-directory__header-actions">
           <button
             className="secondary-button"
@@ -223,7 +224,7 @@ export function AdminPaymentDirectoryPanel({
             Eksport CSV
           </button>
         </div>
-      </header>
+      </div>
 
       <CollapsibleFilters>
         <PaymentDirectoryFilterControls
@@ -258,7 +259,7 @@ export function AdminPaymentDirectoryPanel({
         >
           <h3>Anulowanie wypłaty</h3>
           <p>
-            Wyplata pozostanie w historii jako anulowana, a sesja wroci do zamkniętych i
+            Wypłata pozostanie w historii jako anulowana, a sesja wróci do zamkniętych i
             ponownie pojawi się na liscie do wypłaty.
           </p>
           <label className="field">
@@ -347,13 +348,20 @@ export function AdminPaymentDirectoryPanel({
         />
       ) : null}
       {selectedPayment ? (
-        <PaymentDirectoryDetails
+        <RecordDialog
+          label="Szczegóły wypłaty"
           onClose={() => {
             setSelectedPaymentId(null);
           }}
-          onRequestCancellation={requestCancellation}
-          payment={selectedPayment}
-        />
+        >
+          <PaymentDirectoryDetails
+            onClose={() => {
+              setSelectedPaymentId(null);
+            }}
+            onRequestCancellation={requestCancellation}
+            payment={selectedPayment}
+          />
+        </RecordDialog>
       ) : null}
     </section>
   );
@@ -526,7 +534,6 @@ function PaymentDirectoryTable({
             <th scope="col">Metoda</th>
             <th scope="col">Status</th>
             <th scope="col">Data sesji</th>
-            <th scope="col">Autor</th>
             <th scope="col">Szczegóły</th>
           </tr>
         </thead>
@@ -548,18 +555,17 @@ function PaymentDirectoryTable({
                   ? formatBusinessDate(payment.sourceSession.businessDate)
                   : "brak"}
               </td>
-              <td>{payment.createdBy}</td>
               <td>
                 <button
+                  aria-label={`Otwórz szczegóły wypłaty ${payment.workerName} z ${formatBusinessDate(payment.paidBusinessDate)}`}
                   className="secondary-button icon-button"
                   onClick={() => {
                     onOpen(payment.id);
                   }}
-                  title={`Otwórz szczegóły wypłaty ${payment.id}`}
+                  title="Otwórz szczegóły wypłaty"
                   type="button"
                 >
                   <Eye aria-hidden="true" size={18} />
-                  <span className="sr-only">Otwórz szczegóły wypłaty {payment.id}</span>
                 </button>
               </td>
             </tr>
@@ -601,26 +607,17 @@ function PaymentDirectoryDetails({
       </header>
 
       <dl className="payment-directory-details__grid">
-        <Detail label="Id wypłaty" value={payment.id} />
-        <Detail label="Id sesji" value={payment.sessionId} />
         <Detail label="Kwota" value={formatMoney(payment.amountGrosz)} />
         <Detail
           label="Data wypłaty"
           value={formatBusinessDate(payment.paidBusinessDate)}
         />
         <Detail label="Metoda" value={paymentMethodLabel(payment.paymentMethod)} />
-        <Detail label="Autor" value={payment.createdBy} />
-        <Detail label="Czas serwera" value={formatTimestamp(payment.createdAtIso)} />
+        <Detail label="Godzina zapisu" value={formatTimestamp(payment.createdAtIso)} />
         <Detail label="Notatka" value={payment.note ?? "brak"} />
-        <Detail
-          label="Status"
-          value={`${paymentStatusLabel(payment.status)}${
-            payment.legacyImport ? ", import historyczny" : ""
-          }`}
-        />
+        <Detail label="Status" value={paymentStatusLabel(payment.status)} />
         {payment.status === "CANCELLED" ? (
           <>
-            <Detail label="Anulowal" value={payment.cancelledBy ?? "brak"} />
             <Detail
               label="Czas anulowania"
               value={formatTimestamp(payment.cancelledAtIso)}
@@ -647,7 +644,7 @@ function PaymentDirectoryDetails({
             />
             <Detail label="Plan" value={payment.sourceSession.planName} />
             <Detail
-              label="Sposob obliczeńia"
+              label="Sposób obliczenia"
               value={
                 payment.sourceSession.calculationBasis === "WEIGHT"
                   ? "Waga aktywnych wpisów"
@@ -672,12 +669,10 @@ function PaymentDirectoryDetails({
               label="Aktywne wpisy"
               value={String(payment.sourceSession.totalEntryCount)}
             />
-            <Detail label="Zamknal" value={payment.sourceSession.closedBy ?? "brak"} />
             <Detail
-              label="Czas zamkniecia"
+              label="Czas zamknięcia"
               value={formatTimestamp(payment.sourceSession.closedAtIso)}
             />
-            <Detail label="Rewizja" value={String(payment.sourceSession.revision)} />
           </dl>
         </div>
       ) : (
@@ -695,7 +690,7 @@ function PaymentDirectoryDetails({
           type="button"
         >
           <Ban aria-hidden="true" size={18} />
-          Przejdz do anulowania
+          Przejdź do anulowania
         </button>
       ) : null}
     </section>
@@ -712,7 +707,6 @@ function PaymentStatusLabels({ payment }: { payment: AdminPaymentDirectoryItem }
       >
         {paymentStatusLabel(payment.status)}
       </span>
-      {payment.legacyImport ? <span className="status-badge">Importowana</span> : null}
     </span>
   );
 }

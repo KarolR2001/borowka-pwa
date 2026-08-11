@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Banknote,
+  CalendarDays,
   ClipboardList,
   Database,
   Eye,
@@ -14,8 +15,10 @@ import {
   RotateCcw,
   Settings2,
   ShoppingBasket,
+  Smartphone,
   Trash2,
   UserCog,
+  UserPlus,
   UserRound,
   Users,
   X,
@@ -292,6 +295,9 @@ type AdminWorkspaceView =
   | "DATA";
 
 type OperatorWorkspaceView = "HARVESTS" | "DASHBOARD";
+type AdminAccessView = "USERS" | "INVITATIONS" | "DEVICES";
+type AdminConfigurationView = "SEASONS" | "PLANS";
+type AdminDataView = "PICKER_EXPORT" | "FULL_EXPORT";
 
 const adminWorkspaceItems: readonly WorkspaceNavigationItem<AdminWorkspaceView>[] = [
   { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard },
@@ -311,6 +317,23 @@ const operatorWorkspaceItems: readonly WorkspaceNavigationItem<OperatorWorkspace
     { key: "HARVESTS", label: "Zbiory", icon: ShoppingBasket },
     { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard }
   ];
+
+const adminAccessItems: readonly WorkspaceNavigationItem<AdminAccessView>[] = [
+  { key: "USERS", label: "Konta", icon: UserCog },
+  { key: "INVITATIONS", label: "Rejestracja", icon: UserPlus },
+  { key: "DEVICES", label: "Urządzenia", icon: Smartphone }
+];
+
+const adminConfigurationItems: readonly WorkspaceNavigationItem<AdminConfigurationView>[] =
+  [
+    { key: "SEASONS", label: "Sezony", icon: CalendarDays },
+    { key: "PLANS", label: "Plany rozliczeń", icon: Settings2 }
+  ];
+
+const adminDataItems: readonly WorkspaceNavigationItem<AdminDataView>[] = [
+  { key: "PICKER_EXPORT", label: "Eksport zbieracza", icon: UserRound },
+  { key: "FULL_EXPORT", label: "Pełny eksport", icon: Database }
+];
 
 type WorkspaceNavigationItem<Key extends string> = {
   key: Key;
@@ -353,6 +376,10 @@ export function App({
     useState<AdminWorkspaceView>("DASHBOARD");
   const [operatorWorkspaceView, setOperatorWorkspaceView] =
     useState<OperatorWorkspaceView>("HARVESTS");
+  const [adminAccessView, setAdminAccessView] = useState<AdminAccessView>("USERS");
+  const [adminConfigurationView, setAdminConfigurationView] =
+    useState<AdminConfigurationView>("SEASONS");
+  const [adminDataView, setAdminDataView] = useState<AdminDataView>("PICKER_EXPORT");
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const [authState, setAuthState] = useState<AuthSessionState>(() =>
     authSessionApi.getInitialState(env)
@@ -1295,23 +1322,33 @@ export function App({
               />
             ) : adminWorkspaceView === "ACCESS" ? (
               <>
-                <AdminUserDirectoryPanel
-                  authState={authState}
-                  env={env}
-                  userDirectoryApi={userDirectoryApi}
-                  workerDirectoryApi={workerDirectoryApi}
+                <WorkspaceNavigation
+                  activeKey={adminAccessView}
+                  ariaLabel="Obszary zarządzania kontami"
+                  items={adminAccessItems}
+                  onChange={setAdminAccessView}
                 />
-                <AdminRegistrationInvitationsPanel
-                  authState={authState}
-                  env={env}
-                  registrationInvitationsApi={registrationInvitationsApi}
-                  workerDirectoryApi={workerDirectoryApi}
-                />
-                <AdminDeviceDirectoryPanel
-                  authState={authState}
-                  env={env}
-                  deviceDirectoryApi={deviceDirectoryApi}
-                />
+                {adminAccessView === "USERS" ? (
+                  <AdminUserDirectoryPanel
+                    authState={authState}
+                    env={env}
+                    userDirectoryApi={userDirectoryApi}
+                    workerDirectoryApi={workerDirectoryApi}
+                  />
+                ) : adminAccessView === "INVITATIONS" ? (
+                  <AdminRegistrationInvitationsPanel
+                    authState={authState}
+                    env={env}
+                    registrationInvitationsApi={registrationInvitationsApi}
+                    workerDirectoryApi={workerDirectoryApi}
+                  />
+                ) : (
+                  <AdminDeviceDirectoryPanel
+                    authState={authState}
+                    env={env}
+                    deviceDirectoryApi={deviceDirectoryApi}
+                  />
+                )}
               </>
             ) : adminWorkspaceView === "ISSUES" ? (
               <AdminIssueReportsPanel
@@ -1322,31 +1359,49 @@ export function App({
               />
             ) : adminWorkspaceView === "CONFIGURATION" ? (
               <>
-                <AdminSeasonsPanel
-                  authState={authState}
-                  env={env}
-                  seasonsApi={seasonsApi}
+                <WorkspaceNavigation
+                  activeKey={adminConfigurationView}
+                  ariaLabel="Obszary konfiguracji"
+                  items={adminConfigurationItems}
+                  onChange={setAdminConfigurationView}
                 />
-                <AdminSettlementPlansPanel
-                  authState={authState}
-                  env={env}
-                  settlementPlansApi={settlementPlansApi}
-                />
+                {adminConfigurationView === "SEASONS" ? (
+                  <AdminSeasonsPanel
+                    authState={authState}
+                    env={env}
+                    seasonsApi={seasonsApi}
+                  />
+                ) : (
+                  <AdminSettlementPlansPanel
+                    authState={authState}
+                    env={env}
+                    settlementPlansApi={settlementPlansApi}
+                  />
+                )}
               </>
             ) : (
               <>
-                <AdminPickerExportSettingsPanel
-                  authState={authState}
-                  env={env}
-                  isOnline={isOnline}
-                  settingsApi={pickerExportSettingsApi}
+                <WorkspaceNavigation
+                  activeKey={adminDataView}
+                  ariaLabel="Obszary danych"
+                  items={adminDataItems}
+                  onChange={setAdminDataView}
                 />
-                <AdminFullCloudExportPanel
-                  api={fullCloudExportApi}
-                  authState={authState}
-                  env={env}
-                  isOnline={isOnline}
-                />
+                {adminDataView === "PICKER_EXPORT" ? (
+                  <AdminPickerExportSettingsPanel
+                    authState={authState}
+                    env={env}
+                    isOnline={isOnline}
+                    settingsApi={pickerExportSettingsApi}
+                  />
+                ) : (
+                  <AdminFullCloudExportPanel
+                    api={fullCloudExportApi}
+                    authState={authState}
+                    env={env}
+                    isOnline={isOnline}
+                  />
+                )}
               </>
             )}
           </>
@@ -1752,9 +1807,8 @@ function AuthPanel({
               </div>
               <p className="panel-detail">
                 Na tym urządzeniu są {safeSignOutModel.pendingDocumentCount} lokalne
-                dokumenty nalezace do konta {authState.user.email ?? authState.user.uid}.
-                Wylogowanie jest zablokowane, aby nie pozostawic ich nastepnemu
-                użytkownikowi.
+                dokumenty należące do tego konta. Wylogowanie jest zablokowane, aby nie
+                pozostawić ich następnemu użytkownikowi.
               </p>
               {safeSignOutModel.sessions.length > 0 ? (
                 <ul className="safe-sign-out__sessions">

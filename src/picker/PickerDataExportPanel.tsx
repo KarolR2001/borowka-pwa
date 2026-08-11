@@ -1,10 +1,4 @@
-import {
-  AlertTriangle,
-  Download,
-  FileSpreadsheet,
-  RefreshCw,
-  UserRound
-} from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -71,7 +65,6 @@ export function PickerDataExportPanel({
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_DASHBOARD_PERIOD
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
@@ -120,7 +113,7 @@ export function PickerDataExportPanel({
     return () => {
       isMounted = false;
     };
-  }, [authState, env, exportApi, isOnline, isPicker, reloadKey]);
+  }, [authState, env, exportApi, isOnline, isPicker]);
 
   const filtered = useMemo(() => {
     if (!state.result?.enabled || periodError) {
@@ -140,7 +133,7 @@ export function PickerDataExportPanel({
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Eksport</p>
-          <p>Eksport wymaga aktywnego konta pickera z workerId.</p>
+          <p>Eksport wymaga aktywnego konta powiązanego ze zbieraczem.</p>
         </div>
       </section>
     );
@@ -201,18 +194,6 @@ export function PickerDataExportPanel({
               : "Dostępność eksportu jest kontrolowana przez administratora."}
           </p>
         </div>
-        <button
-          aria-label="Odśwież dane eksportu"
-          className="secondary-button icon-button"
-          disabled={state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież dane eksportu"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-        </button>
       </header>
 
       {state.status === "LOADING" && !state.result ? (

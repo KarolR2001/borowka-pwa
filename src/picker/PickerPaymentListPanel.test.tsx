@@ -97,7 +97,7 @@ describe("PickerPaymentListPanel", () => {
     );
 
     expect(
-      screen.getByText("Lista wymaga aktywnego konta zbieracza powiazanego z workerId.")
+      screen.getByText("Lista wymaga aktywnego konta powiązanego ze zbieraczem.")
     ).toBeInTheDocument();
     expect(load).not.toHaveBeenCalled();
   });

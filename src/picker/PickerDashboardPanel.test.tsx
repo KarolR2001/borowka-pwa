@@ -72,7 +72,7 @@ describe("PickerDashboardPanel", () => {
     );
   });
 
-  it("reloads for the selected season and from the refresh control", async () => {
+  it("reloads for the selected season without a manual refresh control", async () => {
     const user = userEvent.setup();
     const load = vi.fn<PickerDashboardApi["load"]>().mockResolvedValue(dashboardResult());
 
@@ -95,10 +95,10 @@ describe("PickerDashboardPanel", () => {
       );
     });
 
-    await user.click(screen.getByRole("button", { name: "Odśwież pulpit zbieracza" }));
-    await waitFor(() => {
-      expect(load).toHaveBeenCalledTimes(3);
-    });
+    expect(
+      screen.queryByRole("button", { name: "Odśwież pulpit zbieracza" })
+    ).not.toBeInTheDocument();
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("does not load data for an administrator", () => {
@@ -122,7 +122,7 @@ describe("PickerDashboardPanel", () => {
     );
 
     expect(
-      screen.getByText("Widok wymaga aktywnego konta zbieracza powiazanego z workerId.")
+      screen.getByText("Widok wymaga aktywnego konta powiązanego ze zbieraczem.")
     ).toBeInTheDocument();
     expect(load).not.toHaveBeenCalled();
   });

@@ -221,6 +221,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
     );
 
     await screen.findByText("Brak zaproszeń dla wybranych filtrów.");
+    await user.click(screen.getByText("Zarejestruj nowe konto"));
     await user.type(screen.getByLabelText("E-mail"), "picker@example.test");
     await user.type(screen.getByLabelText("Nazwa"), "Picker Test");
     await user.selectOptions(screen.getByLabelText("Rola docelowa"), "PICKER");
@@ -255,6 +256,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
       />
     );
 
+    await user.click(screen.getByText("Zarejestruj nowe konto"));
     await screen.findByRole("option", { name: "Anna Zbieracz" });
     await user.type(screen.getByLabelText("E-mail"), "anna@example.test");
     await user.type(screen.getByLabelText("Nazwa"), "Anna Konto");
@@ -293,6 +295,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
     );
 
     await screen.findByText("Brak zaproszeń dla wybranych filtrów.");
+    await user.click(screen.getByText("Zarejestruj nowe konto"));
     await user.type(screen.getByLabelText("E-mail"), "Operator@Example.TEST");
     await user.type(screen.getByLabelText("Nazwa"), "Operator Test");
     await user.click(screen.getByRole("button", { name: "Dodaj" }));

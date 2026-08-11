@@ -1,4 +1,4 @@
-import { AlertTriangle, Gauge, RefreshCw } from "lucide-react";
+import { AlertTriangle, Gauge } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -73,7 +73,6 @@ export function AdminDashboardPanel({
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_DASHBOARD_PERIOD
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
   const periodError = dashboardPeriodSelectionError(periodSelection);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
@@ -158,7 +157,6 @@ export function AdminDashboardPanel({
     isOnline,
     periodError,
     periodSelection,
-    reloadKey,
     selectedSeasonId,
     snapshotStorage,
     syncDocuments,
@@ -214,18 +212,6 @@ export function AdminDashboardPanel({
           <h2 id="admin-dashboard-title">Pulpit administratora</h2>
           <p className="panel-detail">Najważniejsze informacje o bieżącym sezonie.</p>
         </div>
-        <button
-          className="secondary-button icon-button"
-          disabled={!isOnline || state.status === "LOADING"}
-          onClick={() => {
-            setReloadKey((current) => current + 1);
-          }}
-          title="Odśwież pulpit administratora"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} />
-          <span className="sr-only">Odśwież pulpit administratora</span>
-        </button>
       </header>
 
       <div className="dashboard-filter-bar">

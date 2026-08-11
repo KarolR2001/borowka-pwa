@@ -1,4 +1,4 @@
-import { RefreshCw, ShieldAlert, Smartphone } from "lucide-react";
+import { ShieldAlert, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -50,31 +50,6 @@ export function AdminDeviceDirectoryPanel({
     useState<DeviceDirectoryState>(initialState);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
-  const loadDevices = () => {
-    setDirectoryState((current) => ({
-      status: "LOADING",
-      result: current.result,
-      message: "Pobieranie urządzeń."
-    }));
-
-    void deviceDirectoryApi
-      .list(env)
-      .then((result) => {
-        setDirectoryState({
-          status: "READY",
-          result,
-          message: "Lista urządzeń jest aktualna."
-        });
-      })
-      .catch(() => {
-        setDirectoryState((current) => ({
-          status: "ERROR",
-          result: current.result,
-          message: "Nie udało się pobrać listy urządzeń."
-        }));
-      });
-  };
-
   useEffect(() => {
     let isMounted = true;
 
@@ -86,28 +61,26 @@ export function AdminDeviceDirectoryPanel({
     setDirectoryState((current) => ({
       status: "LOADING",
       result: current.result,
-      message: "Pobieranie urządzeń."
+      message: "Pobieranie urządzeń z bazy."
     }));
 
     void deviceDirectoryApi
       .list(env)
       .then((result) => {
-        if (isMounted) {
-          setDirectoryState({
-            status: "READY",
-            result,
-            message: "Lista urządzeń jest aktualna."
-          });
-        }
+        if (!isMounted) return;
+        setDirectoryState({
+          status: "READY",
+          result,
+          message: "Lista urządzeń jest aktualna."
+        });
       })
       .catch(() => {
-        if (isMounted) {
-          setDirectoryState((current) => ({
-            status: "ERROR",
-            result: current.result,
-            message: "Nie udało się pobrać listy urządzeń."
-          }));
-        }
+        if (!isMounted) return;
+        setDirectoryState((current) => ({
+          status: "ERROR",
+          result: current.result,
+          message: "Nie udało się pobrać listy urządzeń."
+        }));
       });
 
     return () => {
@@ -139,23 +112,6 @@ export function AdminDeviceDirectoryPanel({
 
   return (
     <section className="device-directory" aria-label="Urządzenia">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Urządzenia</p>
-          <h2>Lista urządzeń</h2>
-          <p className="panel-detail">{directoryState.message}</p>
-        </div>
-        <button
-          className="secondary-action"
-          disabled={directoryState.status === "LOADING"}
-          onClick={loadDevices}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
-      </div>
-
       <div className="directory-summary" aria-label="Podsumowanie urządzeń">
         <DeviceStat
           label="Wszystkie urządzenia"
@@ -191,20 +147,16 @@ export function AdminDeviceDirectoryPanel({
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
-                <th scope="col">Użytkownik</th>
                 <th scope="col">Platforma</th>
                 <th scope="col">Aktywne</th>
-                <th scope="col">Id</th>
               </tr>
             </thead>
             <tbody>
               {directoryState.result.devices.map((device) => (
                 <tr key={device.id}>
                   <td>{device.deviceName}</td>
-                  <td>{device.userUid}</td>
                   <td>{device.platform ?? "brak"}</td>
                   <td>{device.active ? "Tak" : "Nie"}</td>
-                  <td>{device.id}</td>
                 </tr>
               ))}
             </tbody>

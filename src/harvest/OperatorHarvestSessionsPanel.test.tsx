@@ -125,7 +125,10 @@ describe("OperatorHarvestSessionsPanel", () => {
 
     expect(
       screen.getByLabelText("Otwarte sesje").compareDocumentPosition(newSessionSection)
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    ).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+    expect(screen.getByText("Otwórz nową sesję").closest("details")).not.toHaveAttribute(
+      "open"
+    );
   });
 
   it("reports active session and form blockers to the PWA update gate", async () => {

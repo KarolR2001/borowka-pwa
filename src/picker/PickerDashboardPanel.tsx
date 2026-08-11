@@ -1,4 +1,4 @@
-import { RefreshCw, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -61,7 +61,6 @@ export function PickerDashboardPanel({
   const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
     DEFAULT_DASHBOARD_PERIOD
   );
-  const [reloadKey, setReloadKey] = useState(0);
   const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
   const periodError = dashboardPeriodSelectionError(periodSelection);
   const isPicker =
@@ -119,7 +118,6 @@ export function PickerDashboardPanel({
     periodError,
     periodSelection,
     pickerDashboardApi,
-    reloadKey,
     selectedSeasonId,
     todayBusinessDate
   ]);
@@ -130,7 +128,7 @@ export function PickerDashboardPanel({
         <UserRound aria-hidden="true" size={24} />
         <div>
           <p className="eyebrow">Pulpit zbieracza</p>
-          <p>Widok wymaga aktywnego konta zbieracza powiazanego z workerId.</p>
+          <p>Widok wymaga aktywnego konta powiązanego ze zbieraczem.</p>
         </div>
       </section>
     );
@@ -139,14 +137,14 @@ export function PickerDashboardPanel({
   const result = periodError ? null : state.result;
 
   return (
-    <section className="picker-dashboard" aria-labelledby="picker-dashboard-title">
+    <section className="picker-dashboard" aria-label="Pulpit zbieracza">
       <header className="directory-header">
         <div>
-          <p className="eyebrow">Moje rozliczenie</p>
-          <h2 id="picker-dashboard-title">Pulpit zbieracza</h2>
           <p className="panel-detail">
             {result
-              ? `${result.userName} / ${result.workerName ?? result.workerId}`
+              ? result.workerName
+                ? `${result.userName} / ${result.workerName}`
+                : result.userName
               : authState.profile.displayName}
           </p>
         </div>
@@ -168,18 +166,6 @@ export function PickerDashboardPanel({
               ))}
             </select>
           </label>
-          <button
-            aria-label="Odśwież pulpit zbieracza"
-            className="secondary-button icon-button"
-            disabled={state.status === "LOADING"}
-            onClick={() => {
-              setReloadKey((current) => current + 1);
-            }}
-            title="Odśwież pulpit zbieracza"
-            type="button"
-          >
-            <RefreshCw aria-hidden="true" size={18} />
-          </button>
         </div>
       </header>
 
@@ -264,7 +250,7 @@ export function PickerDashboardPanel({
           result.invalidSeasonCount > 0 ||
           result.invalidSessionCount > 0 ? (
             <p className="form-message form-message--warning">
-              Dane wymagajace kontroli: profil pracownika{" "}
+              Dane wymagające kontroli: profil pracownika{" "}
               {result.invalidWorker ? "1" : "0"}, sesje {result.invalidSessionCount},
               wypłaty {result.invalidPaymentCount}, sezony {result.invalidSeasonCount}.
             </p>

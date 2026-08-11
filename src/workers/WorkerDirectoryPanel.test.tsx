@@ -202,8 +202,8 @@ describe("WorkerDirectoryPanel", () => {
         viewerRole: "ADMIN"
       });
     });
-    expect(screen.getByRole("heading", { name: "Lista zbieraczy" })).toBeInTheDocument();
-    expect(screen.getByText("Anna Test")).toBeInTheDocument();
+
+    expect(await screen.findByText("Anna Test")).toBeInTheDocument();
     expect(screen.getByText("10,00 zł")).toBeInTheDocument();
     expect(screen.getByText("anna@example.test")).toBeInTheDocument();
     expect(screen.getAllByText("brak danych")).toHaveLength(4);

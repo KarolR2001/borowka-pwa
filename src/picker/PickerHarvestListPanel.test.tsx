@@ -45,7 +45,10 @@ describe("PickerHarvestListPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Oczekuje synchronizacji")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Otwórz sesję 29.07.2026" })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Oczekuje synchronizacji")).not.toBeInTheDocument();
     expect(screen.getAllByText("Wymaga przegladu")).toHaveLength(2);
     expect(screen.getAllByText("Anulowano")).toHaveLength(2);
     expect(screen.getAllByText("2 ubianki")).toHaveLength(4);
@@ -81,7 +84,7 @@ describe("PickerHarvestListPanel", () => {
       />
     );
 
-    await screen.findByText("Oczekuje synchronizacji");
+    expect(screen.queryByText("Oczekuje synchronizacji")).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Status"), "PAID");
 
     expect(
@@ -118,7 +121,7 @@ describe("PickerHarvestListPanel", () => {
     );
 
     expect(
-      screen.getByText("Lista wymaga aktywnego konta zbieracza powiazanego z workerId.")
+      screen.getByText("Lista wymaga aktywnego konta powiązanego ze zbieraczem.")
     ).toBeInTheDocument();
     expect(load).not.toHaveBeenCalled();
   });

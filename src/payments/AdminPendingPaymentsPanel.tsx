@@ -208,7 +208,7 @@ export function AdminPendingPaymentsPanel({
           )}
         />
         <DirectoryStat
-          label="Wykluczone pending"
+          label="Oczekujące na synchronizację"
           value={String(state.result?.excluded.pendingSynchronizationCount ?? 0)}
         />
       </div>
@@ -357,12 +357,11 @@ function PendingPaymentTable({
         <thead>
           <tr>
             <th scope="col">Zbieracz</th>
-            <th scope="col">Sesja</th>
+            <th scope="col">Data</th>
             <th scope="col">Plan</th>
             <th scope="col">Wynik</th>
             <th scope="col">Naliczono</th>
-            <th scope="col">Zamkniecie</th>
-            <th scope="col">Synchronizacja</th>
+            <th scope="col">Zamknięcie</th>
             <th scope="col">Historia wypłaty</th>
             <th scope="col">Akcja</th>
           </tr>
@@ -374,10 +373,7 @@ function PendingPaymentTable({
                 {session.workerName}
                 <span className="directory-cell-note">{session.seasonName}</span>
               </td>
-              <td>
-                {formatBusinessDate(session.businessDate)}
-                <span className="directory-cell-note">{session.sessionId}</span>
-              </td>
+              <td>{formatBusinessDate(session.businessDate)}</td>
               <td>
                 {session.planName}
                 <span className="directory-cell-note">{session.unitLabel}</span>
@@ -390,15 +386,7 @@ function PendingPaymentTable({
                 </span>
               </td>
               <td>{formatMoney(session.amountDueGrosz)}</td>
-              <td>
-                {formatTimestamp(session.closedAt)}
-                <span className="directory-cell-note">{session.closedBy}</span>
-              </td>
-              <td>
-                {session.syncStatus === "SYNCED"
-                  ? "Potwierdzona"
-                  : "Oczekuje na potwierdzenie"}
-              </td>
+              <td>{formatTimestamp(session.closedAt)}</td>
               <td>
                 {session.paymentHistory === "CANCELLED"
                   ? "Anulowana wypłata"
@@ -509,10 +497,7 @@ function EligibilityPanel({
           <ShieldCheck aria-hidden="true" size={22} />
           <div>
             <strong>Sesja spełnia warunki wypłaty.</strong>
-            <p>
-              Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}, rewizja{" "}
-              {state.result.sessionRevision}.
-            </p>
+            <p>Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}.</p>
           </div>
         </div>
         {preparedSessionId === state.sessionId && session ? (

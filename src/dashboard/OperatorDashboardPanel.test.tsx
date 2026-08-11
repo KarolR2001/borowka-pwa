@@ -49,7 +49,7 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Pulpit operatora")).toBeVisible();
+    expect(await screen.findByText("12,500 kg")).toBeVisible();
     expect(within(metric("Aktywny sezon")).getByText("Sezon 2026")).toBeVisible();
     expect(within(metric("Dostępne kilogramy")).getByText("12,500 kg")).toBeVisible();
     expect(screen.getAllByText("Zbieracz A")).toHaveLength(2);
@@ -78,7 +78,7 @@ describe("OperatorDashboardPanel", () => {
     );
   });
 
-  it("moves to the new harvest form and refreshes the dashboard", async () => {
+  it("moves to the new harvest form without a manual refresh control", async () => {
     const user = userEvent.setup();
     const api = dashboardApi();
     const target = document.createElement("div");
@@ -98,14 +98,14 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    await screen.findByText("Pulpit operatora");
+    await screen.findAllByText("12,500 kg");
     await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
     expect(input).toHaveFocus();
 
-    await user.click(screen.getByRole("button", { name: "Odśwież pulpit operatora" }));
-    await waitFor(() => {
-      expect(api.load).toHaveBeenCalledTimes(2);
-    });
+    expect(
+      screen.queryByRole("button", { name: "Odśwież pulpit operatora" })
+    ).not.toBeInTheDocument();
+    expect(api.load).toHaveBeenCalledTimes(1);
     target.remove();
   });
 
@@ -129,7 +129,7 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    await screen.findByText("Pulpit operatora");
+    await screen.findAllByText("12,500 kg");
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     expect(
       screen.getByText("Część zmian stanu kilogramów oczekuje na potwierdzenie.")
@@ -191,8 +191,8 @@ describe("OperatorDashboardPanel", () => {
     expect(screen.getByLabelText("Okres")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Nowy zbiór" })).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Odśwież pulpit operatora" })
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Odśwież pulpit operatora" })
+    ).not.toBeInTheDocument();
     expect(api.load).toHaveBeenCalledTimes(1);
   });
 

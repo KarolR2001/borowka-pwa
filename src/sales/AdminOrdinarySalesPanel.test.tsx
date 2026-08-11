@@ -52,6 +52,7 @@ describe("AdminOrdinarySalesPanel", () => {
     ]);
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
 
     expect(
       await screen.findByRole("heading", { name: "Alarm stanu: Sezon 2026" })
@@ -88,6 +89,7 @@ describe("AdminOrdinarySalesPanel", () => {
     api.create.mockResolvedValue(confirmedResult(check));
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
     await fillAndPrepare(user);
 
     expect(
@@ -125,6 +127,7 @@ describe("AdminOrdinarySalesPanel", () => {
       .mockResolvedValueOnce(confirmedResult(secondCheck));
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
     await fillAndPrepare(user);
     await user.click(await screen.findByRole("button", { name: "Potwierdz i zapisz" }));
 
@@ -155,6 +158,7 @@ describe("AdminOrdinarySalesPanel", () => {
     });
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
     await fillAndPrepare(user);
 
     expect(await screen.findByLabelText("Masa kg")).toBeDisabled();
@@ -190,6 +194,7 @@ describe("AdminOrdinarySalesPanel", () => {
     );
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
     await screen.findByRole("option", { name: "Sezon 2026" });
     await user.click(screen.getByRole("button", { name: "Korekta" }));
     await user.type(screen.getByLabelText("Masa kg"), "3");
@@ -230,6 +235,7 @@ describe("AdminOrdinarySalesPanel", () => {
     api.cancelSale.mockResolvedValue(cancellationResult(sale));
 
     renderPanel(api);
+    await user.click(screen.getByText("Nowa operacja"));
     await screen.findByRole("option", { name: "Sezon 2026" });
     await user.click(screen.getByRole("button", { name: "Anulowanie" }));
     await user.click(await screen.findByRole("radio", { name: /Sprzedaż.*2026-07-29/ }));
@@ -284,8 +290,13 @@ describe("AdminOrdinarySalesPanel", () => {
     ]);
 
     renderPanel(api);
-    await user.click(await screen.findByTitle("Otwórz szczegóły operacji sale-1"));
-    await user.click(screen.getByRole("button", { name: "Przejdz do anulowania" }));
+    await user.click(screen.getByText("Nowa operacja"));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Otwórz szczegóły: Zwykla sprzedaż z 29.07.2026"
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Przejdź do anulowania" }));
 
     expect(screen.getByRole("button", { name: "Anulowanie" })).toHaveAttribute(
       "aria-pressed",

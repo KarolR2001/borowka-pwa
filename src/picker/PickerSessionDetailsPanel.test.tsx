@@ -91,7 +91,8 @@ describe("PickerSessionDetailsPanel", () => {
     expect(
       await screen.findByRole("heading", { name: "Sesja z 29.07.2026" })
     ).toBeInTheDocument();
-    expect(screen.getByText("Korekta wpisu entry-1")).toBeInTheDocument();
+    expect(screen.getByText("Korekta wcześniejszego wpisu")).toBeInTheDocument();
+    expect(screen.queryByText("entry-1")).not.toBeInTheDocument();
     expect(screen.getByText("Aktywny")).toBeInTheDocument();
     expect(screen.getByText("Powód: Bledna waga")).toBeInTheDocument();
     expect(screen.getByText("Przelew bankowy")).toBeInTheDocument();

@@ -3,9 +3,10 @@ import {
   CalendarDays,
   DoorOpen,
   Lock,
-  RefreshCw,
+  Plus,
   RotateCcw,
   Search,
+  Settings,
   Star
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -14,6 +15,7 @@ import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import type { SeasonDocument, SeasonStatus } from "../domain/domainConfiguration";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 import {
   createSeason,
   defaultSeasonFilters,
@@ -364,52 +366,43 @@ export function AdminSeasonsPanel({
 
   return (
     <section className="season-directory" aria-label="Sezony">
-      <div className="directory-header">
-        <div>
-          <p className="eyebrow">Sezony</p>
-          <h2>Konfiguracja sezonów</h2>
-          <p className="panel-detail">{state.message}</p>
+      {state.result ? (
+        <div className="screen-actions" aria-label="Akcje sezonów">
+          <CollapsibleSection
+            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Dodaj sezon"
+          >
+            <CreateSeasonForm
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreateSeason();
+              }}
+            />
+          </CollapsibleSection>
+          <CollapsibleSection
+            icon={<Settings aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Zmień status sezonu"
+          >
+            <SeasonActionForm
+              draft={actionDraft}
+              effectiveAction={selectedSeasonAction}
+              isSubmitting={isSubmitting}
+              onChange={setActionDraft}
+              onSubmit={() => {
+                void handleSeasonAction();
+              }}
+              selectedSeason={selectedSeason}
+              seasons={state.result.seasons}
+            />
+          </CollapsibleSection>
         </div>
-        <button
-          className="secondary-action"
-          disabled={state.status === "LOADING"}
-          onClick={() => {
-            void reload();
-          }}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />
-          <span>Odśwież</span>
-        </button>
-      </div>
+      ) : null}
 
       <CollapsibleFilters>
         <SeasonFilterControls filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
-
-      {state.result ? (
-        <>
-          <CreateSeasonForm
-            draft={createDraft}
-            isSubmitting={isSubmitting}
-            onChange={setCreateDraft}
-            onSubmit={() => {
-              void handleCreateSeason();
-            }}
-          />
-          <SeasonActionForm
-            draft={actionDraft}
-            effectiveAction={selectedSeasonAction}
-            isSubmitting={isSubmitting}
-            onChange={setActionDraft}
-            onSubmit={() => {
-              void handleSeasonAction();
-            }}
-            selectedSeason={selectedSeason}
-            seasons={state.result.seasons}
-          />
-        </>
-      ) : null}
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
@@ -530,7 +523,7 @@ function SeasonFilterControls({
           <option value="ALL">Wszystkie</option>
           <option value="PLANNED">Planowany</option>
           <option value="OPEN">Otwarty</option>
-          <option value="CLOSED">Zamkniety</option>
+          <option value="CLOSED">Zamknięty</option>
           <option value="ARCHIVED">Archiwalny</option>
         </select>
       </label>

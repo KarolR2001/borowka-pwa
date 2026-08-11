@@ -157,18 +157,6 @@ export function ActiveHarvestSessionPanel({
 
       <div className="active-session__facts" aria-label="Informacje o sesji">
         <div>
-          <span>Autor</span>
-          <strong>{view.createdByName}</strong>
-        </div>
-        <div>
-          <span>Urządzenie</span>
-          <strong>{view.deviceName}</strong>
-        </div>
-        <div>
-          <span>Rewizja</span>
-          <strong>{view.session.revision}</strong>
-        </div>
-        <div>
           <span>Ostatni wpis</span>
           <strong>{lastEntry ? entryTitle(lastEntry) : "brak"}</strong>
         </div>
@@ -188,7 +176,6 @@ export function ActiveHarvestSessionPanel({
               <li key={entry.id} className="active-session__entry">
                 <div className="active-session__entry-heading">
                   <strong>{entryTitle(entry)}</strong>
-                  <span>{entry.id}</span>
                 </div>
                 <dl>
                   <div>
@@ -217,18 +204,6 @@ export function ActiveHarvestSessionPanel({
                       {entry.amountPreviewGrosz === null
                         ? "brak"
                         : formatMoney(entry.amountPreviewGrosz)}
-                    </dd>
-                  </div>
-                  {entry.createdByName ? (
-                    <div>
-                      <dt>Autor</dt>
-                      <dd>{entry.createdByName}</dd>
-                    </div>
-                  ) : null}
-                  <div>
-                    <dt>Synchronizacja</dt>
-                    <dd>
-                      {entry.pendingSync ? "Oczekuje synchronizacji" : "Potwierdzony"}
                     </dd>
                   </div>
                 </dl>
