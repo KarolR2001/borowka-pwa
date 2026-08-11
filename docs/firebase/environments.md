@@ -51,6 +51,7 @@ For production:
 - [x] Enable Authentication email/password in development.
 - [x] Create the development Web App and configure the local development build.
 - [x] Enable development Hosting and deploy the stage 7 gate.
+- [x] Add `borowka-pwa-dev.web.app` to Authentication authorized domains.
 - [ ] Complete and verify the equivalent production service configuration.
 - [ ] Add CI deployment credentials and variables for controlled GitHub deploys.
 - [ ] Add authorized domains for production as needed.
@@ -68,6 +69,11 @@ Runtime client configuration is split by Vite mode:
 Only example files may be committed. The `.env.*.local` files contain machine-local Firebase Web App configuration and must stay outside Git history.
 
 The Firebase Web App keys used by the browser client are not administrator secrets, but production values should still be handled as environment configuration and managed separately from development.
+
+For development, set `VITE_FIREBASE_AUTH_DOMAIN=borowka-pwa-dev.web.app`.
+Using the Hosting domain keeps the Firebase Auth helper iframe first-party and
+prevents browser tracking protection from blocking its storage. The same domain
+must be present in Firebase Console under Authentication authorized domains.
 
 ## CI deployment configuration
 

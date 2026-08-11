@@ -16,7 +16,7 @@ const validDevelopmentEnv = {
   VITE_APP_ENV: "development",
   VITE_USE_FIREBASE_EMULATORS: "false",
   VITE_FIREBASE_API_KEY: "dev-api-key",
-  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.firebaseapp.com",
+  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.web.app",
   VITE_FIREBASE_PROJECT_ID: "borowka-pwa-dev",
   VITE_FIREBASE_STORAGE_BUCKET: "borowka-pwa-dev.appspot.com",
   VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789",
@@ -50,6 +50,18 @@ describe("deploy environment validation", () => {
     expect(result.ok).toBe(false);
     expect(result.errors).toContain(
       "VITE_USE_FIREBASE_EMULATORS must be false for deploy."
+    );
+  });
+
+  it("rejects a cross-site Firebase Auth domain for development", () => {
+    const result = validateDeployEnvironment("development", {
+      ...validDevelopmentEnv,
+      VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.firebaseapp.com"
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'VITE_FIREBASE_AUTH_DOMAIN must be "borowka-pwa-dev.web.app" for development deploy.'
     );
   });
 
