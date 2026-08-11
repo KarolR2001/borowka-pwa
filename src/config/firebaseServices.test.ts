@@ -7,7 +7,7 @@ const completeEnv = {
   VITE_APP_ENV: "development",
   VITE_USE_FIREBASE_EMULATORS: "false",
   VITE_FIREBASE_API_KEY: "dev-api-key",
-  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.firebaseapp.com",
+  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.web.app",
   VITE_FIREBASE_PROJECT_ID: "borowka-pwa-dev",
   VITE_FIREBASE_STORAGE_BUCKET: "borowka-pwa-dev.appspot.com",
   VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789",

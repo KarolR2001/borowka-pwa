@@ -11,7 +11,7 @@ const completeEnv = {
   VITE_APP_ENV: "development",
   VITE_USE_FIREBASE_EMULATORS: "false",
   VITE_FIREBASE_API_KEY: "dev-api-key",
-  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.firebaseapp.com",
+  VITE_FIREBASE_AUTH_DOMAIN: "borowka-pwa-dev.web.app",
   VITE_FIREBASE_PROJECT_ID: "borowka-pwa-dev",
   VITE_FIREBASE_STORAGE_BUCKET: "borowka-pwa-dev.appspot.com",
   VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789",
@@ -82,7 +82,16 @@ describe("auth session domain", () => {
 
   it("maps authentication errors to user-safe messages", () => {
     expect(getLoginErrorMessage({ code: "auth/wrong-password" })).toBe(
-      "Nie udalo sie zalogowac. Sprawdz dane i polaczenie."
+      "Nieprawidłowy e-mail lub hasło."
+    );
+    expect(getLoginErrorMessage({ code: "auth/invalid-credential" })).toBe(
+      "Nieprawidłowy e-mail lub hasło."
+    );
+    expect(getLoginErrorMessage({ code: "auth/user-disabled" })).toBe(
+      "Konto zostało zablokowane. Skontaktuj się z administratorem."
+    );
+    expect(getLoginErrorMessage({ code: "auth/too-many-requests" })).toBe(
+      "Zbyt wiele nieudanych prób logowania. Odczekaj chwilę albo zresetuj hasło."
     );
     expect(getPasswordResetErrorMessage({ code: "auth/network-request-failed" })).toBe(
       "Brak polaczenia z Firebase. Reset hasla wymaga internetu."

@@ -3,10 +3,12 @@ import { pathToFileURL } from "node:url";
 const targetConfig = {
   development: {
     expectedAppEnvironment: "development",
+    expectedAuthDomain: "borowka-pwa-dev.web.app",
     requireProductionConfirmation: false
   },
   production: {
     expectedAppEnvironment: "production",
+    expectedAuthDomain: null,
     requireProductionConfirmation: true
   }
 };
@@ -134,6 +136,13 @@ export const validateDeployEnvironment = (target, env = process.env) => {
     if (!read(env, name)) {
       errors.push(`${name} is required.`);
     }
+  }
+
+  const authDomain = read(env, "VITE_FIREBASE_AUTH_DOMAIN");
+  if (config.expectedAuthDomain && authDomain !== config.expectedAuthDomain) {
+    errors.push(
+      `VITE_FIREBASE_AUTH_DOMAIN must be "${config.expectedAuthDomain}" for ${target} deploy.`
+    );
   }
 
   const clientProjectId = read(env, "VITE_FIREBASE_PROJECT_ID");

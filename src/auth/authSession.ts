@@ -1,4 +1,4 @@
-import type { User as FirebaseAuthUser } from "firebase/auth";
+import type { Auth, User as FirebaseAuthUser } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 
 import {
@@ -22,6 +22,7 @@ export const PASSWORD_RESET_CONFIRMATION =
 
 const PROFILE_READ_MISSING_RETRIES = 4;
 const PROFILE_READ_RETRY_DELAY_MS = 250;
+const authPersistencePromises = new WeakMap<Auth, Promise<void>>();
 
 export type AuthenticatedUser = {
   uid: string;
@@ -133,6 +134,7 @@ export async function subscribeToAuthSession(
     getFirebaseServices(env),
     import("firebase/auth")
   ]);
+  await ensureLocalAuthPersistence(auth);
 
   let revision = 0;
 
@@ -198,6 +200,7 @@ export async function signInWithEmailPassword(
   const { auth } = await getReadyFirebaseServices(env);
   const { signInWithEmailAndPassword } = await import("firebase/auth");
 
+  await ensureLocalAuthPersistence(auth);
   await signInWithEmailAndPassword(auth, email, credentials.password);
 }
 
@@ -358,10 +361,25 @@ async function readUserProfileWithMissingRetry(
 
 export function getLoginErrorMessage(error: unknown): string {
   if (isNetworkError(error)) {
-    return "Brak polaczenia z Firebase. Sprobuj ponownie po odzyskaniu internetu.";
+    return "Brak połączenia z serwerem logowania. Spróbuj ponownie po odzyskaniu internetu.";
   }
 
-  return "Nie udalo sie zalogowac. Sprawdz dane i polaczenie.";
+  switch (getFirebaseErrorCode(error)) {
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+      return "Nieprawidłowy e-mail lub hasło.";
+    case "auth/user-disabled":
+      return "Konto zostało zablokowane. Skontaktuj się z administratorem.";
+    case "auth/too-many-requests":
+      return "Zbyt wiele nieudanych prób logowania. Odczekaj chwilę albo zresetuj hasło.";
+    case "auth/invalid-email":
+      return "Podaj poprawny adres e-mail.";
+    case "auth/operation-not-allowed":
+      return "Logowanie e-mailem i hasłem nie jest dostępne. Skontaktuj się z administratorem.";
+    default:
+      return "Nie udało się zalogować. Spróbuj ponownie.";
+  }
 }
 
 export function getPasswordResetErrorMessage(error: unknown): string {
@@ -412,6 +430,26 @@ async function getReadyFirebaseServices(env: FirebaseEnv) {
   }
 
   return getFirebaseServices(env);
+}
+
+async function ensureLocalAuthPersistence(auth: Auth): Promise<void> {
+  const existingPromise = authPersistencePromises.get(auth);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const persistencePromise = import("firebase/auth")
+    .then(({ browserLocalPersistence, setPersistence }) =>
+      setPersistence(auth, browserLocalPersistence)
+    )
+    .catch((error: unknown) => {
+      authPersistencePromises.delete(auth);
+      throw error;
+    });
+
+  authPersistencePromises.set(auth, persistencePromise);
+  return persistencePromise;
 }
 
 function toAuthenticatedUser(user: FirebaseAuthUser): AuthenticatedUser {
