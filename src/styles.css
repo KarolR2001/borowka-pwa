@@ -52,12 +52,20 @@ select {
 }
 
 .auth-screen__brand {
-  margin-bottom: 18px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
 }
 
-.auth-screen__brand h1 {
-  font-size: 2rem;
+.auth-screen__brand-title {
+  margin: 0;
+}
+
+.auth-screen__brand-logo {
+  display: block;
+  width: min(48vw, 180px);
+  height: auto;
+  max-height: 154px;
 }
 
 .auth-screen .auth-panel {

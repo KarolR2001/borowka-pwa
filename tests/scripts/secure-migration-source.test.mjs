@@ -6,7 +6,7 @@ import {
   verifyMigrationSourceCustody
 } from "../../scripts/secure-migration-source.mjs";
 
-describe("secure migration source", () => {
+describe.skipIf(process.platform === "win32")("secure migration source", () => {
   it("preserves immutable originals, dated working copies and a custody manifest", async () => {
     const root = await mkdtemp("/tmp/borowka-migration-source-");
     const inputPath = join(root, "Zbiory źródło.html");

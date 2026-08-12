@@ -1035,7 +1035,8 @@ export function App({
           "Przechowywanie wyłączono. Wyczyść urządzenie przy wylogowaniu, aby usunąć istniejące dane lokalne."
         );
       }
-    } catch {
+    } catch (e) {
+      console.error("OFFLINE CONSENT ERROR:", e);
       setOfflineConsentError("Nie udało się zapisać zgody dla tego urządzenia.");
     } finally {
       setIsOfflineConsentSubmitting(false);
@@ -1068,8 +1069,13 @@ export function App({
         ) : null}
         <div className="auth-screen__content">
           <header className="auth-screen__brand">
-            <p className="eyebrow">Ewidencja zbiorów</p>
-            <h1>Borówka</h1>
+            <h1 className="auth-screen__brand-title">
+              <img
+                alt="Borówka"
+                className="auth-screen__brand-logo"
+                src="/brand/borowka-logo.svg"
+              />
+            </h1>
           </header>
           {accountPanel}
         </div>

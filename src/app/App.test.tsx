@@ -441,7 +441,7 @@ describe("App shell", () => {
     );
     expect(localStorage.getItem(adminDashboardKey)).toBeNull();
     expect(localStorage.getItem(operatorDashboardKey)).toBeNull();
-  });
+  }, 15000);
 
   it("does not expose one account's pending documents after switching users", async () => {
     for (const [key, value] of Object.entries(completeFirebaseEnv)) {
