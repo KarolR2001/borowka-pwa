@@ -234,6 +234,12 @@ export async function signOutCurrentUser(env: FirebaseEnv): Promise<void> {
   const { signOut } = await import("firebase/auth");
 
   await signOut(auth);
+
+  try {
+    globalThis.localStorage.removeItem("borowka.deviceId");
+  } catch {
+    // Ignore error
+  }
 }
 
 export async function refreshCurrentAuthSession(

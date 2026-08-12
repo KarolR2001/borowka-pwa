@@ -20,13 +20,16 @@ service cloud.firestore {
     }
 
     function hasApprovedActiveProfile(uid) {
-      return hasProfile(uid) && isApprovedActiveProfile(profile(uid));
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        get(/databases/$(database)/documents/users/$(uid)).data.get('active', false) == true &&
+        get(/databases/$(database)/documents/users/$(uid)).data.get('registrationStatus', '') == 'APPROVED';
     }
 
     function hasRole(role) {
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isSignedIn() &&
         hasApprovedActiveProfile(request.auth.uid) &&
-        profile(request.auth.uid).role == role;
+        p.get('role', '') == role;
     }
 
     function isAdmin() {
@@ -199,7 +202,8 @@ service cloud.firestore {
     function isOwnOfflineConsentUpdate(data, previous, userId) {
       return isSignedIn() &&
         request.auth.uid == userId &&
-        hasApprovedActiveProfile(userId) &&
+        previous.get('active', false) == true &&
+        previous.get('registrationStatus', '') == 'APPROVED' &&
         data.diff(previous).affectedKeys().hasOnly(['offlineConsent']) &&
         data.offlineConsent is bool;
     }
@@ -1339,7 +1343,6 @@ service cloud.firestore {
 
     function isValidOwnDeviceUpdate(data, previous, deviceId) {
       return isSignedIn() &&
-        hasApprovedActiveProfile(request.auth.uid) &&
         previous.userUid == request.auth.uid &&
         previous.active == true &&
         hasValidDeviceBase(data, deviceId) &&
@@ -2628,15 +2631,7 @@ service cloud.firestore {
     }
 
     match /devices/{deviceId} {
-      allow get: if isAdmin() ||
-        (
-          isSignedIn() &&
-          hasApprovedActiveProfile(request.auth.uid) &&
-          (
-            !exists(/databases/$(database)/documents/devices/$(deviceId)) ||
-            isOwnExistingDevice(deviceId)
-          )
-        );
+      allow get: if isSignedIn() && hasApprovedActiveProfile(request.auth.uid);
       allow list: if isAdmin();
       allow create: if isValidOwnDeviceCreate(request.resource.data, deviceId);
       allow update: if isValidOwnDeviceUpdate(
