@@ -124,8 +124,6 @@ export function AdminSeasonsPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
-
-
   useEffect(() => {
     let isMounted = true;
 

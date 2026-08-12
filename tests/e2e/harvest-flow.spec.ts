@@ -145,7 +145,7 @@ async function loginAs(page: Page, email: string, expectedDisplayName: string) {
   await page.getByLabel("E-mail").fill(email);
   await page.locator('input[autocomplete="current-password"]').fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Zaloguj" }).click();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
   await expect(
     page.locator(".topbar").getByText(expectedDisplayName, { exact: true })
   ).toBeVisible({ timeout: 20000 });
