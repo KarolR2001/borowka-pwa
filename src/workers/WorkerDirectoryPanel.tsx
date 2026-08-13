@@ -1,10 +1,10 @@
 import {
   Archive,
+  Info,
   Link2,
   Plus,
   Scale,
   Search,
-  ShieldAlert,
   TrendingUp,
   UserRound,
   X
@@ -16,7 +16,6 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { parseDecimalToScaledInteger } from "../domain/format";
 import { userRoleLabel, type UserProfile } from "../domain/identity";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
-import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
 import { RecordDialog } from "../ui/RecordDialog";
 import {
@@ -161,6 +160,7 @@ export function WorkerDirectoryPanel({
     createInitialArchiveWorkerDraft()
   );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rateFeedback, setRateFeedback] = useState<string | null>(null);
@@ -230,15 +230,6 @@ export function WorkerDirectoryPanel({
     state.result?.workers.filter((worker) => worker.active).length ?? 0;
   const archivedWorkersCount =
     state.result?.workers.filter((worker) => !worker.active).length ?? 0;
-  const warningsCount =
-    state.result?.workers.reduce((total, worker) => total + worker.warnings.length, 0) ??
-    0;
-  const invalidDocumentsCount =
-    (state.result?.invalidWorkers.length ?? 0) +
-    (state.result?.invalidPlans.length ?? 0) +
-    (state.result?.invalidRateVersions.length ?? 0) +
-    (state.result?.invalidProfiles.length ?? 0) +
-    (state.result?.invalidAuditEvents.length ?? 0);
   const activePlans = useMemo(
     () => state.result?.plans.filter((plan) => plan.active) ?? [],
     [state.result]
@@ -347,6 +338,7 @@ export function WorkerDirectoryPanel({
       await reloadAfterSubmit(authState.profile.role);
       setFeedback(createWorkerFeedback(result));
       setCreateDraft(createInitialWorkerDraft());
+      setIsCreateOpen(false);
     } catch (createError: unknown) {
       setError(getWorkerDirectoryErrorMessage(createError));
     } finally {
@@ -543,21 +535,17 @@ export function WorkerDirectoryPanel({
     <section className="worker-directory" aria-label="Lista zbieraczy">
       {isAdmin && state.result ? (
         <div className="screen-actions" aria-label="Akcje zbieraczy">
-          <CollapsibleSection
-            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
-            label="Dodaj zbieracza"
+          <button
+            className="primary-action"
+            onClick={() => {
+              setError(null);
+              setIsCreateOpen(true);
+            }}
+            type="button"
           >
-            <CreateWorkerForm
-              activePlans={activePlans}
-              draft={createDraft}
-              isSubmitting={isSubmitting}
-              onChange={setCreateDraft}
-              onSubmit={() => {
-                void handleCreateWorker();
-              }}
-              similarWorkerNames={similarWorkerNames}
-            />
-          </CollapsibleSection>
+            <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>Dodaj zbieracza</span>
+          </button>
         </div>
       ) : null}
 
@@ -579,12 +567,54 @@ export function WorkerDirectoryPanel({
         />
         <DirectoryStat label="Aktywni" value={String(activeWorkersCount)} />
         <DirectoryStat label="Archiwalni" value={String(archivedWorkersCount)} />
-        <DirectoryStat label="Ostrzezenia" value={String(warningsCount)} />
-        <DirectoryStat label="Błędne dokumenty" value={String(invalidDocumentsCount)} />
       </div>
+
+      {isAdmin && isCreateOpen ? (
+        <RecordDialog
+          fullScreen
+          label="Dodaj zbieracza"
+          onClose={() => {
+            setIsCreateOpen(false);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Zbieracze</p>
+                <h2>Dodaj zbieracza</h2>
+              </div>
+              <button
+                aria-label="Anuluj dodawanie zbieracza"
+                className="secondary-button icon-button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setIsCreateOpen(false);
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </header>
+            <CreateWorkerForm
+              activePlans={activePlans}
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setIsCreateOpen(false);
+              }}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreateWorker();
+              }}
+              similarWorkerNames={similarWorkerNames}
+            />
+          </div>
+        </RecordDialog>
+      ) : null}
 
       {isAdmin && selectedWorker && state.result ? (
         <RecordDialog
+          fullScreen
           label={`Profil zbieracza ${selectedWorker.displayName}`}
           onClose={() => {
             setSelectedWorkerId(null);
@@ -640,68 +670,64 @@ export function WorkerDirectoryPanel({
 
       {filteredWorkers.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table worker-table">
+          <table className="directory-table worker-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
                 <th scope="col">Status</th>
-                <th scope="col">Plan</th>
                 {isAdmin ? <th scope="col">Stawka</th> : null}
-                <th scope="col">Jednostka</th>
-                {isAdmin ? <th scope="col">Konto</th> : null}
                 {isAdmin ? <th scope="col">Kg</th> : null}
                 {isAdmin ? <th scope="col">Naliczone</th> : null}
-                {isAdmin ? <th scope="col">Wyplacone</th> : null}
+                {isAdmin ? <th scope="col">Wypłacone</th> : null}
                 {isAdmin ? <th scope="col">Do wypłaty</th> : null}
-                {isAdmin ? <th scope="col">Ostrzezenia</th> : null}
                 {isAdmin ? <th scope="col">Profil</th> : null}
               </tr>
             </thead>
             <tbody>
               {filteredWorkers.map((worker) => (
                 <tr key={worker.id}>
-                  <td>
+                  <td data-label="Nazwa">
                     <strong>{worker.displayName}</strong>
                   </td>
-                  <td>{workerStatusLabel(worker)}</td>
-                  <td>{worker.currentPlan?.name ?? "brak"}</td>
-                  {isAdmin ? <td>{workerRateLabel(worker.currentRateVersion)}</td> : null}
-                  <td>{workerUnitLabel(worker.currentPlan)}</td>
+                  <td data-label="Status">{workerStatusLabel(worker)}</td>
                   {isAdmin ? (
-                    <td>
-                      {worker.linkedUser?.email ??
-                        (worker.linkedUserUid ? "Powiązane konto" : "brak")}
+                    <td data-label="Stawka">
+                      {workerRateLabel(worker.currentRateVersion)}
                     </td>
                   ) : null}
                   {isAdmin ? (
-                    <td>{workerSummaryKgLabel(worker.seasonSummary.totalKgGrams)}</td>
-                  ) : null}
-                  {isAdmin ? (
-                    <td>{workerSummaryMoneyLabel(worker.seasonSummary.earnedGrosz)}</td>
-                  ) : null}
-                  {isAdmin ? (
-                    <td>{workerSummaryMoneyLabel(worker.seasonSummary.paidGrosz)}</td>
-                  ) : null}
-                  {isAdmin ? (
-                    <td>{workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}</td>
-                  ) : null}
-                  {isAdmin ? (
-                    <td>
-                      {worker.warnings.length > 0 ? worker.warnings.join("; ") : "brak"}
+                    <td data-label="Kg">
+                      {workerSummaryKgLabel(worker.seasonSummary.totalKgGrams)}
                     </td>
                   ) : null}
                   {isAdmin ? (
-                    <td>
+                    <td data-label="Naliczone">
+                      {workerSummaryMoneyLabel(worker.seasonSummary.earnedGrosz)}
+                    </td>
+                  ) : null}
+                  {isAdmin ? (
+                    <td data-label="Wypłacone">
+                      {workerSummaryMoneyLabel(worker.seasonSummary.paidGrosz)}
+                    </td>
+                  ) : null}
+                  {isAdmin ? (
+                    <td data-label="Do wypłaty">
+                      {workerSummaryMoneyLabel(worker.seasonSummary.dueGrosz)}
+                    </td>
+                  ) : null}
+                  {isAdmin ? (
+                    <td data-label="Profil">
                       <button
+                        aria-label={`Otwórz profil zbieracza ${worker.displayName}`}
                         aria-pressed={selectedWorkerId === worker.id}
-                        className="secondary-action directory-action"
+                        className="secondary-button icon-button"
                         onClick={() => {
                           setSelectedWorkerId(worker.id);
                         }}
+                        title="Szczegóły zbieracza"
                         type="button"
                       >
-                        <UserRound aria-hidden="true" size={17} strokeWidth={2.2} />
-                        <span>Profil</span>
+                        <Info aria-hidden="true" size={18} strokeWidth={2.2} />
                       </button>
                     </td>
                   ) : null}
@@ -710,41 +736,6 @@ export function WorkerDirectoryPanel({
             </tbody>
           </table>
         </div>
-      ) : null}
-
-      {state.result && state.result.invalidWorkers.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidWorkers}
-          title="Błędne dokumenty zbieraczy"
-        />
-      ) : null}
-
-      {state.result && state.result.invalidPlans.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidPlans}
-          title="Błędne dokumenty planów"
-        />
-      ) : null}
-
-      {state.result && state.result.invalidRateVersions.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidRateVersions}
-          title="Błędne dokumenty stawek"
-        />
-      ) : null}
-
-      {state.result && state.result.invalidProfiles.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidProfiles}
-          title="Błędne dokumenty profili"
-        />
-      ) : null}
-
-      {state.result && state.result.invalidAuditEvents.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidAuditEvents}
-          title="Błędne dokumenty audytu"
-        />
       ) : null}
     </section>
   );
@@ -921,19 +912,23 @@ function WorkerProfilePanel({
         <p className="form-message form-message--error">{accountLinkError}</p>
       ) : null}
 
-      <WorkerProfileSection title="Ostrzeżenia">
-        {worker.warnings.length > 0 ? (
-          <ul className="worker-profile__list">
-            {worker.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="worker-profile__empty">brak</p>
-        )}
-      </WorkerProfileSection>
-
-      <WorkerRateConsistencyPanel worker={worker} />
+      <details className="collapsible-section">
+        <summary>
+          <span>Kontrola stawek i ostrzeżenia</span>
+        </summary>
+        <div className="collapsible-section__content">
+          {worker.warnings.length > 0 ? (
+            <WorkerProfileSection title="Ostrzeżenia">
+              <ul className="worker-profile__list">
+                {worker.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </WorkerProfileSection>
+          ) : null}
+          <WorkerRateConsistencyPanel worker={worker} />
+        </div>
+      </details>
 
       {worker.active ? (
         <CreateWorkerRateForm
@@ -1284,42 +1279,6 @@ function ArchiveWorkerForm({
   );
 }
 
-function WorkerRateConsistencyPanel({ worker }: { worker: WorkerDirectoryListItem }) {
-  const report = buildWorkerRateConsistencyReport(worker, currentBusinessDate());
-
-  return (
-    <WorkerProfileSection title="Kontrola spójności stawek">
-      <div className="worker-rate-consistency">
-        <p
-          className={`worker-rate-consistency__status worker-rate-consistency__status--${report.level.toLocaleLowerCase("en-US")}`}
-        >
-          {rateConsistencyLevelLabel(report.level)}
-        </p>
-
-        <ul className="worker-rate-consistency__checks">
-          {report.checks.map((check) => (
-            <li key={check.id}>
-              <span
-                className={`worker-rate-consistency__badge worker-rate-consistency__badge--${check.level.toLocaleLowerCase("en-US")}`}
-              >
-                {rateConsistencyLevelLabel(check.level)}
-              </span>
-              <strong>{check.label}</strong>
-              <span>{check.detail}</span>
-            </li>
-          ))}
-        </ul>
-
-        <ul className="worker-profile__list">
-          {report.limitations.map((limitation) => (
-            <li key={limitation}>{limitation}</li>
-          ))}
-        </ul>
-      </div>
-    </WorkerProfileSection>
-  );
-}
-
 function WorkerRateHistoryTable({
   currentRateVersionId,
   plans,
@@ -1342,7 +1301,7 @@ function WorkerRateHistoryTable({
   return (
     <WorkerProfileSection title="Historia stawek">
       <div className="worker-profile__table-wrap">
-        <table className="worker-profile__table">
+        <table className="worker-profile__table mobile-card-table">
           <thead>
             <tr>
               <th scope="col">Status</th>
@@ -1351,7 +1310,6 @@ function WorkerRateHistoryTable({
               <th scope="col">Od</th>
               <th scope="col">Do</th>
               <th scope="col">Notatka</th>
-              <th scope="col">Ostrzezenia</th>
             </tr>
           </thead>
           <tbody>
@@ -1360,22 +1318,55 @@ function WorkerRateHistoryTable({
 
               return (
                 <tr key={rateVersion.id}>
-                  <td>
+                  <td data-label="Status">
                     {rateVersion.id === currentRateVersionId
                       ? "Bieżąca"
                       : workerRateHistoryStatusLabel(historyItem.status)}
                   </td>
-                  <td>{ratePlanLabel(rateVersion.planId, plans)}</td>
-                  <td>{workerRateLabel(rateVersion)}</td>
-                  <td>{rateVersion.validFrom}</td>
-                  <td>{rateVersion.validTo ?? "bez terminu"}</td>
-                  <td>{optionalProfileValue(rateVersion.note)}</td>
-                  <td>{rateWarningsLabel(historyItem.warnings)}</td>
+                  <td data-label="Plan">{ratePlanLabel(rateVersion.planId, plans)}</td>
+                  <td data-label="Stawka">{workerRateLabel(rateVersion)}</td>
+                  <td data-label="Od">{rateVersion.validFrom}</td>
+                  <td data-label="Do">{rateVersion.validTo ?? "bez terminu"}</td>
+                  <td data-label="Notatka">{optionalProfileValue(rateVersion.note)}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </div>
+    </WorkerProfileSection>
+  );
+}
+
+function WorkerRateConsistencyPanel({ worker }: { worker: WorkerDirectoryListItem }) {
+  const report = buildWorkerRateConsistencyReport(worker, currentBusinessDate());
+
+  return (
+    <WorkerProfileSection title="Kontrola spójności stawek">
+      <div className="worker-rate-consistency">
+        <p
+          className={`worker-rate-consistency__status worker-rate-consistency__status--${report.level.toLocaleLowerCase("en-US")}`}
+        >
+          {rateConsistencyLevelLabel(report.level)}
+        </p>
+        <ul className="worker-rate-consistency__checks">
+          {report.checks.map((check) => (
+            <li key={check.id}>
+              <span
+                className={`worker-rate-consistency__badge worker-rate-consistency__badge--${check.level.toLocaleLowerCase("en-US")}`}
+              >
+                {rateConsistencyLevelLabel(check.level)}
+              </span>
+              <strong>{check.label}</strong>
+              <span>{check.detail}</span>
+            </li>
+          ))}
+        </ul>
+        <ul className="worker-profile__list">
+          {report.limitations.map((limitation) => (
+            <li key={limitation}>{limitation}</li>
+          ))}
+        </ul>
       </div>
     </WorkerProfileSection>
   );
@@ -1579,6 +1570,7 @@ function CreateWorkerForm({
   activePlans,
   draft,
   isSubmitting,
+  onCancel,
   onChange,
   onSubmit,
   similarWorkerNames
@@ -1586,6 +1578,7 @@ function CreateWorkerForm({
   activePlans: WorkerDirectoryResult["plans"];
   draft: CreateWorkerDraft;
   isSubmitting: boolean;
+  onCancel: () => void;
   onChange: (draft: CreateWorkerDraft) => void;
   onSubmit: () => void;
   similarWorkerNames: string[];
@@ -1782,14 +1775,25 @@ function CreateWorkerForm({
         <span>Potwierdzam utworzenie zbieracza i pierwszej stawki</span>
       </label>
 
-      <button
-        className="primary-action worker-form__submit"
-        disabled={isSubmitting || activePlans.length === 0}
-        type="submit"
-      >
-        <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Dodaj zbieracza</span>
-      </button>
+      <div className="worker-form__actions">
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj</span>
+        </button>
+        <button
+          className="primary-action worker-form__submit"
+          disabled={isSubmitting || activePlans.length === 0}
+          type="submit"
+        >
+          <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Dodaj zbieracza</span>
+        </button>
+      </div>
     </form>
   );
 }
@@ -1900,32 +1904,6 @@ function DirectoryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InvalidDocuments({
-  documents,
-  title
-}: {
-  documents: { id: string; reason: string }[];
-  title: string;
-}) {
-  return (
-    <div className="invalid-profiles" aria-label={title}>
-      <div className="access-notice__icon">
-        <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
-      </div>
-      <div>
-        <p className="eyebrow">{title}</p>
-        <ul>
-          {documents.map((document) => (
-            <li key={document.id}>
-              <strong>{document.id}</strong>: {document.reason}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
 function AccessNotice({ title, message }: { title: string; message: string }) {
   return (
     <div className="access-notice">
@@ -1985,18 +1963,14 @@ function accountLinkProfileLabel(profile: UserProfile, workerId: string): string
   return `${profile.displayName} (${profile.email}) - ${userRoleLabel(profile.role)}, ${linkLabel}`;
 }
 
-function rateWarningsLabel(warnings: string[]): string {
-  return warnings.length > 0 ? warnings.join("; ") : "brak";
-}
-
 function rateConsistencyLevelLabel(level: WorkerRateConsistencyLevel): string {
   switch (level) {
     case "OK":
       return "OK";
     case "WARNING":
-      return "Ostrzezenie";
+      return "Ostrzeżenie";
     case "ERROR":
-      return "Blad";
+      return "Błąd";
   }
 }
 

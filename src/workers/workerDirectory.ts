@@ -24,6 +24,11 @@ import {
   roleRequiresWorkerId,
   type UserProfile
 } from "../domain/identity";
+import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
+import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
+import type { HarvestSessionDocument } from "../harvest/openHarvestSession";
+import { PAYMENTS_COLLECTION } from "../payments/pendingPayments";
+import { decodePaymentDocument, type PaymentDocument } from "../payments/paymentWrite";
 import { decodeSettlementPlan, decodeWorkerRateVersion } from "../plans/settlementPlans";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
@@ -149,6 +154,9 @@ export type WorkerDirectoryAuditEventSnapshot = {
   data: unknown;
 };
 
+export type WorkerDirectorySessionSnapshot = WorkerDocumentSnapshot;
+export type WorkerDirectoryPaymentSnapshot = WorkerDocumentSnapshot;
+
 export type InvalidWorker = {
   id: string;
   reason: string;
@@ -268,7 +276,9 @@ export async function listWorkerDirectory(
     plansSnapshot,
     rateVersionsSnapshot,
     usersSnapshot,
-    auditEventsSnapshot
+    auditEventsSnapshot,
+    sessionsSnapshot,
+    paymentsSnapshot
   ] = await Promise.all([
     getDocs(workersQuery),
     getDocs(plansQuery),
@@ -278,6 +288,12 @@ export async function listWorkerDirectory(
       : Promise.resolve(null),
     input.viewerRole === "ADMIN"
       ? getDocs(collection(firestore, AUDIT_EVENTS_COLLECTION))
+      : Promise.resolve(null),
+    input.viewerRole === "ADMIN"
+      ? getDocs(collection(firestore, HARVEST_SESSIONS_COLLECTION))
+      : Promise.resolve(null),
+    input.viewerRole === "ADMIN"
+      ? getDocs(collection(firestore, PAYMENTS_COLLECTION))
       : Promise.resolve(null)
   ]);
 
@@ -301,6 +317,16 @@ export async function listWorkerDirectory(
       })) ?? [],
     auditEventDocuments:
       auditEventsSnapshot?.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        data: documentSnapshot.data()
+      })) ?? [],
+    sessionDocuments:
+      sessionsSnapshot?.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        data: documentSnapshot.data()
+      })) ?? [],
+    paymentDocuments:
+      paymentsSnapshot?.docs.map((documentSnapshot) => ({
         id: documentSnapshot.id,
         data: documentSnapshot.data()
       })) ?? []
@@ -770,13 +796,17 @@ export function buildWorkerDirectory({
   planDocuments,
   rateVersionDocuments,
   userDocuments,
-  auditEventDocuments = []
+  auditEventDocuments = [],
+  sessionDocuments = [],
+  paymentDocuments = []
 }: {
   workerDocuments: WorkerDocumentSnapshot[];
   planDocuments: WorkerDocumentSnapshot[];
   rateVersionDocuments: WorkerDocumentSnapshot[];
   userDocuments: WorkerDirectoryUserSnapshot[];
   auditEventDocuments?: WorkerDirectoryAuditEventSnapshot[];
+  sessionDocuments?: WorkerDirectorySessionSnapshot[];
+  paymentDocuments?: WorkerDirectoryPaymentSnapshot[];
 }): WorkerDirectoryResult {
   const workers: WorkerDocument[] = [];
   const invalidWorkers: InvalidWorkerDirectoryDocument[] = [];
@@ -788,6 +818,8 @@ export function buildWorkerDirectory({
   const invalidProfiles: InvalidWorkerDirectoryDocument[] = [];
   const auditEvents: AuditEventDocument[] = [];
   const invalidAuditEvents: InvalidWorkerDirectoryDocument[] = [];
+  const sessions: HarvestSessionDocument[] = [];
+  const payments: PaymentDocument[] = [];
 
   for (const document of workerDocuments) {
     const decoded = decodeWorker(document.id, document.data);
@@ -854,6 +886,22 @@ export function buildWorkerDirectory({
     }
   }
 
+  for (const document of sessionDocuments) {
+    const decoded = decodeHarvestSession(document.id, document.data);
+
+    if (decoded.status === "FOUND") {
+      sessions.push(decoded.session);
+    }
+  }
+
+  for (const document of paymentDocuments) {
+    const decoded = decodePaymentDocument(document.id, document.data);
+
+    if (decoded) {
+      payments.push(decoded);
+    }
+  }
+
   const planById = new Map(plans.map((plan) => [plan.id, plan]));
   const rateVersionById = new Map(
     rateVersions.map((rateVersion) => [rateVersion.id, rateVersion])
@@ -861,6 +909,7 @@ export function buildWorkerDirectory({
   const rateVersionsByWorkerId = groupRateVersionsByWorkerId(rateVersions);
   const profileByUid = new Map(profiles.map((profile) => [profile.uid, profile]));
   const auditEventsByWorkerId = groupWorkerAuditEvents(auditEvents);
+  const seasonSummariesByWorkerId = buildWorkerSeasonSummaries(sessions, payments);
 
   return {
     workers: sortWorkers(
@@ -872,7 +921,8 @@ export function buildWorkerDirectory({
           linkedUser: worker.linkedUserUid
             ? (profileByUid.get(worker.linkedUserUid) ?? null)
             : null,
-          auditEvents: auditEventsByWorkerId.get(worker.id) ?? []
+          auditEvents: auditEventsByWorkerId.get(worker.id) ?? [],
+          seasonSummary: seasonSummariesByWorkerId.get(worker.id) ?? emptyWorkerSummary()
         })
       )
     ),
@@ -1701,6 +1751,7 @@ function buildWorkerListItem(
     rateVersions: WorkerRateVersionDocument[];
     linkedUser: UserProfile | null;
     auditEvents: AuditEventDocument[];
+    seasonSummary: WorkerSeasonSummary;
   }
 ): WorkerDirectoryListItem {
   return {
@@ -1711,12 +1762,53 @@ function buildWorkerListItem(
     linkedUser: relations.linkedUser,
     auditEvents: sortWorkerAuditEvents(relations.auditEvents),
     warnings: workerWarnings(worker, relations),
-    seasonSummary: {
-      totalKgGrams: null,
-      earnedGrosz: null,
-      paidGrosz: null,
-      dueGrosz: null
+    seasonSummary: relations.seasonSummary
+  };
+}
+
+function buildWorkerSeasonSummaries(
+  sessions: readonly HarvestSessionDocument[],
+  payments: readonly PaymentDocument[]
+): Map<string, WorkerSeasonSummary> {
+  const summaries = new Map<string, WorkerSeasonSummary>();
+
+  for (const session of sessions) {
+    if (
+      (session.status !== "CLOSED" && session.status !== "PAID") ||
+      session.amountDueGrosz === null
+    ) {
+      continue;
     }
+
+    const summary = summaries.get(session.workerId) ?? emptyWorkerSummary();
+    summary.totalKgGrams = (summary.totalKgGrams ?? 0) + session.totalWeightG;
+    summary.earnedGrosz = (summary.earnedGrosz ?? 0) + session.amountDueGrosz;
+    summaries.set(session.workerId, summary);
+  }
+
+  for (const payment of payments) {
+    if (payment.status !== "ACTIVE") {
+      continue;
+    }
+
+    const summary = summaries.get(payment.workerId) ?? emptyWorkerSummary();
+    summary.paidGrosz = (summary.paidGrosz ?? 0) + payment.amountGrosz;
+    summaries.set(payment.workerId, summary);
+  }
+
+  for (const summary of summaries.values()) {
+    summary.dueGrosz = (summary.earnedGrosz ?? 0) - (summary.paidGrosz ?? 0);
+  }
+
+  return summaries;
+}
+
+function emptyWorkerSummary(): WorkerSeasonSummary {
+  return {
+    totalKgGrams: 0,
+    earnedGrosz: 0,
+    paidGrosz: 0,
+    dueGrosz: 0
   };
 }
 

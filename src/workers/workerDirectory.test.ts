@@ -962,20 +962,43 @@ describe("workerDirectory", () => {
       },
       warnings: [],
       seasonSummary: {
-        totalKgGrams: null,
-        earnedGrosz: null,
-        paidGrosz: null,
-        dueGrosz: null
+        totalKgGrams: 0,
+        earnedGrosz: 0,
+        paidGrosz: 0,
+        dueGrosz: 0
       }
     });
     expect(workerRateLabel(directory.workers[0].currentRateVersion)).toBe("10,00 zł");
     expect(workerUnitLabel(directory.workers[0].currentPlan)).toBe("kg");
     expect(workerSummaryKgLabel(directory.workers[0].seasonSummary.totalKgGrams)).toBe(
-      "brak danych"
+      "0,000 kg"
     );
     expect(workerSummaryMoneyLabel(directory.workers[0].seasonSummary.earnedGrosz)).toBe(
-      "brak danych"
+      "0,00 zł"
     );
+  });
+
+  it("aggregates collected, accrued, paid and outstanding worker values", () => {
+    const directory = buildWorkerDirectory({
+      workerDocuments: [
+        {
+          id: "worker-anna",
+          data: worker({ id: "worker-anna", displayName: "Anna Test" })
+        }
+      ],
+      planDocuments: [],
+      rateVersionDocuments: [],
+      userDocuments: [],
+      sessionDocuments: [workerSessionDocument("session-anna")],
+      paymentDocuments: [workerPaymentDocument("payment-anna")]
+    });
+
+    expect(directory.workers[0].seasonSummary).toEqual({
+      totalKgGrams: 12_500,
+      earnedGrosz: 12_500,
+      paidGrosz: 5000,
+      dueGrosz: 7500
+    });
   });
 
   it("reports configuration warnings and sorts active workers first", () => {
@@ -1196,3 +1219,74 @@ describe("workerDirectory", () => {
     });
   });
 });
+
+function workerSessionDocument(id: string) {
+  return {
+    id,
+    data: {
+      allowBatchQuantitySnapshot: true,
+      amountDueGrosz: 12_500,
+      businessDate: "2026-07-18",
+      calculationBasisSnapshot: "WEIGHT",
+      calculationVersion: "1",
+      cancellationReason: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      closedAtDevice: "2026-07-18T12:00:00.000Z",
+      closedAtServer: "2026-07-18T12:01:00.000Z",
+      closedBy: "operator-1",
+      createdAtDevice: null,
+      createdAtServer: null,
+      createdBy: "operator-1",
+      createdDeviceId: "device-1",
+      id,
+      legacyImport: false,
+      legacySourceRows: [],
+      note: null,
+      paidAt: null,
+      paymentId: null,
+      planIdSnapshot: "plan-weight",
+      planNameSnapshot: "Za kilogram",
+      quantityPrecisionSnapshot: 3,
+      rateGroszSnapshot: 1000,
+      rateVersionIdSnapshot: "rate-worker-anna",
+      revision: 2,
+      seasonId: "season-2026",
+      status: "CLOSED",
+      totalEntryCount: 2,
+      totalQuantityMilli: 2000,
+      totalWeightG: 12_500,
+      unitLabelPluralSnapshot: "kilogramy",
+      unitLabelSnapshot: "kilogram",
+      updatedAtServer: null,
+      weightRequiredSnapshot: true,
+      workerId: "worker-anna",
+      workerNameSnapshot: "Anna Test"
+    }
+  };
+}
+
+function workerPaymentDocument(id: string) {
+  return {
+    id,
+    data: {
+      amountGrosz: 5000,
+      cancellationReason: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      creationAttemptId: "attempt-payment-anna",
+      createdAtServer: "2026-07-20T12:00:00.000Z",
+      createdBy: "admin-1",
+      id,
+      legacyImport: false,
+      note: null,
+      paidBusinessDate: "2026-07-20",
+      paymentMethod: "CASH",
+      seasonId: "season-2026",
+      sessionId: "session-anna",
+      status: "ACTIVE",
+      workerId: "worker-anna",
+      workerNameSnapshot: "Anna Test"
+    }
+  };
+}
