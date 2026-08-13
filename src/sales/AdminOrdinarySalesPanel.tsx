@@ -1,4 +1,4 @@
-import { CheckCircle2, Pencil, Save, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Save, TriangleAlert, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -22,6 +22,7 @@ import {
 } from "./SaleCancellationSection";
 import { SaleCorrectionForm } from "./SaleCorrectionForm";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   correctionDirectionLabel,
   type PreparedSaleCorrection
@@ -122,8 +123,8 @@ export function AdminOrdinarySalesPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [operationMode, setOperationMode] = useState<
-    "SALE" | "CORRECTION" | "CANCELLATION"
-  >("SALE");
+    "SALE" | "CORRECTION" | "CANCELLATION" | null
+  >(null);
   const [requestedCancellationSaleId, setRequestedCancellationSaleId] = useState<
     string | null
   >(null);
@@ -228,6 +229,7 @@ export function AdminOrdinarySalesPanel({
         setPreflight(null);
         setFormKey((current) => current + 1);
         setReloadKey((current) => current + 1);
+        setOperationMode(null);
         return;
       }
 
@@ -276,13 +278,17 @@ export function AdminOrdinarySalesPanel({
     }));
   }
 
+  function closeOperation(): void {
+    setOperationMode(null);
+    setRequestedCancellationSaleId(null);
+    setPreflight(null);
+    setSaveError(null);
+  }
+
   return (
     <section className="admin-ordinary-sales" aria-label="Sprzedaż">
       <div className="screen-actions" aria-label="Akcje sprzedaży">
-        <CollapsibleSection
-          label="Nowa operacja"
-          open={requestedCancellationSaleId !== null}
-        >
+        <CollapsibleSection label="Nowa operacja">
           {stockState.status === "LOADING" && stockState.contexts.length === 0 ? (
             <p className="empty-state">Pobieranie stanu z serwera.</p>
           ) : null}
@@ -303,140 +309,163 @@ export function AdminOrdinarySalesPanel({
             ) : null
           )}
 
-          <div className="sales-operation-switch" role="group" aria-label="Typ operacji">
-            <button
-              aria-pressed={operationMode === "SALE"}
-              onClick={() => {
-                setOperationMode("SALE");
-                setRequestedCancellationSaleId(null);
-                setPreflight(null);
-                setConfirmed(null);
-                setSaveError(null);
-              }}
-              type="button"
-            >
-              Zwykła sprzedaż
-            </button>
-            <button
-              aria-pressed={operationMode === "CORRECTION"}
-              onClick={() => {
-                setOperationMode("CORRECTION");
-                setRequestedCancellationSaleId(null);
-                setPreflight(null);
-                setConfirmed(null);
-                setSaveError(null);
-              }}
-              type="button"
-            >
-              Korekta
-            </button>
-            <button
-              aria-pressed={operationMode === "CANCELLATION"}
-              onClick={() => {
-                setOperationMode("CANCELLATION");
-                setRequestedCancellationSaleId(null);
-                setPreflight(null);
-                setConfirmed(null);
-                setSaveError(null);
-              }}
-              type="button"
-            >
-              Anulowanie
-            </button>
-          </div>
-
-          {operationMode === "SALE" ? (
-            <>
-              <OrdinarySaleForm
-                disabled={
-                  isSaving ||
-                  stockState.status === "LOADING" ||
-                  preflight?.status === "CONFIRMATION_REQUIRED"
-                }
-                isOnline={isOnline}
-                key={formKey}
-                onDraftChange={() => {
-                  setPreflight(null);
-                  setSaveError(null);
-                }}
-                onPrepare={handlePrepare}
-                stockContexts={stockState.contexts}
-              />
-
-              {preflight?.status === "CONFIRMATION_REQUIRED" ? (
-                <SaleConfirmation
-                  isSaving={isSaving}
-                  onEdit={() => {
-                    setPreflight(null);
-                    setSaveError(null);
-                  }}
-                  onConfirm={() => {
-                    void handleConfirm();
-                  }}
-                  result={preflight}
-                />
-              ) : null}
-              {preflight?.status === "BLOCKED" ? (
-                <p className="form-message form-message--error" role="alert">
-                  {preflight.message}
-                </p>
-              ) : null}
-              {saveError ? (
-                <p className="form-message form-message--warning" role="alert">
-                  {saveError}
-                </p>
-              ) : null}
-              {confirmed ? <ConfirmedSale result={confirmed} /> : null}
-            </>
-          ) : operationMode === "CORRECTION" ? (
-            <SaleCorrectionSection
-              actorProfile={actorProfile}
-              deviceId={deviceId}
-              env={env}
-              isOnline={isOnline}
-              onConfirmed={(result) => {
-                replaceStockContext({
-                  availableWeightG: result.postWriteAvailableWeightG,
-                  pendingDocumentCount: 0,
-                  refreshedAtIso: new Date().toISOString(),
-                  seasonId: result.correction.seasonId,
-                  seasonName:
-                    stockState.contexts.find(
-                      (context) => context.seasonId === result.correction.seasonId
-                    )?.seasonName ?? result.correction.seasonId
-                });
-                setReloadKey((current) => current + 1);
-              }}
-              onStockContextChange={replaceStockContext}
-              ordinarySalesApi={ordinarySalesApi}
-              stockContexts={stockState.contexts}
-              stockLoading={stockState.status === "LOADING"}
-            />
-          ) : (
-            <SaleCancellationSection
-              actorProfile={actorProfile}
-              api={ordinarySalesApi}
-              deviceId={deviceId}
-              env={env}
-              isOnline={isOnline}
-              onConfirmed={(result) => {
-                setReloadKey((current) => current + 1);
-                replaceStockContext({
-                  availableWeightG: result.postWriteAvailableWeightG,
-                  pendingDocumentCount: 0,
-                  refreshedAtIso: new Date().toISOString(),
-                  seasonId: result.cancelledSale.seasonId,
-                  seasonName:
-                    stockState.contexts.find(
-                      (context) => context.seasonId === result.cancelledSale.seasonId
-                    )?.seasonName ?? result.cancelledSale.seasonId
-                });
-              }}
-              requestedSaleId={requestedCancellationSaleId}
-            />
-          )}
+          <button
+            className="primary-button"
+            disabled={stockState.status === "LOADING" || stockState.contexts.length === 0}
+            onClick={() => {
+              setOperationMode("SALE");
+              setRequestedCancellationSaleId(null);
+              setPreflight(null);
+              setConfirmed(null);
+              setSaveError(null);
+            }}
+            type="button"
+          >
+            <Plus aria-hidden="true" size={18} />
+            Nowa sprzedaż
+          </button>
         </CollapsibleSection>
       </div>
+
+      {confirmed ? <ConfirmedSale result={confirmed} /> : null}
+
+      {operationMode ? (
+        <RecordDialog
+          fullScreen
+          label={
+            operationMode === "SALE"
+              ? "Nowa sprzedaż"
+              : operationMode === "CORRECTION"
+                ? "Korekta sprzedaży"
+                : "Anulowanie sprzedaży"
+          }
+          onClose={closeOperation}
+        >
+          <section className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Sprzedaż</p>
+                <h2>
+                  {operationMode === "SALE"
+                    ? preflight?.status === "CONFIRMATION_REQUIRED"
+                      ? "Podsumowanie sprzedaży"
+                      : "Nowa sprzedaż"
+                    : operationMode === "CORRECTION"
+                      ? "Korekta sprzedaży"
+                      : "Anulowanie sprzedaży"}
+                </h2>
+              </div>
+              <button
+                aria-label="Zamknij operację"
+                className="secondary-button icon-button"
+                disabled={isSaving}
+                onClick={closeOperation}
+                title="Zamknij"
+                type="button"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </header>
+
+            {operationMode === "SALE" ? (
+              preflight?.status === "CONFIRMATION_REQUIRED" ? (
+                <>
+                  <SaleConfirmation
+                    isSaving={isSaving}
+                    onEdit={() => {
+                      setPreflight(null);
+                      setSaveError(null);
+                    }}
+                    onConfirm={() => {
+                      void handleConfirm();
+                    }}
+                    result={preflight}
+                  />
+                  {saveError ? (
+                    <p className="form-message form-message--warning" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <OrdinarySaleForm
+                    disabled={isSaving || stockState.status === "LOADING"}
+                    isOnline={isOnline}
+                    key={formKey}
+                    onCancel={closeOperation}
+                    onDraftChange={() => {
+                      setPreflight(null);
+                      setSaveError(null);
+                    }}
+                    onPrepare={handlePrepare}
+                    stockContexts={stockState.contexts}
+                  />
+                  {preflight?.status === "BLOCKED" ? (
+                    <p className="form-message form-message--error" role="alert">
+                      {preflight.message}
+                    </p>
+                  ) : null}
+                  {saveError ? (
+                    <p className="form-message form-message--warning" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
+                </>
+              )
+            ) : operationMode === "CORRECTION" ? (
+              <SaleCorrectionSection
+                actorProfile={actorProfile}
+                deviceId={deviceId}
+                env={env}
+                isOnline={isOnline}
+                onConfirmed={(result) => {
+                  replaceStockContext({
+                    availableWeightG: result.postWriteAvailableWeightG,
+                    pendingDocumentCount: 0,
+                    refreshedAtIso: new Date().toISOString(),
+                    seasonId: result.correction.seasonId,
+                    seasonName:
+                      stockState.contexts.find(
+                        (context) => context.seasonId === result.correction.seasonId
+                      )?.seasonName ?? result.correction.seasonId
+                  });
+                  setReloadKey((current) => current + 1);
+                  setOperationMode(null);
+                }}
+                onStockContextChange={replaceStockContext}
+                ordinarySalesApi={ordinarySalesApi}
+                stockContexts={stockState.contexts}
+                stockLoading={stockState.status === "LOADING"}
+              />
+            ) : (
+              <SaleCancellationSection
+                actorProfile={actorProfile}
+                api={ordinarySalesApi}
+                deviceId={deviceId}
+                env={env}
+                isOnline={isOnline}
+                onConfirmed={(result) => {
+                  setReloadKey((current) => current + 1);
+                  replaceStockContext({
+                    availableWeightG: result.postWriteAvailableWeightG,
+                    pendingDocumentCount: 0,
+                    refreshedAtIso: new Date().toISOString(),
+                    seasonId: result.cancelledSale.seasonId,
+                    seasonName:
+                      stockState.contexts.find(
+                        (context) => context.seasonId === result.cancelledSale.seasonId
+                      )?.seasonName ?? result.cancelledSale.seasonId
+                  });
+                  setOperationMode(null);
+                  setRequestedCancellationSaleId(null);
+                }}
+                requestedSaleId={requestedCancellationSaleId}
+              />
+            )}
+          </section>
+        </RecordDialog>
+      ) : null}
 
       <AdminSaleDirectoryPanel
         api={ordinarySalesApi}
@@ -446,6 +475,13 @@ export function AdminOrdinarySalesPanel({
         onRequestCancellation={(saleId) => {
           setRequestedCancellationSaleId(saleId);
           setOperationMode("CANCELLATION");
+        }}
+        onRequestCorrection={() => {
+          setRequestedCancellationSaleId(null);
+          setOperationMode("CORRECTION");
+          setPreflight(null);
+          setConfirmed(null);
+          setSaveError(null);
         }}
       />
     </section>
@@ -642,7 +678,7 @@ function SaleCorrectionSection({
               type="button"
             >
               <Pencil aria-hidden="true" size={18} />
-              Wroc do edycji
+              Wróć do edycji
             </button>
             <button
               className="primary-button"
@@ -744,7 +780,7 @@ function SaleConfirmation({
           type="button"
         >
           <Pencil aria-hidden="true" size={18} />
-          Wroc do edycji
+          Wróć do edycji
         </button>
         <button
           className="primary-button"
@@ -753,7 +789,7 @@ function SaleConfirmation({
           type="button"
         >
           <Save aria-hidden="true" size={18} />
-          {isSaving ? "Ponowne sprawdzanie..." : "Potwierdz i zapisz"}
+          {isSaving ? "Ponowne sprawdzanie..." : "Potwierdź i zapisz"}
         </button>
       </div>
     </section>
@@ -816,7 +852,7 @@ function StockReconciliationAlert({
         </div>
       </div>
       <p className="stock-reconciliation-alert__difference">
-        Roznica projekcji: <strong>{formatSignedKilograms(report.differenceG)}</strong>
+        Różnica projekcji: <strong>{formatSignedKilograms(report.differenceG)}</strong>
       </p>
       <ul>
         {report.issues.map((issue) => (
@@ -837,7 +873,7 @@ function StockReconciliationAlert({
             value={formatKilograms(report.source.activeSaleWeightG)}
           />
           <ConfirmationValue
-            label="Korekty zwiekszajace"
+            label="Korekty zwiększające"
             value={formatKilograms(report.source.correctionIncreaseWeightG)}
           />
           <ConfirmationValue
@@ -845,7 +881,7 @@ function StockReconciliationAlert({
             value={formatKilograms(report.source.correctionDecreaseWeightG)}
           />
           <ConfirmationValue
-            label="Stan ze zrodel"
+            label="Stan ze źródeł"
             value={formatKilograms(report.source.availableWeightG)}
           />
           <ConfirmationValue

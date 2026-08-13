@@ -311,7 +311,7 @@ export function SaleCancellationSection({
               }}
               type="button"
             >
-              Wroc do wyboru
+              Wróć do wyboru
             </button>
             <button
               className="danger-button"

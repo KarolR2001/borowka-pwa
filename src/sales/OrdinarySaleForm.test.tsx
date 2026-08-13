@@ -64,7 +64,7 @@ describe("OrdinarySaleForm", () => {
     await user.type(screen.getByLabelText("Masa kg"), "12,345");
     await user.type(screen.getByLabelText("Cena za kg"), "15,50");
     await user.type(screen.getByLabelText("Notatka"), "Odbior przy gospodarstwie");
-    await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź i podsumuj" }));
 
     expect(onPrepare).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -92,9 +92,7 @@ describe("OrdinarySaleForm", () => {
     expect(
       screen.queryByText(/offline|połączenia z internetem/i)
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Sprawdź i przejdź dalej" })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sprawdź i podsumuj" })).toBeDisabled();
   });
 
   it("marks cached or pending stock as potentially stale", async () => {
@@ -138,7 +136,7 @@ describe("OrdinarySaleForm", () => {
 
     await user.type(screen.getByLabelText("Masa kg"), "1,2345");
     await user.type(screen.getByLabelText("Cena za kg"), "10");
-    await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź i podsumuj" }));
 
     expect(
       screen.getByText("Podaj mase w kilogramach z dokladnoscia do 3 miejsc.")
@@ -160,7 +158,7 @@ describe("OrdinarySaleForm", () => {
 
     await user.type(screen.getByLabelText("Masa kg"), "1");
     await user.type(screen.getByLabelText("Cena za kg"), "10");
-    await user.dblClick(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
+    await user.dblClick(screen.getByRole("button", { name: "Sprawdź i podsumuj" }));
 
     expect(onPrepare).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Sprawdzanie..." })).toBeDisabled();
