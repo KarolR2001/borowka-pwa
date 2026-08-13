@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -110,7 +110,7 @@ describe("AdminSeasonsPanel", () => {
     });
     expect((await screen.findAllByText("Sezon 2026")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sezon 2027").length).toBeGreaterThan(0);
-    expect(screen.getByText("broken-season")).toBeInTheDocument();
+    expect(screen.queryByText("broken-season")).not.toBeInTheDocument();
   });
 
   it("creates a season after explicit confirmation", async () => {
@@ -125,14 +125,15 @@ describe("AdminSeasonsPanel", () => {
       <AdminSeasonsPanel authState={adminState} env={env} seasonsApi={{ list, create }} />
     );
 
-    await screen.findByLabelText("Tworzenie sezonu");
+    await user.click(await screen.findByRole("button", { name: "Dodaj sezon" }));
+    const form = await screen.findByLabelText("Tworzenie sezonu");
     await user.type(screen.getByLabelText("Nazwa sezonu"), "Sezon 2027");
     await user.type(screen.getByLabelText("Data od"), "2027-07-01");
     await user.type(screen.getByLabelText("Data do"), "2027-09-30");
     await user.selectOptions(screen.getByLabelText("Status startowy"), "OPEN");
     await user.click(screen.getByLabelText("Ustaw jako sezon domyslny"));
     await user.click(screen.getByLabelText("Potwierdzam utworzenie sezonu"));
-    await user.click(screen.getByRole("button", { name: "Dodaj sezon" }));
+    await user.click(within(form).getByRole("button", { name: "Dodaj sezon" }));
 
     await waitFor(() => {
       expect(create).toHaveBeenCalled();
@@ -174,6 +175,7 @@ describe("AdminSeasonsPanel", () => {
       />
     );
 
+    await user.click(await screen.findByRole("button", { name: "Zmień status sezonu" }));
     await screen.findByLabelText("Zmiana sezonu");
     await waitFor(() => {
       expect(screen.getByLabelText("Sezon")).toHaveValue("season-2026");

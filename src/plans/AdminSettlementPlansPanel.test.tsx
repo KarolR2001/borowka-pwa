@@ -145,8 +145,8 @@ describe("AdminSettlementPlansPanel", () => {
     });
     expect(await screen.findByText("Za kilogram")).toBeInTheDocument();
     expect(screen.getByText("Za ubianke")).toBeInTheDocument();
-    expect(screen.getByText("broken-plan")).toBeInTheDocument();
-    expect(screen.getByText("broken-rate")).toBeInTheDocument();
+    expect(screen.queryByText("broken-plan")).not.toBeInTheDocument();
+    expect(screen.queryByText("broken-rate")).not.toBeInTheDocument();
   });
 
   it("filters rendered plans by basis and status", async () => {
@@ -209,7 +209,7 @@ describe("AdminSettlementPlansPanel", () => {
       />
     );
 
-    await user.click(await screen.findByText("Nowy plan rozliczeń"));
+    await user.click(await screen.findByRole("button", { name: "Dodaj plan rozliczeń" }));
     const form = within(
       await screen.findByRole("form", { name: "Tworzenie planu rozliczeń" })
     );

@@ -105,7 +105,7 @@ export function AdminPickerExportSettingsPanel({
       });
       setEnabled(result.enabled);
       setState({ result, status: "READY" });
-      setFeedback("Zapisano dostępność eksportu pickera.");
+      setFeedback("Zapisano dostępność eksportu zbieracza.");
     } catch {
       setFeedback("Nie udało się zapisać ustawienia eksportu.");
     } finally {
@@ -121,7 +121,7 @@ export function AdminPickerExportSettingsPanel({
       <header className="directory-header">
         <div>
           <p className="eyebrow">Ustawienie funkcji</p>
-          <h2 id="picker-export-settings-title">Eksport danych pickera</h2>
+          <h2 id="picker-export-settings-title">Eksport danych zbieracza</h2>
           <p className="panel-detail">
             Status: {state.result?.enabled ? "włączony" : "wyłączony"}
           </p>

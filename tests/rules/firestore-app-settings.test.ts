@@ -49,6 +49,7 @@ beforeEach(async () => {
         active: false,
         registrationStatus: "BLOCKED"
       }),
+      setDoc(doc(db, "seasons", "season-2026"), season()),
       setDoc(doc(db, "appSettings", "domain"), domainSettings())
     ]);
   });
@@ -93,6 +94,33 @@ describe("app settings rules", () => {
     await assertFails(
       updateDoc(doc(pickerDb, "appSettings", "domain"), {
         pickerOwnReportExportEnabled: false,
+        updatedAt: serverTimestamp()
+      })
+    );
+
+    const snapshot = await getDoc(doc(adminDb, "appSettings", "domain"));
+    expect(snapshot.data()?.pickerOwnReportExportEnabled).toBe(true);
+  });
+
+  it("allows an admin to initialize missing domain settings", async () => {
+    if (!testEnv) {
+      throw new Error("Rules test environment was not initialized.");
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await deleteDoc(doc(context.firestore(), "appSettings", "domain"));
+    });
+
+    const adminDb = authenticatedDb("admin-1");
+    await assertSucceeds(
+      setDoc(doc(adminDb, "appSettings", "domain"), {
+        calculationRuleVersion: 1,
+        defaultSeasonId: "season-2026",
+        id: "domain",
+        initializedAt: serverTimestamp(),
+        initializedBy: "admin-1",
+        pickerOwnReportExportEnabled: true,
+        schemaVersion: 1,
         updatedAt: serverTimestamp()
       })
     );
@@ -156,6 +184,21 @@ function domainSettings() {
     initializedBy: "admin-1",
     pickerOwnReportExportEnabled: false,
     schemaVersion: 1,
+    updatedAt: Timestamp.now()
+  };
+}
+
+function season() {
+  return {
+    archivedAt: null,
+    createdAt: Timestamp.now(),
+    createdBy: "admin-1",
+    endDate: "2026-09-30",
+    id: "season-2026",
+    isDefault: true,
+    name: "Sezon 2026",
+    startDate: "2026-07-01",
+    status: "OPEN",
     updatedAt: Timestamp.now()
   };
 }

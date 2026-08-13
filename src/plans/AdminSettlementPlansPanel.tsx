@@ -1,11 +1,11 @@
-import { Archive, Pencil, Plus, Scale, Search, ShieldAlert } from "lucide-react";
+import { Archive, Pencil, Plus, Scale, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
-import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { InfoHint } from "../ui/InfoHint";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   archiveSettlementPlan,
   createSettlementPlan,
@@ -119,6 +119,7 @@ export function AdminSettlementPlansPanel({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -165,12 +166,6 @@ export function AdminSettlementPlansPanel({
     () => (state.result ? filterSettlementPlans(state.result.plans, filters) : []),
     [filters, state.result]
   );
-  const activePlansCount = state.result?.plans.filter((plan) => plan.active).length ?? 0;
-  const usedPlansCount = state.result?.plans.filter((plan) => plan.wasUsed).length ?? 0;
-  const invalidDocumentsCount =
-    (state.result?.invalidPlans.length ?? 0) +
-    (state.result?.invalidRateVersions.length ?? 0);
-
   const handleCreatePlan = async () => {
     if (authState.status !== "READY") {
       return;
@@ -220,6 +215,7 @@ export function AdminSettlementPlansPanel({
       await reloadAfterSubmit();
       setFeedback(createPlanFeedback(result));
       setCreateDraft(initialCreatePlanDraft);
+      setIsCreateOpen(false);
     } catch (createError: unknown) {
       setError(getSettlementPlansErrorMessage(createError));
     } finally {
@@ -391,49 +387,17 @@ export function AdminSettlementPlansPanel({
     <section className="settlement-plan-directory" aria-label="Plany rozliczeń">
       {state.result ? (
         <div className="screen-actions" aria-label="Akcje planów rozliczeń">
-          <CollapsibleSection
-            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
-            label="Dodaj plan rozliczeń"
+          <button
+            className="primary-action"
+            onClick={() => {
+              setError(null);
+              setIsCreateOpen(true);
+            }}
+            type="button"
           >
-            <CreateSettlementPlanForm
-              draft={createDraft}
-              isSubmitting={isSubmitting}
-              onChange={setCreateDraft}
-              onSubmit={() => {
-                void handleCreatePlan();
-              }}
-            />
-          </CollapsibleSection>
-          {editDraft ? (
-            <CollapsibleSection label="Edycja planu" open>
-              <EditSettlementPlanForm
-                draft={editDraft}
-                isSubmitting={isSubmitting}
-                onCancel={() => {
-                  setEditDraft(null);
-                }}
-                onChange={setEditDraft}
-                onSubmit={() => {
-                  void handleUpdatePlan();
-                }}
-              />
-            </CollapsibleSection>
-          ) : null}
-          {archiveDraft ? (
-            <CollapsibleSection label="Archiwizacja planu" open>
-              <ArchiveSettlementPlanForm
-                draft={archiveDraft}
-                isSubmitting={isSubmitting}
-                onCancel={() => {
-                  setArchiveDraft(null);
-                }}
-                onChange={setArchiveDraft}
-                onSubmit={() => {
-                  void handleArchivePlan();
-                }}
-              />
-            </CollapsibleSection>
-          ) : null}
+            <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>Dodaj plan rozliczeń</span>
+          </button>
         </div>
       ) : null}
 
@@ -449,9 +413,6 @@ export function AdminSettlementPlansPanel({
           label="Wszystkie plany"
           value={String(state.result?.plans.length ?? 0)}
         />
-        <DirectoryStat label="Aktywne" value={String(activePlansCount)} />
-        <DirectoryStat label="Użyte w stawkach" value={String(usedPlansCount)} />
-        <DirectoryStat label="Błędne dokumenty" value={String(invalidDocumentsCount)} />
       </div>
 
       {state.status === "ERROR" ? (
@@ -468,7 +429,7 @@ export function AdminSettlementPlansPanel({
 
       {filteredPlans.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table">
+          <table className="directory-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
@@ -486,20 +447,24 @@ export function AdminSettlementPlansPanel({
             <tbody>
               {filteredPlans.map((plan) => (
                 <tr key={plan.id}>
-                  <td>
+                  <td data-label="Nazwa">
                     <strong>{plan.name}</strong>
                   </td>
-                  <td>{settlementCalculationBasisLabel(plan.calculationBasis)}</td>
-                  <td>
+                  <td data-label="Podstawa">
+                    {settlementCalculationBasisLabel(plan.calculationBasis)}
+                  </td>
+                  <td data-label="Jednostka">
                     {plan.unitLabelSingular} ({plan.unitSymbol})
                   </td>
-                  <td>{plan.quantityPrecision}</td>
-                  <td>{plan.weightRequired ? "Wymagana" : "Opcjonalna"}</td>
-                  <td>{plan.allowBatchQuantity ? "Tak" : "Nie"}</td>
-                  <td>{plan.activeRateCount}</td>
-                  <td>{plan.wasUsed ? "Tak" : "Nie"}</td>
-                  <td>{settlementPlanStatusLabel(plan)}</td>
-                  <td>
+                  <td data-label="Precyzja">{plan.quantityPrecision}</td>
+                  <td data-label="Waga">
+                    {plan.weightRequired ? "Wymagana" : "Opcjonalna"}
+                  </td>
+                  <td data-label="Zbiorcze">{plan.allowBatchQuantity ? "Tak" : "Nie"}</td>
+                  <td data-label="Aktywne stawki">{plan.activeRateCount}</td>
+                  <td data-label="Użyty">{plan.wasUsed ? "Tak" : "Nie"}</td>
+                  <td data-label="Status">{settlementPlanStatusLabel(plan)}</td>
+                  <td data-label="Akcje">
                     <div className="directory-actions">
                       <button
                         className="secondary-action directory-action"
@@ -531,31 +496,128 @@ export function AdminSettlementPlansPanel({
         </div>
       ) : null}
 
-      {state.result && state.result.invalidPlans.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidPlans}
-          title="Błędne dokumenty planów"
-        />
+      {isCreateOpen ? (
+        <RecordDialog
+          fullScreen
+          label="Dodaj plan rozliczeń"
+          onClose={() => {
+            setIsCreateOpen(false);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <PlanDialogHeader
+              onClose={() => {
+                setIsCreateOpen(false);
+              }}
+              title="Dodaj plan rozliczeń"
+            />
+            <CreateSettlementPlanForm
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setIsCreateOpen(false);
+              }}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreatePlan();
+              }}
+            />
+          </div>
+        </RecordDialog>
       ) : null}
 
-      {state.result && state.result.invalidRateVersions.length > 0 ? (
-        <InvalidDocuments
-          documents={state.result.invalidRateVersions}
-          title="Błędne dokumenty stawek"
-        />
+      {editDraft ? (
+        <RecordDialog
+          fullScreen
+          label="Edycja planu rozliczeń"
+          onClose={() => {
+            setEditDraft(null);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <PlanDialogHeader
+              onClose={() => {
+                setEditDraft(null);
+              }}
+              title="Edytuj plan rozliczeń"
+            />
+            <EditSettlementPlanForm
+              draft={editDraft}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setEditDraft(null);
+              }}
+              onChange={setEditDraft}
+              onSubmit={() => {
+                void handleUpdatePlan();
+              }}
+            />
+          </div>
+        </RecordDialog>
+      ) : null}
+
+      {archiveDraft ? (
+        <RecordDialog
+          fullScreen
+          label="Archiwizacja planu rozliczeń"
+          onClose={() => {
+            setArchiveDraft(null);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <PlanDialogHeader
+              onClose={() => {
+                setArchiveDraft(null);
+              }}
+              title="Archiwizuj plan rozliczeń"
+            />
+            <ArchiveSettlementPlanForm
+              draft={archiveDraft}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setArchiveDraft(null);
+              }}
+              onChange={setArchiveDraft}
+              onSubmit={() => {
+                void handleArchivePlan();
+              }}
+            />
+          </div>
+        </RecordDialog>
       ) : null}
     </section>
+  );
+}
+
+function PlanDialogHeader({ onClose, title }: { onClose: () => void; title: string }) {
+  return (
+    <header className="fullscreen-operation__header">
+      <div>
+        <p className="eyebrow">Konfiguracja</p>
+        <h2>{title}</h2>
+      </div>
+      <button
+        aria-label="Zamknij formularz planu"
+        className="secondary-button icon-button"
+        onClick={onClose}
+        type="button"
+      >
+        <X aria-hidden="true" size={20} />
+      </button>
+    </header>
   );
 }
 
 function CreateSettlementPlanForm({
   draft,
   isSubmitting,
+  onCancel,
   onChange,
   onSubmit
 }: {
   draft: CreatePlanDraft;
   isSubmitting: boolean;
+  onCancel: () => void;
   onChange: (draft: CreatePlanDraft) => void;
   onSubmit: () => void;
 }) {
@@ -573,117 +635,122 @@ function CreateSettlementPlanForm({
   });
 
   return (
-    <details className="creation-panel">
-      <summary>
-        <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Nowy plan rozliczeń</span>
-      </summary>
-      <form
-        aria-label="Tworzenie planu rozliczeń"
-        className="settlement-plan-form settlement-plan-form--simple"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        <label className="field">
-          <span className="field__label">
-            Nazwa planu
-            <InfoHint text="Nazwa będzie widoczna podczas przypisywania stawki, np. Zbiór na kilogramy." />
-          </span>
-          <input
-            aria-label="Nazwa planu"
-            disabled={isSubmitting}
-            onChange={(event) => {
-              onChange({ ...draft, name: event.target.value });
-            }}
-            placeholder="Np. Zbiór na kilogramy"
-            type="text"
-            value={draft.name}
-          />
-        </label>
+    <form
+      aria-label="Tworzenie planu rozliczeń"
+      className="settlement-plan-form settlement-plan-form--simple"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="field">
+        <span className="field__label">
+          Nazwa planu
+          <InfoHint text="Nazwa będzie widoczna podczas przypisywania stawki, np. Zbiór na kilogramy." />
+        </span>
+        <input
+          aria-label="Nazwa planu"
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({ ...draft, name: event.target.value });
+          }}
+          placeholder="Np. Zbiór na kilogramy"
+          type="text"
+          value={draft.name}
+        />
+      </label>
 
-        <label className="field">
-          <span className="field__label">
-            Sposób rozliczenia
-            <InfoHint text="Wybierz wagę, gdy płacisz za kilogramy, albo liczbę opakowań, gdy płacisz za sztuki." />
-          </span>
-          <select
-            aria-label="Sposób rozliczenia"
-            disabled={isSubmitting}
-            onChange={(event) => {
-              const nextBasis = event.target.value;
+      <label className="field">
+        <span className="field__label">
+          Sposób rozliczenia
+          <InfoHint text="Wybierz wagę, gdy płacisz za kilogramy, albo liczbę opakowań, gdy płacisz za sztuki." />
+        </span>
+        <select
+          aria-label="Sposób rozliczenia"
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const nextBasis = event.target.value;
 
-              if (isSettlementCalculationBasis(nextBasis)) {
-                onChange({ ...draft, calculationBasis: nextBasis });
-              }
-            }}
-            value={draft.calculationBasis}
-          >
-            <option value="QUANTITY">Liczba opakowań lub sztuk</option>
-            <option value="WEIGHT">Waga w kilogramach</option>
-          </select>
-        </label>
+            if (isSettlementCalculationBasis(nextBasis)) {
+              onChange({ ...draft, calculationBasis: nextBasis });
+            }
+          }}
+          value={draft.calculationBasis}
+        >
+          <option value="QUANTITY">Liczba opakowań lub sztuk</option>
+          <option value="WEIGHT">Waga w kilogramach</option>
+        </select>
+      </label>
 
-        {draft.calculationBasis === "QUANTITY" ? (
-          <>
-            <label className="field">
-              <span className="field__label">
-                Jedna jednostka
-                <InfoHint text="Podaj nazwę jednej sztuki lub opakowania, np. łubianka albo skrzynka." />
-              </span>
-              <input
-                aria-label="Jedna jednostka"
-                disabled={isSubmitting}
-                onChange={(event) => {
-                  onChange({ ...draft, unitLabelSingular: event.target.value });
-                }}
-                placeholder="Np. łubianka"
-                type="text"
-                value={draft.unitLabelSingular}
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">
-                Wiele jednostek
-                <InfoHint text="Podaj nazwę używaną przy większej liczbie, np. łubianki albo skrzynki." />
-              </span>
-              <input
-                aria-label="Wiele jednostek"
-                disabled={isSubmitting}
-                onChange={(event) => {
-                  onChange({ ...draft, unitLabelPlural: event.target.value });
-                }}
-                placeholder="Np. łubianki"
-                type="text"
-                value={draft.unitLabelPlural}
-              />
-            </label>
-          </>
-        ) : null}
+      {draft.calculationBasis === "QUANTITY" ? (
+        <>
+          <label className="field">
+            <span className="field__label">
+              Jedna jednostka
+              <InfoHint text="Podaj nazwę jednej sztuki lub opakowania, np. łubianka albo skrzynka." />
+            </span>
+            <input
+              aria-label="Jedna jednostka"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                onChange({ ...draft, unitLabelSingular: event.target.value });
+              }}
+              placeholder="Np. łubianka"
+              type="text"
+              value={draft.unitLabelSingular}
+            />
+          </label>
+          <label className="field">
+            <span className="field__label">
+              Wiele jednostek
+              <InfoHint text="Podaj nazwę używaną przy większej liczbie, np. łubianki albo skrzynki." />
+            </span>
+            <input
+              aria-label="Wiele jednostek"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                onChange({ ...draft, unitLabelPlural: event.target.value });
+              }}
+              placeholder="Np. łubianki"
+              type="text"
+              value={draft.unitLabelPlural}
+            />
+          </label>
+        </>
+      ) : null}
 
-        <label className="field settlement-plan-form__description">
-          <span className="field__label">
-            Opis (opcjonalnie)
-            <InfoHint text="Dodaj krótką informację tylko wtedy, gdy pomaga odróżnić ten plan od pozostałych." />
-          </span>
-          <input
-            aria-label="Opis"
-            disabled={isSubmitting}
-            onChange={(event) => {
-              onChange({ ...draft, description: event.target.value });
-            }}
-            placeholder="Np. rozliczenie zbioru do chłodni"
-            type="text"
-            value={draft.description}
-          />
-        </label>
+      <label className="field settlement-plan-form__description">
+        <span className="field__label">
+          Opis (opcjonalnie)
+          <InfoHint text="Dodaj krótką informację tylko wtedy, gdy pomaga odróżnić ten plan od pozostałych." />
+        </span>
+        <input
+          aria-label="Opis"
+          disabled={isSubmitting}
+          onChange={(event) => {
+            onChange({ ...draft, description: event.target.value });
+          }}
+          placeholder="Np. rozliczenie zbioru do chłodni"
+          type="text"
+          value={draft.description}
+        />
+      </label>
 
-        <div className="settlement-plan-form__example" aria-label="Przykład planu">
-          <span>Przykład rozliczenia</span>
-          <strong>{example}</strong>
-        </div>
+      <div className="settlement-plan-form__example" aria-label="Przykład planu">
+        <span>Przykład rozliczenia</span>
+        <strong>{example}</strong>
+      </div>
 
+      <div className="form-actions settlement-plan-form__actions">
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj</span>
+        </button>
         <button
           className="primary-action settlement-plan-form__submit"
           disabled={isSubmitting}
@@ -692,8 +759,8 @@ function CreateSettlementPlanForm({
           <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
           <span>Utwórz plan</span>
         </button>
-      </form>
-    </details>
+      </div>
+    </form>
   );
 }
 
@@ -1029,32 +1096,6 @@ function DirectoryStat({ label, value }: { label: string; value: string }) {
     <div className="directory-stat">
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  );
-}
-
-function InvalidDocuments({
-  documents,
-  title
-}: {
-  documents: { id: string; reason: string }[];
-  title: string;
-}) {
-  return (
-    <div className="invalid-profiles" aria-label={title}>
-      <div className="access-notice__icon">
-        <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
-      </div>
-      <div>
-        <p className="eyebrow">{title}</p>
-        <ul>
-          {documents.map((document) => (
-            <li key={document.id}>
-              <strong>{document.id}</strong>: {document.reason}
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
