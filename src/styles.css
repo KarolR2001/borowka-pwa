@@ -105,9 +105,9 @@ select {
 }
 
 .topbar__logo {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 44px;
+  height: 40px;
+  flex: 0 0 44px;
   object-fit: contain;
 }
 
@@ -1180,15 +1180,6 @@ h2 {
 
 .operator-dashboard__conflicts li > span {
   color: #5f6f66;
-}
-
-.operator-sessions__new-session {
-  scroll-margin-top: 18px;
-}
-
-.operator-sessions__new-session:focus {
-  outline: 2px solid #287a4f;
-  outline-offset: 4px;
 }
 
 .picker-workspace {
@@ -2498,18 +2489,23 @@ h2 {
 }
 
 .active-session__entry-list {
-  display: grid;
+  --entry-card-width: min(82vw, 680px);
+
+  display: flex;
   gap: 8px;
-  max-height: min(56vh, 560px);
   margin: 0;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
-  padding: 0;
-  padding-right: 4px;
+  padding: 4px max(0px, calc((100% - var(--entry-card-width)) / 2)) 12px;
+  scroll-padding-inline: max(0px, calc((100% - var(--entry-card-width)) / 2));
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
   list-style: none;
 }
 
 .active-session__entry {
+  flex: 0 0 var(--entry-card-width);
   display: grid;
   grid-template-columns: minmax(132px, 0.45fr) minmax(360px, 1fr) minmax(128px, auto);
   gap: 12px;
@@ -2518,6 +2514,8 @@ h2 {
   border-radius: 8px;
   padding: 12px;
   background: #fbfdfb;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
 }
 
 .active-session__entry-heading {
@@ -2583,10 +2581,6 @@ h2 {
   min-height: 34px;
   padding: 6px 9px;
   font-size: 0.78rem;
-}
-
-.operator-sessions__entry-form {
-  margin-top: 12px;
 }
 
 .ubianka-entry-form {

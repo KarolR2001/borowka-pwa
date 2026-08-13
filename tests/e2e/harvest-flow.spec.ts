@@ -24,6 +24,9 @@ test.describe("Seeded harvest flow", () => {
       operatorDashboard.getByRole("button", { name: "Nowy zbiór" })
     ).toBeVisible();
     await expect(operatorDashboard.getByText("Dostępne kilogramy")).toBeVisible();
+    await expect(operatorDashboard.getByText("Otwarte sesje")).toHaveCount(0);
+    await expect(operatorDashboard.getByText("Lokalnie oczekujące")).toHaveCount(0);
+    await expect(operatorDashboard.getByText(/moje konflikty/i)).toHaveCount(0);
     await operatorDashboard.getByText("Zakres dat", { exact: true }).click();
     const periodSelect = operatorDashboard.locator("#operator-dashboard-period");
     await expect(periodSelect).toHaveValue("TODAY");
@@ -31,6 +34,17 @@ test.describe("Seeded harvest flow", () => {
     await operatorDashboard.locator("#operator-dashboard-period-from").fill("2026-07-17");
     await operatorDashboard.locator("#operator-dashboard-period-to").fill("2026-07-17");
     await expect(operatorDashboard.getByText("Własny zakres: 17.07.2026")).toBeVisible();
+    await operatorDashboard.getByRole("button", { name: "Nowy zbiór" }).click();
+    const openSessionDialog = page.getByRole("dialog", {
+      name: "Otwieranie sesji zbioru"
+    });
+    await expect(openSessionDialog).toBeVisible();
+    expect(
+      await openSessionDialog.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      )
+    ).toBeLessThanOrEqual(0);
+    await page.getByRole("button", { name: "Zamknij formularz sesji" }).click();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     ).toBeLessThanOrEqual(0);
@@ -45,7 +59,10 @@ test.describe("Seeded harvest flow", () => {
 
     await loginAs(page, OPERATOR_EMAIL, "Operator E2E");
 
-    await page.locator("summary").filter({ hasText: "Otwórz nową sesję" }).click();
+    await page.getByRole("button", { name: "Otwórz nową sesję" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Otwieranie sesji zbioru" })
+    ).toHaveClass(/record-dialog--fullscreen/);
     const openSessionForm = page.getByRole("form", {
       name: "Otwieranie sesji zbioru"
     });
@@ -70,6 +87,8 @@ test.describe("Seeded harvest flow", () => {
         page.getByText(`#${String(entryNumber)}`, { exact: true }).first()
       ).toBeVisible();
     }
+
+    await page.getByRole("button", { name: "Zamknij formularz wpisu" }).click();
 
     await expect(page.getByText("10 kilogram")).toBeVisible();
     await expect(page.getByText("10,000 kg")).toBeVisible();
@@ -117,6 +136,7 @@ test.describe("Seeded harvest flow", () => {
     await page.getByLabel("Waga kg").fill("1,000");
     await page.getByRole("button", { name: "Zapisz wpis" }).click();
     await expect(page.getByText("Wpis wagowy dodany lokalnie.")).toBeVisible();
+    await page.getByRole("button", { name: "Zamknij formularz wpisu" }).click();
     await expect(page.getByText("#11", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("10 kilogram")).toBeVisible();
 

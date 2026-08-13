@@ -7,6 +7,7 @@ import { formatBusinessDate, formatMoney } from "../domain/format";
 import type { UserProfile } from "../domain/identity";
 import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   addHarvestEntryOffline,
   closeHarvestSessionOffline,
@@ -248,6 +249,7 @@ export function OperatorHarvestSessionsPanel({
   });
   const [sessionFeedback, setSessionFeedback] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [isOpenSessionFormOpen, setIsOpenSessionFormOpen] = useState(false);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
@@ -259,6 +261,7 @@ export function OperatorHarvestSessionsPanel({
   const viewerProfile = useMemo(() => getHarvestViewerProfile(authState), [authState]);
   const hasActiveForm =
     hasUnsavedFormInteraction ||
+    isOpenSessionFormOpen ||
     isEntryFormOpen ||
     isOpeningSession ||
     isClosingSession ||
@@ -290,6 +293,7 @@ export function OperatorHarvestSessionsPanel({
       setCancelEntryDraft({ entryId: "", reason: "" });
       setSessionFeedback(null);
       setSessionError(null);
+      setIsOpenSessionFormOpen(false);
       setHasUnsavedFormInteraction(false);
       pendingEntryAttemptRef.current = null;
       return undefined;
@@ -454,6 +458,12 @@ export function OperatorHarvestSessionsPanel({
     setOpenFeedback(null);
     setOpenError(null);
 
+    const validationError = validateOpenSessionDraft(openDraft);
+    if (validationError) {
+      setOpenError(validationError);
+      return;
+    }
+
     setIsOpeningSession(true);
 
     try {
@@ -471,7 +481,7 @@ export function OperatorHarvestSessionsPanel({
         serviceWorkerReady
       });
 
-      setOpenFeedback(result.message);
+      setSessionFeedback(result.message);
       setHasUnsavedFormInteraction(false);
       setOpenDraft((current) => ({
         ...current,
@@ -482,6 +492,7 @@ export function OperatorHarvestSessionsPanel({
       await onLocalDocumentsChanged?.();
       await reload(result.selectedSessionId);
       await reloadOpeningConfiguration();
+      setIsOpenSessionFormOpen(false);
     } catch (error: unknown) {
       setOpenError(getOpenSessionErrorMessage(error));
     } finally {
@@ -843,31 +854,21 @@ export function OperatorHarvestSessionsPanel({
       }}
     >
       <div className="screen-actions" aria-label="Akcje sesji zbioru">
-        <CollapsibleSection
-          icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
-          label="Otwórz nową sesję"
+        <button
+          className="primary-action"
+          id="new-harvest-session"
+          onClick={() => {
+            setOpenFeedback(null);
+            setOpenError(null);
+            setSessionFeedback(null);
+            setSessionError(null);
+            setIsOpenSessionFormOpen(true);
+          }}
+          type="button"
         >
-          <div
-            className="operator-sessions__new-session"
-            id="new-harvest-session"
-            tabIndex={-1}
-          >
-            <OpenHarvestSessionForm
-              actorRole={viewerProfile.role}
-              configuration={openingConfiguration}
-              configurationMessage={openingConfigurationState.message}
-              draft={openDraft}
-              error={openError}
-              existingOpenSessionsCount={existingOpenSessionsForDraft.length}
-              feedback={openFeedback}
-              isSubmitting={isOpeningSession}
-              onChange={setOpenDraft}
-              onSubmit={() => {
-                void handleOpenSession();
-              }}
-            />
-          </div>
-        </CollapsibleSection>
+          <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+          Otwórz nową sesję
+        </button>
         {viewerProfile.role === "ADMIN" ? (
           <>
             <CollapsibleSection
@@ -912,6 +913,68 @@ export function OperatorHarvestSessionsPanel({
         ) : null}
       </div>
 
+      {isOpenSessionFormOpen ? (
+        <RecordDialog
+          fullScreen
+          label="Otwieranie sesji zbioru"
+          onClose={() => {
+            if (!isOpeningSession) {
+              setIsOpenSessionFormOpen(false);
+              setOpenError(null);
+              setOpenFeedback(null);
+              setHasUnsavedFormInteraction(false);
+            }
+          }}
+        >
+          <section className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Sesja zbioru</p>
+                <h2>Otwórz nową sesję</h2>
+              </div>
+              <button
+                aria-label="Zamknij formularz sesji"
+                className="secondary-button icon-button"
+                disabled={isOpeningSession}
+                onClick={() => {
+                  setIsOpenSessionFormOpen(false);
+                  setOpenError(null);
+                  setOpenFeedback(null);
+                  setHasUnsavedFormInteraction(false);
+                }}
+                title="Zamknij"
+                type="button"
+              >
+                <X aria-hidden="true" size={20} strokeWidth={2.2} />
+              </button>
+            </header>
+            <OpenHarvestSessionForm
+              actorRole={viewerProfile.role}
+              configuration={openingConfiguration}
+              configurationMessage={openingConfigurationState.message}
+              draft={openDraft}
+              error={openError}
+              existingOpenSessionsCount={existingOpenSessionsForDraft.length}
+              feedback={openFeedback}
+              isSubmitting={isOpeningSession}
+              onCancel={() => {
+                setIsOpenSessionFormOpen(false);
+                setOpenError(null);
+                setOpenFeedback(null);
+                setHasUnsavedFormInteraction(false);
+              }}
+              onChange={(draft) => {
+                setOpenError(null);
+                setOpenDraft(draft);
+              }}
+              onSubmit={() => {
+                void handleOpenSession();
+              }}
+            />
+          </section>
+        </RecordDialog>
+      ) : null}
+
       {invalidConfigurationCount > 0 ? (
         <p className="form-message form-message--error">
           Niepoprawne dokumenty konfiguracji otwarcia sesji: {invalidConfigurationCount}
@@ -955,7 +1018,7 @@ export function OperatorHarvestSessionsPanel({
 
       <ActiveHarvestSessionPanel
         onAddEntry={() => {
-          setIsEntryFormOpen((current) => !current);
+          setIsEntryFormOpen(true);
         }}
         onCancelEntry={(entryId) => {
           setCancelEntryDraft((current) => ({
@@ -1003,17 +1066,41 @@ export function OperatorHarvestSessionsPanel({
       ) : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
-        <section
-          aria-label="Dodawanie wpisu zbioru"
-          className="operator-sessions__entry-form"
+        <RecordDialog
+          fullScreen
+          label="Dodawanie wpisu zbioru"
+          onClose={() => {
+            setIsEntryFormOpen(false);
+          }}
         >
-          <HarvestEntryForm
-            disabled={false}
-            onSubmit={handleAddEntry}
-            session={selectedSessionView.session}
-            lastQuantityMilli={findLastActiveQuantity(selectedSessionView.entries)}
-          />
-        </section>
+          <section className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">
+                  {selectedSessionView.session.workerNameSnapshot}
+                </p>
+                <h2>Dodaj wpis</h2>
+              </div>
+              <button
+                aria-label="Zamknij formularz wpisu"
+                className="secondary-button icon-button"
+                onClick={() => {
+                  setIsEntryFormOpen(false);
+                }}
+                title="Zamknij"
+                type="button"
+              >
+                <X aria-hidden="true" size={20} strokeWidth={2.2} />
+              </button>
+            </header>
+            <HarvestEntryForm
+              disabled={false}
+              onSubmit={handleAddEntry}
+              session={selectedSessionView.session}
+              lastQuantityMilli={findLastActiveQuantity(selectedSessionView.entries)}
+            />
+          </section>
+        </RecordDialog>
       ) : null}
     </section>
   );
@@ -1349,6 +1436,7 @@ function OpenHarvestSessionForm({
   existingOpenSessionsCount,
   feedback,
   isSubmitting,
+  onCancel,
   onChange,
   onSubmit
 }: {
@@ -1360,13 +1448,13 @@ function OpenHarvestSessionForm({
   existingOpenSessionsCount: number;
   feedback: string | null;
   isSubmitting: boolean;
+  onCancel: () => void;
   onChange: (draft: OpenSessionDraft) => void;
   onSubmit: () => void;
 }) {
   const workers = configuration?.workers ?? [];
   const seasons = configuration?.seasons ?? [];
   const isDisabled = isSubmitting || !configuration;
-  const canSubmit = Boolean(draft.workerId && draft.seasonId && draft.businessDate);
 
   return (
     <form
@@ -1478,17 +1566,32 @@ function OpenHarvestSessionForm({
       ) : null}
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
-      {error ? <p className="form-message form-message--error">{error}</p> : null}
+      {error ? (
+        <p className="form-message form-message--error" role="alert">
+          {error}
+        </p>
+      ) : null}
       {!configuration ? <p className="panel-detail">{configurationMessage}</p> : null}
 
-      <button
-        className="primary-action open-session-form__submit"
-        disabled={isDisabled || !canSubmit}
-        type="submit"
-      >
-        <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Otwórz sesję</span>
-      </button>
+      <div className="open-session-form__actions">
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj</span>
+        </button>
+        <button
+          className="primary-action open-session-form__submit"
+          disabled={isDisabled}
+          type="submit"
+        >
+          <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Otwórz sesję</span>
+        </button>
+      </div>
     </form>
   );
 }
@@ -1514,6 +1617,22 @@ function createInitialOpenSessionDraft(): OpenSessionDraft {
     note: "",
     secondSessionReason: ""
   };
+}
+
+function validateOpenSessionDraft(draft: OpenSessionDraft): string | null {
+  if (!draft.workerId) {
+    return "Wybierz zbieracza.";
+  }
+
+  if (!draft.seasonId) {
+    return "Wybierz sezon.";
+  }
+
+  if (!draft.businessDate) {
+    return "Uzupełnij datę sesji.";
+  }
+
+  return null;
 }
 
 function reconcileOpenSessionDraft(
