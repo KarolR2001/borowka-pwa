@@ -81,14 +81,15 @@ export function PaymentConfirmationForm({
           <h3>{session.workerName}</h3>
         </div>
         <button
+          aria-label="Anuluj wypłatę"
           className="secondary-button icon-button"
           disabled={isSubmitting}
           onClick={onCancel}
-          title="Anuluj Potwierdzenie"
+          title="Anuluj wypłatę"
           type="button"
         >
           <X aria-hidden="true" size={18} />
-          <span className="sr-only">Anuluj Potwierdzenie</span>
+          <span className="sr-only">Anuluj wypłatę</span>
         </button>
       </header>
 
@@ -99,71 +100,66 @@ export function PaymentConfirmationForm({
           label="Plan i stawka"
           value={`${session.planName}, ${formatMoney(session.rateGrosz)} / ${session.unitLabel}`}
         />
-        <SummaryItem
-          label="Wynik"
-          value={`${formatQuantity(session.totalQuantityMilli)} ${session.unitLabel}, ${formatKilograms(session.totalWeightG)}`}
-        />
-        <SummaryItem
-          label="Sposob obliczeńia"
-          value={
-            session.calculationBasis === "WEIGHT"
-              ? "Waga aktywnych wpisów"
-              : "Ilość aktywnych jednostek"
-          }
-        />
-        <SummaryItem label="Cala naleznosc" value={formatMoney(session.amountDueGrosz)} />
+        <SummaryItem label="Zebrano" value={formatCollectedAmount(session)} />
+        <SummaryItem label="Cała należność" value={formatMoney(session.amountDueGrosz)} />
       </dl>
 
-      <div className="payment-confirmation-fields">
-        <label className="field">
-          <span>Data wypłaty</span>
-          <input
-            disabled={isSubmitting || confirmed !== null}
-            onChange={(event) => {
-              setDraft((current) => ({
-                ...current,
-                paidBusinessDate: event.target.value
-              }));
-              setConfirmed(null);
-            }}
-            required
-            type="date"
-            value={draft.paidBusinessDate}
-          />
-        </label>
-        <label className="field">
-          <span>Metoda</span>
-          <select
-            disabled={isSubmitting || confirmed !== null}
-            onChange={(event) => {
-              setDraft((current) => ({
-                ...current,
-                paymentMethod: event.target
-                  .value as PaymentConfirmationDraft["paymentMethod"]
-              }));
-              setConfirmed(null);
-            }}
-            value={draft.paymentMethod}
-          >
-            <option value="CASH">Gotowka</option>
-            <option value="BANK_TRANSFER">Przelew bankowy</option>
-            <option value="OTHER">Inna</option>
-          </select>
-        </label>
-        <label className="field payment-confirmation-form__note">
-          <span>Notatka</span>
-          <textarea
-            disabled={isSubmitting || confirmed !== null}
-            maxLength={200}
-            onChange={(event) => {
-              setDraft((current) => ({ ...current, note: event.target.value }));
-              setConfirmed(null);
-            }}
-            rows={3}
-            value={draft.note}
-          />
-        </label>
-      </div>
+      <details className="collapsible-section payment-confirmation-form__options">
+        <summary>
+          <span>Data i sposób wypłaty</span>
+        </summary>
+        <div className="payment-confirmation-fields">
+          <label className="field">
+            <span>Data wypłaty</span>
+            <input
+              disabled={isSubmitting || confirmed !== null}
+              onChange={(event) => {
+                setDraft((current) => ({
+                  ...current,
+                  paidBusinessDate: event.target.value
+                }));
+                setConfirmed(null);
+              }}
+              required
+              type="date"
+              value={draft.paidBusinessDate}
+            />
+          </label>
+          <label className="field">
+            <span>Metoda</span>
+            <select
+              disabled={isSubmitting || confirmed !== null}
+              onChange={(event) => {
+                setDraft((current) => ({
+                  ...current,
+                  paymentMethod: event.target
+                    .value as PaymentConfirmationDraft["paymentMethod"]
+                }));
+                setConfirmed(null);
+              }}
+              value={draft.paymentMethod}
+            >
+              <option value="CASH">Gotówka</option>
+              <option value="BANK_TRANSFER">Przelew bankowy</option>
+              <option value="OTHER">Inna</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <label className="field payment-confirmation-form__note">
+        <span>Notatka (opcjonalnie)</span>
+        <textarea
+          disabled={isSubmitting || confirmed !== null}
+          maxLength={200}
+          onChange={(event) => {
+            setDraft((current) => ({ ...current, note: event.target.value }));
+            setConfirmed(null);
+          }}
+          rows={3}
+          value={draft.note}
+        />
+      </label>
 
       <label className="checkbox-field payment-confirmation-form__confirmation">
         <input
@@ -229,4 +225,12 @@ function formatQuantity(quantityMilli: number): string {
   return new Intl.NumberFormat("pl-PL", {
     maximumFractionDigits: 3
   }).format(quantityMilli / 1000);
+}
+
+function formatCollectedAmount(session: PendingPaymentSession): string {
+  if (session.totalWeightG > 0) {
+    return formatKilograms(session.totalWeightG);
+  }
+
+  return `${formatQuantity(session.totalQuantityMilli)} ${session.unitLabel}`;
 }

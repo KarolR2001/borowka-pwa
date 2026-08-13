@@ -1,4 +1,4 @@
-import { Ban, Eye, History, X } from "lucide-react";
+import { Ban, Eye, History, Pencil, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -41,13 +41,15 @@ export function AdminSaleDirectoryPanel({
   authState,
   env,
   isOnline,
-  onRequestCancellation
+  onRequestCancellation,
+  onRequestCorrection
 }: {
   api?: AdminSaleDirectoryApi;
   authState: AuthSessionState;
   env: FirebaseEnv;
   isOnline: boolean;
   onRequestCancellation: (saleId: string) => void;
+  onRequestCorrection: (saleId: string) => void;
 }) {
   const [state, setState] = useState<DirectoryState>(initialState);
   const [filters, setFilters] = useState<SaleDirectoryFilters>(
@@ -116,15 +118,10 @@ export function AdminSaleDirectoryPanel({
       </CollapsibleFilters>
 
       <div className="directory-summary" aria-label="Podsumowanie listy sprzedaży">
-        <DirectoryStat label="Widoczne" value={String(summary.totalCount)} />
-        <DirectoryStat label="Aktywne" value={String(summary.activeCount)} />
         <DirectoryStat
-          label="Przychód aktywny"
+          label="Przychód ze sprzedaży"
           value={formatMoney(summary.activeRevenueGrosz)}
         />
-        <DirectoryStat label="Korekty" value={String(summary.correctionCount)} />
-        <DirectoryStat label="Anulowane" value={String(summary.cancelledCount)} />
-        <DirectoryStat label="Importowane" value={String(summary.importedCount)} />
       </div>
 
       {state.status === "ERROR" && isOnline ? (
@@ -148,7 +145,12 @@ export function AdminSaleDirectoryPanel({
         <p className="empty-state">Brak operacji spełniających filtry.</p>
       ) : null}
       {filteredSales.length > 0 ? (
-        <SaleDirectoryTable onOpen={setSelectedSaleId} sales={filteredSales} />
+        <SaleDirectoryTable
+          onOpen={setSelectedSaleId}
+          onRequestCancellation={onRequestCancellation}
+          onRequestCorrection={onRequestCorrection}
+          sales={filteredSales}
+        />
       ) : null}
       {selectedSale ? (
         <RecordDialog
@@ -215,7 +217,7 @@ function SaleDirectoryFilterControls({
           value={filters.entryType}
         >
           <option value="ALL">Wszystkie typy</option>
-          <option value="SALE">Zwykla sprzedaż</option>
+          <option value="SALE">Zwykła sprzedaż</option>
           <option value="CORRECTION">Korekta</option>
         </select>
       </label>
@@ -277,55 +279,83 @@ function SaleDirectoryFilterControls({
 
 function SaleDirectoryTable({
   onOpen,
+  onRequestCancellation,
+  onRequestCorrection,
   sales
 }: {
   onOpen: (saleId: string) => void;
+  onRequestCancellation: (saleId: string) => void;
+  onRequestCorrection: (saleId: string) => void;
   sales: readonly AdminSaleDirectoryItem[];
 }) {
   return (
     <div className="directory-table-wrap">
-      <table className="directory-table sale-directory-table">
+      <table className="directory-table sale-directory-table mobile-card-table">
         <thead>
           <tr>
             <th scope="col">Data</th>
             <th scope="col">Masa</th>
             <th scope="col">Cena / kg</th>
             <th scope="col">Przychód</th>
-            <th scope="col">Typ</th>
-            <th scope="col">Status</th>
-            <th scope="col">Autor</th>
             <th scope="col">Notatka</th>
-            <th scope="col">Szczegóły</th>
+            <th scope="col">Akcje</th>
           </tr>
         </thead>
         <tbody>
           {sales.map((sale) => (
             <tr key={sale.id}>
-              <td>
+              <td data-label="Data">
                 {formatBusinessDate(sale.businessDate)}
                 <span className="directory-cell-note">{sale.seasonName}</span>
               </td>
-              <td>{formatKilograms(sale.weightG)}</td>
-              <td>{formatMoney(sale.priceGroszPerKg)}</td>
-              <td>{formatSignedMoney(documentRevenueImpact(sale))}</td>
-              <td>{saleEntryTypeLabel(sale)}</td>
-              <td>
-                <SaleStatusLabels sale={sale} />
+              <td data-label="Masa">{formatKilograms(sale.weightG)}</td>
+              <td data-label="Cena / kg">{formatMoney(sale.priceGroszPerKg)}</td>
+              <td data-label="Przychód">
+                {formatSignedMoney(documentRevenueImpact(sale))}
               </td>
-              <td>{sale.authorName}</td>
-              <td title={sale.note ?? undefined}>{shortenNote(sale.note)}</td>
-              <td>
-                <button
-                  aria-label={`Otwórz szczegóły: ${saleEntryTypeLabel(sale)} z ${formatBusinessDate(sale.businessDate)}`}
-                  className="secondary-button icon-button"
-                  onClick={() => {
-                    onOpen(sale.id);
-                  }}
-                  title="Otwórz szczegóły operacji"
-                  type="button"
-                >
-                  <Eye aria-hidden="true" size={18} />
-                </button>
+              <td data-label="Notatka" title={sale.note ?? undefined}>
+                {shortenNote(sale.note)}
+              </td>
+              <td data-label="Akcje">
+                <div className="directory-actions directory-actions--icons">
+                  <button
+                    aria-label={`Otwórz szczegóły: ${saleEntryTypeLabel(sale)} z ${formatBusinessDate(sale.businessDate)}`}
+                    className="secondary-button icon-button"
+                    onClick={() => {
+                      onOpen(sale.id);
+                    }}
+                    title="Otwórz szczegóły operacji"
+                    type="button"
+                  >
+                    <Eye aria-hidden="true" size={18} />
+                  </button>
+                  {sale.status === "ACTIVE" ? (
+                    <>
+                      <button
+                        aria-label={`Skoryguj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
+                        className="secondary-button icon-button"
+                        onClick={() => {
+                          onRequestCorrection(sale.id);
+                        }}
+                        title="Skoryguj operację"
+                        type="button"
+                      >
+                        <Pencil aria-hidden="true" size={18} />
+                      </button>
+                      <button
+                        aria-label={`Anuluj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
+                        className="danger-button icon-button"
+                        onClick={() => {
+                          onRequestCancellation(sale.id);
+                        }}
+                        title="Anuluj operację"
+                        type="button"
+                      >
+                        <Ban aria-hidden="true" size={18} />
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </td>
             </tr>
           ))}
@@ -408,20 +438,6 @@ function SaleDirectoryDetails({
   );
 }
 
-function SaleStatusLabels({ sale }: { sale: AdminSaleDirectoryItem }) {
-  return (
-    <span className="payment-directory-statuses">
-      <span
-        className={`status-badge ${
-          sale.status === "ACTIVE" ? "status-badge--active" : ""
-        }`}
-      >
-        {saleStatusLabel(sale.status)}
-      </span>
-    </span>
-  );
-}
-
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -461,7 +477,7 @@ function documentRevenueImpact(sale: AdminSaleDirectoryItem): number {
 
 function saleEntryTypeLabel(sale: AdminSaleDirectoryItem): string {
   if (sale.entryType === "SALE") {
-    return "Zwykla sprzedaż";
+    return "Zwykła sprzedaż";
   }
 
   return sale.correctionDirection === "INCREASE_STOCK"

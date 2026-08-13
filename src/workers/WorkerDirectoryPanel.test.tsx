@@ -117,10 +117,10 @@ const worker = ({
     auditEvents: [],
     warnings: [],
     seasonSummary: {
-      totalKgGrams: null,
-      earnedGrosz: null,
-      paidGrosz: null,
-      dueGrosz: null
+      totalKgGrams: 0,
+      earnedGrosz: 0,
+      paidGrosz: 0,
+      dueGrosz: 0
     },
     ...overrides
   };
@@ -205,9 +205,10 @@ describe("WorkerDirectoryPanel", () => {
 
     expect(await screen.findByText("Anna Test")).toBeInTheDocument();
     expect(screen.getByText("10,00 zł")).toBeInTheDocument();
-    expect(screen.getByText("anna@example.test")).toBeInTheDocument();
-    expect(screen.getAllByText("brak danych")).toHaveLength(4);
-    expect(screen.getByText("Brak aktualnej stawki.")).toBeInTheDocument();
+    expect(screen.queryByText("anna@example.test")).not.toBeInTheDocument();
+    expect(screen.getByText("0,000 kg")).toBeInTheDocument();
+    expect(screen.getAllByText("0,00 zł")).toHaveLength(3);
+    expect(screen.queryByText("Brak aktualnej stawki.")).not.toBeInTheDocument();
   });
 
   it("opens administrator worker profile with rate history and audit events", async () => {
@@ -322,7 +323,9 @@ describe("WorkerDirectoryPanel", () => {
     );
 
     await screen.findByText("Anna Test");
-    await user.click(screen.getByRole("button", { name: "Profil" }));
+    await user.click(
+      screen.getByRole("button", { name: "Otwórz profil zbieracza Anna Test" })
+    );
 
     const profile = screen.getByRole("region", {
       name: "Profil zbieracza Anna Test"
@@ -339,18 +342,8 @@ describe("WorkerDirectoryPanel", () => {
     expect(within(profile).getByText("9,00 zł")).toBeInTheDocument();
     expect(within(profile).getByText("Przyszla")).toBeInTheDocument();
     expect(
-      within(profile).getAllByText("Naklada sie z wersja od 2026-07-01.").length
-    ).toBeGreaterThan(0);
-    expect(
-      within(profile).getByRole("heading", {
-        name: "Kontrola spójności stawek"
-      })
-    ).toBeInTheDocument();
-    expect(
-      within(profile).getByText(
-        "Bez funkcji serwerowej nie ma pelnej gwarancji serializacji dwoch rownoleglych zmian."
-      )
-    ).toBeInTheDocument();
+      within(profile).queryByText("Naklada sie z wersja od 2026-07-01.")
+    ).not.toBeInTheDocument();
     expect(within(profile).getByText("Utworzenie zbieracza")).toBeInTheDocument();
     expect(within(profile).getByText("Pierwszy zapis.")).toBeInTheDocument();
   });
@@ -404,7 +397,9 @@ describe("WorkerDirectoryPanel", () => {
     );
 
     await screen.findByText("Anna Test");
-    await user.click(screen.getByRole("button", { name: "Profil" }));
+    await user.click(
+      screen.getByRole("button", { name: "Otwórz profil zbieracza Anna Test" })
+    );
 
     const form = await screen.findByRole("form", {
       name: "Dodawanie stawki zbieracza"
@@ -502,7 +497,9 @@ describe("WorkerDirectoryPanel", () => {
     );
 
     await screen.findByText("Anna Test");
-    await user.click(screen.getByRole("button", { name: "Profil" }));
+    await user.click(
+      screen.getByRole("button", { name: "Otwórz profil zbieracza Anna Test" })
+    );
 
     const form = await screen.findByRole("form", {
       name: "Powiązanie konta zbieracza"
@@ -630,7 +627,9 @@ describe("WorkerDirectoryPanel", () => {
     );
 
     await screen.findByText("Anna Test");
-    await user.click(screen.getByRole("button", { name: "Profil" }));
+    await user.click(
+      screen.getByRole("button", { name: "Otwórz profil zbieracza Anna Test" })
+    );
 
     const form = await screen.findByRole("form", {
       name: "Archiwizacja zbieracza"
@@ -726,6 +725,7 @@ describe("WorkerDirectoryPanel", () => {
       />
     );
 
+    await user.click(await screen.findByRole("button", { name: "Dodaj zbieracza" }));
     const form = await screen.findByRole("form", { name: "Tworzenie zbieracza" });
 
     await user.type(screen.getByLabelText("Nazwa zbieracza"), "Anna Nowa");
@@ -790,8 +790,8 @@ describe("WorkerDirectoryPanel", () => {
       });
     });
     expect(screen.getByText("Bartek Test")).toBeInTheDocument();
-    expect(screen.getByText("Za kilogram")).toBeInTheDocument();
-    expect(screen.getByText("kg")).toBeInTheDocument();
+    expect(screen.queryByText("Za kilogram")).not.toBeInTheDocument();
+    expect(screen.queryByText("kg")).not.toBeInTheDocument();
     expect(screen.queryByText("Naliczone")).not.toBeInTheDocument();
     expect(screen.queryByText("10,00 zł")).not.toBeInTheDocument();
   });

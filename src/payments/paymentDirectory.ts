@@ -414,7 +414,7 @@ function assertAdmin(profile: UserProfile): void {
 function paymentMethodCsvLabel(method: PaymentMethod): string {
   switch (method) {
     case "CASH":
-      return "Gotowka";
+      return "Gotówka";
     case "BANK_TRANSFER":
       return "Przelew bankowy";
     case "OTHER":

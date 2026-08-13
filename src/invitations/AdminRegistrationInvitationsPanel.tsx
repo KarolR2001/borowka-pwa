@@ -1,4 +1,4 @@
-import { Ban, Search, ShieldAlert, UserPlus, UsersRound } from "lucide-react";
+import { Ban, Search, UserPlus, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -197,10 +197,6 @@ export function AdminRegistrationInvitationsPanel({
         : [],
     [invitationsState.result, filters]
   );
-  const pendingCount =
-    invitationsState.result?.invitations.filter(
-      (invitation) => invitation.status === "PENDING"
-    ).length ?? 0;
   const unavailableWorkerIds = new Set(
     invitationsState.result?.invitations
       .filter((invitation) => invitation.status === "PENDING" && invitation.workerId)
@@ -317,18 +313,6 @@ export function AdminRegistrationInvitationsPanel({
         <InvitationFilters filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
 
-      <div className="directory-summary" aria-label="Podsumowanie zaproszeń">
-        <DirectoryStat
-          label="Wszystkie zaproszenia"
-          value={String(invitationsState.result?.invitations.length ?? 0)}
-        />
-        <DirectoryStat label="Oczekujace" value={String(pendingCount)} />
-        <DirectoryStat
-          label="Błędne dokumenty"
-          value={String(invitationsState.result?.invalidInvitations.length ?? 0)}
-        />
-      </div>
-
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
       {invitationsState.status === "ERROR" ? (
@@ -345,7 +329,7 @@ export function AdminRegistrationInvitationsPanel({
 
       {filteredInvitations.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table">
+          <table className="directory-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
@@ -359,17 +343,17 @@ export function AdminRegistrationInvitationsPanel({
             <tbody>
               {filteredInvitations.map((invitation) => (
                 <tr key={invitation.id}>
-                  <td>{invitation.displayName}</td>
-                  <td>{invitation.emailNormalized}</td>
-                  <td>{userRoleLabel(invitation.targetRole)}</td>
-                  <td>{invitationStatusLabel(invitation.status)}</td>
-                  <td>
+                  <td data-label="Nazwa">{invitation.displayName}</td>
+                  <td data-label="E-mail">{invitation.emailNormalized}</td>
+                  <td data-label="Rola">{userRoleLabel(invitation.targetRole)}</td>
+                  <td data-label="Status">{invitationStatusLabel(invitation.status)}</td>
+                  <td data-label="Zbieracz">
                     {invitation.workerId
                       ? (workers.find((worker) => worker.id === invitation.workerId)
                           ?.displayName ?? "Powiązany zbieracz")
                       : "Nie dotyczy"}
                   </td>
-                  <td>
+                  <td data-label="Akcja">
                     {canCancelRegistrationInvitation(invitation) ? (
                       <button
                         aria-label={`Anuluj zaproszenie ${invitation.emailNormalized}`}
@@ -391,25 +375,6 @@ export function AdminRegistrationInvitationsPanel({
               ))}
             </tbody>
           </table>
-        </div>
-      ) : null}
-
-      {invitationsState.result &&
-      invitationsState.result.invalidInvitations.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Błędne zaproszenia">
-          <div className="access-notice__icon">
-            <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
-          </div>
-          <div>
-            <p className="eyebrow">Błędne dokumenty</p>
-            <ul>
-              {invitationsState.result.invalidInvitations.map((invalidInvitation) => (
-                <li key={invalidInvitation.id}>
-                  <strong>{invalidInvitation.id}</strong>: {invalidInvitation.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       ) : null}
     </section>
@@ -607,15 +572,6 @@ function InvitationFilters({
           ))}
         </select>
       </label>
-    </div>
-  );
-}
-
-function DirectoryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="directory-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

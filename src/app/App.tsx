@@ -301,7 +301,7 @@ type AdminDataView = "PICKER_EXPORT" | "FULL_EXPORT";
 
 const adminWorkspaceItems: readonly WorkspaceNavigationItem<AdminWorkspaceView>[] = [
   { key: "DASHBOARD", label: "Pulpit", icon: LayoutDashboard },
-  { key: "HARVEST_CORRECTIONS", label: "Korekty", icon: ClipboardList },
+  { key: "HARVEST_CORRECTIONS", label: "Sesje zbiorów", icon: ClipboardList },
   { key: "SALES", label: "Sprzedaż", icon: ShoppingBasket },
   { key: "PAYMENTS", label: "Do wypłaty", icon: Banknote },
   { key: "PAYMENT_HISTORY", label: "Historia wypłat", icon: Banknote },
@@ -1117,9 +1117,17 @@ export function App({
         />
       ) : null}
       <header className="topbar">
-        <div>
-          <p className="topbar__user">{displaySessionName(authState)}</p>
-          <h1>{currentScreenLabel}</h1>
+        <div className="topbar__identity">
+          <img
+            alt=""
+            aria-hidden="true"
+            className="topbar__logo"
+            src="/brand/borowka-logo.svg"
+          />
+          <div>
+            <p className="topbar__user">{displaySessionName(authState)}</p>
+            <h1>{currentScreenLabel}</h1>
+          </div>
         </div>
         <button
           aria-expanded={isMainMenuOpen}

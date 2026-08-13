@@ -100,8 +100,12 @@ describe("PaymentConfirmationForm", () => {
     expect(screen.getByText("125,00 zł")).toBeVisible();
     expect(screen.queryByRole("textbox", { name: /kwota/i })).not.toBeInTheDocument();
 
+    await user.click(screen.getByText("Data i sposób wypłaty"));
     await user.selectOptions(screen.getByLabelText("Metoda"), "BANK_TRANSFER");
-    await user.type(screen.getByLabelText("Notatka"), "Rozliczenie tygodnia");
+    await user.type(
+      screen.getByLabelText("Notatka (opcjonalnie)"),
+      "Rozliczenie tygodnia"
+    );
     await user.click(
       screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );

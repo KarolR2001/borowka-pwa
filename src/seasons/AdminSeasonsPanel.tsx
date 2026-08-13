@@ -7,7 +7,8 @@ import {
   RotateCcw,
   Search,
   Settings,
-  Star
+  Star,
+  X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -15,7 +16,7 @@ import type { AuthSessionState } from "../auth/authSession";
 import { getOrCreateDeviceId } from "../domain/device";
 import type { SeasonDocument, SeasonStatus } from "../domain/domainConfiguration";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
-import { CollapsibleSection } from "../ui/CollapsibleSection";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   createSeason,
   defaultSeasonFilters,
@@ -122,6 +123,8 @@ export function AdminSeasonsPanel({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isActionOpen, setIsActionOpen] = useState(false);
   const isAdmin = authState.status === "READY" && authState.profile.role === "ADMIN";
 
   useEffect(() => {
@@ -276,6 +279,7 @@ export function AdminSeasonsPanel({
       await reload();
       setFeedback("Utworzono sezon.");
       setCreateDraft(initialCreateSeasonDraft);
+      setIsCreateOpen(false);
     } catch (createError: unknown) {
       setError(getSeasonsErrorMessage(createError));
     } finally {
@@ -330,6 +334,7 @@ export function AdminSeasonsPanel({
       });
       await reload();
       setFeedback("Zmieniono sezon.");
+      setIsActionOpen(false);
       setActionDraft((current) => ({
         ...current,
         reason: "",
@@ -368,35 +373,28 @@ export function AdminSeasonsPanel({
     <section className="season-directory" aria-label="Sezony">
       {state.result ? (
         <div className="screen-actions" aria-label="Akcje sezonów">
-          <CollapsibleSection
-            icon={<Plus aria-hidden="true" size={18} strokeWidth={2.2} />}
-            label="Dodaj sezon"
+          <button
+            className="primary-action"
+            onClick={() => {
+              setError(null);
+              setIsCreateOpen(true);
+            }}
+            type="button"
           >
-            <CreateSeasonForm
-              draft={createDraft}
-              isSubmitting={isSubmitting}
-              onChange={setCreateDraft}
-              onSubmit={() => {
-                void handleCreateSeason();
-              }}
-            />
-          </CollapsibleSection>
-          <CollapsibleSection
-            icon={<Settings aria-hidden="true" size={18} strokeWidth={2.2} />}
-            label="Zmień status sezonu"
+            <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>Dodaj sezon</span>
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => {
+              setError(null);
+              setIsActionOpen(true);
+            }}
+            type="button"
           >
-            <SeasonActionForm
-              draft={actionDraft}
-              effectiveAction={selectedSeasonAction}
-              isSubmitting={isSubmitting}
-              onChange={setActionDraft}
-              onSubmit={() => {
-                void handleSeasonAction();
-              }}
-              selectedSeason={selectedSeason}
-              seasons={state.result.seasons}
-            />
-          </CollapsibleSection>
+            <Settings aria-hidden="true" size={18} strokeWidth={2.2} />
+            <span>Zmień status sezonu</span>
+          </button>
         </div>
       ) : null}
 
@@ -406,18 +404,6 @@ export function AdminSeasonsPanel({
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
-
-      <div className="directory-summary" aria-label="Podsumowanie sezonów">
-        <DirectoryStat
-          label="Wszystkie sezony"
-          value={String(state.result?.seasons.length ?? 0)}
-        />
-        <DirectoryStat label="Po filtrach" value={String(filteredSeasons.length)} />
-        <DirectoryStat
-          label="Błędne dokumenty"
-          value={String(state.result?.invalidSeasons.length ?? 0)}
-        />
-      </div>
 
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">{state.message}</p>
@@ -433,24 +419,24 @@ export function AdminSeasonsPanel({
 
       {filteredSeasons.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table">
+          <table className="directory-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
                 <th scope="col">Status</th>
                 <th scope="col">Od</th>
                 <th scope="col">Do</th>
-                <th scope="col">Domyslny</th>
+                <th scope="col">Domyślny</th>
               </tr>
             </thead>
             <tbody>
               {filteredSeasons.map((season) => (
                 <tr key={season.id}>
-                  <td>{season.name}</td>
-                  <td>{seasonStatusLabel(season.status)}</td>
-                  <td>{season.startDate}</td>
-                  <td>{season.endDate ?? "bez daty"}</td>
-                  <td>{season.isDefault ? "Tak" : "Nie"}</td>
+                  <td data-label="Nazwa">{season.name}</td>
+                  <td data-label="Status">{seasonStatusLabel(season.status)}</td>
+                  <td data-label="Od">{season.startDate}</td>
+                  <td data-label="Do">{season.endDate ?? "bez daty"}</td>
+                  <td data-label="Domyślny">{season.isDefault ? "Tak" : "Nie"}</td>
                 </tr>
               ))}
             </tbody>
@@ -458,22 +444,89 @@ export function AdminSeasonsPanel({
         </div>
       ) : null}
 
-      {state.result && state.result.invalidSeasons.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Błędne sezony">
-          <div className="access-notice__icon">
-            <CalendarDays aria-hidden="true" size={20} strokeWidth={2.2} />
+      {isCreateOpen ? (
+        <RecordDialog
+          fullScreen
+          label="Dodaj sezon"
+          onClose={() => {
+            setIsCreateOpen(false);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Konfiguracja</p>
+                <h2>Dodaj sezon</h2>
+              </div>
+              <button
+                aria-label="Anuluj dodawanie sezonu"
+                className="secondary-button icon-button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setIsCreateOpen(false);
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </header>
+            <CreateSeasonForm
+              draft={createDraft}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setIsCreateOpen(false);
+              }}
+              onChange={setCreateDraft}
+              onSubmit={() => {
+                void handleCreateSeason();
+              }}
+            />
           </div>
-          <div>
-            <p className="eyebrow">Błędne dokumenty sezonów</p>
-            <ul>
-              {state.result.invalidSeasons.map((invalidSeason) => (
-                <li key={invalidSeason.id}>
-                  <strong>{invalidSeason.id}</strong>: {invalidSeason.reason}
-                </li>
-              ))}
-            </ul>
+        </RecordDialog>
+      ) : null}
+
+      {isActionOpen && state.result ? (
+        <RecordDialog
+          fullScreen
+          label="Zmień status sezonu"
+          onClose={() => {
+            setIsActionOpen(false);
+          }}
+        >
+          <div className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Konfiguracja</p>
+                <h2>Zmień status sezonu</h2>
+              </div>
+              <button
+                aria-label="Anuluj zmianę statusu sezonu"
+                className="secondary-button icon-button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setIsActionOpen(false);
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </header>
+            <SeasonActionForm
+              draft={actionDraft}
+              effectiveAction={selectedSeasonAction}
+              isSubmitting={isSubmitting}
+              onCancel={() => {
+                setIsActionOpen(false);
+              }}
+              onChange={setActionDraft}
+              onSubmit={() => {
+                void handleSeasonAction();
+              }}
+              selectedSeason={selectedSeason}
+              seasons={state.result.seasons}
+            />
           </div>
-        </div>
+        </RecordDialog>
       ) : null}
     </section>
   );
@@ -534,11 +587,13 @@ function SeasonFilterControls({
 function CreateSeasonForm({
   draft,
   isSubmitting,
+  onCancel,
   onChange,
   onSubmit
 }: {
   draft: CreateSeasonDraft;
   isSubmitting: boolean;
+  onCancel: () => void;
   onChange: (draft: CreateSeasonDraft) => void;
   onSubmit: () => void;
 }) {
@@ -652,7 +707,7 @@ function CreateSeasonForm({
           }}
           type="checkbox"
         />
-        <span>Akceptuję nakladanie okresow</span>
+        <span>Akceptuję nakładanie okresów</span>
       </label>
 
       <label className="checkbox-field season-form__confirmation">
@@ -670,14 +725,25 @@ function CreateSeasonForm({
         <span>Potwierdzam utworzenie sezonu</span>
       </label>
 
-      <button
-        className="primary-action season-form__submit"
-        disabled={isSubmitting}
-        type="submit"
-      >
-        <CalendarDays aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Dodaj sezon</span>
-      </button>
+      <div className="form-actions season-form__actions">
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj</span>
+        </button>
+        <button
+          className="primary-action season-form__submit"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          <CalendarDays aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Dodaj sezon</span>
+        </button>
+      </div>
     </form>
   );
 }
@@ -686,6 +752,7 @@ function SeasonActionForm({
   draft,
   effectiveAction,
   isSubmitting,
+  onCancel,
   onChange,
   onSubmit,
   selectedSeason,
@@ -694,6 +761,7 @@ function SeasonActionForm({
   draft: SeasonActionDraft;
   effectiveAction: SeasonStatusAction | undefined;
   isSubmitting: boolean;
+  onCancel: () => void;
   onChange: (draft: SeasonActionDraft) => void;
   onSubmit: () => void;
   selectedSeason: SeasonDocument | null;
@@ -799,24 +867,26 @@ function SeasonActionForm({
         <span>Potwierdzam operację na sezonie</span>
       </label>
 
-      <button
-        className="primary-action season-action-form__submit"
-        disabled={isSubmitting || !hasAvailableAction}
-        type="submit"
-      >
-        <ActionIcon aria-hidden="true" size={18} strokeWidth={2.2} />
-        <span>Zapisz sezon</span>
-      </button>
+      <div className="form-actions season-action-form__actions">
+        <button
+          className="secondary-action"
+          disabled={isSubmitting}
+          onClick={onCancel}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Anuluj</span>
+        </button>
+        <button
+          className="primary-action season-action-form__submit"
+          disabled={isSubmitting || !hasAvailableAction}
+          type="submit"
+        >
+          <ActionIcon aria-hidden="true" size={18} strokeWidth={2.2} />
+          <span>Zapisz sezon</span>
+        </button>
+      </div>
     </form>
-  );
-}
-
-function DirectoryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="directory-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 

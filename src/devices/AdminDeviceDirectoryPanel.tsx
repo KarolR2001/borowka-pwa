@@ -1,4 +1,4 @@
-import { ShieldAlert, Smartphone } from "lucide-react";
+import { Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -123,10 +123,6 @@ export function AdminDeviceDirectoryPanel({
             directoryState.result?.devices.filter((device) => device.active).length ?? 0
           )}
         />
-        <DeviceStat
-          label="Błędne dokumenty"
-          value={String(directoryState.result?.invalidDevices.length ?? 0)}
-        />
       </div>
 
       {directoryState.status === "ERROR" ? (
@@ -143,7 +139,7 @@ export function AdminDeviceDirectoryPanel({
 
       {directoryState.result && directoryState.result.devices.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table">
+          <table className="directory-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
@@ -154,31 +150,13 @@ export function AdminDeviceDirectoryPanel({
             <tbody>
               {directoryState.result.devices.map((device) => (
                 <tr key={device.id}>
-                  <td>{device.deviceName}</td>
-                  <td>{device.platform ?? "brak"}</td>
-                  <td>{device.active ? "Tak" : "Nie"}</td>
+                  <td data-label="Nazwa">{device.deviceName}</td>
+                  <td data-label="Platforma">{device.platform ?? "brak"}</td>
+                  <td data-label="Aktywne">{device.active ? "Tak" : "Nie"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      ) : null}
-
-      {directoryState.result && directoryState.result.invalidDevices.length > 0 ? (
-        <div className="invalid-profiles" aria-label="Błędne urządzenia">
-          <div className="access-notice__icon">
-            <ShieldAlert aria-hidden="true" size={20} strokeWidth={2.2} />
-          </div>
-          <div>
-            <p className="eyebrow">Błędne dokumenty</p>
-            <ul>
-              {directoryState.result.invalidDevices.map((invalidDevice) => (
-                <li key={invalidDevice.id}>
-                  <strong>{invalidDevice.id}</strong>: {invalidDevice.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       ) : null}
     </section>

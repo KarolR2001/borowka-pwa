@@ -166,7 +166,7 @@ describe("AdminRegistrationInvitationsPanel", () => {
     });
     expect(screen.getByText("Admin Zaproszony")).toBeInTheDocument();
     expect(screen.getByText("Anna Zbieracz")).toBeInTheDocument();
-    expect(screen.getByText("broken-1")).toBeInTheDocument();
+    expect(screen.queryByText("broken-1")).not.toBeInTheDocument();
   });
 
   it("filters rendered invitations by status", async () => {

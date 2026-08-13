@@ -1,7 +1,10 @@
 import { getFirebaseServices } from "../config/firebaseServices";
 import {
   APP_SETTINGS_COLLECTION,
-  DOMAIN_SETTINGS_DOCUMENT_ID
+  CALCULATION_RULE_VERSION,
+  DOMAIN_SCHEMA_VERSION,
+  DOMAIN_SETTINGS_DOCUMENT_ID,
+  SEASONS_COLLECTION
 } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import { paymentTimestampToIso } from "../payments/paymentWrite";
@@ -31,11 +34,18 @@ export async function readPickerReportExportSetting(
   );
 
   if (!snapshot.exists()) {
-    throw new Error("Brak ustawien eksportu w konfiguracji domenowej.");
+    return {
+      dataSource: "SERVER",
+      enabled: false,
+      updatedAtIso: new Date().toISOString()
+    };
   }
 
+  const data = snapshot.data({ serverTimestamps: "estimate" });
   const decoded = decodePickerReportExportSetting(
-    snapshot.data({ serverTimestamps: "estimate" })
+    isRecord(data) && data.pickerOwnReportExportEnabled === undefined
+      ? { ...data, pickerOwnReportExportEnabled: false }
+      : data
   );
 
   return {
@@ -50,16 +60,49 @@ export async function updatePickerReportExportSetting(
 ): Promise<void> {
   assertAdmin(input.actorProfile);
   const { firestore } = await getFirebaseServices(env);
-  const { doc, getDocFromServer, serverTimestamp, updateDoc } =
-    await import("firebase/firestore");
+  const {
+    collection,
+    doc,
+    getDocsFromServer,
+    getDocFromServer,
+    limit,
+    query,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+    where
+  } = await import("firebase/firestore");
   const reference = doc(firestore, APP_SETTINGS_COLLECTION, DOMAIN_SETTINGS_DOCUMENT_ID);
   const snapshot = await getDocFromServer(reference);
 
   if (!snapshot.exists()) {
-    throw new Error("Brak ustawien domenowych do aktualizacji.");
+    const defaultSeasonSnapshot = await getDocsFromServer(
+      query(
+        collection(firestore, SEASONS_COLLECTION),
+        where("isDefault", "==", true),
+        limit(1)
+      )
+    );
+    const defaultSeasonId = defaultSeasonSnapshot.docs[0]?.id;
+
+    if (!defaultSeasonId) {
+      throw new Error("Ustaw aktywny sezon domyślny przed zapisaniem eksportu.");
+    }
+
+    const timestamp = serverTimestamp();
+    await setDoc(reference, {
+      id: DOMAIN_SETTINGS_DOCUMENT_ID,
+      schemaVersion: DOMAIN_SCHEMA_VERSION,
+      calculationRuleVersion: CALCULATION_RULE_VERSION,
+      defaultSeasonId,
+      pickerOwnReportExportEnabled: input.enabled,
+      initializedAt: timestamp,
+      initializedBy: input.actorProfile.uid,
+      updatedAt: timestamp
+    });
+    return;
   }
 
-  decodePickerReportExportSetting(snapshot.data({ serverTimestamps: "estimate" }));
   await updateDoc(reference, {
     pickerOwnReportExportEnabled: input.enabled,
     updatedAt: serverTimestamp()

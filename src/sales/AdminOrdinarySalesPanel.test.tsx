@@ -38,6 +38,7 @@ describe("AdminOrdinarySalesPanel", () => {
   it("shows the stock alarm, component report and keeps correction available", async () => {
     const user = userEvent.setup();
     const api = createApi();
+    api.list.mockResolvedValue(directoryResult([saleDirectoryItem()]));
     api.listStockContexts.mockResolvedValue([
       {
         availableWeightG: 10_000,
@@ -52,14 +53,14 @@ describe("AdminOrdinarySalesPanel", () => {
     ]);
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
+    await openNewSale(user);
 
     expect(
       await screen.findByRole("heading", { name: "Alarm stanu: Sezon 2026" })
     ).toBeVisible();
     expect(screen.getByText("-1,500 kg")).toBeVisible();
     await user.click(screen.getByText("Otwórz raport składowych"));
-    expect(screen.getByText("Stan ze zrodel")).toBeVisible();
+    expect(screen.getByText("Stan ze źródeł")).toBeVisible();
     expect(screen.getByText("Stan projekcji")).toBeVisible();
 
     await user.type(screen.getByLabelText("Masa kg"), "1");
@@ -69,12 +70,13 @@ describe("AdminOrdinarySalesPanel", () => {
         "Zwykła sprzedaż jest zablokowana do czasu wyjaśnienia alarmu stanu."
       )
     ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Sprawdź i przejdź dalej" })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sprawdź i podsumuj" })).toBeDisabled();
     expect(api.checkStock).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Korekta" }));
+    await user.click(screen.getByRole("button", { name: "Zamknij operację" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Skoryguj sprzedaż z 29.07.2026" })
+    );
     expect(screen.getByRole("button", { name: "Sprawdź korektę" })).toBeEnabled();
   });
 
@@ -89,16 +91,16 @@ describe("AdminOrdinarySalesPanel", () => {
     api.create.mockResolvedValue(confirmedResult(check));
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
+    await openNewSale(user);
     await fillAndPrepare(user);
 
     expect(
       await screen.findByText("Stan zmienił się od otwarcia formularza")
     ).toBeVisible();
-    expect(screen.getAllByText("5,000 kg")).toHaveLength(2);
+    expect(screen.getByText("5,000 kg")).toBeVisible();
     expect(api.create).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Potwierdz i zapisz" }));
+    await user.click(screen.getByRole("button", { name: "Potwierdź i zapisz" }));
 
     await waitFor(() => {
       expect(api.create).toHaveBeenCalledTimes(1);
@@ -127,9 +129,9 @@ describe("AdminOrdinarySalesPanel", () => {
       .mockResolvedValueOnce(confirmedResult(secondCheck));
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
+    await openNewSale(user);
     await fillAndPrepare(user);
-    await user.click(await screen.findByRole("button", { name: "Potwierdz i zapisz" }));
+    await user.click(await screen.findByRole("button", { name: "Potwierdź i zapisz" }));
 
     expect(
       await screen.findByText(
@@ -138,7 +140,7 @@ describe("AdminOrdinarySalesPanel", () => {
     ).toBeVisible();
     expect(api.create).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "Potwierdz i zapisz" }));
+    await user.click(screen.getByRole("button", { name: "Potwierdź i zapisz" }));
 
     await waitFor(() => {
       expect(api.create).toHaveBeenCalledTimes(2);
@@ -158,15 +160,15 @@ describe("AdminOrdinarySalesPanel", () => {
     });
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
+    await openNewSale(user);
     await fillAndPrepare(user);
 
-    expect(await screen.findByLabelText("Masa kg")).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Wroc do edycji" }));
+    expect(screen.queryByLabelText("Masa kg")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wróć do edycji" }));
 
     expect(screen.getByLabelText("Masa kg")).toBeEnabled();
     expect(
-      screen.queryByRole("button", { name: "Potwierdz i zapisz" })
+      screen.queryByRole("button", { name: "Potwierdź i zapisz" })
     ).not.toBeInTheDocument();
     expect(api.create).not.toHaveBeenCalled();
   });
@@ -192,11 +194,15 @@ describe("AdminOrdinarySalesPanel", () => {
     api.createCorrection.mockImplementation((_env, input) =>
       Promise.resolve(correctionConfirmedResult(input.check.correction))
     );
+    api.list.mockResolvedValue(directoryResult([saleDirectoryItem()]));
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
-    await screen.findByRole("option", { name: "Sezon 2026" });
-    await user.click(screen.getByRole("button", { name: "Korekta" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Skoryguj sprzedaż z 29.07.2026" })
+    );
+    expect(await screen.findAllByRole("option", { name: "Sezon 2026" })).not.toHaveLength(
+      0
+    );
     await user.type(screen.getByLabelText("Masa kg"), "3");
     await user.type(screen.getByLabelText("Cena za kg"), "12,50");
     await user.type(screen.getByLabelText("Powód korekty"), "Powod korekty sprzedazy");
@@ -218,11 +224,9 @@ describe("AdminOrdinarySalesPanel", () => {
     await waitFor(() => {
       expect(api.createCorrection).toHaveBeenCalledTimes(1);
     });
-    expect(
-      await screen.findByText(
-        "Korekta sprzedazy zostala zapisana i potwierdzona przez serwer."
-      )
-    ).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Korekta sprzedaży" })).toBeNull();
+    });
   });
 
   it("requires a reason and explicit confirmation before cancelling a sale", async () => {
@@ -232,12 +236,13 @@ describe("AdminOrdinarySalesPanel", () => {
     api.listCancellationCandidates.mockResolvedValue([
       { sale, seasonName: "Sezon 2026" }
     ]);
+    api.list.mockResolvedValue(directoryResult([saleDirectoryItem(sale)]));
     api.cancelSale.mockResolvedValue(cancellationResult(sale));
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
-    await screen.findByRole("option", { name: "Sezon 2026" });
-    await user.click(screen.getByRole("button", { name: "Anulowanie" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Anuluj sprzedaż z 29.07.2026" })
+    );
     await user.click(await screen.findByRole("radio", { name: /Sprzedaż.*2026-07-29/ }));
 
     const confirmation = screen.getByLabelText(
@@ -259,48 +264,25 @@ describe("AdminOrdinarySalesPanel", () => {
       reason: "Bledna masa",
       saleId: "sale-1"
     });
-    expect(
-      await screen.findByText(
-        "Operacja sprzedazy zostala anulowana. Dokument i powod pozostaly w historii."
-      )
-    ).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Anulowanie sprzedaży" })).toBeNull();
+    });
   });
 
   it("opens the selected active history item in the cancellation workflow", async () => {
     const user = userEvent.setup();
     const api = createApi();
     const sale = activeSaleDocument();
-    api.list.mockResolvedValue({
-      invalidSaleCount: 0,
-      invalidSeasonCount: 0,
-      invalidUserCount: 0,
-      sales: [
-        {
-          ...sale,
-          authorName: "Admin",
-          cancelledAtIso: null,
-          cancelledByName: null,
-          createdAtIso: "2026-07-29T08:00:00.000Z",
-          seasonName: "Sezon 2026"
-        }
-      ]
-    });
+    api.list.mockResolvedValue(directoryResult([saleDirectoryItem(sale)]));
     api.listCancellationCandidates.mockResolvedValue([
       { sale, seasonName: "Sezon 2026" }
     ]);
 
     renderPanel(api);
-    await user.click(screen.getByText("Nowa operacja"));
     await user.click(
       await screen.findByRole("button", {
-        name: "Otwórz szczegóły: Zwykla sprzedaż z 29.07.2026"
+        name: "Anuluj sprzedaż z 29.07.2026"
       })
-    );
-    await user.click(screen.getByRole("button", { name: "Przejdź do anulowania" }));
-
-    expect(screen.getByRole("button", { name: "Anulowanie" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
     );
     expect(
       await screen.findByRole("radio", { name: /Sprzedaż.*2026-07-29/ })
@@ -349,7 +331,12 @@ async function fillAndPrepare(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("option", { name: "Sezon 2026" });
   await user.type(screen.getByLabelText("Masa kg"), "3");
   await user.type(screen.getByLabelText("Cena za kg"), "12,50");
-  await user.click(screen.getByRole("button", { name: "Sprawdź i przejdź dalej" }));
+  await user.click(screen.getByRole("button", { name: "Sprawdź i podsumuj" }));
+}
+
+async function openNewSale(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByText("Nowa operacja"));
+  await user.click(await screen.findByRole("button", { name: "Nowa sprzedaż" }));
 }
 
 function createApi() {
@@ -379,6 +366,28 @@ function createApi() {
         seasonName: "Sezon 2026"
       }
     ])
+  };
+}
+
+function directoryResult(
+  sales: ReturnType<typeof saleDirectoryItem>[]
+): Awaited<ReturnType<OrdinarySalesApi["list"]>> {
+  return {
+    invalidSaleCount: 0,
+    invalidSeasonCount: 0,
+    invalidUserCount: 0,
+    sales
+  };
+}
+
+function saleDirectoryItem(sale = activeSaleDocument()) {
+  return {
+    ...sale,
+    authorName: "Admin",
+    cancelledAtIso: null,
+    cancelledByName: null,
+    createdAtIso: "2026-07-29T08:00:00.000Z",
+    seasonName: "Sezon 2026"
   };
 }
 

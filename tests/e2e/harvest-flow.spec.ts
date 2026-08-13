@@ -84,7 +84,7 @@ test.describe("Seeded harvest flow", () => {
 
     await signOut(page);
     await loginAs(page, ADMIN_EMAIL, "Admin E2E");
-    await page.getByRole("tab", { name: "Korekty" }).click();
+    await page.getByRole("tab", { name: "Sesje zbiorów" }).click();
 
     await page.locator("summary").filter({ hasText: "Otwórz ponownie sesję" }).click();
     await expect(

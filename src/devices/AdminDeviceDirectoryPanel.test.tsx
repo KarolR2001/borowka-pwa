@@ -99,6 +99,6 @@ describe("AdminDeviceDirectoryPanel", () => {
     });
     expect(await screen.findByText("Telefon Karola")).toBeInTheDocument();
     expect(screen.queryByText("picker-1")).not.toBeInTheDocument();
-    expect(screen.getByText("broken-device")).toBeInTheDocument();
+    expect(screen.queryByText("broken-device")).not.toBeInTheDocument();
   });
 });

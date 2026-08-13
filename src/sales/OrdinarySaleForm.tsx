@@ -15,12 +15,14 @@ import {
 export function OrdinarySaleForm({
   disabled = false,
   isOnline,
+  onCancel,
   onDraftChange,
   onPrepare,
   stockContexts
 }: {
   disabled?: boolean;
   isOnline: boolean;
+  onCancel?: () => void;
   onDraftChange?: () => void;
   onPrepare: (sale: PreparedOrdinarySale) => Promise<void> | void;
   stockContexts: readonly SaleFormStockContext[];
@@ -107,13 +109,6 @@ export function OrdinarySaleForm({
         void handleSubmit(event);
       }}
     >
-      <header className="ordinary-sale-form__header">
-        <div>
-          <p className="eyebrow">Sprzedaż</p>
-          <h2>Nowa sprzedaż</h2>
-        </div>
-      </header>
-
       <div className="ordinary-sale-form__fields">
         <label className="field">
           <span>Sezon</span>
@@ -230,14 +225,6 @@ export function OrdinarySaleForm({
                 : "brak danych"
           }
         />
-        <SummaryItem
-          label="Odświeżenie stanu"
-          value={
-            selectedContext
-              ? formatRefreshTime(selectedContext.refreshedAtIso)
-              : "brak danych"
-          }
-        />
       </dl>
 
       {preview ? (
@@ -273,13 +260,23 @@ export function OrdinarySaleForm({
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       <div className="ordinary-sale-form__actions">
+        {onCancel ? (
+          <button
+            className="secondary-button"
+            disabled={isSubmitting}
+            onClick={onCancel}
+            type="button"
+          >
+            Anuluj
+          </button>
+        ) : null}
         <button
           className="primary-button"
           disabled={formDisabled || !isOnline || reconciliationBlocked}
           type="submit"
         >
           <ArrowRight aria-hidden="true" size={18} />
-          {isSubmitting ? "Sprawdzanie..." : "Sprawdź i przejdź dalej"}
+          {isSubmitting ? "Sprawdzanie..." : "Sprawdź i podsumuj"}
         </button>
       </div>
     </form>
@@ -301,17 +298,4 @@ function SummaryItem({
       <dd>{value}</dd>
     </div>
   );
-}
-
-function formatRefreshTime(value: string): string {
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return "nieprawidlowy czas";
-  }
-
-  return new Intl.DateTimeFormat("pl-PL", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(timestamp);
 }

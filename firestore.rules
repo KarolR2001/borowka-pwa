@@ -1413,6 +1413,17 @@ service cloud.firestore {
         data.updatedAt == request.time;
     }
 
+    function isValidDomainSettingsCreate(data, settingsId) {
+      return isAdmin() &&
+        hasValidDomainSettingsBase(data, settingsId) &&
+        data.schemaVersion == 1 &&
+        data.calculationRuleVersion == 1 &&
+        data.initializedBy == request.auth.uid &&
+        data.initializedAt == request.time &&
+        data.updatedAt == request.time &&
+        exists(/databases/$(database)/documents/seasons/$(data.defaultSeasonId));
+    }
+
     function canReadHarvestDocument(data) {
       return isAdmin() ||
         isOperator() ||
@@ -2646,12 +2657,13 @@ service cloud.firestore {
       allow get: if settingsId == 'domain' &&
         (isAdmin() || isPicker());
       allow list: if isAdmin();
-      allow create, delete: if false;
+      allow create: if isValidDomainSettingsCreate(request.resource.data, settingsId);
       allow update: if isValidDomainSettingsUpdate(
         request.resource.data,
         resource.data,
         settingsId
       );
+      allow delete: if false;
     }
 
     match /seasons/{seasonId} {

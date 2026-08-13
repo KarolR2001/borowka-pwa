@@ -1044,7 +1044,10 @@ describe("App shell", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Pulpit administratora" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Pulpit administratora" })).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Pulpit administratora" })
+    ).not.toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
     expect(listWorkers).not.toHaveBeenCalled();
 
@@ -1112,7 +1115,7 @@ describe("App shell", () => {
       expect(readPickerExportSetting).toHaveBeenCalled();
     });
     expect(
-      screen.getByRole("heading", { name: "Eksport danych pickera" })
+      screen.getByRole("heading", { name: "Eksport danych zbieracza" })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Pełny eksport chmury" })

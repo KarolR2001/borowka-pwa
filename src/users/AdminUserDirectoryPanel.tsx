@@ -553,18 +553,6 @@ export function AdminUserDirectoryPanel({
               workersLoading={workersLoading}
             />
           </CollapsibleSection>
-          {directoryState.result.invalidProfiles.length > 0 ? (
-            <CollapsibleSection
-              icon={<ShieldAlert aria-hidden="true" size={18} strokeWidth={2.2} />}
-              label={`Problemy danych (${String(directoryState.result.invalidProfiles.length)})`}
-            >
-              <ul className="invalid-profiles__list">
-                {directoryState.result.invalidProfiles.map((invalidProfile) => (
-                  <li key={invalidProfile.id}>{invalidProfile.reason}</li>
-                ))}
-              </ul>
-            </CollapsibleSection>
-          ) : null}
         </div>
       ) : null}
 
@@ -576,11 +564,6 @@ export function AdminUserDirectoryPanel({
         <DirectoryStat
           label="Wszystkie profile"
           value={String(directoryState.result?.profiles.length ?? 0)}
-        />
-        <DirectoryStat label="Po filtrach" value={String(filteredProfiles.length)} />
-        <DirectoryStat
-          label="Błędne dokumenty"
-          value={String(directoryState.result?.invalidProfiles.length ?? 0)}
         />
       </div>
 
@@ -598,7 +581,7 @@ export function AdminUserDirectoryPanel({
 
       {filteredProfiles.length > 0 ? (
         <div className="directory-table-wrap">
-          <table className="directory-table">
+          <table className="directory-table mobile-card-table">
             <thead>
               <tr>
                 <th scope="col">Nazwa</th>
@@ -612,12 +595,16 @@ export function AdminUserDirectoryPanel({
             <tbody>
               {filteredProfiles.map((profile) => (
                 <tr key={profile.uid}>
-                  <td>{profile.displayName}</td>
-                  <td>{profile.email}</td>
-                  <td>{userRoleLabel(profile.role)}</td>
-                  <td>{registrationStatusLabel(profile.registrationStatus)}</td>
-                  <td>{profile.active ? "Tak" : "Nie"}</td>
-                  <td>{workerNameForProfile(workers, profile)}</td>
+                  <td data-label="Nazwa">{profile.displayName}</td>
+                  <td data-label="E-mail">{profile.email}</td>
+                  <td data-label="Rola">{userRoleLabel(profile.role)}</td>
+                  <td data-label="Status">
+                    {registrationStatusLabel(profile.registrationStatus)}
+                  </td>
+                  <td data-label="Aktywne">{profile.active ? "Tak" : "Nie"}</td>
+                  <td data-label="Powiązany zbieracz">
+                    {workerNameForProfile(workers, profile)}
+                  </td>
                 </tr>
               ))}
             </tbody>

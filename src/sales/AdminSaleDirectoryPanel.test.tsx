@@ -35,6 +35,7 @@ describe("AdminSaleDirectoryPanel", () => {
   it("filters the financial list, opens details and requests cancellation", async () => {
     const user = userEvent.setup();
     const onRequestCancellation = vi.fn();
+    const onRequestCorrection = vi.fn();
     const api = directoryApi([
       saleItem({ id: "sale-1" }),
       saleItem({
@@ -65,12 +66,12 @@ describe("AdminSaleDirectoryPanel", () => {
         env={{}}
         isOnline={true}
         onRequestCancellation={onRequestCancellation}
+        onRequestCorrection={onRequestCorrection}
       />
     );
 
     expect(await screen.findByLabelText("Lista sprzedaży")).toBeVisible();
     expect(screen.getByText("25,00 zł")).toBeVisible();
-    expect(screen.getByText("3")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Typ"), "CORRECTION");
     expect(screen.getByText("Zwrot do stanu")).toBeVisible();
@@ -79,7 +80,7 @@ describe("AdminSaleDirectoryPanel", () => {
     await user.selectOptions(screen.getByLabelText("Typ"), "ALL");
     await user.click(
       screen.getByRole("button", {
-        name: "Otwórz szczegóły: Zwykla sprzedaż z 29.07.2026"
+        name: "Otwórz szczegóły: Zwykła sprzedaż z 29.07.2026"
       })
     );
     expect(
@@ -90,6 +91,11 @@ describe("AdminSaleDirectoryPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Przejdź do anulowania" }));
     expect(onRequestCancellation).toHaveBeenCalledWith("sale-1");
+
+    await user.click(
+      screen.getByRole("button", { name: "Skoryguj sprzedaż z 29.07.2026" })
+    );
+    expect(onRequestCorrection).toHaveBeenCalledWith("sale-1");
   });
 
   it("does not load or expose the list to an operator", async () => {
@@ -107,6 +113,7 @@ describe("AdminSaleDirectoryPanel", () => {
         env={{}}
         isOnline={true}
         onRequestCancellation={vi.fn()}
+        onRequestCorrection={vi.fn()}
       />
     );
 

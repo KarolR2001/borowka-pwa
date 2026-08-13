@@ -149,10 +149,9 @@ describe("AdminUserDirectoryPanel", () => {
     expect(screen.getByText("Admin Test")).toBeInTheDocument();
     expect(screen.getByText("Anna Zbieracz")).toBeInTheDocument();
     expect(screen.queryByText("broken-1")).not.toBeInTheDocument();
-    await userEvent
-      .setup()
-      .click(screen.getByText("Problemy danych (1)", { selector: "span" }));
-    expect(screen.getByText("Profil uzytkownika ma nieznana role.")).toBeVisible();
+    expect(
+      screen.queryByText("Profil uzytkownika ma nieznana role.")
+    ).not.toBeInTheDocument();
   });
 
   it("filters rendered profiles by selected role", async () => {

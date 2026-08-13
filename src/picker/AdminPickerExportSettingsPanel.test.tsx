@@ -66,7 +66,7 @@ describe("AdminPickerExportSettingsPanel", () => {
       );
     });
     expect(
-      await screen.findByText("Zapisano dostępność eksportu pickera.")
+      await screen.findByText("Zapisano dostępność eksportu zbieracza.")
     ).toBeInTheDocument();
     expect(screen.getByText("Status: włączony")).toBeInTheDocument();
   });
