@@ -215,13 +215,14 @@ export function AdminPaymentDirectoryPanel({
       <div className="screen-actions" aria-label="Akcje historii wypłat">
         <div className="payment-directory__header-actions">
           <button
-            className="secondary-button"
+            aria-label="Eksportuj historię wypłat do CSV"
+            className="secondary-button icon-button"
             disabled={filteredPayments.length === 0}
             onClick={exportVisiblePayments}
+            title="Eksportuj CSV"
             type="button"
           >
             <Download aria-hidden="true" size={18} />
-            Eksport CSV
           </button>
         </div>
       </div>
@@ -235,14 +236,10 @@ export function AdminPaymentDirectoryPanel({
       </CollapsibleFilters>
 
       <div className="directory-summary" aria-label="Podsumowanie historii wypłat">
-        <DirectoryStat label="Widoczne" value={String(summary.totalCount)} />
-        <DirectoryStat label="Aktywne" value={String(summary.activeCount)} />
         <DirectoryStat
-          label="Suma aktywnych"
+          label="Suma wypłat"
           value={formatMoney(summary.activeAmountGrosz)}
         />
-        <DirectoryStat label="Anulowane" value={String(summary.cancelledCount)} />
-        <DirectoryStat label="Importowane" value={String(summary.importedCount)} />
       </div>
 
       {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
@@ -425,7 +422,7 @@ function PaymentDirectoryFilterControls({
           value={filters.method}
         >
           <option value="ALL">Wszystkie metody</option>
-          <option value="CASH">Gotowka</option>
+          <option value="CASH">Gotówka</option>
           <option value="BANK_TRANSFER">Przelew bankowy</option>
           <option value="OTHER">Inna</option>
         </select>
@@ -525,14 +522,12 @@ function PaymentDirectoryTable({
 }) {
   return (
     <div className="directory-table-wrap">
-      <table className="directory-table payment-directory-table">
+      <table className="directory-table payment-directory-table mobile-card-table">
         <thead>
           <tr>
             <th scope="col">Data wypłaty</th>
             <th scope="col">Zbieracz</th>
             <th scope="col">Kwota</th>
-            <th scope="col">Metoda</th>
-            <th scope="col">Status</th>
             <th scope="col">Data sesji</th>
             <th scope="col">Szczegóły</th>
           </tr>
@@ -540,22 +535,20 @@ function PaymentDirectoryTable({
         <tbody>
           {payments.map((payment) => (
             <tr key={payment.id}>
-              <td>{formatBusinessDate(payment.paidBusinessDate)}</td>
-              <td>
+              <td data-label="Data wypłaty">
+                {formatBusinessDate(payment.paidBusinessDate)}
+              </td>
+              <td data-label="Zbieracz">
                 {payment.workerName}
                 <span className="directory-cell-note">{payment.seasonName}</span>
               </td>
-              <td>{formatMoney(payment.amountGrosz)}</td>
-              <td>{paymentMethodLabel(payment.paymentMethod)}</td>
-              <td>
-                <PaymentStatusLabels payment={payment} />
-              </td>
-              <td>
+              <td data-label="Kwota">{formatMoney(payment.amountGrosz)}</td>
+              <td data-label="Data sesji">
                 {payment.sourceSession
                   ? formatBusinessDate(payment.sourceSession.businessDate)
                   : "brak"}
               </td>
-              <td>
+              <td data-label="Szczegóły">
                 <button
                   aria-label={`Otwórz szczegóły wypłaty ${payment.workerName} z ${formatBusinessDate(payment.paidBusinessDate)}`}
                   className="secondary-button icon-button"
@@ -697,20 +690,6 @@ function PaymentDirectoryDetails({
   );
 }
 
-function PaymentStatusLabels({ payment }: { payment: AdminPaymentDirectoryItem }) {
-  return (
-    <span className="payment-directory-statuses">
-      <span
-        className={`status-badge ${
-          payment.status === "ACTIVE" ? "status-badge--active" : ""
-        }`}
-      >
-        {paymentStatusLabel(payment.status)}
-      </span>
-    </span>
-  );
-}
-
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -750,7 +729,7 @@ function uniqueOptions(
 function paymentMethodLabel(method: AdminPaymentDirectoryItem["paymentMethod"]): string {
   switch (method) {
     case "CASH":
-      return "Gotowka";
+      return "Gotówka";
     case "BANK_TRANSFER":
       return "Przelew bankowy";
     case "OTHER":

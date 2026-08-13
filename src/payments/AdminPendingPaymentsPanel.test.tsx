@@ -73,8 +73,7 @@ describe("AdminPendingPaymentsPanel", () => {
     expect(await screen.findByText("125,00 zł")).toBeVisible();
     expect(within(screen.getByRole("table")).getByText("Anna")).toBeVisible();
     expect(within(screen.getByRole("table")).getByText("Barbara")).toBeVisible();
-    expect(screen.getByText("Anulowana wypłata")).toBeVisible();
-    expect(screen.getByText("Oczekujące na synchronizację")).toBeVisible();
+    expect(screen.queryByText("Oczekujące na synchronizację")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Zbieracz"), "worker-a");
 
@@ -84,10 +83,8 @@ describe("AdminPendingPaymentsPanel", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
 
-    await user.click(screen.getByRole("button", { name: "Sprawdź warunki" }));
-    expect(await screen.findByText("Sesja spełnia warunki wypłaty.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Wypłać" }));
-    expect(screen.getByText("Potwierdzenie wypłaty")).toBeVisible();
+    expect(await screen.findByText("Potwierdzenie wypłaty")).toBeVisible();
     expect(screen.getByText("Za kilogram, 10,00 zł / kilogramy")).toBeVisible();
     await user.click(
       screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
@@ -158,7 +155,6 @@ describe("AdminPendingPaymentsPanel", () => {
       />
     );
 
-    await user.click(await screen.findByRole("button", { name: "Sprawdź warunki" }));
     await user.click(await screen.findByRole("button", { name: "Wypłać" }));
     await user.click(
       screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
@@ -220,11 +216,11 @@ describe("AdminPendingPaymentsPanel", () => {
       />
     );
 
-    await user.click(await screen.findByRole("button", { name: "Sprawdź warunki" }));
+    await user.click(await screen.findByRole("button", { name: "Wypłać" }));
 
     expect(await screen.findByText(/Wyplata wymaga internetu/)).toBeVisible();
     expect(screen.getByText(/Dane oczekuja na synchronizacje/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Wypłać" })).toBeDisabled();
+    expect(screen.queryByText("Potwierdzenie wypłaty")).not.toBeInTheDocument();
   });
 });
 

@@ -66,8 +66,9 @@ describe("AdminPaymentDirectoryPanel", () => {
 
     expect(await screen.findByText("175,00 zł")).toBeVisible();
     const summary = screen.getByLabelText("Podsumowanie historii wypłat");
-    expect(within(summary).getByText("Anulowane")).toBeVisible();
-    expect(within(summary).getByText("Importowane")).toBeVisible();
+    expect(within(summary).getByText("Suma wypłat")).toBeVisible();
+    expect(within(summary).queryByText("Anulowane")).not.toBeInTheDocument();
+    expect(within(summary).queryByText("Importowane")).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", {
@@ -101,7 +102,9 @@ describe("AdminPaymentDirectoryPanel", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: "Eksport CSV" }));
+    await user.click(
+      screen.getByRole("button", { name: "Eksportuj historię wypłat do CSV" })
+    );
     expect(api.downloadCsv).toHaveBeenCalledTimes(1);
     expect(vi.mocked(api.downloadCsv).mock.calls[0]?.[0]).toContain(
       '"session-cancelled"'

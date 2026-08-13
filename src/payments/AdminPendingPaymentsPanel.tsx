@@ -1,4 +1,4 @@
-import { Banknote, ShieldCheck, ShieldX } from "lucide-react";
+import { Banknote, ShieldX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -10,6 +10,7 @@ import {
 } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
+import { RecordDialog } from "../ui/RecordDialog";
 import {
   checkPaymentEligibility,
   type CheckPaymentEligibilityInput,
@@ -152,7 +153,7 @@ export function AdminPendingPaymentsPanel({
 
   async function handleEligibilityCheck(sessionId: string): Promise<void> {
     setConfirmedPayment(null);
-    setPreparedSessionId(null);
+    setPreparedSessionId(sessionId);
     setEligibilityState({ status: "CHECKING", sessionId, result: null });
 
     try {
@@ -198,18 +199,10 @@ export function AdminPendingPaymentsPanel({
       <div className="directory-summary" aria-label="Podsumowanie sesji do wypłaty">
         <DirectoryStat label="Do wypłaty" value={String(sessions.length)} />
         <DirectoryStat
-          label="Widoczne po filtrach"
-          value={String(filteredSessions.length)}
-        />
-        <DirectoryStat
           label="Suma"
           value={formatMoney(
             filteredSessions.reduce((total, session) => total + session.amountDueGrosz, 0)
           )}
-        />
-        <DirectoryStat
-          label="Oczekujące na synchronizację"
-          value={String(state.result?.excluded.pendingSynchronizationCount ?? 0)}
         />
       </div>
 
@@ -234,7 +227,7 @@ export function AdminPendingPaymentsPanel({
       ) : null}
       {state.result && state.result.invalidDocumentCount > 0 ? (
         <p className="form-message form-message--error">
-          Pominieto nieprawidlowe dokumenty: {state.result.invalidDocumentCount}.
+          Pominięto nieprawidłowe dokumenty: {state.result.invalidDocumentCount}.
         </p>
       ) : null}
       {filteredSessions.length === 0 && state.status !== "LOADING" ? (
@@ -353,46 +346,32 @@ function PendingPaymentTable({
 }) {
   return (
     <div className="directory-table-wrap">
-      <table className="directory-table pending-payment-table">
+      <table className="directory-table pending-payment-table mobile-card-table">
         <thead>
           <tr>
             <th scope="col">Zbieracz</th>
             <th scope="col">Data</th>
             <th scope="col">Plan</th>
-            <th scope="col">Wynik</th>
+            <th scope="col">Zebrano</th>
             <th scope="col">Naliczono</th>
-            <th scope="col">Zamknięcie</th>
-            <th scope="col">Historia wypłaty</th>
             <th scope="col">Akcja</th>
           </tr>
         </thead>
         <tbody>
           {sessions.map((session) => (
             <tr key={session.sessionId}>
-              <td>
+              <td data-label="Zbieracz">
                 {session.workerName}
                 <span className="directory-cell-note">{session.seasonName}</span>
               </td>
-              <td>{formatBusinessDate(session.businessDate)}</td>
-              <td>
+              <td data-label="Data">{formatBusinessDate(session.businessDate)}</td>
+              <td data-label="Plan">
                 {session.planName}
                 <span className="directory-cell-note">{session.unitLabel}</span>
               </td>
-              <td>
-                {session.totalEntryCount} wpisów
-                <span className="directory-cell-note">
-                  {formatQuantity(session.totalQuantityMilli)} /{" "}
-                  {formatKilograms(session.totalWeightG)}
-                </span>
-              </td>
-              <td>{formatMoney(session.amountDueGrosz)}</td>
-              <td>{formatTimestamp(session.closedAt)}</td>
-              <td>
-                {session.paymentHistory === "CANCELLED"
-                  ? "Anulowana wypłata"
-                  : "Brak wypłaty"}
-              </td>
-              <td>
+              <td data-label="Zebrano">{formatCollectedAmount(session)}</td>
+              <td data-label="Naliczono">{formatMoney(session.amountDueGrosz)}</td>
+              <td data-label="Akcja">
                 <PaymentAction
                   eligibilityState={eligibilityState}
                   onCheckEligibility={onCheckEligibility}
@@ -421,42 +400,20 @@ function PaymentAction({
 }) {
   const isCurrent = eligibilityState.sessionId === sessionId;
   const isChecking = isCurrent && eligibilityState.status === "CHECKING";
-  const result =
-    isCurrent && eligibilityState.status === "READY" ? eligibilityState.result : null;
-
-  if (result?.status === "ELIGIBLE") {
-    return (
-      <button
-        className="primary-button directory-action"
-        onClick={() => {
-          onPreparePayment(sessionId);
-        }}
-        type="button"
-      >
-        <Banknote aria-hidden="true" size={17} />
-        Wypłać
-      </button>
-    );
-  }
 
   return (
-    <div className="payment-eligibility-actions">
-      <button
-        className="secondary-button directory-action"
-        disabled={isChecking}
-        onClick={() => {
-          void onCheckEligibility(sessionId);
-        }}
-        type="button"
-      >
-        {isChecking ? "Sprawdzanie" : "Sprawdź warunki"}
-      </button>
-      {result?.status === "BLOCKED" ? (
-        <button className="primary-button directory-action" disabled type="button">
-          Wypłać
-        </button>
-      ) : null}
-    </div>
+    <button
+      className="primary-button directory-action"
+      disabled={isChecking}
+      onClick={() => {
+        onPreparePayment(sessionId);
+        void onCheckEligibility(sessionId);
+      }}
+      type="button"
+    >
+      <Banknote aria-hidden="true" size={17} />
+      {isChecking ? "Sprawdzanie..." : "Wypłać"}
+    </button>
   );
 }
 
@@ -491,16 +448,13 @@ function EligibilityPanel({
   }
 
   if (state.result.status === "ELIGIBLE") {
-    return (
-      <>
-        <div className="payment-eligibility payment-eligibility--ready">
-          <ShieldCheck aria-hidden="true" size={22} />
-          <div>
-            <strong>Sesja spełnia warunki wypłaty.</strong>
-            <p>Kwota {formatMoney(state.result.amountDueGrosz ?? 0)}.</p>
-          </div>
-        </div>
-        {preparedSessionId === state.sessionId && session ? (
+    return preparedSessionId === state.sessionId && session ? (
+      <RecordDialog
+        fullScreen
+        label={`Wypłata dla ${session.workerName}`}
+        onClose={onCancelPreparation}
+      >
+        <div className="fullscreen-operation">
           <PaymentConfirmationForm
             eligibility={state.result}
             onCancel={onCancelPreparation}
@@ -508,16 +462,16 @@ function EligibilityPanel({
             onConfirmed={onPaymentConfirmed}
             session={session}
           />
-        ) : null}
-      </>
-    );
+        </div>
+      </RecordDialog>
+    ) : null;
   }
 
   return (
     <div className="payment-eligibility payment-eligibility--blocked">
       <ShieldX aria-hidden="true" size={22} />
       <div>
-        <strong>Wyplata jest zablokowana.</strong>
+        <strong>Wypłata jest zablokowana.</strong>
         <ul>
           {state.result.blockers.map((item) => (
             <li key={item.code}>
@@ -642,31 +596,10 @@ function formatQuantity(quantityMilli: number): string {
   }).format(quantityMilli / 1000);
 }
 
-function formatTimestamp(value: unknown): string {
-  const date =
-    value instanceof Date
-      ? value
-      : isTimestampLike(value)
-        ? value.toDate()
-        : typeof value === "string"
-          ? new Date(value)
-          : null;
-
-  if (!date || Number.isNaN(date.getTime())) {
-    return "brak czasu";
+function formatCollectedAmount(session: PendingPaymentSession): string {
+  if (session.totalWeightG > 0) {
+    return formatKilograms(session.totalWeightG);
   }
 
-  return new Intl.DateTimeFormat("pl-PL", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(date);
-}
-
-function isTimestampLike(value: unknown): value is { toDate: () => Date } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "toDate" in value &&
-    typeof value.toDate === "function"
-  );
+  return `${formatQuantity(session.totalQuantityMilli)} ${session.unitLabel}`;
 }
