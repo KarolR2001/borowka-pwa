@@ -4,6 +4,25 @@ import userEvent from "@testing-library/user-event";
 import { CollapsibleFilters } from "./CollapsibleFilters";
 import { InfoHint } from "./InfoHint";
 import { TransientToast } from "./TransientToast";
+import { useCloseDetailsOnOutsideClick } from "./useCloseDetailsOnOutsideClick";
+
+function DetailsOutsideClickHarness() {
+  useCloseDetailsOnOutsideClick();
+
+  return (
+    <div>
+      <CollapsibleFilters>
+        <label>
+          Status
+          <select>
+            <option>Wszystkie</option>
+          </select>
+        </label>
+      </CollapsibleFilters>
+      <button type="button">Poza sekcją</button>
+    </div>
+  );
+}
 
 describe("shared UI feedback", () => {
   it("keeps filters collapsed until the user opens them", async () => {
@@ -38,6 +57,19 @@ describe("shared UI feedback", () => {
     await user.click(screen.getByLabelText("Pokaż wyjaśnienie"));
     expect(details).toHaveAttribute("open");
     expect(screen.getByRole("note")).toHaveTextContent("sposób rozliczenia");
+  });
+
+  it("closes an expanded section after a click outside it", async () => {
+    const user = userEvent.setup();
+
+    render(<DetailsOutsideClickHarness />);
+
+    const details = screen.getByText("Filtry").closest("details");
+    await user.click(screen.getByText("Filtry"));
+    expect(details).toHaveAttribute("open");
+
+    await user.click(screen.getByRole("button", { name: "Poza sekcją" }));
+    expect(details).not.toHaveAttribute("open");
   });
 
   it("dismisses a transient notification after its timeout", () => {
