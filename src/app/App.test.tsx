@@ -1254,5 +1254,8 @@ describe("App shell", () => {
 
     await user.click(screen.getByRole("button", { name: "Nowy zbiór" }));
     expect(screen.getByRole("heading", { name: "Zbiory" })).toBeVisible();
+    expect(
+      await screen.findByRole("dialog", { name: "Otwieranie sesji zbioru" })
+    ).toHaveClass("record-dialog--fullscreen");
   });
 });

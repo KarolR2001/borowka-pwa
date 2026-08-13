@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -120,15 +120,16 @@ describe("OperatorHarvestSessionsPanel", () => {
     const newSessionSection = document.getElementById("new-harvest-session");
 
     if (!newSessionSection) {
-      throw new Error("Nie znaleziono formularza nowej sesji.");
+      throw new Error("Nie znaleziono przycisku nowej sesji.");
     }
 
     expect(
       screen.getByLabelText("Otwarte sesje").compareDocumentPosition(newSessionSection)
     ).toBe(Node.DOCUMENT_POSITION_PRECEDING);
-    expect(screen.getByText("Otwórz nową sesję").closest("details")).not.toHaveAttribute(
-      "open"
+    expect(newSessionSection).toBe(
+      screen.getByRole("button", { name: "Otwórz nową sesję" })
     );
+    expect(screen.queryByRole("dialog", { name: "Otwieranie sesji zbioru" })).toBeNull();
   });
 
   it("reports active session and form blockers to the PWA update gate", async () => {
@@ -224,7 +225,13 @@ describe("OperatorHarvestSessionsPanel", () => {
       />
     );
 
-    await screen.findByRole("form", { name: "Otwieranie sesji zbioru" });
+    await user.click(screen.getByRole("button", { name: "Otwórz nową sesję" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Otwieranie sesji zbioru" })
+    ).toHaveClass("record-dialog--fullscreen");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Data")).toBeEnabled();
+    });
     await user.clear(screen.getByLabelText("Data"));
     await user.type(screen.getByLabelText("Data"), "2026-07-17");
     await user.type(screen.getByLabelText("Notatka"), "poranny zbior");
@@ -254,6 +261,34 @@ describe("OperatorHarvestSessionsPanel", () => {
       isOnline: true
     });
     expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "Otwieranie sesji zbioru" })).toBeNull();
+  });
+
+  it("shows empty field validation inside the full-screen session form", async () => {
+    const user = userEvent.setup();
+    const api = createHarvestSessionsApi();
+
+    render(
+      <OperatorHarvestSessionsPanel
+        authState={operatorState}
+        env={env}
+        harvestSessionsApi={api}
+        isOnline={true}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Otwórz nową sesję" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Otwieranie sesji zbioru"
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Data")).toBeEnabled();
+    });
+    await user.clear(screen.getByLabelText("Data"));
+    await user.click(screen.getByRole("button", { name: "Otwórz sesję" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Uzupełnij datę sesji.");
+    expect(api.open).not.toHaveBeenCalled();
   });
 
   it("shows duplicate same-day session warning before opening another session", async () => {
@@ -273,7 +308,10 @@ describe("OperatorHarvestSessionsPanel", () => {
       />
     );
 
-    await screen.findByRole("form", { name: "Otwieranie sesji zbioru" });
+    await user.click(screen.getByRole("button", { name: "Otwórz nową sesję" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Data")).toBeEnabled();
+    });
     await user.clear(screen.getByLabelText("Data"));
     await user.type(screen.getByLabelText("Data"), "2026-07-17");
 
@@ -316,6 +354,9 @@ describe("OperatorHarvestSessionsPanel", () => {
 
     await screen.findByRole("heading", { name: "Anna Test" });
     await user.click(screen.getByRole("button", { name: "Dodaj wpis" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Dodawanie wpisu zbioru" })
+    ).toHaveClass("record-dialog--fullscreen");
     await screen.findByRole("form", { name: "Formularz wpisu za kilogram" });
     await user.type(screen.getByLabelText("Waga kg"), "0,750");
     await user.click(screen.getByRole("button", { name: "Zapisz wpis" }));
@@ -341,6 +382,9 @@ describe("OperatorHarvestSessionsPanel", () => {
       isOnline: true
     });
     expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("dialog", { name: "Dodawanie wpisu zbioru" })
+    ).toBeInTheDocument();
   });
 
   it("reuses the same entry identity when a lost response is retried", async () => {

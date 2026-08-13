@@ -206,6 +206,7 @@ import {
   type NavigationKey
 } from "./navigation";
 import { useOnlineStatus } from "./useOnlineStatus";
+import { useCloseDetailsOnOutsideClick } from "../ui/useCloseDetailsOnOutsideClick";
 import {
   isServiceWorkerReady,
   serviceWorkerStatusLabel,
@@ -370,6 +371,7 @@ export function App({
   offlineStorageHealthApi = defaultOfflineStorageHealthApi,
   synchronizationApi = defaultSynchronizationApi
 }: AppProps = {}) {
+  useCloseDetailsOnOutsideClick();
   const env = import.meta.env as FirebaseEnv;
   const [activeView, setActiveView] = useState<NavigationKey>("account");
   const [adminWorkspaceView, setAdminWorkspaceView] =

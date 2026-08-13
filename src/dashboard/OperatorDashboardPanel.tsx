@@ -1,8 +1,8 @@
-import { AlertTriangle, ClipboardList, Gauge, Plus } from "lucide-react";
+import { AlertTriangle, Gauge, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
-import { formatBusinessDate, formatKilograms } from "../domain/format";
+import { formatKilograms } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
@@ -12,11 +12,9 @@ import {
   DEFAULT_OPERATOR_DASHBOARD_PERIOD,
   prepareOperatorDashboardSnapshot,
   type LoadOperatorDashboardInput,
-  type OperatorDashboardResult,
-  type OperatorDashboardSession
+  type OperatorDashboardResult
 } from "./operatorDashboard";
 import {
-  calculateLocalDashboardProjection,
   loadDashboardSnapshot,
   saveDashboardSnapshot,
   type DashboardSnapshotStorage
@@ -164,15 +162,6 @@ export function OperatorDashboardPanel({
       ? null
       : state.result;
   const warnings = result ? dashboardWarnings(result) : [];
-  const localProjection = useMemo(
-    () =>
-      calculateLocalDashboardProjection({
-        officialAvailableWeightG: result?.metrics.availableWeightG ?? null,
-        seasonId: result?.activeSeason?.id ?? null,
-        syncDocuments
-      }),
-    [result, syncDocuments]
-  );
   if (!isOperator) {
     return (
       <section className="access-notice" aria-label="Pulpit operatora">
@@ -249,56 +238,6 @@ export function OperatorDashboardPanel({
                   : formatKilograms(result.metrics.availableWeightG)
               }
             />
-            {!isOnline || localProjection.pendingSessionCount > 0 ? (
-              <>
-                <DashboardMetric
-                  detail="Sesje bieżącego urządzenia poza oficjalnym stanem"
-                  label="Lokalne sesje poza stanem"
-                  tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
-                  value={String(localProjection.pendingSessionCount)}
-                />
-                <DashboardMetric
-                  detail={`Stan serwera + ${formatKilograms(
-                    localProjection.pendingConfirmedWeightG
-                  )} z ${String(
-                    localProjection.pendingConfirmedSessionCount
-                  )} zamkniętych sesji`}
-                  label="Przewidywane lokalnie"
-                  tone="WARNING"
-                  value={
-                    localProjection.projectedAvailableWeightG === null
-                      ? "Do sprawdzenia"
-                      : formatKilograms(localProjection.projectedAvailableWeightG)
-                  }
-                />
-              </>
-            ) : null}
-            <DashboardMetric
-              label="Otwarte sesje"
-              value={String(result.metrics.openSessionCount)}
-            />
-            <DashboardMetric
-              label="Moje otwarte"
-              value={String(result.metrics.ownOpenSessionCount)}
-            />
-            <DashboardMetric
-              label={
-                result.period.preset === "TODAY"
-                  ? "Moje zamknięte dziś"
-                  : "Moje zamknięte w okresie"
-              }
-              value={String(result.metrics.ownClosedSessionCount)}
-            />
-            <DashboardMetric
-              label="Lokalnie oczekujące"
-              tone={result.metrics.localPendingCount > 0 ? "WARNING" : "DEFAULT"}
-              value={String(result.metrics.localPendingCount)}
-            />
-            <DashboardMetric
-              label="Moje konflikty"
-              tone={result.metrics.conflictCount > 0 ? "WARNING" : "DEFAULT"}
-              value={String(result.metrics.conflictCount)}
-            />
           </div>
 
           {warnings.length > 0 ? (
@@ -310,34 +249,6 @@ export function OperatorDashboardPanel({
                 ))}
               </ul>
             </div>
-          ) : null}
-
-          <DashboardSessionList
-            emptyMessage="Brak otwartych sesji."
-            label="Otwarte sesje"
-            sessions={result.openSessions}
-          />
-          <DashboardSessionList
-            emptyMessage="Brak własnych sesji w wybranym okresie."
-            label="Moje sesje w okresie"
-            sessions={result.ownRecentSessions}
-          />
-
-          {result.conflicts.length > 0 ? (
-            <section
-              className="operator-dashboard__conflicts"
-              aria-labelledby="operator-dashboard-conflicts"
-            >
-              <h3 id="operator-dashboard-conflicts">Moje konflikty synchronizacji</h3>
-              <ul>
-                {result.conflicts.map((conflict) => (
-                  <li key={conflict.id}>
-                    <strong>{conflict.label}</strong>
-                    <span>{conflict.detail}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
           ) : null}
         </>
       ) : null}
@@ -369,40 +280,6 @@ function DashboardMetric({
   );
 }
 
-function DashboardSessionList({
-  emptyMessage,
-  label,
-  sessions
-}: {
-  emptyMessage: string;
-  label: string;
-  sessions: readonly OperatorDashboardSession[];
-}) {
-  const headingId = `operator-dashboard-${label
-    .toLocaleLowerCase("pl")
-    .replaceAll(" ", "-")}`;
-
-  return (
-    <section className="operator-dashboard__sessions" aria-labelledby={headingId}>
-      <h3 id={headingId}>{label}</h3>
-      {sessions.length > 0 ? (
-        <ul>
-          {sessions.map((session) => (
-            <li key={session.id}>
-              <ClipboardList aria-hidden="true" size={18} />
-              <strong>{session.workerName}</strong>
-              <span>{formatBusinessDate(session.businessDate)}</span>
-              <small>{sessionStatusLabel(session.status)}</small>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="empty-state">{emptyMessage}</p>
-      )}
-    </section>
-  );
-}
-
 function dashboardWarnings(result: OperatorDashboardResult): string[] {
   const warnings: string[] = [];
 
@@ -421,24 +298,14 @@ function dashboardWarnings(result: OperatorDashboardResult): string[] {
   return warnings;
 }
 
-function sessionStatusLabel(status: OperatorDashboardSession["status"]): string {
-  switch (status) {
-    case "OPEN":
-      return "otwarta";
-    case "CLOSED":
-      return "zamknięta";
-    case "PAID":
-      return "wyplacona";
-    case "CANCELLED":
-      return "anulowana";
-    default:
-      return "do sprawdzenia";
-  }
-}
-
 function focusNewHarvestSession(): void {
   const target = document.getElementById("new-harvest-session");
   target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (target instanceof HTMLButtonElement) {
+    target.click();
+    target.focus();
+    return;
+  }
   const control = target?.querySelector<HTMLElement>(
     "select:not(:disabled), input:not(:disabled), button:not(:disabled)"
   );

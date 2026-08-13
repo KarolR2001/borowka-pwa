@@ -36,7 +36,7 @@ describe("OperatorDashboardPanel", () => {
     localStorage.clear();
   });
 
-  it("shows operational metrics and sessions without financial data", async () => {
+  it("shows only essential operational metrics without financial data", async () => {
     const api = dashboardApi();
 
     render(
@@ -52,11 +52,12 @@ describe("OperatorDashboardPanel", () => {
     expect(await screen.findByText("12,500 kg")).toBeVisible();
     expect(within(metric("Aktywny sezon")).getByText("Sezon 2026")).toBeVisible();
     expect(within(metric("Dostępne kilogramy")).getByText("12,500 kg")).toBeVisible();
-    expect(screen.getAllByText("Zbieracz A")).toHaveLength(2);
-    expect(screen.getByText("Moje konflikty synchronizacji")).toBeVisible();
-    expect(
-      screen.getByText("Operacja wymaga sprawdzenia w centrum synchronizacji.")
-    ).toBeVisible();
+    expect(screen.queryByText("Zbieracz A")).not.toBeInTheDocument();
+    expect(screen.queryByText("Otwarte sesje")).not.toBeInTheDocument();
+    expect(screen.queryByText("Moje otwarte")).not.toBeInTheDocument();
+    expect(screen.queryByText("Moje zamknięte dziś")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lokalnie oczekujące")).not.toBeInTheDocument();
+    expect(screen.queryByText(/moje konflikty/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/przychod/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/wyplat/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/stawka.*zl/i)).not.toBeInTheDocument();
@@ -162,7 +163,7 @@ describe("OperatorDashboardPanel", () => {
     });
   });
 
-  it("keeps the last server state separate from the local prediction offline", async () => {
+  it("keeps the last server state without exposing local counters offline", async () => {
     const api = dashboardApi();
     const { rerender } = render(
       <OperatorDashboardPanel
@@ -186,8 +187,8 @@ describe("OperatorDashboardPanel", () => {
     );
 
     expect(screen.queryByText(/tryb offline/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
-    expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
+    expect(screen.queryByText("Lokalne sesje poza stanem")).not.toBeInTheDocument();
+    expect(screen.queryByText("Przewidywane lokalnie")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Okres")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Nowy zbiór" })).toBeEnabled();
     expect(
