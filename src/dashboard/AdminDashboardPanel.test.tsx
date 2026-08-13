@@ -47,7 +47,12 @@ describe("AdminDashboardPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Pulpit administratora")).toBeVisible();
+    expect(
+      await screen.findByRole("region", { name: "Pulpit administratora" })
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Pulpit administratora" })
+    ).not.toBeInTheDocument();
     expect(screen.getByText("15,000 kg")).toBeVisible();
     expect(screen.getByText("Wynik po koszcie zbioru")).toBeVisible();
     expect(
@@ -69,7 +74,7 @@ describe("AdminDashboardPanel", () => {
       "Wynik po koszcie zbioru",
       "Aktywni zbieracze",
       "Otwarte sesje",
-      "Wymagają sprawdzenia",
+      "Sesje do sprawdzenia",
       "Lokalnie oczekujące"
     ]) {
       expect(dashboardMetric(label)).toBeVisible();

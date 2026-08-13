@@ -205,11 +205,10 @@ export function AdminDashboardPanel({
   }
 
   return (
-    <section className="admin-dashboard" aria-labelledby="admin-dashboard-title">
+    <section className="admin-dashboard" aria-label="Pulpit administratora">
       <header className="directory-header">
         <div>
           <p className="eyebrow">Bieżący sezon</p>
-          <h2 id="admin-dashboard-title">Pulpit administratora</h2>
           <p className="panel-detail">Najważniejsze informacje o bieżącym sezonie.</p>
         </div>
       </header>
@@ -334,7 +333,7 @@ export function AdminDashboardPanel({
               value={String(selectedSeason.metrics.openSessionCount)}
             />
             <DashboardMetric
-              label="Wymagają sprawdzenia"
+              label="Sesje do sprawdzenia"
               tone={
                 selectedSeason.metrics.reviewRequiredSessionCount > 0
                   ? "WARNING"

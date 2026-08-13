@@ -2,10 +2,12 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 export function RecordDialog({
   children,
+  fullScreen = false,
   label,
   onClose
 }: {
   children: ReactNode;
+  fullScreen?: boolean;
   label: string;
   onClose: () => void;
 }) {
@@ -33,7 +35,7 @@ export function RecordDialog({
     <div
       aria-label={label}
       aria-modal="true"
-      className="record-dialog"
+      className={`record-dialog ${fullScreen ? "record-dialog--fullscreen" : ""}`}
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}

@@ -63,9 +63,9 @@ select {
 
 .auth-screen__brand-logo {
   display: block;
-  width: min(48vw, 180px);
+  width: min(36vw, 128px);
   height: auto;
-  max-height: 154px;
+  max-height: 110px;
 }
 
 .auth-screen .auth-panel {
@@ -93,7 +93,22 @@ select {
 }
 
 .topbar h1 {
+  margin: 0;
   font-size: 1.08rem;
+}
+
+.topbar__identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar__logo {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  object-fit: contain;
 }
 
 .topbar__user {
@@ -352,6 +367,20 @@ h2 {
 
 .record-dialog__surface > * {
   margin: 0;
+}
+
+.record-dialog--fullscreen {
+  place-items: stretch;
+  padding: 0;
+  background: #ffffff;
+}
+
+.record-dialog--fullscreen .record-dialog__surface {
+  width: 100%;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .collapsible-filters__content > :first-child {
@@ -914,9 +943,13 @@ h2 {
 
 .dashboard-filter-bar {
   display: flex;
-  align-items: start;
+  align-items: end;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.dashboard-filter-bar > .collapsible-filters {
+  margin: 0;
 }
 
 .dashboard-period-filter {
@@ -1874,6 +1907,20 @@ h2 {
 .worker-form__submit,
 .worker-rate-form__submit {
   min-width: 136px;
+}
+
+.worker-form__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.season-form__actions,
+.season-action-form__actions,
+.settlement-plan-form__actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
 }
 
 .open-session-form__actions {
@@ -2878,19 +2925,26 @@ h2 {
 }
 
 .worker-table {
-  min-width: 1180px;
+  min-width: 940px;
 }
 
 .pending-payment-table {
-  min-width: 1520px;
+  min-width: 820px;
 }
 
 .payment-directory-table {
-  min-width: 1180px;
+  min-width: 720px;
 }
 
 .sale-directory-table {
-  min-width: 1360px;
+  min-width: 820px;
+}
+
+.directory-actions--icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .payment-directory-statuses {
@@ -3211,9 +3265,7 @@ h2 {
 
 .payment-confirmation-fields {
   display: grid;
-  grid-template-columns:
-    minmax(160px, 0.7fr) minmax(180px, 0.8fr)
-    minmax(240px, 1.5fr);
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -3239,6 +3291,28 @@ h2 {
   border-radius: 8px;
   padding: 22px;
   background: #ffffff;
+}
+
+.fullscreen-operation {
+  width: min(100%, 980px);
+  min-height: 100dvh;
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 40px);
+  background: #ffffff;
+}
+
+.fullscreen-operation__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fullscreen-operation__header h2 {
+  margin: 2px 0 0;
 }
 
 .ordinary-sale-form__header {
@@ -3973,6 +4047,49 @@ h2 {
     align-items: stretch;
     justify-content: flex-start;
   }
+
+  .mobile-card-table {
+    min-width: 0;
+    display: block;
+  }
+
+  .mobile-card-table thead {
+    display: none;
+  }
+
+  .mobile-card-table tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .mobile-card-table tr {
+    display: grid;
+    border: 1px solid #dce6df;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .mobile-card-table td {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(92px, 0.45fr) minmax(0, 1fr);
+    gap: 10px;
+    border-bottom: 1px solid #edf2ee;
+    padding: 10px 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-card-table td::before {
+    content: attr(data-label);
+    color: #64756c;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .mobile-card-table td:last-child {
+    border-bottom: 0;
+  }
 }
 
 @media (max-width: 520px) {
@@ -4050,6 +4167,18 @@ h2 {
 
   .record-dialog__surface {
     max-height: calc(100dvh - 20px);
+  }
+
+  .record-dialog--fullscreen {
+    padding: 0;
+  }
+
+  .record-dialog--fullscreen .record-dialog__surface {
+    max-height: 100dvh;
+  }
+
+  .fullscreen-operation {
+    padding: 16px;
   }
 
   .primary-panel {
