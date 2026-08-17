@@ -1,4 +1,5 @@
 import { getFirebaseServices } from "../config/firebaseServices";
+import { WORKERS_COLLECTION } from "../domain/domainConfiguration";
 import { normalizeEmail, type UserProfile } from "../domain/identity";
 import {
   REGISTRATION_INVITATIONS_COLLECTION,
@@ -49,23 +50,75 @@ export async function registerInvitedUser(
     input.password
   );
 
-  await authSdk.updateProfile(credentials.user, {
-    displayName: input.displayName.trim()
-  });
+  let invitation: RegistrationInvitationDocument;
 
-  await claimRegistrationInvitationForUser(env, {
-    uid: credentials.user.uid,
-    email
-  });
+  try {
+    invitation = await findPendingRegistrationInvitation(env, { email });
+  } catch (error) {
+    await authSdk.deleteUser(credentials.user).catch(() => undefined);
+    throw error;
+  }
+
+  await claimRegistrationInvitationForUser(
+    env,
+    {
+      uid: credentials.user.uid,
+      email
+    },
+    invitation
+  );
+
+  await authSdk
+    .updateProfile(credentials.user, {
+      displayName: input.displayName.trim()
+    })
+    .catch(() => undefined);
 }
 
 export async function claimRegistrationInvitationForUser(
   env: FirebaseEnv,
-  user: { uid: string; email: string }
+  user: { uid: string; email: string },
+  pendingInvitation?: RegistrationInvitationDocument
 ): Promise<RegistrationInvitationDocument> {
   const { firestore } = await getFirebaseServices(env);
-  const { Timestamp, collection, doc, getDocs, limit, query, where, writeBatch } =
+  const { Timestamp, doc, serverTimestamp, writeBatch } =
     await import("firebase/firestore");
+  const email = normalizeEmail(user.email);
+  const invitation =
+    pendingInvitation ?? (await findPendingRegistrationInvitation(env, { email }));
+
+  const profile = createUserProfileFromRegistrationInvitation({
+    uid: user.uid,
+    email,
+    invitation
+  });
+  const usedAt = Timestamp.now();
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, "users", user.uid), profile);
+  batch.update(
+    doc(firestore, REGISTRATION_INVITATIONS_COLLECTION, invitation.id),
+    createUsedRegistrationInvitationUpdate(user.uid, usedAt)
+  );
+
+  if (profile.role === "PICKER" && profile.workerId) {
+    batch.update(doc(firestore, WORKERS_COLLECTION, profile.workerId), {
+      linkedUserUid: user.uid,
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  await batch.commit();
+
+  return invitation;
+}
+
+export async function findPendingRegistrationInvitation(
+  env: FirebaseEnv,
+  user: { email: string }
+): Promise<RegistrationInvitationDocument> {
+  const { firestore } = await getFirebaseServices(env);
+  const { collection, getDocs, limit, query, where } = await import("firebase/firestore");
   const email = normalizeEmail(user.email);
   const invitationsQuery = query(
     collection(firestore, REGISTRATION_INVITATIONS_COLLECTION),
@@ -88,21 +141,6 @@ export async function claimRegistrationInvitationForUser(
   if (decoded.status === "INVALID") {
     throw new Error(decoded.reason);
   }
-
-  const profile = createUserProfileFromRegistrationInvitation({
-    uid: user.uid,
-    email,
-    invitation: decoded.invitation
-  });
-  const usedAt = Timestamp.now();
-  const batch = writeBatch(firestore);
-
-  batch.set(doc(firestore, "users", user.uid), profile);
-  batch.update(
-    doc(firestore, REGISTRATION_INVITATIONS_COLLECTION, decoded.invitation.id),
-    createUsedRegistrationInvitationUpdate(user.uid, usedAt)
-  );
-  await batch.commit();
 
   return decoded.invitation;
 }
@@ -193,6 +231,13 @@ export function getInvitedRegistrationErrorMessage(error: unknown): string {
 
   if (code === "auth/invalid-email") {
     return "Podaj poprawny e-mail.";
+  }
+
+  if (
+    error instanceof Error &&
+    error.message === "Brak aktywnego zaproszenia dla tego e-maila."
+  ) {
+    return "Nie można dokończyć rejestracji. Sprawdź dane z administratorem.";
   }
 
   if (error instanceof Error && error.message) {

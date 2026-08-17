@@ -399,11 +399,16 @@ function createHarvestHarnessState() {
         },
         conflicts: [],
         connection: input.isOnline ? "ONLINE" : "OFFLINE",
+        dailyWorkerHarvest: null,
         metrics: {
           availableWeightG: sessions
             .filter((session) => session.status === "CLOSED" || session.status === "PAID")
             .reduce((sum, session) => sum + session.totalWeightG, 0),
           conflictCount: 0,
+          harvestedWeightG: sessions
+            .filter((session) => session.status === "CLOSED" || session.status === "PAID")
+            .filter((session) => businessDateMatchesPeriod(session.businessDate, period))
+            .reduce((sum, session) => sum + session.totalWeightG, 0),
           localPendingCount: 0,
           openSessionCount: openSessions.length,
           ownClosedSessionCount: ownSessionsInPeriod.filter(

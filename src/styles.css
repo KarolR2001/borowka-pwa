@@ -1171,6 +1171,57 @@ h2 {
   font-weight: 800;
 }
 
+.operator-dashboard__worker-harvest {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #dce6df;
+  padding-top: 16px;
+}
+
+.operator-dashboard__worker-harvest-header,
+.operator-dashboard__worker-harvest li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.operator-dashboard__worker-harvest h3,
+.operator-dashboard__worker-harvest p {
+  margin: 0;
+}
+
+.operator-dashboard__worker-harvest-header > span {
+  color: #5f6f66;
+  font-size: 0.86rem;
+}
+
+.operator-dashboard__worker-harvest ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.operator-dashboard__worker-harvest li {
+  border-bottom: 1px solid #edf2ee;
+  padding: 10px 4px;
+}
+
+.operator-dashboard__worker-harvest li:last-child {
+  border-bottom: 0;
+}
+
+.operator-dashboard__worker-harvest li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.operator-dashboard__worker-harvest li > strong {
+  flex: 0 0 auto;
+}
+
 .operator-dashboard__conflicts li {
   display: grid;
   gap: 3px;

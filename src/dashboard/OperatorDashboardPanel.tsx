@@ -2,7 +2,7 @@ import { AlertTriangle, Gauge, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
-import { formatKilograms } from "../domain/format";
+import { formatBusinessDate, formatKilograms } from "../domain/format";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { DashboardPeriodFilter } from "./DashboardPeriodFilter";
 import {
@@ -225,6 +225,14 @@ export function OperatorDashboardPanel({
               value={result.activeSeason?.name ?? "Brak"}
             />
             <DashboardMetric
+              label={harvestMetricLabel(result.period.preset)}
+              value={
+                result.metrics.harvestedWeightG === null
+                  ? "Brak"
+                  : formatKilograms(result.metrics.harvestedWeightG)
+              }
+            />
+            <DashboardMetric
               label="Dostępne kilogramy"
               tone={
                 result.metrics.availableWeightG === null ||
@@ -240,6 +248,30 @@ export function OperatorDashboardPanel({
             />
           </div>
 
+          {result.dailyWorkerHarvest ? (
+            <section
+              className="operator-dashboard__worker-harvest"
+              aria-label="Dzienne zbiory zbieraczy"
+            >
+              <div className="operator-dashboard__worker-harvest-header">
+                <h3>Zbiory zbieraczy</h3>
+                <span>{formatBusinessDate(result.dailyWorkerHarvest.businessDate)}</span>
+              </div>
+              {result.dailyWorkerHarvest.workers.length > 0 ? (
+                <ul>
+                  {result.dailyWorkerHarvest.workers.map((worker) => (
+                    <li key={worker.workerId}>
+                      <span>{worker.workerName}</span>
+                      <strong>{formatKilograms(worker.weightG)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-state">Brak zamkniętych zbiorów tego dnia.</p>
+              )}
+            </section>
+          ) : null}
+
           {warnings.length > 0 ? (
             <div className="operator-dashboard__warnings" role="alert">
               <AlertTriangle aria-hidden="true" size={20} />
@@ -254,6 +286,21 @@ export function OperatorDashboardPanel({
       ) : null}
     </section>
   );
+}
+
+function harvestMetricLabel(preset: OperatorDashboardResult["period"]["preset"]): string {
+  switch (preset) {
+    case "TODAY":
+      return "Zebrano dzisiaj";
+    case "CURRENT_WEEK":
+      return "Zebrano w tym tygodniu";
+    case "CURRENT_MONTH":
+      return "Zebrano w tym miesiącu";
+    case "SEASON":
+      return "Zebrano od początku sezonu";
+    case "CUSTOM":
+      return "Zebrano w wybranym okresie";
+  }
 }
 
 function DashboardMetric({

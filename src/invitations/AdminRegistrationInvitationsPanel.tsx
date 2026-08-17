@@ -103,6 +103,7 @@ export function AdminRegistrationInvitationsPanel({
   const [formState, setFormState] = useState<InvitationFormState>(
     initialInvitationFormState
   );
+  const [formKey, setFormKey] = useState(0);
   const [invitationsState, setInvitationsState] = useState<InvitationsState>(
     initialInvitationsState
   );
@@ -265,6 +266,7 @@ export function AdminRegistrationInvitationsPanel({
       });
 
       setFormState(initialInvitationFormState);
+      setFormKey((current) => current + 1);
       setFeedback(`Dodano zaproszenie dla ${invitation.emailNormalized}.`);
       setReloadToken((current) => current + 1);
     } catch (submitError: unknown) {
@@ -295,6 +297,7 @@ export function AdminRegistrationInvitationsPanel({
       <div className="screen-actions" aria-label="Akcje rejestracji">
         <CollapsibleSection
           icon={<UserPlus aria-hidden="true" size={18} strokeWidth={2.2} />}
+          key={formKey}
           label="Zarejestruj nowe konto"
         >
           <InvitationForm

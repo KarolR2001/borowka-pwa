@@ -137,18 +137,6 @@ export function ActiveHarvestSessionPanel({
           }`}
         />
         <SessionMetric
-          label="Aktywne wpisy"
-          value={String(view.session.totalEntryCount)}
-        />
-        <SessionMetric
-          label="Suma jednostek"
-          value={formatSessionQuantity(
-            view.session.totalQuantityMilli,
-            view.session.quantityPrecisionSnapshot,
-            view.session.unitLabelSnapshot
-          )}
-        />
-        <SessionMetric
           label="Suma kg"
           value={formatKilograms(view.session.totalWeightG)}
         />

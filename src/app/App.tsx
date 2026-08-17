@@ -48,6 +48,7 @@ import {
   type AuthSessionState
 } from "../auth/authSession";
 import {
+  claimRegistrationInvitationForUser,
   getInvitedRegistrationErrorMessage,
   registerInvitedUser,
   validateInvitedRegistrationInput,
@@ -226,6 +227,7 @@ export type AuthSessionApi = {
   ) => Promise<void>;
   requestPasswordReset: (env: FirebaseEnv, email: string) => Promise<void>;
   register: (env: FirebaseEnv, input: InvitedRegistrationInput) => Promise<void>;
+  completeRegistration?: (env: FirebaseEnv, user: AuthenticatedUser) => Promise<void>;
   refresh: (env: FirebaseEnv) => Promise<AuthSessionState>;
   updateOfflineConsent: (
     env: FirebaseEnv,
@@ -274,6 +276,16 @@ const defaultAuthSessionApi: AuthSessionApi = {
   signIn: signInWithEmailPassword,
   requestPasswordReset: requestPasswordResetEmail,
   register: registerInvitedUser,
+  completeRegistration: (env, user) => {
+    if (!user.email) {
+      return Promise.reject(new Error("Konto nie ma adresu e-mail."));
+    }
+
+    return claimRegistrationInvitationForUser(env, {
+      email: user.email,
+      uid: user.uid
+    }).then(() => undefined);
+  },
   refresh: refreshCurrentAuthSession,
   updateOfflineConsent: updateTrustedOfflineConsent,
   signOut: signOutCurrentUser
@@ -1667,6 +1679,32 @@ function AuthPanel({
     }
   };
 
+  const handleCompleteRegistration = async () => {
+    if (!hasAuthenticatedUser(authState) || !authSessionApi.completeRegistration) {
+      setError("Nie można dokończyć rejestracji. Zaloguj się ponownie.");
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await authSessionApi.completeRegistration(env, authState.user);
+      const nextAuthState = await authSessionApi.refresh(env);
+      onAuthStateUpdated(nextAuthState);
+      setFeedback(
+        nextAuthState.status === "READY"
+          ? "Rejestracja została dokończona."
+          : "Zaproszenie zostało zapisane. Pobieram profil."
+      );
+    } catch (submitError: unknown) {
+      setError(getInvitedRegistrationErrorMessage(submitError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     setIsSignOutReviewOpen(false);
     setIsClearConfirmationOpen(false);
@@ -1811,6 +1849,26 @@ function AuthPanel({
 
           {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
           {error ? <p className="form-message form-message--error">{error}</p> : null}
+
+          {authState.status === "MISSING_PROFILE" ? (
+            <div className="safe-sign-out" aria-label="Dokończenie rejestracji">
+              <p className="panel-detail">
+                Jeśli administrator wcześniej przygotował konto dla tego adresu e-mail,
+                możesz teraz dokończyć rejestrację.
+              </p>
+              <button
+                className="primary-action"
+                disabled={isSubmitting || !isOnline}
+                onClick={() => {
+                  void handleCompleteRegistration();
+                }}
+                type="button"
+              >
+                <UserPlus aria-hidden="true" size={18} strokeWidth={2.2} />
+                <span>Dokończ rejestrację</span>
+              </button>
+            </div>
+          ) : null}
 
           {isSignOutReviewOpen ? (
             <div

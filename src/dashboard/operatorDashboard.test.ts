@@ -17,6 +17,7 @@ describe("operator dashboard", () => {
       metrics: {
         availableWeightG: 9000,
         conflictCount: 1,
+        harvestedWeightG: 12_000,
         localPendingCount: 2,
         openSessionCount: 2,
         ownClosedSessionCount: 1,
@@ -44,6 +45,7 @@ describe("operator dashboard", () => {
         label: "Odrzucony"
       }
     ]);
+    expect(result.dailyWorkerHarvest).toBeNull();
     expect(JSON.stringify(result)).not.toContain("rateGroszSnapshot");
     expect(JSON.stringify(result)).not.toContain("amountDueGrosz");
     expect(JSON.stringify(result)).not.toContain("priceGroszPerKg");
@@ -101,6 +103,7 @@ describe("operator dashboard", () => {
 
     expect(result.metrics).toMatchObject({
       availableWeightG: 9000,
+      harvestedWeightG: 0,
       openSessionCount: 2,
       ownClosedSessionCount: 0,
       ownOpenSessionCount: 1
@@ -111,6 +114,48 @@ describe("operator dashboard", () => {
       dateBasis: "BUSINESS_DATE",
       fromDate: "2026-07-28",
       toDate: "2026-07-28"
+    });
+    expect(result.dailyWorkerHarvest).toEqual({
+      businessDate: "2026-07-28",
+      workers: []
+    });
+  });
+
+  it("groups confirmed harvest by picker for a single selected day", () => {
+    const result = dashboard({
+      dailyHarvestSessionDocuments: [
+        {
+          data: session({
+            businessDate: "2026-07-29",
+            createdBy: "operator-2",
+            id: "session-bartek-closed",
+            status: "CLOSED",
+            totalWeightG: 9500,
+            workerId: "worker-2",
+            workerNameSnapshot: "Bartek"
+          }),
+          id: "session-bartek-closed"
+        }
+      ],
+      metricOverrides: {
+        harvestedWeightG: 21_500,
+        ownClosedSessionCount: 1,
+        ownOpenSessionCount: 1
+      },
+      periodSelection: {
+        customFromDate: "",
+        customToDate: "",
+        preset: "TODAY"
+      }
+    });
+
+    expect(result.metrics.harvestedWeightG).toBe(21_500);
+    expect(result.dailyWorkerHarvest).toEqual({
+      businessDate: "2026-07-29",
+      workers: [
+        { weightG: 12_000, workerId: "worker-1", workerName: "Anna" },
+        { weightG: 9500, workerId: "worker-2", workerName: "Bartek" }
+      ]
     });
   });
 });
