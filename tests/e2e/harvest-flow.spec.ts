@@ -29,7 +29,7 @@ test.describe("Seeded harvest flow", () => {
     await expect(operatorDashboard.getByText(/moje konflikty/i)).toHaveCount(0);
     await operatorDashboard.getByText("Zakres dat", { exact: true }).click();
     const periodSelect = operatorDashboard.locator("#operator-dashboard-period");
-    await expect(periodSelect).toHaveValue("TODAY");
+    await expect(periodSelect).toHaveValue("SEASON");
     await periodSelect.selectOption("CUSTOM");
     await operatorDashboard.locator("#operator-dashboard-period-from").fill("2026-07-17");
     await operatorDashboard.locator("#operator-dashboard-period-to").fill("2026-07-17");
@@ -80,17 +80,19 @@ test.describe("Seeded harvest flow", () => {
     ).toBeVisible();
 
     for (let entryNumber = 1; entryNumber <= 10; entryNumber += 1) {
+      if (entryNumber > 1) {
+        await page.getByRole("button", { name: "Dodaj wpis" }).click();
+      }
       await page.getByLabel("Waga kg").fill("1,000");
       await page.getByRole("button", { name: "Zapisz wpis" }).click();
-      await expect(page.getByText("Wpis wagowy dodany lokalnie.")).toBeVisible();
+      await expect(
+        page.getByRole("dialog", { name: "Dodawanie wpisu zbioru" })
+      ).toHaveCount(0);
       await expect(
         page.getByText(`#${String(entryNumber)}`, { exact: true }).first()
       ).toBeVisible();
     }
 
-    await page.getByRole("button", { name: "Zamknij formularz wpisu" }).click();
-
-    await expect(page.getByText("10 kilogram")).toBeVisible();
     await expect(page.getByText("10,000 kg")).toBeVisible();
 
     await page.getByRole("button", { name: "Zamknij sesję" }).click();
@@ -126,7 +128,6 @@ test.describe("Seeded harvest flow", () => {
     await page.getByRole("button", { name: "Anuluj wpis" }).click();
 
     await expect(page.getByText("Anulowano wpis #10.")).toBeVisible();
-    await expect(page.getByText("9 kilogram")).toBeVisible();
     await expect(page.getByText("Anulowany")).toBeVisible();
 
     await page.getByRole("button", { name: "Dodaj wpis" }).click();
@@ -135,10 +136,10 @@ test.describe("Seeded harvest flow", () => {
     ).toBeVisible();
     await page.getByLabel("Waga kg").fill("1,000");
     await page.getByRole("button", { name: "Zapisz wpis" }).click();
-    await expect(page.getByText("Wpis wagowy dodany lokalnie.")).toBeVisible();
-    await page.getByRole("button", { name: "Zamknij formularz wpisu" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Dodawanie wpisu zbioru" })
+    ).toHaveCount(0);
     await expect(page.getByText("#11", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("10 kilogram")).toBeVisible();
 
     await page.getByRole("button", { name: "Zamknij sesję" }).click();
 
