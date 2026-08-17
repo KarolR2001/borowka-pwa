@@ -382,9 +382,11 @@ describe("OperatorHarvestSessionsPanel", () => {
       isOnline: true
     });
     expect(onLocalDocumentsChanged).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("dialog", { name: "Dodawanie wpisu zbioru" })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Dodawanie wpisu zbioru" })
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("reuses the same entry identity when a lost response is retried", async () => {

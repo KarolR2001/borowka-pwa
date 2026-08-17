@@ -49,8 +49,9 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    expect(await screen.findByText("12,500 kg")).toBeVisible();
+    expect((await screen.findAllByText("12,500 kg")).length).toBeGreaterThan(0);
     expect(within(metric("Aktywny sezon")).getByText("Sezon 2026")).toBeVisible();
+    expect(within(metric("Zebrano dzisiaj")).getByText("12,500 kg")).toBeVisible();
     expect(within(metric("Dostępne kilogramy")).getByText("12,500 kg")).toBeVisible();
     expect(screen.queryByText("Zbieracz A")).not.toBeInTheDocument();
     expect(screen.queryByText("Otwarte sesje")).not.toBeInTheDocument();
@@ -72,7 +73,7 @@ describe("OperatorDashboardPanel", () => {
         periodSelection: {
           customFromDate: "",
           customToDate: "",
-          preset: "TODAY"
+          preset: "SEASON"
         },
         syncDocuments: [{ id: "pending-1", kind: "HARVEST_ENTRY", pendingSync: true }]
       })
@@ -108,6 +109,45 @@ describe("OperatorDashboardPanel", () => {
     ).not.toBeInTheDocument();
     expect(api.load).toHaveBeenCalledTimes(1);
     target.remove();
+  });
+
+  it("shows daily harvest totals for each picker when one day is selected", async () => {
+    const api = dashboardApi({
+      dailyWorkerHarvest: {
+        businessDate: "2026-07-29",
+        workers: [
+          { weightG: 7500, workerId: "worker-anna", workerName: "Anna Zbieracz" },
+          { weightG: 4250, workerId: "worker-bartek", workerName: "Bartek Zbieracz" }
+        ]
+      },
+      metrics: {
+        ...dashboardResult().metrics,
+        harvestedWeightG: 11_750
+      },
+      period: {
+        dateBasis: "BUSINESS_DATE",
+        fromDate: "2026-07-29",
+        label: "Dzisiaj: 29.07.2026",
+        preset: "TODAY",
+        toDate: "2026-07-29"
+      }
+    });
+
+    render(
+      <OperatorDashboardPanel
+        api={api}
+        authState={operatorState}
+        env={{}}
+        isOnline={true}
+        syncDocuments={[]}
+      />
+    );
+
+    const harvest = await screen.findByLabelText("Dzienne zbiory zbieraczy");
+    expect(within(harvest).getByText("Anna Zbieracz")).toBeVisible();
+    expect(within(harvest).getByText("7,500 kg")).toBeVisible();
+    expect(within(harvest).getByText("Bartek Zbieracz")).toBeVisible();
+    expect(within(harvest).getByText("4,250 kg")).toBeVisible();
   });
 
   it("marks cached offline stock and does not load for another role", async () => {
@@ -175,7 +215,7 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    expect(await screen.findByText("12,500 kg")).toBeVisible();
+    expect((await screen.findAllByText("12,500 kg")).length).toBeGreaterThan(0);
     rerender(
       <OperatorDashboardPanel
         api={api}
@@ -216,7 +256,7 @@ describe("OperatorDashboardPanel", () => {
       />
     );
 
-    expect(await screen.findByText("12,500 kg")).toBeVisible();
+    expect((await screen.findAllByText("12,500 kg")).length).toBeGreaterThan(0);
     const otherOperatorState: ReadyAuthState = {
       ...operatorState,
       profile: { ...operatorState.profile, uid: "operator-2" },
@@ -235,7 +275,7 @@ describe("OperatorDashboardPanel", () => {
     expect(
       await screen.findByText("Nie udało się pobrać pulpitu operatora.")
     ).toBeVisible();
-    expect(screen.queryByText("12,500 kg")).not.toBeInTheDocument();
+    expect(screen.queryAllByText("12,500 kg")).toHaveLength(0);
     expect(load).toHaveBeenCalledTimes(2);
   });
 });
@@ -281,11 +321,13 @@ function dashboardResult(
     metrics: {
       availableWeightG: 12_500,
       conflictCount: 1,
+      harvestedWeightG: 12_500,
       localPendingCount: 1,
       openSessionCount: 2,
       ownClosedSessionCount: 2,
       ownOpenSessionCount: 1
     },
+    dailyWorkerHarvest: null,
     openSessions: [
       {
         businessDate: "2026-07-29",

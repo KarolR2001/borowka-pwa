@@ -540,6 +540,8 @@ export function OperatorHarvestSessionsPanel({
       identity: attempt.identity
     });
 
+    setHasUnsavedFormInteraction(false);
+    setIsEntryFormOpen(false);
     await onLocalDocumentsChanged?.();
     await reload(result.selectedSessionId);
     pendingEntryAttemptRef.current = null;

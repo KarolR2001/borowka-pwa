@@ -33,7 +33,7 @@ type FirebaseEnv = Record<string, string | boolean | undefined>;
 export const DEFAULT_OPERATOR_DASHBOARD_PERIOD: DashboardPeriodSelection = {
   customFromDate: "",
   customToDate: "",
-  preset: "TODAY"
+  preset: "SEASON"
 };
 
 type RawDocument = {
@@ -46,6 +46,12 @@ export type OperatorDashboardSession = {
   businessDate: string;
   id: string;
   status: HarvestSessionDocument["status"];
+  workerName: string;
+};
+
+export type OperatorDailyWorkerHarvest = {
+  weightG: number;
+  workerId: string;
   workerName: string;
 };
 
@@ -63,11 +69,16 @@ export type OperatorDashboardResult = {
   metrics: {
     availableWeightG: number | null;
     conflictCount: number;
+    harvestedWeightG: number | null;
     localPendingCount: number;
     openSessionCount: number;
     ownClosedSessionCount: number;
     ownOpenSessionCount: number;
   };
+  dailyWorkerHarvest: {
+    businessDate: string;
+    workers: OperatorDailyWorkerHarvest[];
+  } | null;
   openSessions: OperatorDashboardSession[];
   ownRecentSessions: OperatorDashboardSession[];
   period: ResolvedDashboardPeriod;
@@ -127,6 +138,9 @@ export async function loadOperatorDashboard(
   let movementDocuments: RawDocument[] = [];
   let movementFromCache = !input.isOnline;
   let stockAggregate: { availableWeightG: number; movementCount: number } | null = null;
+  let harvestedWeightG: number | null = null;
+  let harvestedSessionDocuments: RawDocument[] = [];
+  let dailyHarvestSessionDocuments: RawDocument[] = [];
   let ownClosedSessionCount: number | null = null;
   let ownOpenSessionCount: number | null = null;
 
@@ -155,6 +169,20 @@ export async function loadOperatorDashboard(
       orderBy("createdAtServer", "desc"),
       ...(input.isOnline ? [limit(OPERATOR_RECENT_SESSION_LIMIT)] : [])
     );
+    const confirmedHarvestQuery = query(
+      sessions,
+      where("seasonId", "==", activeSeason.id),
+      where("status", "in", ["CLOSED", "PAID"]),
+      ...dashboardPeriodQueryConstraints("businessDate", period, where)
+    );
+    const dailyHarvestQuery = isSingleBusinessDay(period)
+      ? query(
+          sessions,
+          where("seasonId", "==", activeSeason.id),
+          where("status", "in", ["CLOSED", "PAID"]),
+          where("businessDate", "==", period.fromDate)
+        )
+      : null;
 
     if (input.isOnline) {
       const [
@@ -162,7 +190,9 @@ export async function loadOperatorDashboard(
         ownRecentSnapshot,
         stockSnapshot,
         ownClosedSnapshot,
-        ownOpenSnapshot
+        ownOpenSnapshot,
+        harvestedSnapshot,
+        dailyHarvestSnapshot
       ] = await Promise.all([
         getDocs(openSessionsQuery),
         getDocs(ownRecentQuery),
@@ -188,7 +218,11 @@ export async function loadOperatorDashboard(
             where("status", "==", "OPEN")
           ),
           { ownOpenSessionCount: count() }
-        )
+        ),
+        getAggregateFromServer(confirmedHarvestQuery, {
+          harvestedWeightG: sum("totalWeightG")
+        }),
+        dailyHarvestQuery ? getDocs(dailyHarvestQuery) : Promise.resolve(null)
       ]);
       const stockData = stockSnapshot.data();
       stockAggregate = {
@@ -199,24 +233,37 @@ export async function loadOperatorDashboard(
       assertAggregateInteger(stockAggregate.movementCount);
       ownClosedSessionCount = ownClosedSnapshot.data().ownClosedSessionCount;
       ownOpenSessionCount = ownOpenSnapshot.data().ownOpenSessionCount;
+      harvestedWeightG = harvestedSnapshot.data().harvestedWeightG;
+      assertAggregateInteger(harvestedWeightG);
       openSessionDocuments = toRawDocuments(openSnapshot.docs);
       ownSessionDocuments = toRawDocuments(ownRecentSnapshot.docs);
+      dailyHarvestSessionDocuments = dailyHarvestSnapshot
+        ? toRawDocuments(dailyHarvestSnapshot.docs)
+        : [];
       movementFromCache = false;
     } else {
-      const [openSnapshot, ownRecentSnapshot, ownOpenSnapshot, movementSnapshot] =
-        await Promise.all([
-          getDocsFromCache(openSessionsQuery),
-          getDocsFromCache(ownRecentQuery),
-          getDocsFromCache(
-            query(
-              sessions,
-              where("createdBy", "==", input.actorProfile.uid),
-              where("seasonId", "==", activeSeason.id),
-              where("status", "==", "OPEN")
-            )
-          ),
-          getDocsFromCache(query(movements, where("seasonId", "==", activeSeason.id)))
-        ]);
+      const [
+        openSnapshot,
+        ownRecentSnapshot,
+        ownOpenSnapshot,
+        movementSnapshot,
+        harvestedSnapshot,
+        dailyHarvestSnapshot
+      ] = await Promise.all([
+        getDocsFromCache(openSessionsQuery),
+        getDocsFromCache(ownRecentQuery),
+        getDocsFromCache(
+          query(
+            sessions,
+            where("createdBy", "==", input.actorProfile.uid),
+            where("seasonId", "==", activeSeason.id),
+            where("status", "==", "OPEN")
+          )
+        ),
+        getDocsFromCache(query(movements, where("seasonId", "==", activeSeason.id))),
+        getDocsFromCache(confirmedHarvestQuery),
+        dailyHarvestQuery ? getDocsFromCache(dailyHarvestQuery) : Promise.resolve(null)
+      ]);
       openSessionDocuments = toRawDocuments(openSnapshot.docs);
       ownSessionDocuments = toRawDocuments(ownRecentSnapshot.docs);
       ownClosedSessionCount = ownSessionDocuments.filter((document) => {
@@ -240,6 +287,10 @@ export async function loadOperatorDashboard(
         hasPendingWrites: snapshot.metadata.hasPendingWrites,
         id: snapshot.id
       }));
+      harvestedSessionDocuments = toRawDocuments(harvestedSnapshot.docs);
+      dailyHarvestSessionDocuments = dailyHarvestSnapshot
+        ? toRawDocuments(dailyHarvestSnapshot.docs)
+        : [];
       movementFromCache = true;
     }
   }
@@ -249,9 +300,12 @@ export async function loadOperatorDashboard(
     businessDate,
     isOnline: input.isOnline,
     metricOverrides: {
+      harvestedWeightG,
       ownClosedSessionCount,
       ownOpenSessionCount
     },
+    dailyHarvestSessionDocuments,
+    harvestedSessionDocuments,
     movementDocuments,
     movementFromCache,
     openSessionDocuments,
@@ -267,6 +321,8 @@ export async function loadOperatorDashboard(
 export function buildOperatorDashboard({
   actorUid,
   businessDate,
+  dailyHarvestSessionDocuments = [],
+  harvestedSessionDocuments = [],
   isOnline,
   metricOverrides = {},
   movementDocuments,
@@ -281,8 +337,11 @@ export function buildOperatorDashboard({
 }: {
   actorUid: string;
   businessDate: string;
+  dailyHarvestSessionDocuments?: readonly RawDocument[];
+  harvestedSessionDocuments?: readonly RawDocument[];
   isOnline: boolean;
   metricOverrides?: {
+    harvestedWeightG?: number | null;
     ownClosedSessionCount?: number | null;
     ownOpenSessionCount?: number | null;
   };
@@ -308,7 +367,9 @@ export function buildOperatorDashboard({
   const activeSeason = selectActiveSeason(seasonDocuments);
   const sessions = decodeUniqueSessions([
     ...openSessionDocuments,
-    ...ownSessionDocuments
+    ...ownSessionDocuments,
+    ...harvestedSessionDocuments,
+    ...dailyHarvestSessionDocuments
   ]);
   const openSessions = sessions
     .filter((session) => session.status === "OPEN")
@@ -325,6 +386,17 @@ export function buildOperatorDashboard({
     (session) =>
       session.seasonId === activeSeason?.id &&
       businessDateMatchesPeriod(session.businessDate, period)
+  );
+  const harvestedSessionsInPeriod = sessions.filter(
+    (session) =>
+      session.seasonId === activeSeason?.id &&
+      isConfirmedHarvestSession(session) &&
+      businessDateMatchesPeriod(session.businessDate, period)
+  );
+  const dailyWorkerHarvest = buildDailyWorkerHarvest(
+    sessions,
+    activeSeason?.id ?? null,
+    period
   );
   const syncSummary = summarizeSyncDocumentMetadata(syncDocuments);
   const conflicts = buildOperatorConflicts(syncSummary);
@@ -364,6 +436,7 @@ export function buildOperatorDashboard({
       : null,
     conflicts,
     connection: isOnline ? "ONLINE" : "OFFLINE",
+    dailyWorkerHarvest,
     metrics: {
       availableWeightG:
         invalidMovementCount > 0 || !stockCalculation
@@ -375,6 +448,11 @@ export function buildOperatorDashboard({
           (session) => session.status === "CLOSED" || session.status === "PAID"
         ).length,
       conflictCount: conflicts.length,
+      harvestedWeightG:
+        activeSeason === null
+          ? null
+          : (metricOverrides.harvestedWeightG ??
+            sumHarvestSessionWeight(harvestedSessionsInPeriod)),
       localPendingCount: syncSummary.localSavedCount + syncSummary.pendingSyncCount,
       openSessionCount: openSessions.length,
       ownOpenSessionCount:
@@ -440,6 +518,7 @@ export function isOperatorDashboardSnapshot(
     !value.conflicts.every(isOperatorConflict) ||
     (value.connection !== "ONLINE" && value.connection !== "OFFLINE") ||
     !isOperatorMetrics(value.metrics) ||
+    !isDailyWorkerHarvest(value.dailyWorkerHarvest) ||
     !Array.isArray(value.openSessions) ||
     !value.openSessions.every(isOperatorSession) ||
     !Array.isArray(value.ownRecentSessions) ||
@@ -522,6 +601,75 @@ function toSafeSession(session: HarvestSessionDocument): OperatorDashboardSessio
     status: session.status,
     workerName: session.workerNameSnapshot
   };
+}
+
+function isConfirmedHarvestSession(session: HarvestSessionDocument): boolean {
+  return session.status === "CLOSED" || session.status === "PAID";
+}
+
+function sumHarvestSessionWeight(sessions: readonly HarvestSessionDocument[]): number {
+  return sessions.reduce((total, session) => {
+    const next = total + session.totalWeightG;
+
+    if (!Number.isSafeInteger(next) || next < 0) {
+      throw new Error("Pulpit operatora zawiera nieprawidłową sumę zbiorów.");
+    }
+
+    return next;
+  }, 0);
+}
+
+function buildDailyWorkerHarvest(
+  sessions: readonly HarvestSessionDocument[],
+  activeSeasonId: string | null,
+  period: ResolvedDashboardPeriod
+): OperatorDashboardResult["dailyWorkerHarvest"] {
+  if (!activeSeasonId || !isSingleBusinessDay(period)) {
+    return null;
+  }
+
+  const weightsByWorker = new Map<string, OperatorDailyWorkerHarvest>();
+
+  for (const session of sessions) {
+    if (
+      session.seasonId !== activeSeasonId ||
+      !isConfirmedHarvestSession(session) ||
+      session.businessDate !== period.fromDate
+    ) {
+      continue;
+    }
+
+    const current = weightsByWorker.get(session.workerId);
+    const weightG = (current?.weightG ?? 0) + session.totalWeightG;
+
+    if (!Number.isSafeInteger(weightG) || weightG < 0) {
+      throw new Error("Pulpit operatora zawiera nieprawidłową sumę zbieracza.");
+    }
+
+    weightsByWorker.set(session.workerId, {
+      workerId: session.workerId,
+      workerName: current?.workerName ?? session.workerNameSnapshot,
+      weightG
+    });
+  }
+
+  return {
+    businessDate: period.fromDate,
+    workers: [...weightsByWorker.values()].sort(
+      (left, right) =>
+        right.weightG - left.weightG ||
+        left.workerName.localeCompare(right.workerName, "pl")
+    )
+  };
+}
+
+function isSingleBusinessDay(
+  period: Pick<ResolvedDashboardPeriod, "fromDate" | "toDate">
+): period is Pick<ResolvedDashboardPeriod, "fromDate" | "toDate"> & {
+  fromDate: string;
+  toDate: string;
+} {
+  return period.fromDate !== null && period.fromDate === period.toDate;
 }
 
 function compareSessions(
@@ -635,6 +783,8 @@ function isOperatorMetrics(value: unknown): boolean {
   return (
     isRecord(value) &&
     (value.availableWeightG === null || isSafeInteger(value.availableWeightG)) &&
+    (value.harvestedWeightG === null ||
+      isNonNegativeSafeInteger(value.harvestedWeightG)) &&
     [
       value.conflictCount,
       value.localPendingCount,
@@ -642,6 +792,22 @@ function isOperatorMetrics(value: unknown): boolean {
       value.ownClosedSessionCount,
       value.ownOpenSessionCount
     ].every(isNonNegativeSafeInteger)
+  );
+}
+
+function isDailyWorkerHarvest(value: unknown): boolean {
+  return (
+    value === null ||
+    (isRecord(value) &&
+      typeof value.businessDate === "string" &&
+      Array.isArray(value.workers) &&
+      value.workers.every(
+        (worker) =>
+          isRecord(worker) &&
+          typeof worker.workerId === "string" &&
+          typeof worker.workerName === "string" &&
+          isNonNegativeSafeInteger(worker.weightG)
+      ))
   );
 }
 

@@ -103,9 +103,10 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.queryByText(/online|offline/i)).not.toBeInTheDocument();
     expect(screen.getByText("Za kilogram")).toBeInTheDocument();
     expect(screen.getByText("10,00 zł / kilogram")).toBeInTheDocument();
-    expect(screen.getByText("3 kilogram")).toBeInTheDocument();
     expect(screen.getByText("6,310 kg")).toBeInTheDocument();
     expect(screen.getByText("63,10 zł")).toBeInTheDocument();
+    expect(screen.queryByText("Aktywne wpisy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Suma jednostek")).not.toBeInTheDocument();
     expect(screen.queryByText("Telefon operatora")).not.toBeInTheDocument();
     expect(screen.getAllByText("#2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Dodaj wpis" })).toBeEnabled();
