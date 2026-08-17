@@ -29,6 +29,13 @@ describe("invited registration", () => {
     expect(
       validateInvitedRegistrationInput({
         ...validInput,
+        password: "too-short",
+        passwordConfirmation: "too-short"
+      })
+    ).toBe("Haslo musi miec co najmniej 10 znakow.");
+    expect(
+      validateInvitedRegistrationInput({
+        ...validInput,
         passwordConfirmation: "different-password"
       })
     ).toBe("Hasla musza byc takie same.");

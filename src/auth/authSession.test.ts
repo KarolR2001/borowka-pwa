@@ -94,7 +94,7 @@ describe("auth session domain", () => {
       "Zbyt wiele nieudanych prób logowania. Odczekaj chwilę albo zresetuj hasło."
     );
     expect(getPasswordResetErrorMessage({ code: "auth/network-request-failed" })).toBe(
-      "Brak polaczenia z Firebase. Reset hasla wymaga internetu."
+      "Brak połączenia z serwerem. Prośba o zmianę hasła wymaga internetu."
     );
     expect(getProfileReadErrorMessage({ code: "permission-denied" })).toBe(
       "Brak dostepu do profilu aplikacji."

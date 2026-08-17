@@ -9,6 +9,7 @@ export type FirebaseRuntimeStatus = {
   emulatorHost: string;
   authEmulatorPort: number;
   firestoreEmulatorPort: number;
+  functionsEmulatorPort: number;
   label: string;
   warnings: string[];
 };
@@ -22,6 +23,7 @@ export function getFirebaseRuntimeStatus(env: FirebaseRuntimeEnv): FirebaseRunti
   const emulatorHost = readString(env.VITE_FIREBASE_EMULATOR_HOST, "127.0.0.1");
   const authEmulatorPort = readPort(env.VITE_FIREBASE_AUTH_EMULATOR_PORT, 9099);
   const firestoreEmulatorPort = readPort(env.VITE_FIRESTORE_EMULATOR_PORT, 8080);
+  const functionsEmulatorPort = readPort(env.VITE_FIREBASE_FUNCTIONS_EMULATOR_PORT, 5001);
   const warnings: string[] = [];
 
   if (appEnvironment === "production" && useEmulators) {
@@ -45,6 +47,7 @@ export function getFirebaseRuntimeStatus(env: FirebaseRuntimeEnv): FirebaseRunti
     emulatorHost,
     authEmulatorPort,
     firestoreEmulatorPort,
+    functionsEmulatorPort,
     label: createRuntimeLabel(
       mode,
       emulatorHost,

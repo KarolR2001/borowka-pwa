@@ -23,6 +23,7 @@ export default tseslint.config(
         projectService: {
           allowDefaultProject: [
             "eslint.config.js",
+            "functions/*.js",
             "scripts/*.mjs",
             "tests/scripts/*.mjs"
           ],
@@ -64,6 +65,20 @@ export default tseslint.config(
   },
   {
     files: ["scripts/*.mjs", "tests/scripts/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    },
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/restrict-template-expressions": "off"
+    }
+  },
+  {
+    files: ["functions/*.js"],
     languageOptions: {
       globals: {
         ...globals.node

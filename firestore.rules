@@ -2632,6 +2632,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /passwordResetRequests/{requestId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /devices/{deviceId} {
       allow get: if isSignedIn() && hasApprovedActiveProfile(request.auth.uid);
       allow list: if isAdmin();

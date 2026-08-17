@@ -9,7 +9,7 @@ import {
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
-export const INVITED_REGISTRATION_MIN_PASSWORD_LENGTH = 6;
+export const INVITED_REGISTRATION_MIN_PASSWORD_LENGTH = 10;
 
 export type InvitedRegistrationInput = {
   email: string;

@@ -2,6 +2,7 @@ import type { Auth, User as FirebaseAuthUser } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 
 import {
+  getFirebaseFunctions,
   getFirebaseServices,
   getFirebaseServicesStatus
 } from "../config/firebaseServices";
@@ -18,7 +19,7 @@ export { decodeUserProfile } from "../domain/identity";
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
 export const PASSWORD_RESET_CONFIRMATION =
-  "Jesli konto istnieje, wyslalismy link resetujacy haslo. Sprawdz skrzynke i spam.";
+  "Jeśli konto istnieje, przekazaliśmy prośbę administratorowi. Administrator nada nowe hasło.";
 
 const PROFILE_READ_MISSING_RETRIES = 4;
 const PROFILE_READ_RETRY_DELAY_MS = 250;
@@ -204,29 +205,15 @@ export async function signInWithEmailPassword(
   await signInWithEmailAndPassword(auth, email, credentials.password);
 }
 
-export async function requestPasswordResetEmail(
+export async function requestPasswordReset(
   env: FirebaseEnv,
   emailInput: string
 ): Promise<void> {
   const email = normalizeEmail(emailInput);
-  const { auth } = await getReadyFirebaseServices(env);
-  const { sendPasswordResetEmail } = await import("firebase/auth");
+  const functions = await getReadyFirebaseFunctions(env);
+  const { httpsCallable } = await import("firebase/functions");
 
-  try {
-    await sendPasswordResetEmail(auth, email);
-  } catch (error: unknown) {
-    if (isNetworkError(error)) {
-      throw error;
-    }
-
-    const code = getFirebaseErrorCode(error);
-
-    if (code === "auth/user-not-found" || code === "auth/invalid-email") {
-      return;
-    }
-
-    throw error;
-  }
+  await httpsCallable(functions, "requestPasswordReset")({ email });
 }
 
 export async function signOutCurrentUser(env: FirebaseEnv): Promise<void> {
@@ -390,10 +377,10 @@ export function getLoginErrorMessage(error: unknown): string {
 
 export function getPasswordResetErrorMessage(error: unknown): string {
   if (isNetworkError(error)) {
-    return "Brak polaczenia z Firebase. Reset hasla wymaga internetu.";
+    return "Brak połączenia z serwerem. Prośba o zmianę hasła wymaga internetu.";
   }
 
-  return "Nie udalo sie wyslac resetu hasla. Sprobuj ponownie pozniej.";
+  return "Nie udało się przekazać prośby administratorowi. Spróbuj ponownie później.";
 }
 
 export function getOfflineConsentUpdateErrorMessage(error: unknown): string {
@@ -438,6 +425,16 @@ async function getReadyFirebaseServices(env: FirebaseEnv) {
   return getFirebaseServices(env);
 }
 
+async function getReadyFirebaseFunctions(env: FirebaseEnv) {
+  const status = getFirebaseServicesStatus(env);
+
+  if (!status.ready) {
+    throw new Error(status.message);
+  }
+
+  return getFirebaseFunctions(env);
+}
+
 async function ensureLocalAuthPersistence(auth: Auth): Promise<void> {
   const existingPromise = authPersistencePromises.get(auth);
 
@@ -473,7 +470,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isNetworkError(error: unknown): boolean {
   const code = getFirebaseErrorCode(error);
 
-  return code === "auth/network-request-failed" || code === "unavailable";
+  return (
+    code === "auth/network-request-failed" ||
+    code === "functions/unavailable" ||
+    code === "unavailable"
+  );
 }
 
 function delay(delayMs: number): Promise<void> {

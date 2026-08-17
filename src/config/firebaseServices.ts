@@ -1,6 +1,7 @@
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
+import type { Functions } from "firebase/functions";
 
 import {
   readFirestoreCacheMode,
@@ -31,6 +32,10 @@ export type FirebaseServicesStatus = {
 
 const emulatorConnections = new Set<string>();
 const firestoreInstances = new Map<string, Firestore>();
+const functionsInstances = new Map<string, Functions>();
+const functionsEmulatorConnections = new Set<string>();
+
+export const FIREBASE_FUNCTIONS_REGION = "europe-central2";
 
 export function getFirebaseServicesStatus(env: FirebaseEnv): FirebaseServicesStatus {
   const clientStatus = getFirebaseClientConfigStatus(env);
@@ -140,6 +145,38 @@ export async function getFirebaseServices(env: FirebaseEnv): Promise<FirebaseSer
     auth,
     firestore
   };
+}
+
+export async function getFirebaseFunctions(env: FirebaseEnv): Promise<Functions> {
+  const { app } = await getFirebaseServices(env);
+  const runtimeStatus = getFirebaseRuntimeStatus(env);
+  const { connectFunctionsEmulator, getFunctions } = await import("firebase/functions");
+  const instanceKey = `${app.name}:${FIREBASE_FUNCTIONS_REGION}`;
+  let functions = functionsInstances.get(instanceKey);
+
+  if (!functions) {
+    functions = getFunctions(app, FIREBASE_FUNCTIONS_REGION);
+    functionsInstances.set(instanceKey, functions);
+  }
+
+  if (runtimeStatus.useEmulators) {
+    const connectionKey = [
+      instanceKey,
+      runtimeStatus.emulatorHost,
+      runtimeStatus.functionsEmulatorPort
+    ].join(":");
+
+    if (!functionsEmulatorConnections.has(connectionKey)) {
+      connectFunctionsEmulator(
+        functions,
+        runtimeStatus.emulatorHost,
+        runtimeStatus.functionsEmulatorPort
+      );
+      functionsEmulatorConnections.add(connectionKey);
+    }
+  }
+
+  return functions;
 }
 
 export async function clearFirestoreLocalData(env: FirebaseEnv): Promise<void> {
