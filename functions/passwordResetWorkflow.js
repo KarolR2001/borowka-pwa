@@ -4,7 +4,6 @@ export const PASSWORD_RESET_NEUTRAL_RESULT = Object.freeze({ accepted: true });
 
 const PENDING = "PENDING";
 const PROCESSING = "PROCESSING";
-const COMPLETED = "COMPLETED";
 
 export class PasswordResetWorkflowError extends Error {
   constructor(code, message) {

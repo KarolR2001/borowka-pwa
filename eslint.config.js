@@ -78,7 +78,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["functions/*.js"],
+    files: ["functions/**/*.js"],
     languageOptions: {
       globals: {
         ...globals.node
@@ -86,9 +86,21 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unsafe-call": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
       "@typescript-eslint/restrict-template-expressions": "off"
+    }
+  },
+  {
+    files: ["functions/**/*.test.js"],
+    rules: {
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
+      "@typescript-eslint/require-await": "off"
     }
   }
 );
