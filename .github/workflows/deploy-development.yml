@@ -64,8 +64,11 @@ jobs:
       - name: Verify Firestore rules
         run: npm run verify:rules
 
-      - name: Deploy Firestore rules and indexes
-        run: npm run firebase -- deploy --project "${FIREBASE_PROJECT_ID}" --only firestore:rules,firestore:indexes --non-interactive
+      - name: Verify Firebase Functions
+        run: npm run verify:functions
+
+      - name: Deploy Firebase backend
+        run: npm run firebase -- deploy --project "${FIREBASE_PROJECT_ID}" --only functions,firestore:rules,firestore:indexes --non-interactive
 
       - name: Deploy Hosting
         run: npm run firebase -- deploy --project "${FIREBASE_PROJECT_ID}" --only hosting --non-interactive

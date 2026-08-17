@@ -20,6 +20,8 @@
     "test:integration:unit": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run tests/integration",
     "test:rules": "node scripts/firebase-cli.mjs emulators:exec --project demo-borowka-pwa-dev --only firestore \"npm run test:rules:unit\"",
     "test:rules:unit": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vitest run tests/rules",
+    "test:functions": "cross-env FUNCTIONS_DISCOVERY_TIMEOUT=45 TMPDIR=/tmp TEMP=/tmp TMP=/tmp node scripts/firebase-cli.mjs emulators:exec --project demo-borowka-pwa-dev --only auth,firestore,functions \"node functions/passwordReset.emulator.test.js\"",
+    "verify:functions": "npm --prefix functions ci && npm --prefix functions test",
     "pretest:e2e": "cross-env VITE_USE_FIREBASE_EMULATORS=true VITE_FIREBASE_PROJECT_ID=borowka-pwa-dev VITE_E2E_HARNESS=harvest npm run build:pwa",
     "preview:e2e": "vite preview --host 127.0.0.1 --port 4173",
     "test:e2e": "cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp playwright test",
