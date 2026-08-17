@@ -77,7 +77,7 @@ describe("auth session domain", () => {
 
   it("keeps password reset confirmation neutral", () => {
     expect(PASSWORD_RESET_CONFIRMATION).not.toContain("nie istnieje");
-    expect(PASSWORD_RESET_CONFIRMATION).toContain("Jesli konto istnieje");
+    expect(PASSWORD_RESET_CONFIRMATION).toContain("Jeśli konto istnieje");
   });
 
   it("maps authentication errors to user-safe messages", () => {

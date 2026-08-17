@@ -38,7 +38,7 @@ describe("administrator password reset request", () => {
   });
 
   it("keeps the requester confirmation neutral and names the administrator process", () => {
-    expect(PASSWORD_RESET_CONFIRMATION).toContain("Jesli konto istnieje");
+    expect(PASSWORD_RESET_CONFIRMATION).toContain("Jeśli konto istnieje");
     expect(PASSWORD_RESET_CONFIRMATION).toContain("administratorowi");
     expect(PASSWORD_RESET_CONFIRMATION).not.toContain("nie istnieje");
   });
