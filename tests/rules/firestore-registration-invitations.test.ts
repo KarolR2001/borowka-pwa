@@ -12,6 +12,7 @@ import {
   getDocs,
   limit,
   query,
+  serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
@@ -308,6 +309,74 @@ describe("Firestore registration invitation rules", () => {
       getDoc(doc(db, "users", "operator-uid"))
     );
     expect(profileSnapshot.data()?.role).toBe("OPERATOR");
+  });
+
+  it("links the picker worker in the same invitation claim batch", async () => {
+    await seedInvitations(
+      invitation({
+        id: "invite-picker",
+        emailNormalized: "picker@example.test",
+        displayName: "Picker Test",
+        targetRole: "PICKER",
+        workerId: "worker-picker"
+      })
+    );
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "workers", "worker-picker"), {
+        active: true,
+        archivedAt: null,
+        createdAt: Timestamp.fromDate(new Date("2026-07-16T08:00:00.000Z")),
+        createdBy: "admin-1",
+        currentPlanId: "plan-1",
+        currentRateVersionId: "rate-1",
+        displayName: "Picker Test",
+        emailContact: null,
+        id: "worker-picker",
+        legacyName: null,
+        linkedUserUid: null,
+        normalizedName: "picker test",
+        notes: null,
+        phone: null,
+        updatedAt: Timestamp.fromDate(new Date("2026-07-16T08:00:00.000Z"))
+      });
+    });
+
+    const db = testEnv
+      .authenticatedContext("picker-uid", { email: "picker@example.test" })
+      .firestore();
+    const batch = writeBatch(db);
+
+    batch.set(
+      doc(db, "users", "picker-uid"),
+      invitedProfile({
+        uid: "picker-uid",
+        email: "picker@example.test",
+        displayName: "Picker Test",
+        registrationInvitationId: "invite-picker",
+        role: "PICKER",
+        workerId: "worker-picker"
+      })
+    );
+    batch.update(doc(db, "registrationInvitations", "invite-picker"), {
+      status: "USED",
+      usedBy: "picker-uid",
+      usedAt: Timestamp.fromDate(new Date("2026-07-16T09:00:00.000Z"))
+    });
+    batch.update(doc(db, "workers", "worker-picker"), {
+      linkedUserUid: "picker-uid",
+      updatedAt: serverTimestamp()
+    });
+
+    await assertSucceeds(batch.commit());
+    const workerSnapshot = await assertSucceeds(
+      getDoc(doc(db, "workers", "worker-picker"))
+    );
+    expect(workerSnapshot.data()?.linkedUserUid).toBe("picker-uid");
   });
 
   it("rejects invited profile creation with changed role", async () => {

@@ -170,24 +170,14 @@ service cloud.firestore {
     }
 
     function hasPendingInvitationForProfile(data) {
-      return exists(
-        /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-      ) &&
-        get(
-          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-        ).data.status == 'PENDING' &&
-        get(
-          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-        ).data.emailNormalized == data.email &&
-        get(
-          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-        ).data.displayName == data.displayName &&
-        get(
-          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-        ).data.targetRole == data.role &&
-        get(
-          /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId)
-        ).data.workerId == data.workerId;
+      let invitationPath = /databases/$(database)/documents/registrationInvitations/$(data.registrationInvitationId);
+      let invitation = get(invitationPath);
+      return exists(invitationPath) &&
+        invitation.data.status == 'PENDING' &&
+        invitation.data.emailNormalized == data.email &&
+        invitation.data.displayName == data.displayName &&
+        invitation.data.targetRole == data.role &&
+        invitation.data.workerId == data.workerId;
     }
 
     function isValidInvitedUserProfileCreate(data, userId) {
@@ -372,33 +362,17 @@ service cloud.firestore {
     }
 
     function profileAfterMatchesInvitation(previous, invitationId) {
-      return existsAfter(
-        /databases/$(database)/documents/users/$(request.auth.uid)
-      ) &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.uid == request.auth.uid &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.email == previous.emailNormalized &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.displayName == previous.displayName &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.role == previous.targetRole &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.workerId == previous.workerId &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.active == true &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.registrationStatus == 'APPROVED' &&
-        getAfter(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.registrationInvitationId == invitationId;
+      let profilePath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let profileAfter = getAfter(profilePath);
+      return existsAfter(profilePath) &&
+        profileAfter.data.uid == request.auth.uid &&
+        profileAfter.data.email == previous.emailNormalized &&
+        profileAfter.data.displayName == previous.displayName &&
+        profileAfter.data.role == previous.targetRole &&
+        profileAfter.data.workerId == previous.workerId &&
+        profileAfter.data.active == true &&
+        profileAfter.data.registrationStatus == 'APPROVED' &&
+        profileAfter.data.registrationInvitationId == invitationId;
     }
 
     function isValidInvitationUse(data, previous, invitationId) {
@@ -1216,6 +1190,23 @@ service cloud.firestore {
           data.linkedUserUid == null ||
           data.linkedUserUid is string
         );
+    }
+
+    function isValidInvitedWorkerAccountLinkUpdate(data, previous, workerId) {
+      let profilePath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let profileAfter = getAfter(profilePath);
+      return isSignedIn() &&
+        data.id == workerId &&
+        previous.active == true &&
+        isWorkerAccountLinkWrite(data, previous) &&
+        previous.linkedUserUid == null &&
+        data.linkedUserUid == request.auth.uid &&
+        data.updatedAt == request.time &&
+        existsAfter(profilePath) &&
+        profileAfter.data.role == 'PICKER' &&
+        profileAfter.data.workerId == workerId &&
+        profileAfter.data.active == true &&
+        profileAfter.data.registrationStatus == 'APPROVED';
     }
 
     function keepsWorkerLockedForArchive(data, previous, workerId) {
@@ -2704,7 +2695,11 @@ service cloud.firestore {
           isValidWorkerArchiveUpdate(request.resource.data, resource.data, workerId)
       ) || (
         isWorkerAccountLinkWrite(request.resource.data, resource.data) &&
-          isValidWorkerAccountLinkUpdate(request.resource.data, resource.data, workerId)
+        isValidWorkerAccountLinkUpdate(request.resource.data, resource.data, workerId)
+      ) || isValidInvitedWorkerAccountLinkUpdate(
+        request.resource.data,
+        resource.data,
+        workerId
       ) || (
         isWorkerCurrentRateWrite(request.resource.data, resource.data) &&
           isValidWorkerCurrentRateUpdate(request.resource.data, resource.data, workerId)

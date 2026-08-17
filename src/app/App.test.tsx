@@ -101,6 +101,16 @@ const blockedPickerState: AuthSessionState = {
   }
 };
 
+const missingPickerProfileState: AuthSessionState = {
+  status: "MISSING_PROFILE",
+  message: "Konto nie ma jeszcze profilu aplikacji.",
+  user: activePickerState.user,
+  access: {
+    status: "MISSING_PROFILE",
+    reason: "Konto nie ma jeszcze profilu aplikacji."
+  }
+};
+
 const completeFirebaseEnv = {
   VITE_APP_ENV: "development",
   VITE_USE_FIREBASE_EMULATORS: "false",
@@ -216,6 +226,36 @@ describe("App shell", () => {
       );
     });
     expect(screen.getByText(PASSWORD_RESET_CONFIRMATION)).toBeInTheDocument();
+  });
+
+  it("allows an invited user without a profile to complete registration", async () => {
+    const user = userEvent.setup();
+    const completeRegistration = vi
+      .fn<NonNullable<AuthSessionApi["completeRegistration"]>>()
+      .mockResolvedValue(undefined);
+    const refresh = vi
+      .fn<AuthSessionApi["refresh"]>()
+      .mockResolvedValue(activePickerState);
+
+    render(
+      <App
+        authSessionApi={createAuthSessionApi(missingPickerProfileState, {
+          completeRegistration,
+          refresh
+        })}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Dokończ rejestrację" }));
+
+    await waitFor(() => {
+      expect(completeRegistration).toHaveBeenCalledWith(
+        expect.anything(),
+        activePickerState.user
+      );
+    });
+    expect(refresh).toHaveBeenCalledWith(expect.anything());
+    expect(await screen.findByRole("heading", { name: "Moje dane" })).toBeInTheDocument();
   });
 
   it("validates invited registration passwords", async () => {
@@ -1139,11 +1179,13 @@ describe("App shell", () => {
         metrics: {
           availableWeightG: 12_000,
           conflictCount: 0,
+          harvestedWeightG: 12_000,
           localPendingCount: 0,
           openSessionCount: 0,
           ownClosedSessionCount: 1,
           ownOpenSessionCount: 0
         },
+        dailyWorkerHarvest: null,
         openSessions: [],
         ownRecentSessions: [],
         period: {
