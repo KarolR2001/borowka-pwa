@@ -215,9 +215,9 @@ describe("App shell", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Nie pamietam hasła" }));
+    await user.click(screen.getByRole("button", { name: "Nie pamiętam hasła" }));
     await user.type(screen.getByLabelText("E-mail"), "admin@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij reset" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij prośbę" }));
 
     await waitFor(() => {
       expect(requestPasswordReset).toHaveBeenCalledWith(

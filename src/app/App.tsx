@@ -39,7 +39,7 @@ import {
   getLoginErrorMessage,
   getPasswordResetErrorMessage,
   refreshCurrentAuthSession,
-  requestPasswordResetEmail,
+  requestPasswordReset,
   signInWithEmailPassword,
   signOutCurrentUser,
   subscribeToAuthSession,
@@ -81,6 +81,11 @@ import {
   defaultUserDirectoryApi,
   type UserDirectoryApi
 } from "../users/AdminUserDirectoryPanel";
+import {
+  AdminPasswordResetRequestsPanel,
+  defaultPasswordResetRequestsApi,
+  type PasswordResetRequestsApi
+} from "../passwordReset/AdminPasswordResetRequestsPanel";
 import {
   defaultWorkerDirectoryApi,
   WorkerDirectoryPanel,
@@ -245,6 +250,7 @@ export type AppProps = {
   deviceRegistryApi?: DeviceRegistryApi;
   deviceDirectoryApi?: DeviceDirectoryApi;
   userDirectoryApi?: UserDirectoryApi;
+  passwordResetRequestsApi?: PasswordResetRequestsApi;
   workerDirectoryApi?: WorkerDirectoryApi;
   seasonsApi?: SeasonsApi;
   settlementPlansApi?: SettlementPlansApi;
@@ -274,7 +280,7 @@ const defaultAuthSessionApi: AuthSessionApi = {
   getInitialState: getInitialAuthSessionState,
   subscribe: subscribeToAuthSession,
   signIn: signInWithEmailPassword,
-  requestPasswordReset: requestPasswordResetEmail,
+  requestPasswordReset,
   register: registerInvitedUser,
   completeRegistration: (env, user) => {
     if (!user.email) {
@@ -359,6 +365,7 @@ export function App({
   deviceRegistryApi = defaultDeviceRegistryApi,
   deviceDirectoryApi = defaultDeviceDirectoryApi,
   userDirectoryApi = defaultUserDirectoryApi,
+  passwordResetRequestsApi = defaultPasswordResetRequestsApi,
   workerDirectoryApi = defaultWorkerDirectoryApi,
   seasonsApi = defaultSeasonsApi,
   settlementPlansApi = defaultSettlementPlansApi,
@@ -1357,12 +1364,20 @@ export function App({
                   onChange={setAdminAccessView}
                 />
                 {adminAccessView === "USERS" ? (
-                  <AdminUserDirectoryPanel
-                    authState={authState}
-                    env={env}
-                    userDirectoryApi={userDirectoryApi}
-                    workerDirectoryApi={workerDirectoryApi}
-                  />
+                  <>
+                    <AdminPasswordResetRequestsPanel
+                      api={passwordResetRequestsApi}
+                      authState={authState}
+                      env={env}
+                      isOnline={isOnline}
+                    />
+                    <AdminUserDirectoryPanel
+                      authState={authState}
+                      env={env}
+                      userDirectoryApi={userDirectoryApi}
+                      workerDirectoryApi={workerDirectoryApi}
+                    />
+                  </>
                 ) : adminAccessView === "INVITATIONS" ? (
                   <AdminRegistrationInvitationsPanel
                     authState={authState}
@@ -2025,6 +2040,11 @@ function AuthPanel({
         <div>
           <p className="eyebrow">{authModeEyebrow(mode)}</p>
           <h2>{authModeTitle(mode)}</h2>
+          {mode === "reset" ? (
+            <p className="panel-detail">
+              Administrator zweryfikuje prośbę i nada nowe hasło do konta.
+            </p>
+          ) : null}
           {authState.status !== "SIGNED_OUT" ? (
             <p className="panel-detail">{authState.message}</p>
           ) : null}
@@ -2150,7 +2170,7 @@ function AuthPanel({
             }}
             type="button"
           >
-            {mode === "reset" ? "Wroc do logowania" : "Nie pamietam hasła"}
+            {mode === "reset" ? "Wróć do logowania" : "Nie pamiętam hasła"}
           </button>
 
           <button
@@ -2176,7 +2196,7 @@ function authModeEyebrow(mode: "login" | "reset" | "register"): string {
     case "login":
       return "Dostęp do aplikacji";
     case "reset":
-      return "Reset hasła";
+      return "Odzyskiwanie dostępu";
     case "register":
       return "Zaproszenie";
   }
@@ -2187,7 +2207,7 @@ function authModeTitle(mode: "login" | "reset" | "register"): string {
     case "login":
       return "Zaloguj się";
     case "reset":
-      return "Nie pamietam hasła";
+      return "Nie pamiętam hasła";
     case "register":
       return "Załóż konto";
   }
@@ -2198,7 +2218,7 @@ function authPrimaryActionLabel(mode: "login" | "reset" | "register"): string {
     case "login":
       return "Zaloguj";
     case "reset":
-      return "Wyślij reset";
+      return "Wyślij prośbę";
     case "register":
       return "Załóż konto";
   }

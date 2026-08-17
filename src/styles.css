@@ -334,6 +334,57 @@ h2 {
   gap: 8px;
 }
 
+.password-reset-requests {
+  margin-bottom: 12px;
+}
+
+.password-reset-requests__list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.password-reset-requests__list li,
+.password-reset-dialog__account {
+  align-items: center;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.password-reset-requests__list li > div,
+.password-reset-dialog__account {
+  min-width: 0;
+}
+
+.password-reset-requests__list strong,
+.password-reset-requests__list span,
+.password-reset-dialog__account strong,
+.password-reset-dialog__account span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.password-reset-requests__list span,
+.password-reset-dialog__account span {
+  color: #64756c;
+  font-size: 0.9rem;
+}
+
+.password-reset-dialog {
+  gap: 16px;
+}
+
+.password-reset-dialog__account {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
 .collapsible-section > summary::after {
   content: "+";
   margin-left: auto;
