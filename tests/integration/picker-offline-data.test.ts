@@ -221,7 +221,7 @@ describe("picker offline preparation", () => {
       }),
       result: cachedExport
     });
-    expect(cachedCsv).toContain('"Kompletnosc";"NIEPELNY - DANE Z CACHE"');
+    expect(cachedCsv).toContain('"Kompletność";"NIEPELNY - DANE Z CACHE"');
     expect(cachedCsv).not.toContain("Prywatna notatka");
     expect(cachedCsv).not.toContain("Obca osoba");
 
