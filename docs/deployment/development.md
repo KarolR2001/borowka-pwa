@@ -17,6 +17,20 @@ project and GitHub configuration exist.
 6. A smoke test confirms that the app loads, SPA fallback works and Firestore
    still denies anonymous access.
 
+## Manual Hosting deploy
+
+When deploying from a local checkout, build the client explicitly in Vite
+development mode before running Firebase Hosting deploy:
+
+```bash
+npm run build:development
+node scripts/firebase-cli.mjs deploy --project borowka-pwa-dev --only hosting
+```
+
+Do not use `npm run build` for a local DEV deploy. Its default Vite mode is
+`production`, so it can load `.env.production.local` and publish a client that
+points at the production Firebase project.
+
 ## GitHub repository variables
 
 Set these in GitHub repository variables:

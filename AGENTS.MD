@@ -144,6 +144,9 @@ Zasady:
 - Nie mieszaj danych dev i prod.
 - Jesli brakuje dostepu, konfiguracji lub logowania, popros uzytkownika o reczny krok.
 - Do CLI Firebase uzywaj `scripts/firebase-cli.mjs`.
+- Przed recznym wdrozeniem Hostingu DEV zawsze uruchom `npm run build:development`.
+  Zwykle `npm run build` uzywa trybu produkcyjnego Vite i moze wczytac
+  `.env.production.local`; nie wdrazaj tak zbudowanego katalogu `dist` do DEV.
 - Zmiany rules, indeksow i konfiguracji waliduj celowanymi testami lub emulatorami, gdy jest to praktyczne.
 - Dla DEV uzywaj `VITE_FIREBASE_AUTH_DOMAIN=borowka-pwa-dev.web.app`, a nie
   domeny `firebaseapp.com`. Domena Hostingu musi byc dodana w Firebase
