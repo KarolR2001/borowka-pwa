@@ -49,7 +49,10 @@ export type PickerHarvestListResult = {
   invalidSessionCount: number;
   items: PickerHarvestListItem[];
   refreshedAtIso: string;
-  seasons: Pick<SeasonDocument, "id" | "name">[];
+  seasons: Pick<
+    SeasonDocument,
+    "endDate" | "id" | "isDefault" | "name" | "startDate" | "status"
+  >[];
 };
 
 export type PickerHarvestStatusFilter = HarvestSessionStatus | "ALL";
@@ -179,7 +182,14 @@ export function buildPickerHarvestList({
           right.startDate.localeCompare(left.startDate) ||
           left.name.localeCompare(right.name, "pl")
       )
-      .map(({ id, name }) => ({ id, name }))
+      .map(({ endDate, id, isDefault, name, startDate, status }) => ({
+        endDate,
+        id,
+        isDefault,
+        name,
+        startDate,
+        status
+      }))
   };
 }
 

@@ -515,7 +515,7 @@ describe("workerDirectory", () => {
       uid: linkedPicker.uid
     });
     expect(prepared.reason).toContain("Koniec wspolpracy.");
-    expect(prepared.reason).toContain("Do wyplaty pozostaje 35,00 zł.");
+    expect(prepared.reason).toContain("Do wypłaty pozostaje 35,00 zł.");
     expect(prepared.reason).toContain("2026-08-01");
     expect(prepared.warnings).toEqual(
       expect.arrayContaining([

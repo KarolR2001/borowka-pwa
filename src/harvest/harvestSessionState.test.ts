@@ -22,7 +22,7 @@ describe("harvest session state model", () => {
     ]);
     expect(isHarvestSessionStatus("OPEN")).toBe(true);
     expect(isHarvestSessionStatus("INVALID")).toBe(false);
-    expect(harvestSessionStatusLabel("REVIEW_REQUIRED")).toBe("Wymaga przegladu");
+    expect(harvestSessionStatusLabel("REVIEW_REQUIRED")).toBe("Wymaga przeglądu");
   });
 
   it("defines exactly the stage 5.1 transitions with operational metadata", () => {

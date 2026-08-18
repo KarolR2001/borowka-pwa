@@ -50,6 +50,10 @@ describe("PickerPaymentListPanel", () => {
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
     expect(screen.getAllByText("75,00 zł")).toHaveLength(2);
     expect(screen.getByText("Wypłacono (1)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sezon")).toBeVisible();
+    expect(
+      within(screen.getByRole("table")).queryByText("Sezon 2026")
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Anulowane poza sumą (1)")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 

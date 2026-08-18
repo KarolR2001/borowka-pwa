@@ -229,7 +229,7 @@ describe("OperatorDashboardPanel", () => {
     expect(screen.queryByText(/tryb offline/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Lokalne sesje poza stanem")).not.toBeInTheDocument();
     expect(screen.queryByText("Przewidywane lokalnie")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Okres")).toBeDisabled();
+    expect(screen.getByText("Bieżący tydzień")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Nowy zbiór" })).toBeEnabled();
     expect(
       screen.queryByRole("button", { name: "Odśwież pulpit operatora" })

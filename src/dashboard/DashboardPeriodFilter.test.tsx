@@ -15,14 +15,36 @@ describe("DashboardPeriodFilter", () => {
     render(<FilterHarness />);
 
     await user.click(screen.getByText("Zakres dat"));
-    expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
-    await user.selectOptions(screen.getByLabelText("Okres"), "CUSTOM");
+    expect(screen.getByRole("button", { name: "Dzisiaj" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Cały sezon", pressed: true })
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Własny zakres" }));
 
     expect(screen.getByLabelText("Od")).toHaveValue("2026-07-29");
     expect(screen.getByLabelText("Do")).toHaveValue("2026-07-29");
 
     await user.clear(screen.getByLabelText("Od"));
     expect(screen.getByText("Podaj początek i koniec własnego zakresu.")).toBeVisible();
+  });
+
+  it("closes the date options after clicking outside the filter", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <>
+        <FilterHarness />
+        <button type="button">Poza zakresem dat</button>
+      </>
+    );
+
+    await user.click(screen.getByText("Zakres dat"));
+    expect(screen.getByRole("button", { name: "Dzisiaj" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Poza zakresem dat" }));
+    expect(
+      document.querySelector("details.dashboard-period-collapse")
+    ).not.toHaveAttribute("open");
   });
 });
 

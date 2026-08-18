@@ -119,6 +119,7 @@ describe("PickerWorkspacePanel", () => {
     expect(harvestLoad).toHaveBeenCalledTimes(1);
     expect(paymentLoad).not.toHaveBeenCalled();
     expect(screen.queryByRole("tab", { name: "Moje zbiory" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Filtry moich zbiorów")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Moje wypłaty" }));
 

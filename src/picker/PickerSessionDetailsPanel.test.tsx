@@ -61,7 +61,7 @@ describe("PickerSessionDetailsPanel", () => {
       payment: {
         amountGrosz: 7500,
         paidBusinessDate: "2026-07-30",
-        paymentMethod: "BANK_TRANSFER",
+        paymentMethod: "CASH",
         status: "ACTIVE"
       },
       planName: "Za ubianke",
@@ -95,7 +95,8 @@ describe("PickerSessionDetailsPanel", () => {
     expect(screen.queryByText("entry-1")).not.toBeInTheDocument();
     expect(screen.getByText("Aktywny")).toBeInTheDocument();
     expect(screen.getByText("Powód: Bledna waga")).toBeInTheDocument();
-    expect(screen.getByText("Przelew bankowy")).toBeInTheDocument();
+    expect(screen.getByText("Gotówka")).toBeInTheDocument();
+    expect(screen.queryByText("Plan")).not.toBeInTheDocument();
     expect(screen.queryByText("Stawka snapshotu")).not.toBeInTheDocument();
     expect(screen.queryByText("Aktywne wpisy")).not.toBeInTheDocument();
     expect(screen.queryByText("Jednostki")).not.toBeInTheDocument();
@@ -107,6 +108,10 @@ describe("PickerSessionDetailsPanel", () => {
     expect(
       document.querySelector(".picker-session-details__entry-list")
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Pozycja na liście wpisów" })
+    ).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /Pokaż wpis/ })).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Zgłoś niezgodność" }));
     expect(onReportIssue).toHaveBeenCalledWith("session-paid");

@@ -272,10 +272,10 @@ const transitionDefinitions = {
 
 const statusLabels: Record<HarvestSessionStatus, string> = {
   OPEN: "W toku",
-  CLOSED: "Do wyplaty",
-  PAID: "Wyplacono",
+  CLOSED: "Do wypłaty",
+  PAID: "Wypłacono",
   CANCELLED: "Anulowano",
-  REVIEW_REQUIRED: "Wymaga przegladu"
+  REVIEW_REQUIRED: "Wymaga przeglądu"
 };
 
 export function isHarvestSessionStatus(value: unknown): value is HarvestSessionStatus {

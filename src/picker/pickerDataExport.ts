@@ -245,11 +245,11 @@ export function createPickerDataExportCsv({
     result.sessions.map((session) => [session.sessionId, session])
   );
   const metadataRows = [
-    ["Raport", "Wlasne dane pickera"],
+    ["Raport", "Własne dane zbieracza"],
     ["Wygenerowano UTC", normalizedExportedAtIso],
-    ["Zrodlo danych", result.dataSource === "SERVER" ? "SERWER" : "CACHE"],
+    ["Źródło danych", result.dataSource === "SERVER" ? "SERWER" : "CACHE"],
     [
-      "Kompletnosc",
+      "Kompletność",
       result.dataSource === "SERVER" ? "PELNY ODCZYT SERWERA" : "NIEPELNY - DANE Z CACHE"
     ],
     ["Id zbieracza", result.workerId],
@@ -257,10 +257,10 @@ export function createPickerDataExportCsv({
     ["Zakres od", filtered.filters.fromDate || "bez ograniczenia"],
     ["Zakres do", filtered.filters.toDate || "bez ograniczenia"],
     ["Naliczono PLN", formatPolishCsvMoney(filtered.summary.accruedAmountGrosz)],
-    ["Wyplacono PLN", formatPolishCsvMoney(filtered.summary.paidAmountGrosz)],
-    ["Pozostalo PLN", formatPolishCsvMoney(filtered.summary.remainingAmountGrosz)],
+    ["Wypłacono PLN", formatPolishCsvMoney(filtered.summary.paidAmountGrosz)],
+    ["Pozostało PLN", formatPolishCsvMoney(filtered.summary.remainingAmountGrosz)],
     [
-      "Anulowane wyplaty PLN",
+      "Anulowane wypłaty PLN",
       formatPolishCsvMoney(filtered.summary.cancelledPaymentAmountGrosz)
     ]
   ];
@@ -368,7 +368,7 @@ function normalizeOptionalDate(value: string): string {
 function paymentMethodCsvLabel(method: PickerPaymentListItem["paymentMethod"]): string {
   switch (method) {
     case "CASH":
-      return "Gotowka";
+      return "Gotówka";
     case "BANK_TRANSFER":
       return "Przelew bankowy";
     case "OTHER":
