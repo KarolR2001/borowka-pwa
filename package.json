@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "npm run typecheck && npm run build:pwa",
+    "build:development": "npm run typecheck && npm run build:pwa -- --mode development",
     "build:pwa": "node scripts/ensure-temp-dir.mjs && cross-env TMPDIR=.tmp TEMP=.tmp TMP=.tmp vite build",
     "preview": "vite preview --host 0.0.0.0",
     "pretest": "node scripts/ensure-temp-dir.mjs",
