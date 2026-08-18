@@ -7,6 +7,7 @@ import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata"
 import { TransientToast } from "../ui/TransientToast";
 import {
   createBrowserPwaUpdateIntentStorage,
+  canClearStalePwaUpdateIntent,
   createPwaUpdateIntent,
   evaluatePwaUpdateDecision,
   runPwaUpdateIntegrityCheck,
@@ -190,9 +191,18 @@ export function PwaUpdateNotice({
             return;
           }
 
-          setIntegrityReport(report);
+          const canClearIntent = canClearStalePwaUpdateIntent({ intent, report });
+          setIntegrityReport(
+            canClearIntent
+              ? {
+                  ...report,
+                  issues: [],
+                  status: "READY"
+                }
+              : report
+          );
 
-          if (report.status === "READY") {
+          if (canClearIntent) {
             storage.clear();
           }
         })

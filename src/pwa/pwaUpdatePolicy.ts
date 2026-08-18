@@ -57,6 +57,21 @@ export type PwaUpdateIntentStorage = {
   write: (intent: PwaUpdateIntent) => void;
 };
 
+export function canClearStalePwaUpdateIntent({
+  intent,
+  report
+}: {
+  intent: PwaUpdateIntent;
+  report: PwaUpdateIntegrityReport;
+}): boolean {
+  return (
+    report.status === "READY" ||
+    (intent.expectedLocalDocumentIds.length === 0 &&
+      report.issues.length > 0 &&
+      report.issues.every((issue) => issue.code === "DEVICE_CHANGED"))
+  );
+}
+
 export function evaluatePwaUpdateDecision({
   hasActiveForm,
   hasActiveHarvestSession,
