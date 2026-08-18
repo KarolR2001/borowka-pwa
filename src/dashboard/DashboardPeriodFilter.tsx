@@ -1,3 +1,7 @@
+import { CalendarRange, Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+import { InfoHint } from "../ui/InfoHint";
 import {
   DASHBOARD_PERIOD_PRESETS,
   dashboardPeriodPresetLabel,
@@ -21,41 +25,76 @@ export function DashboardPeriodFilter({
   todayBusinessDate: string;
 }) {
   const error = dashboardPeriodSelectionError(selection);
+  const [isOpen, setIsOpen] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const closeOnOutsideInteraction = (event: PointerEvent) => {
+      if (event.target instanceof Node && !detailsRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideInteraction);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideInteraction);
+    };
+  }, [isOpen]);
+
+  const selectPreset = (preset: DashboardPeriodPreset) => {
+    onChange(selectionForDashboardPeriodPreset(selection, preset, todayBusinessDate));
+    setIsOpen(preset === "CUSTOM");
+  };
 
   return (
-    <details className="collapsible-filters dashboard-period-collapse">
+    <details
+      className="collapsible-filters dashboard-period-collapse"
+      onToggle={(event) => {
+        setIsOpen(event.currentTarget.open);
+      }}
+      open={isOpen}
+      ref={detailsRef}
+    >
       <summary>
         <CalendarRange aria-hidden="true" size={18} strokeWidth={2.2} />
         <span>Zakres dat</span>
       </summary>
       <div className="dashboard-period-filter" aria-label="Filtr okresu">
-        <label className="field" htmlFor={`${idPrefix}-period`}>
-          <span className="field__label">
-            Okres
+        <div className="dashboard-period-filter__heading">
+          <span>
+            Wybierz okres
             <InfoHint text="Wybierz okres, z którego dane mają być pokazane w podsumowaniu." />
           </span>
-          <select
-            aria-label="Okres"
-            disabled={disabled}
-            id={`${idPrefix}-period`}
-            onChange={(event) => {
-              onChange(
-                selectionForDashboardPeriodPreset(
-                  selection,
-                  event.target.value as DashboardPeriodPreset,
-                  todayBusinessDate
-                )
-              );
-            }}
-            value={selection.preset}
-          >
-            {DASHBOARD_PERIOD_PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
+        </div>
+        <div aria-label="Okres" className="dashboard-period-filter__presets">
+          {DASHBOARD_PERIOD_PRESETS.map((preset) => {
+            const isSelected = selection.preset === preset;
+
+            return (
+              <button
+                aria-pressed={isSelected}
+                className={
+                  isSelected
+                    ? "dashboard-period-filter__preset is-active"
+                    : "dashboard-period-filter__preset"
+                }
+                disabled={disabled}
+                key={preset}
+                onClick={() => {
+                  selectPreset(preset);
+                }}
+                type="button"
+              >
+                {isSelected ? <Check aria-hidden="true" size={16} /> : null}
                 {dashboardPeriodPresetLabel(preset)}
-              </option>
-            ))}
-          </select>
-        </label>
+              </button>
+            );
+          })}
+        </div>
 
         {selection.preset === "CUSTOM" ? (
           <div className="dashboard-period-filter__custom">
@@ -98,6 +137,3 @@ export function DashboardPeriodFilter({
     </details>
   );
 }
-import { CalendarRange } from "lucide-react";
-
-import { InfoHint } from "../ui/InfoHint";

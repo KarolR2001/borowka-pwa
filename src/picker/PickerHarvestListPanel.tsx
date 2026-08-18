@@ -2,6 +2,10 @@ import { Eye, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import {
+  currentWarsawBusinessDate,
+  resolveDashboardPeriod
+} from "../dashboard/dashboardPeriod";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import {
   HARVEST_SESSION_STATUSES,
@@ -23,6 +27,7 @@ import {
   PickerSessionDetailsPanel,
   type PickerSessionDetailsApi
 } from "./PickerSessionDetailsPanel";
+import type { PickerDashboardSelection } from "./PickerDashboardPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
 
@@ -49,6 +54,7 @@ const initialState: ListState = {
 
 export function PickerHarvestListPanel({
   authState,
+  dashboardSelection,
   env,
   isOnline,
   onReportIssue,
@@ -57,6 +63,7 @@ export function PickerHarvestListPanel({
   syncDocuments
 }: {
   authState: AuthSessionState;
+  dashboardSelection?: PickerDashboardSelection;
   env: FirebaseEnv;
   isOnline: boolean;
   onReportIssue?: (sessionId: string) => void;
@@ -70,6 +77,7 @@ export function PickerHarvestListPanel({
   );
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [reportSessionId, setReportSessionId] = useState<string | null>(null);
+  const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
   const isPicker =
     authState.status === "READY" &&
     authState.profile.role === "PICKER" &&
@@ -106,10 +114,17 @@ export function PickerHarvestListPanel({
     };
   }, [authState, env, isOnline, isPicker, pickerHarvestListApi, syncDocuments]);
 
-  const filteredItems = useMemo(
-    () => filterPickerHarvestItems(state.result?.items ?? [], filters),
-    [filters, state.result]
-  );
+  const filteredItems = useMemo(() => {
+    const listFilters = dashboardSelection
+      ? dashboardHarvestFilters({
+          dashboardSelection,
+          seasons: state.result?.seasons ?? [],
+          todayBusinessDate
+        })
+      : filters;
+
+    return filterPickerHarvestItems(state.result?.items ?? [], listFilters);
+  }, [dashboardSelection, filters, state.result, todayBusinessDate]);
   const selectedItem =
     state.result?.items.find((item) => item.sessionId === selectedSessionId) ?? null;
 
@@ -130,13 +145,15 @@ export function PickerHarvestListPanel({
       <header className="picker-harvest-list__header">
         <h2>Moje zbiory</h2>
       </header>
-      <CollapsibleFilters>
-        <HarvestFilters
-          filters={filters}
-          onChange={setFilters}
-          seasons={state.result?.seasons ?? []}
-        />
-      </CollapsibleFilters>
+      {!dashboardSelection ? (
+        <CollapsibleFilters>
+          <HarvestFilters
+            filters={filters}
+            onChange={setFilters}
+            seasons={state.result?.seasons ?? []}
+          />
+        </CollapsibleFilters>
+      ) : null}
 
       {state.status === "ERROR" ? (
         <p className="form-message form-message--error">
@@ -286,8 +303,6 @@ function HarvestTable({
         <thead>
           <tr>
             <th>Data</th>
-            <th>Sezon</th>
-            <th>Plan</th>
             <th>Kg</th>
             <th>Naliczenie</th>
             <th>Status</th>
@@ -300,8 +315,6 @@ function HarvestTable({
           {items.map((item) => (
             <tr key={item.sessionId}>
               <td data-label="Data">{formatBusinessDate(item.businessDate)}</td>
-              <td data-label="Sezon">{item.seasonName}</td>
-              <td data-label="Plan">{item.planName}</td>
               <td data-label="Zebrano">{formatKilograms(item.totalWeightG)}</td>
               <td data-label="Naliczenie">
                 {item.amountDueGrosz === null
@@ -318,7 +331,7 @@ function HarvestTable({
               <td data-label="Szczegóły">
                 <button
                   aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}
-                  className="secondary-button icon-button"
+                  className="secondary-button icon-button picker-table-action"
                   onClick={() => {
                     onOpen(item.sessionId);
                   }}
@@ -334,4 +347,42 @@ function HarvestTable({
       </table>
     </div>
   );
+}
+
+function dashboardHarvestFilters({
+  dashboardSelection,
+  seasons,
+  todayBusinessDate
+}: {
+  dashboardSelection: PickerDashboardSelection;
+  seasons: readonly {
+    endDate: string | null;
+    id: string;
+    isDefault: boolean;
+    startDate: string;
+    status: "ARCHIVED" | "CLOSED" | "OPEN" | "PLANNED";
+  }[];
+  todayBusinessDate: string;
+}): PickerHarvestFilters {
+  const selectedSeason =
+    seasons.length === 0
+      ? null
+      : (seasons.find((season) => season.id === dashboardSelection.selectedSeasonId) ??
+        seasons.find((season) => season.isDefault && season.status === "OPEN") ??
+        seasons.find((season) => season.status === "OPEN") ??
+        seasons[0]);
+  const period = selectedSeason
+    ? resolveDashboardPeriod(dashboardSelection.periodSelection, {
+        seasonEndDate: selectedSeason.endDate,
+        seasonStartDate: selectedSeason.startDate,
+        todayBusinessDate
+      })
+    : null;
+
+  return {
+    fromDate: period?.fromDate ?? "",
+    seasonId: selectedSeason?.id ?? "",
+    status: "ALL",
+    toDate: period?.toDate ?? ""
+  };
 }

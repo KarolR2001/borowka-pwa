@@ -2181,7 +2181,7 @@ function buildWorkerArchiveWarnings(
       "Kwota do wyplaty nie jest jeszcze wyliczana w module zbieraczy; sprawdz rozliczenia poza systemem."
     );
   } else if (dueGrosz > 0) {
-    warnings.push(`Do wyplaty pozostaje ${formatMoney(dueGrosz)}.`);
+    warnings.push(`Do wypłaty pozostaje ${formatMoney(dueGrosz)}.`);
   }
 
   if (hasActiveLinkedAccount(worker)) {

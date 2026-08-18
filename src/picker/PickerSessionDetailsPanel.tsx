@@ -1,5 +1,5 @@
 import { Flag, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
@@ -124,7 +124,6 @@ export function PickerSessionDetailsPanel({
         <>
           <dl className="picker-session-details__facts">
             <Fact label="Status" value={harvestSessionStatusLabel(result.status)} />
-            <Fact label="Plan" value={result.planName} />
             <Fact label="Masa" value={formatKilograms(result.totalWeightG)} />
           </dl>
 
@@ -150,39 +149,7 @@ export function PickerSessionDetailsPanel({
             {result.entries.length === 0 ? (
               <p className="empty-state">Brak wpisów w tej sesji.</p>
             ) : (
-              <ol className="picker-session-details__entry-list">
-                {result.entries.map((entry) => (
-                  <li
-                    className={
-                      entry.status === "CANCELLED"
-                        ? "picker-session-entry is-cancelled"
-                        : "picker-session-entry"
-                    }
-                    key={entry.id}
-                  >
-                    <div>
-                      <strong>Wpis {String(entry.sequenceNumber)}</strong>
-                      {entry.kind === "CORRECTION" ? (
-                        <span>Korekta wcześniejszego wpisu</span>
-                      ) : null}
-                      <span>
-                        {entry.status === "CANCELLED" ? "Anulowany" : "Aktywny"}
-                      </span>
-                    </div>
-                    <dl>
-                      <Fact
-                        label="Masa"
-                        value={
-                          entry.weightG === null ? "-" : formatKilograms(entry.weightG)
-                        }
-                      />
-                    </dl>
-                    {entry.status === "CANCELLED" && entry.cancellationReason ? (
-                      <p>Powód: {entry.cancellationReason}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
+              <PickerSessionEntryCarousel entries={result.entries} />
             )}
           </section>
 
@@ -218,12 +185,122 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PickerSessionEntryCarousel({
+  entries
+}: {
+  entries: readonly PickerSessionDetailsResult["entries"][number][];
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const entryListRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [entries]);
+
+  const updateActiveEntry = () => {
+    const entryList = entryListRef.current;
+
+    if (!entryList) {
+      return;
+    }
+
+    const viewportCenter =
+      entryList.getBoundingClientRect().left + entryList.clientWidth / 2;
+    const closestIndex = Array.from(entryList.children).reduce(
+      (currentIndex, entry, index) => {
+        const currentDistance = Math.abs(
+          entry.getBoundingClientRect().left + entry.clientWidth / 2 - viewportCenter
+        );
+        const closestEntry = entryList.children[currentIndex];
+        const closestDistance = Math.abs(
+          closestEntry.getBoundingClientRect().left +
+            closestEntry.clientWidth / 2 -
+            viewportCenter
+        );
+
+        return currentDistance < closestDistance ? index : currentIndex;
+      },
+      0
+    );
+
+    setActiveIndex(closestIndex);
+  };
+
+  return (
+    <div className="picker-session-entry-carousel">
+      <ol
+        className="picker-session-details__entry-list"
+        onScroll={updateActiveEntry}
+        ref={entryListRef}
+      >
+        {entries.map((entry, index) => (
+          <li
+            className={
+              entry.status === "CANCELLED"
+                ? "picker-session-entry is-cancelled"
+                : "picker-session-entry"
+            }
+            data-entry-index={index}
+            key={entry.id}
+          >
+            <div>
+              <strong>Wpis {String(entry.sequenceNumber)}</strong>
+              {entry.kind === "CORRECTION" ? (
+                <span>Korekta wcześniejszego wpisu</span>
+              ) : null}
+              <span>{entry.status === "CANCELLED" ? "Anulowany" : "Aktywny"}</span>
+            </div>
+            <dl>
+              <Fact
+                label="Masa"
+                value={entry.weightG === null ? "-" : formatKilograms(entry.weightG)}
+              />
+            </dl>
+            {entry.status === "CANCELLED" && entry.cancellationReason ? (
+              <p>Powód: {entry.cancellationReason}</p>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      {entries.length > 1 ? (
+        <nav aria-label="Pozycja na liście wpisów" className="picker-session-entry-dots">
+          {entries.map((entry, index) => (
+            <button
+              aria-current={activeIndex === index ? "true" : undefined}
+              aria-label={`Pokaż wpis ${String(entry.sequenceNumber)}`}
+              className={
+                activeIndex === index
+                  ? "picker-session-entry-dots__button is-active"
+                  : "picker-session-entry-dots__button"
+              }
+              key={entry.id}
+              onClick={() => {
+                const target = entryListRef.current?.querySelector<HTMLElement>(
+                  `[data-entry-index="${String(index)}"]`
+                );
+
+                target?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center"
+                });
+                setActiveIndex(index);
+              }}
+              type="button"
+            />
+          ))}
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
 function paymentMethodLabel(
   method: NonNullable<PickerSessionDetailsResult["payment"]>["paymentMethod"]
 ): string {
   switch (method) {
     case "CASH":
-      return "Gotowka";
+      return "Gotówka";
     case "BANK_TRANSFER":
       return "Przelew bankowy";
     case "OTHER":

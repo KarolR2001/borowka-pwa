@@ -56,13 +56,13 @@ describe("picker data export", () => {
 
     expect(csv.startsWith("\uFEFFsep=;\r\n")).toBe(true);
     expect(csv).toContain('"Wygenerowano UTC";"2026-07-28T18:30:00.000Z"');
-    expect(csv).toContain('"Kompletnosc";"PELNY ODCZYT SERWERA"');
+    expect(csv).toContain('"Kompletność";"PELNY ODCZYT SERWERA"');
     expect(csv).toContain('"Sezon";"Sezon A"');
     expect(csv).toContain('"NALICZENIE"');
     expect(csv).toContain('"WYPLATA"');
-    expect(csv).toContain('"Wyplacono"');
+    expect(csv).toContain('"Wypłacono"');
     expect(csv).toContain('"Aktywna"');
-    expect(csv).toContain('"Gotowka"');
+    expect(csv).toContain('"Gotówka"');
     expect(csv).toContain('"50,00";"5000"');
     expect(csv).toContain(`"'=Plan testowy"`);
     expect(csv).not.toContain("Prywatna notatka");
@@ -83,7 +83,7 @@ describe("picker data export", () => {
       result: cached
     });
 
-    expect(csv).toContain('"Kompletnosc";"NIEPELNY - DANE Z CACHE"');
+    expect(csv).toContain('"Kompletność";"NIEPELNY - DANE Z CACHE"');
     expect(() =>
       filterPickerDataExport(result({ enabled: false }), {
         fromDate: "",

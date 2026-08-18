@@ -126,12 +126,27 @@ export function PickerPaymentListPanel({
 
   return (
     <section className="picker-payment-list" aria-label="Moje wypłaty">
+      <header className="picker-payment-list__header">
+        <h2>Moje wypłaty</h2>
+        <label className="field">
+          <span>Sezon</span>
+          <select
+            onChange={(event) => {
+              setFilters({ ...filters, seasonId: event.target.value });
+            }}
+            value={filters.seasonId}
+          >
+            <option value="">Wszystkie sezony</option>
+            {(state.result?.seasons ?? []).map((season) => (
+              <option key={season.id} value={season.id}>
+                {season.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </header>
       <CollapsibleFilters>
-        <PickerPaymentFilters
-          filters={filters}
-          onChange={setFilters}
-          seasons={state.result?.seasons ?? []}
-        />
+        <PickerPaymentFilters filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
 
       <div className="directory-summary" aria-label="Podsumowanie moich wypłat">
@@ -223,31 +238,13 @@ export function PickerPaymentListPanel({
 
 function PickerPaymentFilters({
   filters,
-  onChange,
-  seasons
+  onChange
 }: {
   filters: PickerPaymentFilters;
   onChange: (filters: PickerPaymentFilters) => void;
-  seasons: readonly { id: string; name: string }[];
 }) {
   return (
     <div className="picker-payment-filters" aria-label="Filtry moich wypłat">
-      <label className="field">
-        <span>Sezon</span>
-        <select
-          onChange={(event) => {
-            onChange({ ...filters, seasonId: event.target.value });
-          }}
-          value={filters.seasonId}
-        >
-          <option value="">Wszystkie sezony</option>
-          {seasons.map((season) => (
-            <option key={season.id} value={season.id}>
-              {season.name}
-            </option>
-          ))}
-        </select>
-      </label>
       <label className="field">
         <span>Sesja od</span>
         <input
@@ -302,7 +299,6 @@ function PaymentTable({
           <tr>
             <th>Data wypłaty</th>
             <th>Data sesji</th>
-            <th>Sezon</th>
             <th>Kwota</th>
             <th>Metoda</th>
             <th>Status</th>
@@ -322,7 +318,6 @@ function PaymentTable({
                   ? formatBusinessDate(payment.sessionBusinessDate)
                   : "Brak danych"}
               </td>
-              <td data-label="Sezon">{payment.seasonName}</td>
               <td data-label="Kwota">{formatMoney(payment.amountGrosz)}</td>
               <td data-label="Metoda">{paymentMethodLabel(payment.paymentMethod)}</td>
               <td data-label="Status">
@@ -335,7 +330,7 @@ function PaymentTable({
               <td data-label="Szczegóły">
                 <button
                   aria-label={`Otwórz sesję wypłaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
-                  className="secondary-button icon-button"
+                  className="secondary-button icon-button picker-table-action"
                   disabled={payment.sessionBusinessDate === null}
                   onClick={() => {
                     onOpenSession(payment.sessionId);
@@ -368,7 +363,7 @@ function paymentMethodLabel(method: PickerPaymentListItem["paymentMethod"]): str
     case "BANK_TRANSFER":
       return "Przelew bankowy";
     case "CASH":
-      return "Gotowka";
+      return "Gotówka";
     case "OTHER":
       return "Inna";
   }

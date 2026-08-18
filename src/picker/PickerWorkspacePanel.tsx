@@ -2,6 +2,7 @@ import { Banknote, FileSpreadsheet, Flag, LayoutDashboard } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
+import { DEFAULT_DASHBOARD_PERIOD } from "../dashboard/dashboardPeriod";
 import {
   PickerIssueReportsPanel,
   type PickerIssueReportsApi
@@ -9,7 +10,11 @@ import {
 import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
 import type { SyncDocumentMetadataInput } from "../offline/pendingWriteMetadata";
 import { PickerDataExportPanel, type PickerDataExportApi } from "./PickerDataExportPanel";
-import { PickerDashboardPanel, type PickerDashboardApi } from "./PickerDashboardPanel";
+import {
+  PickerDashboardPanel,
+  type PickerDashboardApi,
+  type PickerDashboardSelection
+} from "./PickerDashboardPanel";
 import {
   PickerHarvestListPanel,
   type PickerHarvestListApi
@@ -55,6 +60,10 @@ export function PickerWorkspacePanel({
 }) {
   const [activeView, setActiveView] = useState<PickerView>("SUMMARY");
   const [reportSessionId, setReportSessionId] = useState<string | null>(null);
+  const [dashboardSelection, setDashboardSelection] = useState<PickerDashboardSelection>({
+    periodSelection: DEFAULT_DASHBOARD_PERIOD,
+    selectedSeasonId: null
+  });
   const handleReportIssue = useCallback((sessionId: string) => {
     setReportSessionId(sessionId);
     setActiveView("ISSUES");
@@ -107,12 +116,15 @@ export function PickerWorkspacePanel({
         <>
           <PickerDashboardPanel
             authState={authState}
+            dashboardSelection={dashboardSelection}
             env={env}
             isOnline={isOnline}
+            onDashboardSelectionChange={setDashboardSelection}
             pickerDashboardApi={pickerDashboardApi}
           />
           <PickerHarvestListPanel
             authState={authState}
+            dashboardSelection={dashboardSelection}
             env={env}
             isOnline={isOnline}
             onReportIssue={handleReportIssue}

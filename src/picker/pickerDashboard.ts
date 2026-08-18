@@ -127,27 +127,50 @@ export async function loadPickerDashboard(
         todayBusinessDate: input.businessDate ?? currentWarsawBusinessDate()
       }
     );
-    const [sessionSnapshot, paymentSnapshot] = await Promise.all([
-      readDocuments(
-        query(
-          collection(firestore, HARVEST_SESSIONS_COLLECTION),
-          where("workerId", "==", workerId),
-          where("seasonId", "==", selectedSeason.id),
-          ...dashboardPeriodQueryConstraints("businessDate", period, where),
-          orderBy("businessDate", "desc"),
-          orderBy("createdAtServer", "desc")
+    const readFilteredDocuments = () =>
+      Promise.all([
+        readDocuments(
+          query(
+            collection(firestore, HARVEST_SESSIONS_COLLECTION),
+            where("workerId", "==", workerId),
+            where("seasonId", "==", selectedSeason.id),
+            ...dashboardPeriodQueryConstraints("businessDate", period, where),
+            orderBy("businessDate", "desc"),
+            orderBy("createdAtServer", "desc")
+          )
+        ),
+        readDocuments(
+          query(
+            collection(firestore, PAYMENTS_COLLECTION),
+            where("workerId", "==", workerId),
+            where("seasonId", "==", selectedSeason.id),
+            ...dashboardPeriodQueryConstraints("paidBusinessDate", period, where),
+            orderBy("paidBusinessDate", "desc")
+          )
         )
-      ),
-      readDocuments(
-        query(
-          collection(firestore, PAYMENTS_COLLECTION),
-          where("workerId", "==", workerId),
-          where("seasonId", "==", selectedSeason.id),
-          ...dashboardPeriodQueryConstraints("paidBusinessDate", period, where),
-          orderBy("paidBusinessDate", "desc")
+      ]);
+    const readOwnHistoryFallback = () =>
+      Promise.all([
+        readDocuments(
+          query(
+            collection(firestore, HARVEST_SESSIONS_COLLECTION),
+            where("workerId", "==", workerId),
+            orderBy("businessDate", "desc"),
+            orderBy("createdAtServer", "desc")
+          )
+        ),
+        readDocuments(
+          query(
+            collection(firestore, PAYMENTS_COLLECTION),
+            where("workerId", "==", workerId),
+            orderBy("paidBusinessDate", "desc")
+          )
         )
-      )
-    ]);
+      ]);
+    // The own-history queries have stable indexes and retain correct client-side filtering.
+    const [sessionSnapshot, paymentSnapshot] =
+      await readFilteredDocuments().catch(readOwnHistoryFallback);
+
     sessionDocuments = toRawDocuments(sessionSnapshot.docs);
     paymentDocuments = toRawDocuments(paymentSnapshot.docs);
     flowFromCache =

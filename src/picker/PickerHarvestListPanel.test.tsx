@@ -49,8 +49,10 @@ describe("PickerHarvestListPanel", () => {
       await screen.findByRole("button", { name: "Otwórz sesję 29.07.2026" })
     ).toBeInTheDocument();
     expect(screen.queryByText("Oczekuje synchronizacji")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Wymaga przegladu")).toHaveLength(2);
+    expect(screen.getAllByText("Wymaga przeglądu")).toHaveLength(2);
     expect(screen.getAllByText("Anulowano")).toHaveLength(2);
+    expect(screen.queryByRole("columnheader", { name: "Sezon" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Plan" })).not.toBeInTheDocument();
     expect(screen.queryByText("2 ubianki")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
@@ -147,8 +149,22 @@ function listResult(): PickerHarvestListResult {
     ],
     refreshedAtIso: "2026-07-29T08:00:00.000Z",
     seasons: [
-      { id: "season-2026", name: "Sezon 2026" },
-      { id: "season-2025", name: "Sezon 2025" }
+      {
+        endDate: "2026-09-30",
+        id: "season-2026",
+        isDefault: true,
+        name: "Sezon 2026",
+        startDate: "2026-07-01",
+        status: "OPEN"
+      },
+      {
+        endDate: "2025-09-30",
+        id: "season-2025",
+        isDefault: false,
+        name: "Sezon 2025",
+        startDate: "2025-07-01",
+        status: "CLOSED"
+      }
     ]
   };
 }

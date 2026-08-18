@@ -137,6 +137,39 @@ describe("PwaUpdateNotice", () => {
     });
   });
 
+  it("clears an empty stale update marker when only the device identity changed", async () => {
+    const storage = createBrowserPwaUpdateIntentStorage(localStorage);
+
+    storage.write(
+      createPwaUpdateIntent({
+        appVersion: "0.0.9",
+        deviceId: "device-before-update",
+        schemaVersion: "schema-0001",
+        syncDocuments: [],
+        userUid: "picker-1"
+      })
+    );
+
+    render(
+      <PwaUpdateNotice
+        currentUserUid="picker-1"
+        deviceId="device-after-update"
+        hasActiveForm={false}
+        hasActiveHarvestSession={false}
+        intentStorage={storage}
+        localDataInspected={true}
+        registration={createRegistration({ needRefresh: false })}
+        syncDocuments={[]}
+      />
+    );
+
+    expect(await screen.findByText("Kontrola po aktualizacji zakończona.")).toBeVisible();
+    expect(screen.queryByText("Aktualizacja wymaga przeglądu")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(storage.read()).toBeNull();
+    });
+  });
+
   it("keeps version B blocked until version A data is synchronized, then verifies reload", async () => {
     const user = userEvent.setup();
     const storage = createBrowserPwaUpdateIntentStorage(localStorage);

@@ -1,5 +1,5 @@
 import { UserRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { DashboardPeriodFilter } from "../dashboard/DashboardPeriodFilter";
@@ -26,6 +26,11 @@ export const defaultPickerDashboardApi: PickerDashboardApi = {
   load: loadPickerDashboard
 };
 
+export type PickerDashboardSelection = {
+  periodSelection: DashboardPeriodSelection;
+  selectedSeasonId: string | null;
+};
+
 type DashboardState =
   | {
       result: PickerDashboardResult | null;
@@ -47,20 +52,29 @@ const initialState: DashboardState = {
 
 export function PickerDashboardPanel({
   authState,
+  dashboardSelection,
   env,
   isOnline,
+  onDashboardSelectionChange,
   pickerDashboardApi = defaultPickerDashboardApi
 }: {
   authState: AuthSessionState;
+  dashboardSelection?: PickerDashboardSelection;
   env: FirebaseEnv;
   isOnline: boolean;
+  onDashboardSelectionChange?: (selection: PickerDashboardSelection) => void;
   pickerDashboardApi?: PickerDashboardApi;
 }) {
   const [state, setState] = useState<DashboardState>(initialState);
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
-  const [periodSelection, setPeriodSelection] = useState<DashboardPeriodSelection>(
-    DEFAULT_DASHBOARD_PERIOD
+  const [internalSelectedSeasonId, setInternalSelectedSeasonId] = useState<string | null>(
+    null
   );
+  const [internalPeriodSelection, setInternalPeriodSelection] =
+    useState<DashboardPeriodSelection>(DEFAULT_DASHBOARD_PERIOD);
+  const loadedSelectionKeyRef = useRef<string | null>(null);
+  const selectedSeasonId =
+    dashboardSelection?.selectedSeasonId ?? internalSelectedSeasonId;
+  const periodSelection = dashboardSelection?.periodSelection ?? internalPeriodSelection;
   const todayBusinessDate = useMemo(() => currentWarsawBusinessDate(), []);
   const periodError = dashboardPeriodSelectionError(periodSelection);
   const isPicker =
@@ -73,13 +87,27 @@ export function PickerDashboardPanel({
 
     if (!isPicker) {
       setState(initialState);
-      setSelectedSeasonId(null);
+      setInternalSelectedSeasonId(null);
+      loadedSelectionKeyRef.current = null;
       return undefined;
     }
 
     if (periodError) {
       return undefined;
     }
+
+    const selectionKey = pickerDashboardSelectionKey({
+      isOnline,
+      periodSelection,
+      selectedSeasonId,
+      userUid: authState.profile.uid
+    });
+
+    if (loadedSelectionKeyRef.current === selectionKey) {
+      return undefined;
+    }
+
+    loadedSelectionKeyRef.current = selectionKey;
 
     setState((current) => ({
       result: current.result,
@@ -96,6 +124,19 @@ export function PickerDashboardPanel({
       .then((result) => {
         if (isMounted) {
           setState({ result, status: "READY" });
+
+          if (selectedSeasonId === null && result.selectedSeasonId !== null) {
+            loadedSelectionKeyRef.current = pickerDashboardSelectionKey({
+              isOnline,
+              periodSelection,
+              selectedSeasonId: result.selectedSeasonId,
+              userUid: authState.profile.uid
+            });
+            onDashboardSelectionChange?.({
+              periodSelection,
+              selectedSeasonId: result.selectedSeasonId
+            });
+          }
         }
       })
       .catch(() => {
@@ -112,15 +153,23 @@ export function PickerDashboardPanel({
     };
   }, [
     authState,
+    dashboardSelection,
     env,
     isOnline,
     isPicker,
+    onDashboardSelectionChange,
     periodError,
     periodSelection,
     pickerDashboardApi,
     selectedSeasonId,
     todayBusinessDate
   ]);
+
+  const updateDashboardSelection = (nextSelection: PickerDashboardSelection) => {
+    setInternalPeriodSelection(nextSelection.periodSelection);
+    setInternalSelectedSeasonId(nextSelection.selectedSeasonId);
+    onDashboardSelectionChange?.(nextSelection);
+  };
 
   if (!isPicker) {
     return (
@@ -152,9 +201,12 @@ export function PickerDashboardPanel({
           <label className="field">
             <span>Sezon</span>
             <select
-              disabled={!result || state.status === "LOADING"}
+              disabled={!result?.seasons.length || state.status === "LOADING"}
               onChange={(event) => {
-                setSelectedSeasonId(event.target.value || null);
+                updateDashboardSelection({
+                  periodSelection,
+                  selectedSeasonId: event.target.value || null
+                });
               }}
               value={selectedSeasonId ?? result?.selectedSeasonId ?? ""}
             >
@@ -173,7 +225,12 @@ export function PickerDashboardPanel({
         <DashboardPeriodFilter
           disabled={state.status === "LOADING"}
           idPrefix="picker-dashboard"
-          onChange={setPeriodSelection}
+          onChange={(nextPeriodSelection) => {
+            updateDashboardSelection({
+              periodSelection: nextPeriodSelection,
+              selectedSeasonId
+            });
+          }}
           selection={periodSelection}
           todayBusinessDate={todayBusinessDate}
         />
@@ -289,4 +346,25 @@ function formatQuantity(quantityMilli: number, precision: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: precision
   }).format(quantityMilli / 1000);
+}
+
+function pickerDashboardSelectionKey({
+  isOnline,
+  periodSelection,
+  selectedSeasonId,
+  userUid
+}: {
+  isOnline: boolean;
+  periodSelection: DashboardPeriodSelection;
+  selectedSeasonId: string | null;
+  userUid: string;
+}): string {
+  return [
+    userUid,
+    isOnline ? "online" : "offline",
+    selectedSeasonId ?? "default",
+    periodSelection.preset,
+    periodSelection.customFromDate,
+    periodSelection.customToDate
+  ].join("\u0000");
 }

@@ -88,7 +88,8 @@ describe("AdminDashboardPanel", () => {
       ).toBeVisible();
     });
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Okres"), "CURRENT_WEEK");
+    await user.click(screen.getByText("Zakres dat"));
+    await user.click(screen.getByRole("button", { name: "Bieżący tydzień" }));
     await waitFor(() => {
       expect(api.load).toHaveBeenLastCalledWith(
         {},
@@ -304,7 +305,7 @@ function seasonSummary(
     period = {
       dateBasis: "BUSINESS_DATE" as const,
       fromDate: "2026-07-01",
-      label: "Caly sezon: 01.07.2026 - 30.09.2026",
+      label: "Cały sezon: 01.07.2026 - 30.09.2026",
       preset: "SEASON" as const,
       toDate: "2026-09-30"
     },

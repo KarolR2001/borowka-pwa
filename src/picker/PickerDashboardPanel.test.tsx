@@ -142,7 +142,7 @@ function dashboardResult(
     period: {
       dateBasis: "BUSINESS_DATE",
       fromDate: "2026-07-01",
-      label: "Caly sezon: 01.07.2026 - 30.09.2026",
+      label: "Cały sezon: 01.07.2026 - 30.09.2026",
       preset: "SEASON",
       toDate: "2026-09-30"
     },

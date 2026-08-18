@@ -1,6 +1,7 @@
 import {
   PWA_UPDATE_INTENT_FORMAT,
   PWA_UPDATE_INTENT_VERSION,
+  canClearStalePwaUpdateIntent,
   createBrowserPwaUpdateIntentStorage,
   createPwaUpdateIntent,
   evaluatePwaUpdateDecision,
@@ -149,5 +150,37 @@ describe("PWA update policy", () => {
       "LOCAL_DOCUMENT_MISSING",
       "SCHEMA_MIGRATION_MISSING"
     ]);
+  });
+
+  it("clears a stale device marker only when the update had no local data", async () => {
+    const emptyIntent = createPwaUpdateIntent({
+      appVersion: "0.1.0",
+      deviceId: "device-before-update",
+      schemaVersion: "schema-0001",
+      syncDocuments: [],
+      userUid: "picker-1"
+    });
+    const report = await runPwaUpdateIntegrityCheck({
+      currentDeviceId: "device-after-update",
+      currentLocalDocumentIds: [],
+      currentSchemaVersion: "schema-0001",
+      intent: emptyIntent
+    });
+
+    expect(canClearStalePwaUpdateIntent({ intent: emptyIntent, report })).toBe(true);
+    expect(
+      canClearStalePwaUpdateIntent({
+        intent: createPwaUpdateIntent({
+          appVersion: "0.1.0",
+          deviceId: "device-before-update",
+          schemaVersion: "schema-0001",
+          syncDocuments: [
+            { id: "entry-local", kind: "HARVEST_ENTRY", pendingSync: true }
+          ],
+          userUid: "picker-1"
+        }),
+        report
+      })
+    ).toBe(false);
   });
 });

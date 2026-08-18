@@ -45,7 +45,11 @@ describe("PickerDataExportPanel", () => {
         "Plik zawiera Twoje dane osobowe i finansowe. Przechowuj go w zabezpieczonej lokalizacji."
       )
     ).toBeVisible();
-    expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
+    await user.click(screen.getByText("Zakres eksportu"));
+    await user.click(screen.getByText("Zakres dat"));
+    expect(
+      screen.getByRole("button", { name: "Cały sezon", pressed: true })
+    ).toBeVisible();
     expect(screen.queryByText("Anulowane poza sumą")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
 
@@ -72,7 +76,9 @@ describe("PickerDataExportPanel", () => {
       />
     );
 
-    await user.selectOptions(await screen.findByLabelText("Okres"), "CUSTOM");
+    await user.click(await screen.findByText("Zakres eksportu"));
+    await user.click(screen.getByText("Zakres dat"));
+    await user.click(screen.getByRole("button", { name: "Własny zakres" }));
     await user.clear(screen.getByLabelText("Od"));
     await user.type(screen.getByLabelText("Od"), "2026-07-10");
     await user.clear(screen.getByLabelText("Do"));
@@ -108,7 +114,7 @@ describe("PickerDataExportPanel", () => {
     await user.click(screen.getByRole("button", { name: "Pobierz niepełny CSV" }));
 
     expect(downloadCsv.mock.calls[0]?.[0]).toContain(
-      '"Kompletnosc";"NIEPELNY - DANE Z CACHE"'
+      '"Kompletność";"NIEPELNY - DANE Z CACHE"'
     );
   });
 
