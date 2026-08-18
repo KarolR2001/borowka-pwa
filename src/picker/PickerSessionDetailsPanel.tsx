@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
-import { formatSessionQuantity } from "../harvest/ActiveHarvestSessionPanel";
 import { harvestSessionStatusLabel } from "../harvest/harvestSessionState";
 import {
   loadPickerSessionDetails,
@@ -126,33 +125,7 @@ export function PickerSessionDetailsPanel({
           <dl className="picker-session-details__facts">
             <Fact label="Status" value={harvestSessionStatusLabel(result.status)} />
             <Fact label="Plan" value={result.planName} />
-            <Fact
-              label="Stawka snapshotu"
-              value={`${formatMoney(result.rateGrosz)} / ${result.unitLabel}`}
-            />
-            <Fact label="Aktywne wpisy" value={String(result.activeEntryCount)} />
-            <Fact
-              label="Jednostki"
-              value={
-                result.calculationBasis === "QUANTITY"
-                  ? formatSessionQuantity(
-                      result.totalQuantityMilli,
-                      result.quantityPrecision,
-                      result.unitLabelPlural
-                    )
-                  : "-"
-              }
-            />
             <Fact label="Masa" value={formatKilograms(result.totalWeightG)} />
-            <Fact
-              label="Oficjalne naliczenie"
-              value={
-                result.amountDueGrosz === null
-                  ? "Brak oficjalnej kwoty"
-                  : formatMoney(result.amountDueGrosz)
-              }
-            />
-            <Fact label="Status wypłaty" value={paymentStatusLabel(result)} />
           </dl>
 
           {result.payment ? (
@@ -177,7 +150,7 @@ export function PickerSessionDetailsPanel({
             {result.entries.length === 0 ? (
               <p className="empty-state">Brak wpisów w tej sesji.</p>
             ) : (
-              <ol>
+              <ol className="picker-session-details__entry-list">
                 {result.entries.map((entry) => (
                   <li
                     className={
@@ -197,14 +170,6 @@ export function PickerSessionDetailsPanel({
                       </span>
                     </div>
                     <dl>
-                      <Fact
-                        label="Ilość"
-                        value={formatSessionQuantity(
-                          entry.quantityMilli,
-                          result.quantityPrecision,
-                          result.unitLabelPlural
-                        )}
-                      />
                       <Fact
                         label="Masa"
                         value={
@@ -263,26 +228,5 @@ function paymentMethodLabel(
       return "Przelew bankowy";
     case "OTHER":
       return "Inna";
-  }
-}
-
-function paymentStatusLabel(result: PickerSessionDetailsResult): string {
-  if (result.payment) {
-    return "Wypłacono";
-  }
-
-  if (result.invalidPayment || result.status === "PAID") {
-    return "Wymaga sprawdzenia";
-  }
-
-  switch (result.status) {
-    case "CLOSED":
-      return "Do wypłaty";
-    case "CANCELLED":
-      return "Nie dotyczy";
-    case "OPEN":
-      return "Jeszcze nienaliczona";
-    case "REVIEW_REQUIRED":
-      return "Wstrzymana do sprawdzenia";
   }
 }

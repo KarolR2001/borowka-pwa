@@ -246,10 +246,6 @@ export function PickerDataExportPanel({
               label="Pozostało"
               value={formatMoney(filtered?.summary.remainingAmountGrosz ?? 0)}
             />
-            <ExportStat
-              label="Anulowane poza sumą"
-              value={formatMoney(filtered?.summary.cancelledPaymentAmountGrosz ?? 0)}
-            />
           </div>
           {state.result.dataSource === "CACHE" ? (
             <p className="form-message form-message--warning">

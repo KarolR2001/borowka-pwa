@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
-import { formatSessionQuantity } from "../harvest/ActiveHarvestSessionPanel";
 import {
   HARVEST_SESSION_STATUSES,
   harvestSessionStatusLabel
@@ -128,6 +127,9 @@ export function PickerHarvestListPanel({
 
   return (
     <section className="picker-harvest-list" aria-label="Moje zbiory">
+      <header className="picker-harvest-list__header">
+        <h2>Moje zbiory</h2>
+      </header>
       <CollapsibleFilters>
         <HarvestFilters
           filters={filters}
@@ -150,6 +152,7 @@ export function PickerHarvestListPanel({
       ) : null}
       {selectedItem ? (
         <RecordDialog
+          fullScreen
           label="Szczegóły zbioru"
           onClose={() => {
             setSelectedSessionId(null);
@@ -279,13 +282,12 @@ function HarvestTable({
 }) {
   return (
     <div className="directory-table-wrap">
-      <table className="directory-table picker-harvest-table">
+      <table className="directory-table mobile-card-table picker-harvest-table">
         <thead>
           <tr>
             <th>Data</th>
             <th>Sezon</th>
             <th>Plan</th>
-            <th>Jednostki</th>
             <th>Kg</th>
             <th>Naliczenie</th>
             <th>Status</th>
@@ -297,32 +299,23 @@ function HarvestTable({
         <tbody>
           {items.map((item) => (
             <tr key={item.sessionId}>
-              <td>{formatBusinessDate(item.businessDate)}</td>
-              <td>{item.seasonName}</td>
-              <td>{item.planName}</td>
-              <td>
-                {item.calculationBasis === "QUANTITY"
-                  ? formatSessionQuantity(
-                      item.totalQuantityMilli,
-                      item.quantityPrecision,
-                      item.unitLabelPlural
-                    )
-                  : "-"}
-              </td>
-              <td>{formatKilograms(item.totalWeightG)}</td>
-              <td>
+              <td data-label="Data">{formatBusinessDate(item.businessDate)}</td>
+              <td data-label="Sezon">{item.seasonName}</td>
+              <td data-label="Plan">{item.planName}</td>
+              <td data-label="Zebrano">{formatKilograms(item.totalWeightG)}</td>
+              <td data-label="Naliczenie">
                 {item.amountDueGrosz === null
                   ? "Brak oficjalnej kwoty"
                   : formatMoney(item.amountDueGrosz)}
               </td>
-              <td>
+              <td data-label="Status">
                 <span
                   className={`picker-session-status picker-session-status--${item.status}`}
                 >
                   {harvestSessionStatusLabel(item.status)}
                 </span>
               </td>
-              <td>
+              <td data-label="Szczegóły">
                 <button
                   aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}
                   className="secondary-button icon-button"

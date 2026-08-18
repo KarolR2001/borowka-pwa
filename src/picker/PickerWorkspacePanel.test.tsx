@@ -22,7 +22,7 @@ const pickerState: AuthSessionState = {
 };
 
 describe("PickerWorkspacePanel", () => {
-  it("loads only the selected picker tab", async () => {
+  it("loads the summary together with the picker harvest history", async () => {
     const user = userEvent.setup();
     const dashboardLoad = vi.fn().mockResolvedValue({
       accruedAmountGrosz: 0,
@@ -113,16 +113,12 @@ describe("PickerWorkspacePanel", () => {
     );
 
     expect(await screen.findByText("Anna Konto / Anna Zbieracz")).toBeInTheDocument();
-    expect(harvestLoad).not.toHaveBeenCalled();
-    expect(paymentLoad).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("tab", { name: "Moje zbiory" }));
-
     expect(
       await screen.findByText("Brak sesji spełniających wybrane filtry.")
     ).toBeInTheDocument();
     expect(harvestLoad).toHaveBeenCalledTimes(1);
     expect(paymentLoad).not.toHaveBeenCalled();
+    expect(screen.queryByRole("tab", { name: "Moje zbiory" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Moje wypłaty" }));
 

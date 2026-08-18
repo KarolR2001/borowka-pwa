@@ -30,7 +30,7 @@ const pickerState: AuthSessionState = {
 };
 
 describe("PickerHarvestListPanel", () => {
-  it("shows all statuses, meaningful sync state and opens a session preview", async () => {
+  it("shows all statuses, meaningful sync state and opens session details full-screen", async () => {
     const user = userEvent.setup();
     const load = vi.fn<PickerHarvestListApi["load"]>().mockResolvedValue(listResult());
 
@@ -51,7 +51,7 @@ describe("PickerHarvestListPanel", () => {
     expect(screen.queryByText("Oczekuje synchronizacji")).not.toBeInTheDocument();
     expect(screen.getAllByText("Wymaga przegladu")).toHaveLength(2);
     expect(screen.getAllByText("Anulowano")).toHaveLength(2);
-    expect(screen.getAllByText("2 ubianki")).toHaveLength(4);
+    expect(screen.queryByText("2 ubianki")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Otwórz sesję 29.07.2026" }));
@@ -59,6 +59,9 @@ describe("PickerHarvestListPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Sesja z 29.07.2026" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Szczegóły zbioru" })).toHaveClass(
+      "record-dialog--fullscreen"
+    );
     expect(screen.getAllByText("W toku").length).toBeGreaterThan(1);
     expect(load).toHaveBeenCalledWith(
       {},

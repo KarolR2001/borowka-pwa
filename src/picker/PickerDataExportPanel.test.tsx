@@ -46,6 +46,7 @@ describe("PickerDataExportPanel", () => {
       )
     ).toBeVisible();
     expect(screen.getByLabelText("Okres")).toHaveValue("SEASON");
+    expect(screen.queryByText("Anulowane poza sumą")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
 
     expect(downloadCsv).toHaveBeenCalledTimes(1);
