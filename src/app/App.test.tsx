@@ -21,6 +21,38 @@ import type { UserDirectoryApi } from "../users/AdminUserDirectoryPanel";
 import type { WorkerDirectoryApi } from "../workers/WorkerDirectoryPanel";
 import { App, type AuthSessionApi, type DeviceRegistryApi } from "./App";
 
+const firebaseServicesMocks = vi.hoisted(() => {
+  const getStatus = (env: Record<string, string | boolean | undefined>) => {
+    const ready = Boolean(env.VITE_FIREBASE_API_KEY);
+
+    return {
+      cacheMode: "MEMORY" as const,
+      initialized: false,
+      message: ready
+        ? "Usługi Firebase mogą zostać uruchomione."
+        : "Brak konfiguracji Firebase.",
+      mode: "development" as const,
+      ready,
+      warnings: []
+    };
+  };
+
+  return {
+    clearFirestoreLocalData: vi.fn(() => Promise.resolve()),
+    getFirebaseServices: vi.fn(() => Promise.resolve({ auth: {}, firestore: {} })),
+    getFirebaseServicesStatus: vi.fn(getStatus),
+    initializeFirebaseServicesIfReady: vi.fn(
+      (env: Record<string, string | boolean | undefined>) =>
+        Promise.resolve({
+          ...getStatus(env),
+          initialized: getStatus(env).ready
+        })
+    )
+  };
+});
+
+vi.mock("../config/firebaseServices", () => firebaseServicesMocks);
+
 const signedOutState: AuthSessionState = {
   status: "SIGNED_OUT",
   message: "Uzytkownik nie jest zalogowany."
@@ -366,10 +398,6 @@ describe("App shell", () => {
   });
 
   it("blocks sign out and lists sessions while local documents are pending", async () => {
-    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
-      vi.stubEnv(key, value);
-    }
-
     const user = userEvent.setup();
     const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
     const listLocalDocuments = vi
@@ -395,7 +423,7 @@ describe("App shell", () => {
     );
 
     await waitFor(() => {
-      expect(listLocalDocuments).toHaveBeenCalledTimes(2);
+      expect(listLocalDocuments).toHaveBeenCalledTimes(1);
     });
     await selectMainView(user, "Konto");
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));
@@ -484,10 +512,6 @@ describe("App shell", () => {
   }, 15000);
 
   it("does not expose one account's pending documents after switching users", async () => {
-    for (const [key, value] of Object.entries(completeFirebaseEnv)) {
-      vi.stubEnv(key, value);
-    }
-
     const user = userEvent.setup();
     const signOut = vi.fn<AuthSessionApi["signOut"]>().mockResolvedValue(undefined);
     let sessionListener: ((state: AuthSessionState) => void) | null = null;
@@ -534,7 +558,7 @@ describe("App shell", () => {
     );
 
     await waitFor(() => {
-      expect(listLocalDocuments).toHaveBeenCalledTimes(2);
+      expect(listLocalDocuments).toHaveBeenCalledTimes(1);
     });
     await selectMainView(user, "Konto");
     await user.click(screen.getByRole("button", { name: "Wyloguj" }));

@@ -3,6 +3,45 @@ import {
   initializeFirebaseServicesIfReady
 } from "./firebaseServices";
 
+const firebaseSdkMocks = vi.hoisted(() => {
+  const app = { name: "[DEFAULT]" };
+  const auth = {};
+  const firestore = {};
+
+  return {
+    app,
+    auth,
+    firestore,
+    connectAuthEmulator: vi.fn(),
+    connectFirestoreEmulator: vi.fn(),
+    getApps: vi.fn(() => []),
+    getAuth: vi.fn(() => auth),
+    initializeApp: vi.fn(() => app),
+    initializeFirestore: vi.fn(() => firestore),
+    memoryLocalCache: vi.fn(() => ({})),
+    persistentLocalCache: vi.fn(() => ({})),
+    persistentMultipleTabManager: vi.fn(() => ({}))
+  };
+});
+
+vi.mock("firebase/app", () => ({
+  getApps: firebaseSdkMocks.getApps,
+  initializeApp: firebaseSdkMocks.initializeApp
+}));
+
+vi.mock("firebase/auth", () => ({
+  connectAuthEmulator: firebaseSdkMocks.connectAuthEmulator,
+  getAuth: firebaseSdkMocks.getAuth
+}));
+
+vi.mock("firebase/firestore", () => ({
+  connectFirestoreEmulator: firebaseSdkMocks.connectFirestoreEmulator,
+  initializeFirestore: firebaseSdkMocks.initializeFirestore,
+  memoryLocalCache: firebaseSdkMocks.memoryLocalCache,
+  persistentLocalCache: firebaseSdkMocks.persistentLocalCache,
+  persistentMultipleTabManager: firebaseSdkMocks.persistentMultipleTabManager
+}));
+
 const completeEnv = {
   VITE_APP_ENV: "development",
   VITE_USE_FIREBASE_EMULATORS: "false",

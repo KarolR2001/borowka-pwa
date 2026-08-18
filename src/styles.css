@@ -1305,6 +1305,7 @@ h2 {
   display: grid;
   grid-template-columns: minmax(180px, 0.6fr) minmax(320px, 1.4fr);
   gap: 12px;
+  min-width: 0;
 }
 
 .picker-export-settings .checkbox-row {
@@ -1539,8 +1540,40 @@ h2 {
   background: #ffffff;
 }
 
+.picker-harvest-list {
+  display: grid;
+  gap: 14px;
+}
+
+.picker-harvest-list__header h2 {
+  margin: 0;
+  color: #52665b;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.picker-harvest-filters,
+.picker-payment-filters,
+.picker-data-export__filters {
+  min-width: 0;
+}
+
+.picker-harvest-filters .field,
+.picker-payment-filters .field,
+.picker-data-export__filters .field {
+  min-width: 0;
+}
+
+.picker-harvest-filters .field :is(input, select),
+.picker-payment-filters .field :is(input, select),
+.picker-data-export__filters .field :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .picker-harvest-table {
-  min-width: 1260px;
+  min-width: 1080px;
 }
 
 .picker-session-status {
@@ -1644,15 +1677,24 @@ h2 {
   grid-template-columns: repeat(3, minmax(140px, 1fr));
 }
 
-.picker-session-details__entries ol {
-  display: grid;
-  gap: 10px;
+.picker-session-details__entry-list {
+  --picker-entry-card-width: min(86vw, 420px);
+
+  display: flex;
+  gap: 8px;
   margin: 0;
-  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  padding: 4px max(0px, calc((100% - var(--picker-entry-card-width)) / 2)) 12px;
+  scroll-padding-inline: max(0px, calc((100% - var(--picker-entry-card-width)) / 2));
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
   list-style: none;
 }
 
 .picker-session-entry {
+  flex: 0 0 var(--picker-entry-card-width);
   display: grid;
   grid-template-columns: minmax(160px, 0.8fr) minmax(280px, 1.2fr);
   gap: 14px;
@@ -1660,6 +1702,8 @@ h2 {
   border-radius: 8px;
   padding: 14px;
   background: #f9fbf9;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
 }
 
 .picker-session-entry.is-cancelled {

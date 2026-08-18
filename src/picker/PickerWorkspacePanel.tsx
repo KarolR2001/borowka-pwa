@@ -1,4 +1,4 @@
-import { Banknote, FileSpreadsheet, Flag, LayoutDashboard, List } from "lucide-react";
+import { Banknote, FileSpreadsheet, Flag, LayoutDashboard } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
@@ -22,7 +22,7 @@ import type { PickerSessionDetailsApi } from "./PickerSessionDetailsPanel";
 import type { PickerOfflineDataApi } from "./PickerOfflineDataPanel";
 
 type FirebaseEnv = Record<string, string | boolean | undefined>;
-type PickerView = "SUMMARY" | "HARVESTS" | "PAYMENTS" | "ISSUES" | "EXPORT";
+type PickerView = "SUMMARY" | "PAYMENTS" | "ISSUES" | "EXPORT";
 
 export function PickerWorkspacePanel({
   authState,
@@ -87,14 +87,6 @@ export function PickerWorkspacePanel({
           }}
         />
         <WorkspaceTab
-          active={activeView === "HARVESTS"}
-          icon={List}
-          label="Moje zbiory"
-          onClick={() => {
-            setActiveView("HARVESTS");
-          }}
-        />
-        <WorkspaceTab
           active={activeView === "PAYMENTS"}
           icon={Banknote}
           label="Moje wypłaty"
@@ -112,22 +104,23 @@ export function PickerWorkspacePanel({
         />
       </div>
       {activeView === "SUMMARY" ? (
-        <PickerDashboardPanel
-          authState={authState}
-          env={env}
-          isOnline={isOnline}
-          pickerDashboardApi={pickerDashboardApi}
-        />
-      ) : activeView === "HARVESTS" ? (
-        <PickerHarvestListPanel
-          authState={authState}
-          env={env}
-          isOnline={isOnline}
-          onReportIssue={handleReportIssue}
-          pickerHarvestListApi={pickerHarvestListApi}
-          pickerSessionDetailsApi={pickerSessionDetailsApi}
-          syncDocuments={syncDocuments}
-        />
+        <>
+          <PickerDashboardPanel
+            authState={authState}
+            env={env}
+            isOnline={isOnline}
+            pickerDashboardApi={pickerDashboardApi}
+          />
+          <PickerHarvestListPanel
+            authState={authState}
+            env={env}
+            isOnline={isOnline}
+            onReportIssue={handleReportIssue}
+            pickerHarvestListApi={pickerHarvestListApi}
+            pickerSessionDetailsApi={pickerSessionDetailsApi}
+            syncDocuments={syncDocuments}
+          />
+        </>
       ) : activeView === "PAYMENTS" ? (
         <PickerPaymentListPanel
           authState={authState}

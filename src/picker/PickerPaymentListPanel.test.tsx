@@ -48,9 +48,9 @@ describe("PickerPaymentListPanel", () => {
 
     expect(await screen.findByText("125,00 zł")).toBeInTheDocument();
     expect(screen.getAllByText("50,00 zł")).toHaveLength(2);
-    expect(screen.getAllByText("75,00 zł")).toHaveLength(3);
+    expect(screen.getAllByText("75,00 zł")).toHaveLength(2);
     expect(screen.getByText("Wypłacono (1)")).toBeInTheDocument();
-    expect(screen.getByText("Anulowane poza sumą (1)")).toBeInTheDocument();
+    expect(screen.queryByText("Anulowane poza sumą (1)")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Status"), "CANCELLED");
@@ -65,6 +65,9 @@ describe("PickerPaymentListPanel", () => {
     expect(
       await screen.findByRole("heading", { name: "Sesja z 27.07.2026" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Szczegóły wypłaty" })).toHaveClass(
+      "record-dialog--fullscreen"
+    );
     expect(detailsLoad).toHaveBeenCalledWith(
       {},
       expect.objectContaining({

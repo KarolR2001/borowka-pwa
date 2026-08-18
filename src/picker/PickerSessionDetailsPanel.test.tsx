@@ -96,8 +96,17 @@ describe("PickerSessionDetailsPanel", () => {
     expect(screen.getByText("Aktywny")).toBeInTheDocument();
     expect(screen.getByText("Powód: Bledna waga")).toBeInTheDocument();
     expect(screen.getByText("Przelew bankowy")).toBeInTheDocument();
+    expect(screen.queryByText("Stawka snapshotu")).not.toBeInTheDocument();
+    expect(screen.queryByText("Aktywne wpisy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Jednostki")).not.toBeInTheDocument();
+    expect(screen.queryByText("Oficjalne naliczenie")).not.toBeInTheDocument();
+    expect(screen.queryByText("Status wypłaty")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ilość")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/operator|administrator/i)).not.toBeInTheDocument();
+    expect(
+      document.querySelector(".picker-session-details__entry-list")
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Zgłoś niezgodność" }));
     expect(onReportIssue).toHaveBeenCalledWith("session-paid");

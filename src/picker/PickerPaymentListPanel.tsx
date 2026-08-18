@@ -144,10 +144,6 @@ export function PickerPaymentListPanel({
           label="Pozostało do wypłaty"
           value={formatMoney(summary.remainingAmountGrosz)}
         />
-        <PaymentStat
-          label={`Anulowane poza sumą (${String(summary.cancelledPaymentCount)})`}
-          value={formatMoney(summary.cancelledAmountGrosz)}
-        />
       </div>
 
       {state.status === "ERROR" ? (
@@ -174,6 +170,7 @@ export function PickerPaymentListPanel({
       ) : null}
       {selectedSessionId ? (
         <RecordDialog
+          fullScreen
           label="Szczegóły wypłaty"
           onClose={() => {
             setSelectedSessionId(null);
@@ -300,7 +297,7 @@ function PaymentTable({
 }) {
   return (
     <div className="directory-table-wrap">
-      <table className="directory-table picker-payment-table">
+      <table className="directory-table mobile-card-table picker-payment-table">
         <thead>
           <tr>
             <th>Data wypłaty</th>
@@ -317,23 +314,25 @@ function PaymentTable({
         <tbody>
           {payments.map((payment) => (
             <tr key={payment.id}>
-              <td>{formatBusinessDate(payment.paidBusinessDate)}</td>
-              <td>
+              <td data-label="Data wypłaty">
+                {formatBusinessDate(payment.paidBusinessDate)}
+              </td>
+              <td data-label="Data sesji">
                 {payment.sessionBusinessDate
                   ? formatBusinessDate(payment.sessionBusinessDate)
                   : "Brak danych"}
               </td>
-              <td>{payment.seasonName}</td>
-              <td>{formatMoney(payment.amountGrosz)}</td>
-              <td>{paymentMethodLabel(payment.paymentMethod)}</td>
-              <td>
+              <td data-label="Sezon">{payment.seasonName}</td>
+              <td data-label="Kwota">{formatMoney(payment.amountGrosz)}</td>
+              <td data-label="Metoda">{paymentMethodLabel(payment.paymentMethod)}</td>
+              <td data-label="Status">
                 <span
                   className={`picker-payment-status picker-payment-status--${payment.status}`}
                 >
                   {payment.status === "ACTIVE" ? "Aktywna" : "Anulowana"}
                 </span>
               </td>
-              <td>
+              <td data-label="Szczegóły">
                 <button
                   aria-label={`Otwórz sesję wypłaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
                   className="secondary-button icon-button"
