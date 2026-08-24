@@ -93,11 +93,7 @@ describe("PickerDashboardPanel", () => {
       if (!lastCall) {
         throw new Error("Brak ponownego wywołania pulpitu pickera.");
       }
-      const input = lastCall[1];
-      if (!input) {
-        throw new Error("Brak parametrów ponownego wywołania pulpitu pickera.");
-      }
-      expect(input.periodSelection?.preset).toBe("CURRENT_WEEK");
+      expect(lastCall[1].periodSelection?.preset).toBe("CURRENT_WEEK");
     });
 
     expect(
