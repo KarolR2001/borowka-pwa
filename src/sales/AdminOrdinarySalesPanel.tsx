@@ -846,8 +846,9 @@ function StockReconciliationAlert({
             Alarm stanu: {seasonName}
           </h3>
           <p>
-            Zwykła sprzedaż jest zablokowana. Wykonaj jawną korektę albo popraw dokument
-            źródłowy, a następnie odśwież stan.
+            Zwykła sprzedaż jest tymczasowo zablokowana, bo stan zapisany w dokumentach
+            źródłowych nie ma kompletu zapisów operacyjnych. Administrator musi najpierw
+            wyjaśnić tę rozbieżność korektą lub dokumentem źródłowym.
           </p>
         </div>
       </div>
@@ -857,7 +858,7 @@ function StockReconciliationAlert({
       <ul>
         {report.issues.map((issue) => (
           <li key={issue.code}>
-            {issue.message} ({String(issue.count)})
+            {stockIssueLabel(issue.code)} ({String(issue.count)})
           </li>
         ))}
       </ul>
@@ -877,7 +878,7 @@ function StockReconciliationAlert({
             value={formatKilograms(report.source.correctionIncreaseWeightG)}
           />
           <ConfirmationValue
-            label="Korekty zmniejszajace"
+            label="Korekty zmniejszające"
             value={formatKilograms(report.source.correctionDecreaseWeightG)}
           />
           <ConfirmationValue
@@ -916,6 +917,27 @@ function StockReconciliationAlert({
       </details>
     </section>
   );
+}
+
+function stockIssueLabel(
+  issueCode: StockReconciliationReport["issues"][number]["code"]
+): string {
+  switch (issueCode) {
+    case "MISSING_MOVEMENTS":
+      return "Brakuje zapisów operacyjnych dla dokumentów źródłowych";
+    case "INVALID_SOURCES":
+      return "Dokumenty źródłowe wymagają sprawdzenia";
+    case "INVALID_MOVEMENTS":
+      return "Zapisane ruchy stanu wymagają sprawdzenia";
+    case "MISMATCHED_MOVEMENTS":
+      return "Zapis ruchu stanu nie zgadza się ze źródłem";
+    case "UNEXPECTED_MOVEMENTS":
+      return "Wykryto nieoczekiwane ruchy stanu";
+    case "NEGATIVE_SOURCE_STOCK":
+      return "Stan wynikający ze źródeł jest ujemny";
+    case "AGGREGATE_DIFFERENCE":
+      return "Stan źródeł różni się od zapisów operacyjnych";
+  }
 }
 
 function AccessNotice({ message }: { message: string }) {

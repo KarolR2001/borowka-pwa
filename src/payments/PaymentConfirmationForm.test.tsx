@@ -41,7 +41,7 @@ const eligibility: PaymentEligibilityResult = {
 const confirmedResult: PaymentWriteResult = {
   auditId: "payment-created-session-1--payment-r4",
   confirmationSource: "SERVER_READ_AFTER_COMMIT",
-  message: "Firestore potwierdzil wyplate dla Anna.",
+  message: "Wypłata dla Anna została zapisana.",
   payment: {
     amountGrosz: 12_500,
     cancellationReason: null,
@@ -111,9 +111,7 @@ describe("PaymentConfirmationForm", () => {
     );
     await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
 
-    expect(
-      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
-    ).toBeVisible();
+    expect(await screen.findByText("Wypłata dla Anna została zapisana.")).toBeVisible();
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({
         amountGrosz: 12_500,
@@ -172,7 +170,7 @@ describe("PaymentConfirmationForm", () => {
 
     expect(await screen.findByText(/Nie mozna potwierdzic wyniku wyplaty/)).toBeVisible();
     expect(
-      screen.queryByText("Firestore potwierdzil wyplate dla Anna.")
+      screen.queryByText("Wypłata dla Anna została zapisana.")
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zapisz wypłatę" })).toBeEnabled();
   });
@@ -206,9 +204,7 @@ describe("PaymentConfirmationForm", () => {
       resolvePayment(confirmedResult);
       await pendingPayment;
     });
-    expect(
-      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
-    ).toBeVisible();
+    expect(await screen.findByText("Wypłata dla Anna została zapisana.")).toBeVisible();
   });
 
   it("shows the existing author and time as a conflict, not a new success", async () => {

@@ -1,5 +1,5 @@
 import { Ban, Eye, History, Pencil, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
@@ -288,79 +288,155 @@ function SaleDirectoryTable({
   onRequestCorrection: (saleId: string) => void;
   sales: readonly AdminSaleDirectoryItem[];
 }) {
+  const saleListRef = useRef<HTMLOListElement | null>(null);
+  const [activeSaleIndex, setActiveSaleIndex] = useState(0);
+
+  const updateActiveSale = () => {
+    const list = saleListRef.current;
+    if (!list || sales.length < 2) {
+      return;
+    }
+
+    const listCenter = list.scrollLeft + list.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    sales.forEach((_sale, index) => {
+      const card = list.querySelector<HTMLElement>(
+        `[data-sale-index="${String(index)}"]`
+      );
+      if (!card) {
+        return;
+      }
+      const distance = Math.abs(card.offsetLeft + card.offsetWidth / 2 - listCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    setActiveSaleIndex(closestIndex);
+  };
+
   return (
-    <div className="directory-table-wrap">
-      <table className="directory-table sale-directory-table mobile-card-table">
-        <thead>
-          <tr>
-            <th scope="col">Data</th>
-            <th scope="col">Masa</th>
-            <th scope="col">Cena / kg</th>
-            <th scope="col">Przychód</th>
-            <th scope="col">Notatka</th>
-            <th scope="col">Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sales.map((sale) => (
-            <tr key={sale.id}>
-              <td data-label="Data">
-                {formatBusinessDate(sale.businessDate)}
-                <span className="directory-cell-note">{sale.seasonName}</span>
-              </td>
-              <td data-label="Masa">{formatKilograms(sale.weightG)}</td>
-              <td data-label="Cena / kg">{formatMoney(sale.priceGroszPerKg)}</td>
-              <td data-label="Przychód">
-                {formatSignedMoney(documentRevenueImpact(sale))}
-              </td>
-              <td data-label="Notatka" title={sale.note ?? undefined}>
-                {shortenNote(sale.note)}
-              </td>
-              <td data-label="Akcje">
-                <div className="directory-actions directory-actions--icons">
-                  <button
-                    aria-label={`Otwórz szczegóły: ${saleEntryTypeLabel(sale)} z ${formatBusinessDate(sale.businessDate)}`}
-                    className="secondary-button icon-button"
-                    onClick={() => {
-                      onOpen(sale.id);
-                    }}
-                    title="Otwórz szczegóły operacji"
-                    type="button"
-                  >
-                    <Eye aria-hidden="true" size={18} />
-                  </button>
-                  {sale.status === "ACTIVE" ? (
-                    <>
-                      <button
-                        aria-label={`Skoryguj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
-                        className="secondary-button icon-button"
-                        onClick={() => {
-                          onRequestCorrection(sale.id);
-                        }}
-                        title="Skoryguj operację"
-                        type="button"
-                      >
-                        <Pencil aria-hidden="true" size={18} />
-                      </button>
-                      <button
-                        aria-label={`Anuluj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
-                        className="danger-button icon-button"
-                        onClick={() => {
-                          onRequestCancellation(sale.id);
-                        }}
-                        title="Anuluj operację"
-                        type="button"
-                      >
-                        <Ban aria-hidden="true" size={18} />
-                      </button>
-                    </>
-                  ) : null}
+    <div className="sale-directory-carousel">
+      <ol
+        aria-label="Lista sprzedaży"
+        className="sale-directory-carousel__list"
+        onScroll={updateActiveSale}
+        ref={saleListRef}
+      >
+        {sales.map((sale, index) => (
+          <li
+            className="sale-directory-carousel__item"
+            data-sale-index={index}
+            key={sale.id}
+          >
+            <article className="sale-directory-card">
+              <header className="sale-directory-card__header">
+                <div>
+                  <p className="eyebrow">{saleEntryTypeLabel(sale)}</p>
+                  <h3>{formatBusinessDate(sale.businessDate)}</h3>
+                  <p className="directory-cell-note">{sale.seasonName}</p>
                 </div>
-              </td>
-            </tr>
+                <span
+                  className={`status-badge status-badge--${sale.status.toLowerCase()}`}
+                >
+                  {saleStatusLabel(sale.status)}
+                </span>
+              </header>
+              <dl className="sale-directory-card__facts">
+                <div>
+                  <dt>Masa</dt>
+                  <dd>{formatKilograms(sale.weightG)}</dd>
+                </div>
+                <div>
+                  <dt>Cena / kg</dt>
+                  <dd>{formatMoney(sale.priceGroszPerKg)}</dd>
+                </div>
+                <div>
+                  <dt>Przychód</dt>
+                  <dd>{formatSignedMoney(documentRevenueImpact(sale))}</dd>
+                </div>
+                <div>
+                  <dt>Notatka</dt>
+                  <dd title={sale.note ?? undefined}>{shortenNote(sale.note)}</dd>
+                </div>
+              </dl>
+              <div className="directory-actions directory-actions--icons">
+                <button
+                  aria-label={`Otwórz szczegóły: ${saleEntryTypeLabel(sale)} z ${formatBusinessDate(sale.businessDate)}`}
+                  className="secondary-button icon-button"
+                  onClick={() => {
+                    onOpen(sale.id);
+                  }}
+                  title="Otwórz szczegóły operacji"
+                  type="button"
+                >
+                  <Eye aria-hidden="true" size={18} />
+                </button>
+                {sale.status === "ACTIVE" ? (
+                  <>
+                    <button
+                      aria-label={`Skoryguj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
+                      className="secondary-button icon-button"
+                      onClick={() => {
+                        onRequestCorrection(sale.id);
+                      }}
+                      title="Skoryguj operację"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" size={18} />
+                    </button>
+                    <button
+                      aria-label={`Anuluj sprzedaż z ${formatBusinessDate(sale.businessDate)}`}
+                      className="danger-button icon-button"
+                      onClick={() => {
+                        onRequestCancellation(sale.id);
+                      }}
+                      title="Anuluj operację"
+                      type="button"
+                    >
+                      <Ban aria-hidden="true" size={18} />
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </article>
+          </li>
+        ))}
+      </ol>
+      {sales.length > 1 ? (
+        <nav
+          aria-label="Pozycja na liście sprzedaży"
+          className="sale-directory-carousel__dots"
+        >
+          {sales.map((sale, index) => (
+            <button
+              aria-current={activeSaleIndex === index ? "true" : undefined}
+              aria-label={`Pokaż sprzedaż ${formatBusinessDate(sale.businessDate)}`}
+              className={
+                activeSaleIndex === index
+                  ? "sale-directory-carousel__dot is-active"
+                  : "sale-directory-carousel__dot"
+              }
+              key={sale.id}
+              onClick={() => {
+                const target = saleListRef.current?.querySelector<HTMLElement>(
+                  `[data-sale-index="${String(index)}"]`
+                );
+                target?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center"
+                });
+                setActiveSaleIndex(index);
+              }}
+              type="button"
+            />
           ))}
-        </tbody>
-      </table>
+        </nav>
+      ) : null}
     </div>
   );
 }

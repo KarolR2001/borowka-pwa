@@ -18,6 +18,7 @@ import { userRoleLabel, type UserProfile } from "../domain/identity";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import { InfoHint } from "../ui/InfoHint";
 import { RecordDialog } from "../ui/RecordDialog";
+import { TransientToast } from "../ui/TransientToast";
 import {
   archiveWorker,
   createWorkerRateVersion,
@@ -557,7 +558,15 @@ export function WorkerDirectoryPanel({
         />
       </CollapsibleFilters>
 
-      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {feedback ? (
+        <TransientToast
+          message={feedback}
+          onDismiss={() => {
+            setFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       <div className="directory-summary" aria-label="Podsumowanie zbieraczy">
@@ -801,12 +810,13 @@ function WorkerProfilePanel({
           <h3>{worker.displayName}</h3>
         </div>
         <button
-          className="secondary-action directory-action"
+          aria-label="Zamknij profil zbieracza"
+          className="secondary-button icon-button"
           onClick={onClose}
+          title="Zamknij profil"
           type="button"
         >
-          <X aria-hidden="true" size={17} strokeWidth={2.2} />
-          <span>Zamknij</span>
+          <X aria-hidden="true" size={20} strokeWidth={2.2} />
         </button>
       </div>
 

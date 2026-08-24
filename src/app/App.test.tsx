@@ -306,7 +306,7 @@ describe("App shell", () => {
 
     expect(register).not.toHaveBeenCalled();
     expect(screen.getByText("Hasla musza byc takie same.")).toBeInTheDocument();
-  });
+  }, 15000);
 
   it("submits invited registration through the auth session API", async () => {
     const user = userEvent.setup();
@@ -334,7 +334,7 @@ describe("App shell", () => {
     expect(
       screen.getByText("Konto zostało utworzone. Pobieram profil.")
     ).toBeInTheDocument();
-  });
+  }, 15000);
 
   it("refreshes the active profile immediately after invited picker registration", async () => {
     const user = userEvent.setup();

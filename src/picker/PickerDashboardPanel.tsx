@@ -198,43 +198,20 @@ export function PickerDashboardPanel({
           </p>
         </div>
         <div className="picker-dashboard__controls">
-          <label className="field">
-            <span>Sezon</span>
-            <select
-              disabled={!result?.seasons.length || state.status === "LOADING"}
-              onChange={(event) => {
-                updateDashboardSelection({
-                  periodSelection,
-                  selectedSeasonId: event.target.value || null
-                });
-              }}
-              value={selectedSeasonId ?? result?.selectedSeasonId ?? ""}
-            >
-              {!result?.seasons.length ? <option value="">Brak sezonów</option> : null}
-              {result?.seasons.map((season) => (
-                <option key={season.id} value={season.id}>
-                  {season.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <DashboardPeriodFilter
+            disabled={state.status === "LOADING"}
+            idPrefix="picker-dashboard"
+            onChange={(nextPeriodSelection) => {
+              updateDashboardSelection({
+                periodSelection: nextPeriodSelection,
+                selectedSeasonId
+              });
+            }}
+            selection={periodSelection}
+            todayBusinessDate={todayBusinessDate}
+          />
         </div>
       </header>
-
-      <div className="dashboard-filter-bar">
-        <DashboardPeriodFilter
-          disabled={state.status === "LOADING"}
-          idPrefix="picker-dashboard"
-          onChange={(nextPeriodSelection) => {
-            updateDashboardSelection({
-              periodSelection: nextPeriodSelection,
-              selectedSeasonId
-            });
-          }}
-          selection={periodSelection}
-          todayBusinessDate={todayBusinessDate}
-        />
-      </div>
 
       {state.status === "LOADING" && !result ? (
         <p className="empty-state">Pobieranie podsumowania.</p>

@@ -14,7 +14,6 @@ import {
   type LoadAdminDashboardInput
 } from "./adminDashboard";
 import {
-  calculateLocalDashboardProjection,
   loadDashboardSnapshot,
   saveDashboardSnapshot,
   type DashboardSnapshotStorage
@@ -176,22 +175,6 @@ export function AdminDashboardPanel({
         : (visibleResult?.selectedSeason ?? null),
     [periodError, selectedSeasonId, visibleResult]
   );
-  const localPendingCount = visibleResult
-    ? visibleResult.localSyncSummary.localSavedCount +
-      visibleResult.localSyncSummary.pendingSyncCount
-    : 0;
-  const localProjection = useMemo(
-    () =>
-      calculateLocalDashboardProjection({
-        officialAvailableWeightG: selectedSeason?.metrics.availableWeightG ?? null,
-        period: selectedSeason?.period ?? null,
-        seasonId: selectedSeason?.id ?? null,
-        syncDocuments
-      }),
-    [selectedSeason, syncDocuments]
-  );
-  const isLocalSnapshot = visibleResult?.calculationSource === "LOCAL_SNAPSHOT";
-
   if (!isAdmin) {
     return (
       <section className="access-notice" aria-label="Pulpit administratora">
@@ -278,30 +261,6 @@ export function AdminDashboardPanel({
               tone={selectedSeason.metrics.availableWeightG < 0 ? "WARNING" : "DEFAULT"}
               value={formatKilograms(selectedSeason.metrics.availableWeightG)}
             />
-            {isLocalSnapshot || localProjection.pendingSessionCount > 0 ? (
-              <>
-                <DashboardMetric
-                  detail="Sesje bieżącego urządzenia, których nie ma w oficjalnym stanie"
-                  label="Lokalne sesje poza stanem"
-                  tone={localProjection.pendingSessionCount > 0 ? "WARNING" : "DEFAULT"}
-                  value={String(localProjection.pendingSessionCount)}
-                />
-                <DashboardMetric
-                  detail={`Ostatni stan serwera + ${formatKilograms(
-                    localProjection.pendingConfirmedWeightG
-                  )} z ${String(
-                    localProjection.pendingConfirmedSessionCount
-                  )} zamkniętych sesji`}
-                  label="Przewidywane lokalnie"
-                  tone="WARNING"
-                  value={
-                    localProjection.projectedAvailableWeightG === null
-                      ? "Do sprawdzenia"
-                      : formatKilograms(localProjection.projectedAvailableWeightG)
-                  }
-                />
-              </>
-            ) : null}
             <DashboardMetric
               label="Naliczone zbieraczom"
               value={formatMoney(selectedSeason.metrics.accruedGrosz)}
@@ -331,20 +290,6 @@ export function AdminDashboardPanel({
             <DashboardMetric
               label="Otwarte sesje"
               value={String(selectedSeason.metrics.openSessionCount)}
-            />
-            <DashboardMetric
-              label="Sesje do sprawdzenia"
-              tone={
-                selectedSeason.metrics.reviewRequiredSessionCount > 0
-                  ? "WARNING"
-                  : "DEFAULT"
-              }
-              value={String(selectedSeason.metrics.reviewRequiredSessionCount)}
-            />
-            <DashboardMetric
-              label="Lokalnie oczekujące"
-              tone={localPendingCount > 0 ? "WARNING" : "DEFAULT"}
-              value={String(localPendingCount)}
             />
           </div>
 
