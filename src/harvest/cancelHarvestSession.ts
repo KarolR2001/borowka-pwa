@@ -85,6 +85,8 @@ export function prepareCancelHarvestSession(
     reason
   });
 
+  assertActorCanCancelSession(input.actorProfile, input.session);
+
   if (input.session.paymentId !== null) {
     throw new Error("Sesja z identyfikatorem wyplaty wymaga anulowania wyplaty.");
   }
@@ -195,5 +197,28 @@ function normalizeRequiredText(value: string, message: string): string {
 function assertKnownValue(value: unknown, message: string): void {
   if (value === null || value === undefined) {
     throw new Error(message);
+  }
+}
+
+function assertActorCanCancelSession(
+  actorProfile: UserProfile,
+  session: HarvestSessionDocument
+): void {
+  if (actorProfile.role === "ADMIN") {
+    return;
+  }
+
+  const isEmptyOpenSession =
+    actorProfile.role === "OPERATOR" &&
+    session.status === "OPEN" &&
+    session.createdBy === actorProfile.uid &&
+    session.totalEntryCount === 0 &&
+    session.totalQuantityMilli === 0 &&
+    session.totalWeightG === 0 &&
+    session.amountDueGrosz === null &&
+    session.paymentId === null;
+
+  if (!isEmptyOpenSession) {
+    throw new Error("Operator moze anulowac tylko swoja pusta sesje.");
   }
 }

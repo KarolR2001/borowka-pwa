@@ -199,10 +199,23 @@ describe("cancel harvest session", () => {
     });
   });
 
-  it("blocks operator, offline and missing reason attempts", () => {
-    expect(() =>
-      prepareCancelHarvestSession(defaultInput({ actorProfile: operatorProfile }))
-    ).toThrow("Ta rola nie moze wykonac przejscia statusu sesji.");
+  it("allows an operator to cancel an empty open session", () => {
+    const result = prepareCancelHarvestSession(
+      defaultInput({
+        actorProfile: operatorProfile,
+        session: createOpenSession(),
+        reason: "Pomylka operatora."
+      })
+    );
+
+    expect(result.session).toMatchObject({
+      status: "CANCELLED",
+      amountDueGrosz: null,
+      cancelledBy: operatorProfile.uid
+    });
+  });
+
+  it("blocks offline and missing reason attempts", () => {
     expect(() => prepareCancelHarvestSession(defaultInput({ isOnline: false }))).toThrow(
       "Przejscie statusu sesji wymaga aktywnego polaczenia."
     );

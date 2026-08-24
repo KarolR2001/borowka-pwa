@@ -244,7 +244,29 @@ describe("cancel harvest session runtime", () => {
     });
   });
 
-  it("blocks non-admin actors and pending writes", () => {
+  it("allows an operator to cancel their own empty open session", () => {
+    const session = createOpenSession();
+    const result = prepareRuntimeCancelHarvestSession({
+      actorProfile: operatorProfile,
+      session,
+      entries: [],
+      reason: "Pomylka operatora",
+      hasActivePayment: false,
+      isOnline: true,
+      cancelledAtDevice: cancelledAt,
+      cancelledAtServer: "server-cancel-time",
+      auditId: "audit-cancel-runtime",
+      deviceId: "device-1"
+    });
+
+    expect(result.session).toMatchObject({
+      status: "CANCELLED",
+      cancelledBy: operatorProfile.uid,
+      amountDueGrosz: null
+    });
+  });
+
+  it("blocks operator cancellation for non-empty sessions and pending writes", () => {
     const session = createClosedSession();
 
     expect(() =>
@@ -260,7 +282,7 @@ describe("cancel harvest session runtime", () => {
         auditId: "audit-cancel-runtime",
         deviceId: "device-1"
       })
-    ).toThrow("Anulowanie sesji wymaga aktywnego administratora.");
+    ).toThrow("Operator moze anulowac tylko swoja pusta sesje.");
     expect(() =>
       prepareRuntimeCancelHarvestSession({
         actorProfile: adminProfile,

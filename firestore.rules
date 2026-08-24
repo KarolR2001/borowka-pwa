@@ -585,6 +585,7 @@ service cloud.firestore {
       return action == 'HARVEST_SESSION_CREATED' ||
         action == 'HARVEST_SESSION_CLOSED' ||
         action == 'HARVEST_SESSION_RECLOSED' ||
+        action == 'HARVEST_SESSION_CANCELLED' ||
         action == 'HARVEST_ENTRY_CREATED';
     }
 
@@ -1696,7 +1697,16 @@ service cloud.firestore {
     }
 
     function isHarvestSessionCancelUpdate(data, previous, sessionId) {
-      return isAdmin() &&
+      return (isAdmin() || (
+          isOperator() &&
+          previous.createdBy == request.auth.uid &&
+          previous.status == 'OPEN' &&
+          previous.totalEntryCount == 0 &&
+          previous.totalQuantityMilli == 0 &&
+          previous.totalWeightG == 0 &&
+          previous.amountDueGrosz == null &&
+          previous.paymentId == null
+        )) &&
         (
           previous.status == 'OPEN' ||
           previous.status == 'CLOSED' ||

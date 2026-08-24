@@ -257,7 +257,7 @@ describe("harvest session state model", () => {
     });
   });
 
-  it("blocks cancellation for active payment, missing reason, paid source or operator role", () => {
+  it("blocks cancellation for active payment, missing reason and paid source", () => {
     expect(
       checkHarvestSessionTransition({
         type: "CANCEL",
@@ -296,7 +296,7 @@ describe("harvest session state model", () => {
         isOnline: true,
         reason: "Pomylka."
       })
-    ).toMatchObject({ status: "DENIED", code: "ROLE_NOT_ALLOWED" });
+    ).toMatchObject({ status: "ALLOWED" });
   });
 
   it("reopens only a CLOSED unpaid session by admin with a reason", () => {
