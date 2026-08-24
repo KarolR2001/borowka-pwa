@@ -7,6 +7,7 @@ import { harvestSessionStatusLabel } from "../harvest/harvestSessionState";
 import { POLISH_EXCEL_CSV_MIME_TYPE } from "../reports/polishExcelCsv";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import { RecordDialog } from "../ui/RecordDialog";
+import { TransientToast } from "../ui/TransientToast";
 import {
   createAdminPaymentCsv,
   createAdminPaymentCsvFilename,
@@ -242,7 +243,15 @@ export function AdminPaymentDirectoryPanel({
         />
       </div>
 
-      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {feedback ? (
+        <TransientToast
+          message={feedback}
+          onDismiss={() => {
+            setFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : null}
       {exportError ? (
         <p className="form-message form-message--error">{exportError}</p>
       ) : null}

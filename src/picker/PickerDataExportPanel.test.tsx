@@ -46,10 +46,7 @@ describe("PickerDataExportPanel", () => {
       )
     ).toBeVisible();
     await user.click(screen.getByText("Zakres eksportu"));
-    await user.click(screen.getByText("Zakres dat"));
-    expect(
-      screen.getByRole("button", { name: "Cały sezon", pressed: true })
-    ).toBeVisible();
+    expect(screen.getByLabelText(/Zakres dat/)).toHaveValue("SEASON");
     expect(screen.queryByText("Anulowane poza sumą")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pobierz CSV" }));
 
@@ -77,8 +74,7 @@ describe("PickerDataExportPanel", () => {
     );
 
     await user.click(await screen.findByText("Zakres eksportu"));
-    await user.click(screen.getByText("Zakres dat"));
-    await user.click(screen.getByRole("button", { name: "Własny zakres" }));
+    await user.selectOptions(screen.getByLabelText(/Zakres dat/), "CUSTOM");
     await user.clear(screen.getByLabelText("Od"));
     await user.type(screen.getByLabelText("Od"), "2026-07-10");
     await user.clear(screen.getByLabelText("Do"));

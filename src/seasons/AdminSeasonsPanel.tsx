@@ -17,6 +17,7 @@ import { getOrCreateDeviceId } from "../domain/device";
 import type { SeasonDocument, SeasonStatus } from "../domain/domainConfiguration";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import { RecordDialog } from "../ui/RecordDialog";
+import { TransientToast } from "../ui/TransientToast";
 import {
   createSeason,
   defaultSeasonFilters,
@@ -402,7 +403,15 @@ export function AdminSeasonsPanel({
         <SeasonFilterControls filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
 
-      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {feedback ? (
+        <TransientToast
+          message={feedback}
+          onDismiss={() => {
+            setFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       {state.status === "ERROR" ? (

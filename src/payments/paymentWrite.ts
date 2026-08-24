@@ -565,7 +565,7 @@ function confirmedPaymentResult(
   return {
     ...serverState,
     confirmationSource,
-    message: `Firestore potwierdzil wyplate dla ${serverState.payment.workerNameSnapshot}.`,
+    message: `Wypłata dla ${serverState.payment.workerNameSnapshot} została zapisana.`,
     status: "CONFIRMED"
   };
 }

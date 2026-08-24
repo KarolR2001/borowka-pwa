@@ -6,6 +6,7 @@ import { getOrCreateDeviceId } from "../domain/device";
 import { CollapsibleFilters } from "../ui/CollapsibleFilters";
 import { InfoHint } from "../ui/InfoHint";
 import { RecordDialog } from "../ui/RecordDialog";
+import { TransientToast } from "../ui/TransientToast";
 import {
   archiveSettlementPlan,
   createSettlementPlan,
@@ -405,7 +406,15 @@ export function AdminSettlementPlansPanel({
         <SettlementPlanFilterControls filters={filters} onChange={setFilters} />
       </CollapsibleFilters>
 
-      {feedback ? <p className="form-message form-message--ok">{feedback}</p> : null}
+      {feedback ? (
+        <TransientToast
+          message={feedback}
+          onDismiss={() => {
+            setFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
+      ) : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
 
       <div className="directory-summary" aria-label="Podsumowanie planów">

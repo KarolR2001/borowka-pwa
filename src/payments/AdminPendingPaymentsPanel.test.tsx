@@ -90,9 +90,7 @@ describe("AdminPendingPaymentsPanel", () => {
       screen.getByLabelText("Potwierdzam wypłatę całej należności za tę sesję")
     );
     await user.click(screen.getByRole("button", { name: "Zapisz wypłatę" }));
-    expect(
-      await screen.findByText("Firestore potwierdzil wyplate dla Anna.")
-    ).toBeVisible();
+    expect(await screen.findByText("Wypłata dla Anna została zapisana.")).toBeVisible();
     expect(api.createPayment).toHaveBeenCalledTimes(1);
     expect(vi.mocked(api.createPayment).mock.calls[0]?.[1]).toMatchObject({
       actorProfile: adminState.profile,
@@ -255,7 +253,7 @@ function confirmedPaymentResult(sessionId: string) {
   return {
     auditId: `payment-created-${paymentId}`,
     confirmationSource: "SERVER_READ_AFTER_COMMIT" as const,
-    message: "Firestore potwierdzil wyplate dla Anna.",
+    message: "Wypłata dla Anna została zapisana.",
     payment: {
       amountGrosz: 5000,
       cancellationReason: null,

@@ -8,6 +8,7 @@ import type { UserProfile } from "../domain/identity";
 import type { FirestoreCacheMode } from "../offline/firestorePersistencePreference";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { RecordDialog } from "../ui/RecordDialog";
+import { TransientToast } from "../ui/TransientToast";
 import {
   addHarvestEntryOffline,
   closeHarvestSessionOffline,
@@ -1037,7 +1038,13 @@ export function OperatorHarvestSessionsPanel({
       />
 
       {sessionFeedback ? (
-        <p className="form-message form-message--ok">{sessionFeedback}</p>
+        <TransientToast
+          message={sessionFeedback}
+          onDismiss={() => {
+            setSessionFeedback(null);
+          }}
+          tone="SUCCESS"
+        />
       ) : null}
       {sessionError ? (
         <p className="form-message form-message--error">{sessionError}</p>
