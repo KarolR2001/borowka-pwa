@@ -1,9 +1,5 @@
 import { getFirebaseServices } from "../config/firebaseServices";
-import {
-  SEASONS_COLLECTION,
-  WORKERS_COLLECTION,
-  type SeasonDocument
-} from "../domain/domainConfiguration";
+import { SEASONS_COLLECTION, type SeasonDocument } from "../domain/domainConfiguration";
 import type { UserProfile } from "../domain/identity";
 import { decodeHarvestSession } from "../harvest/harvestSessionDashboard";
 import { HARVEST_SESSIONS_COLLECTION } from "../harvest/harvestSessionState";
@@ -83,24 +79,14 @@ export async function loadPickerDashboard(
 ): Promise<PickerDashboardResult> {
   const workerId = assertPickerProfile(input.actorProfile);
   const { firestore } = await getFirebaseServices(env);
-  const {
-    collection,
-    doc,
-    getDoc,
-    getDocFromCache,
-    getDocs,
-    getDocsFromCache,
-    orderBy,
-    query,
-    where
-  } = await import("firebase/firestore");
-  const readDocument = input.isOnline ? getDoc : getDocFromCache;
+  const { collection, getDocs, getDocsFromCache, orderBy, query, where } =
+    await import("firebase/firestore");
   const readDocuments = input.isOnline ? getDocs : getDocsFromCache;
 
-  const [workerSnapshot, seasonSnapshot] = await Promise.all([
-    readDocument(doc(firestore, WORKERS_COLLECTION, workerId)),
-    readDocuments(collection(firestore, SEASONS_COLLECTION))
-  ]);
+  // A picker can read own harvests and payments without reading the worker
+  // configuration document. The latter is intentionally restricted by rules
+  // to an exactly linked account and must not make the dashboard fail.
+  const seasonSnapshot = await readDocuments(collection(firestore, SEASONS_COLLECTION));
   const seasonDocuments = toRawDocuments(seasonSnapshot.docs);
   const decodedSeasons = seasonDocuments.flatMap((document) => {
     const decoded = decodeSeason(document.id, document.data);
@@ -174,10 +160,7 @@ export async function loadPickerDashboard(
       sessionSnapshot.metadata.fromCache || paymentSnapshot.metadata.fromCache;
   }
 
-  const fromCache =
-    workerSnapshot.metadata.fromCache ||
-    seasonSnapshot.metadata.fromCache ||
-    flowFromCache;
+  const fromCache = seasonSnapshot.metadata.fromCache || flowFromCache;
 
   return buildPickerDashboard({
     actorProfile: input.actorProfile,
@@ -189,12 +172,7 @@ export async function loadPickerDashboard(
     seasonDocuments,
     selectedSeasonId,
     sessionDocuments,
-    workerDocument: workerSnapshot.exists()
-      ? {
-          data: workerSnapshot.data({ serverTimestamps: "estimate" }),
-          id: workerSnapshot.id
-        }
-      : null
+    workerDocument: null
   });
 }
 
@@ -315,7 +293,7 @@ export function buildPickerDashboard({
     invalidPaymentCount,
     invalidSeasonCount,
     invalidSessionCount,
-    invalidWorker: worker === null,
+    invalidWorker: workerDocument !== null && worker === null,
     paidAmountGrosz,
     period,
     quantities: summarizeQuantities(selectedSessions),
@@ -335,7 +313,12 @@ export function buildPickerDashboard({
     totalWeightG: safeSum(selectedSessions.map((session) => session.totalWeightG)),
     userName: actorProfile.displayName,
     workerId,
-    workerName: worker?.displayName ?? null
+    workerName:
+      worker?.displayName ??
+      (workerDocument === null
+        ? (selectedSessions.find((session) => session.workerId === workerId)
+            ?.workerNameSnapshot ?? null)
+        : null)
   };
 }
 

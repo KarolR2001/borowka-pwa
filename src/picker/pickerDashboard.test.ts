@@ -257,6 +257,22 @@ describe("picker dashboard", () => {
     });
   });
 
+  it("keeps the dashboard usable when the worker configuration is not readable", () => {
+    const result = dashboardFor({
+      sessions: [
+        sessionDocument("session-own", {
+          workerNameSnapshot: "Anna Zbieracz"
+        })
+      ],
+      workerDocument: null
+    });
+
+    expect(result).toMatchObject({
+      invalidWorker: false,
+      workerName: "Anna Zbieracz"
+    });
+  });
+
   it("moves a PAID session amount between paid and outstanding when payment is cancelled", () => {
     const sessions = [
       sessionDocument("session-paid", {
@@ -481,11 +497,13 @@ describe("picker dashboard", () => {
 function dashboardFor({
   payments = [],
   periodSelection,
-  sessions
+  sessions,
+  workerDocument: workerDocumentInput = workerDocument()
 }: {
   payments?: ReturnType<typeof paymentDocument>[];
   periodSelection?: Parameters<typeof buildPickerDashboard>[0]["periodSelection"];
   sessions: ReturnType<typeof sessionDocument>[];
+  workerDocument?: ReturnType<typeof workerDocument> | null;
 }) {
   return buildPickerDashboard({
     actorProfile: pickerProfile,
@@ -502,7 +520,7 @@ function dashboardFor({
       })
     ],
     sessionDocuments: sessions,
-    workerDocument: workerDocument()
+    workerDocument: workerDocumentInput
   });
 }
 

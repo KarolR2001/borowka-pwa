@@ -110,7 +110,7 @@ describe("harvest session trust boundary", () => {
     });
   });
 
-  it("rejects manual final amount input and empty close attempts", () => {
+  it("rejects manual final amount input and calculates empty close totals", () => {
     const session = createSession();
 
     expect(() =>
@@ -120,12 +120,17 @@ describe("harvest session trust boundary", () => {
         requestedAmountDueGrosz: 777
       })
     ).toThrow("Kwota koncowa sesji musi wynikac z przeliczenia aktywnych wpisow.");
-    expect(() =>
+    expect(
       prepareTrustedHarvestSessionCloseTotals({
         session,
         entries: []
       })
-    ).toThrow("Nie mozna zamknac pustej sesji.");
+    ).toMatchObject({
+      amountDueGrosz: 0,
+      totalEntryCount: 0,
+      totalQuantityMilli: 0,
+      totalWeightG: 0
+    });
   });
 
   it("rejects closing non-open sessions", () => {

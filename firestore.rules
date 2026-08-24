@@ -1639,10 +1639,10 @@ service cloud.firestore {
         data.closedAtServer == request.time &&
         data.updatedAtServer == request.time &&
         data.revision == previous.revision + 1 &&
-        data.totalEntryCount > 0 &&
+        data.totalEntryCount >= 0 &&
         data.totalEntryCount is int &&
         data.totalQuantityMilli is int &&
-        data.totalQuantityMilli > 0 &&
+        data.totalQuantityMilli >= 0 &&
         data.totalWeightG is int &&
         data.totalWeightG >= 0 &&
         data.amountDueGrosz is int &&

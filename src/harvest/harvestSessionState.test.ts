@@ -91,7 +91,7 @@ describe("harvest session state model", () => {
     ).toMatchObject({ status: "DENIED", code: "ONLINE_REQUIRED" });
   });
 
-  it("closes only non-empty OPEN sessions and makes amounts official", () => {
+  it("closes OPEN sessions and makes amounts official", () => {
     const definition = getHarvestSessionTransitionDefinition("CLOSE");
 
     expect(definition).toMatchObject({
@@ -113,7 +113,7 @@ describe("harvest session state model", () => {
     ).toMatchObject({ status: "ALLOWED" });
   });
 
-  it("blocks close for empty sessions, wrong source status and offline mode", () => {
+  it("allows empty close and blocks wrong source status or offline mode", () => {
     expect(
       checkHarvestSessionTransition({
         type: "CLOSE",
@@ -122,7 +122,7 @@ describe("harvest session state model", () => {
         isOnline: true,
         activeEntryCount: 0
       })
-    ).toMatchObject({ status: "DENIED", code: "ACTIVE_ENTRY_REQUIRED" });
+    ).toMatchObject({ status: "ALLOWED" });
     expect(
       checkHarvestSessionTransition({
         type: "CLOSE",
@@ -362,11 +362,11 @@ describe("harvest session state model", () => {
     expect(() =>
       assertHarvestSessionTransitionAllowed({
         type: "CLOSE",
-        fromStatus: "OPEN",
+        fromStatus: "REVIEW_REQUIRED",
         actorRole: "ADMIN",
         isOnline: true,
-        activeEntryCount: 0
+        activeEntryCount: 1
       })
-    ).toThrow("Nie mozna zamknac pustej sesji.");
+    ).toThrow("Przejscie statusu sesji nie jest dozwolone z tego statusu.");
   });
 });

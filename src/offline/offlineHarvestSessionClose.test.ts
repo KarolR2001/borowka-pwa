@@ -184,10 +184,10 @@ describe("offline harvest session close preparation", () => {
     ).toThrow("Operator moze zamknac offline tylko prowadzona przez siebie sesje.");
   });
 
-  it("uses shared close calculations and blocks cases that cannot close offline", () => {
+  it("uses shared close calculations and allows an empty offline close", () => {
     const session = createSession();
 
-    expect(() =>
+    expect(
       prepareOfflineHarvestSessionClose({
         actorProfile: operatorProfile,
         session,
@@ -196,7 +196,15 @@ describe("offline harvest session close preparation", () => {
         closedAtDevice: closedAt,
         deviceId: "device-1"
       })
-    ).toThrow("Nie mozna zamknac pustej sesji.");
+    ).toMatchObject({
+      status: "CLOSED_OFFLINE",
+      session: {
+        amountDueGrosz: 0,
+        totalEntryCount: 0,
+        totalQuantityMilli: 0,
+        totalWeightG: 0
+      }
+    });
     expect(() =>
       prepareOfflineHarvestSessionClose({
         actorProfile: operatorProfile,

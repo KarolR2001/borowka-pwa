@@ -21,7 +21,6 @@ import {
   type SaleCancellationSectionApi
 } from "./SaleCancellationSection";
 import { SaleCorrectionForm } from "./SaleCorrectionForm";
-import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { RecordDialog } from "../ui/RecordDialog";
 import {
   correctionDirectionLabel,
@@ -288,44 +287,42 @@ export function AdminOrdinarySalesPanel({
   return (
     <section className="admin-ordinary-sales" aria-label="Sprzedaż">
       <div className="screen-actions" aria-label="Akcje sprzedaży">
-        <CollapsibleSection label="Nowa operacja">
-          {stockState.status === "LOADING" && stockState.contexts.length === 0 ? (
-            <p className="empty-state">Pobieranie stanu z serwera.</p>
-          ) : null}
-          {stockState.status === "ERROR" ? (
-            <p className="form-message form-message--error">{stockState.message}</p>
-          ) : null}
-          {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
-            <p className="empty-state">Brak otwartego sezonu do sprzedaży.</p>
-          ) : null}
-
-          {blockedStockContexts.map((context) =>
-            context.reconciliation ? (
-              <StockReconciliationAlert
-                key={context.seasonId}
-                report={context.reconciliation}
-                seasonName={context.seasonName}
-              />
-            ) : null
-          )}
-
-          <button
-            className="primary-button"
-            disabled={stockState.status === "LOADING" || stockState.contexts.length === 0}
-            onClick={() => {
-              setOperationMode("SALE");
-              setRequestedCancellationSaleId(null);
-              setPreflight(null);
-              setConfirmed(null);
-              setSaveError(null);
-            }}
-            type="button"
-          >
-            <Plus aria-hidden="true" size={18} />
-            Nowa sprzedaż
-          </button>
-        </CollapsibleSection>
+        <button
+          className="primary-button"
+          disabled={stockState.status === "LOADING" || stockState.contexts.length === 0}
+          onClick={() => {
+            setOperationMode("SALE");
+            setRequestedCancellationSaleId(null);
+            setPreflight(null);
+            setConfirmed(null);
+            setSaveError(null);
+          }}
+          type="button"
+        >
+          <Plus aria-hidden="true" size={18} />
+          Nowa sprzedaż
+        </button>
       </div>
+
+      {stockState.status === "LOADING" && stockState.contexts.length === 0 ? (
+        <p className="empty-state">Pobieranie stanu z serwera.</p>
+      ) : null}
+      {stockState.status === "ERROR" ? (
+        <p className="form-message form-message--error">{stockState.message}</p>
+      ) : null}
+      {stockState.status !== "LOADING" && stockState.contexts.length === 0 ? (
+        <p className="empty-state">Brak otwartego sezonu do sprzedaży.</p>
+      ) : null}
+
+      {blockedStockContexts.map((context) =>
+        context.reconciliation ? (
+          <StockReconciliationAlert
+            key={context.seasonId}
+            report={context.reconciliation}
+            seasonName={context.seasonName}
+          />
+        ) : null
+      )}
 
       {confirmed ? <ConfirmedSale result={confirmed} /> : null}
 

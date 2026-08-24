@@ -631,17 +631,6 @@ export function OperatorHarvestSessionsPanel({
       return;
     }
 
-    const hasActiveEntries = (state.result?.selectedSessionView?.entries ?? []).some(
-      (entry) => entry.status === "ACTIVE"
-    );
-
-    if (!hasActiveEntries) {
-      setSessionError(
-        "Sesja bez aktywnych wpisów nie została zamknięta. Dodaj wpis, aby ją zamknąć."
-      );
-      return;
-    }
-
     const confirmed = window.confirm(
       `Zamknąć sesję ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedSession.businessDate
