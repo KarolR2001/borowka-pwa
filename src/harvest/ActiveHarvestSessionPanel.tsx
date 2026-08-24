@@ -6,6 +6,7 @@ import {
   Pencil,
   Slash
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
 import { mergeHarvestEntrySnapshotsById } from "./harvestEntryIdempotency";
@@ -56,6 +57,13 @@ export function ActiveHarvestSessionPanel({
   onEditEntry?: (entryId: string) => void;
   onCancelEntry?: (entryId: string) => void;
 }) {
+  const entryListRef = useRef<HTMLOListElement | null>(null);
+  const [activeEntryIndex, setActiveEntryIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveEntryIndex(0);
+  }, [view?.session.id, view?.entries.length]);
+
   if (!view) {
     return (
       <section className="active-session" aria-label="Aktywna sesja zbioru">
@@ -87,6 +95,37 @@ export function ActiveHarvestSessionPanel({
   const amountLabel =
     view.session.amountDueGrosz === null ? "Kwota szacunkowa" : "Kwota oficjalna";
   const amountGrosz = view.session.amountDueGrosz ?? view.estimatedAmountGrosz;
+
+  const updateActiveEntry = () => {
+    const list = entryListRef.current;
+    if (!list || sortedEntries.length < 2) {
+      return;
+    }
+
+    const listCenter = list.scrollLeft + list.clientWidth / 2;
+    const closestIndex = sortedEntries.reduce((currentIndex, entry, index) => {
+      const element = list.querySelector<HTMLElement>(
+        `[data-entry-index="${String(index)}"]`
+      );
+      if (!element) {
+        return currentIndex;
+      }
+
+      const currentElement = list.querySelector<HTMLElement>(
+        `[data-entry-index="${String(currentIndex)}"]`
+      );
+      if (!currentElement) {
+        return index;
+      }
+
+      return Math.abs(element.offsetLeft + element.offsetWidth / 2 - listCenter) <
+        Math.abs(currentElement.offsetLeft + currentElement.offsetWidth / 2 - listCenter)
+        ? index
+        : currentIndex;
+    }, 0);
+
+    setActiveEntryIndex(closestIndex);
+  };
 
   return (
     <section className="active-session" aria-label="Aktywna sesja zbioru">
@@ -159,85 +198,127 @@ export function ActiveHarvestSessionPanel({
           <span>{sortedEntries.length}</span>
         </div>
         {sortedEntries.length > 0 ? (
-          <ol className="active-session__entry-list" aria-label="Lista wpisów sesji">
-            {sortedEntries.map((entry) => (
-              <li key={entry.id} className="active-session__entry">
-                <div className="active-session__entry-heading">
-                  <strong>{entryTitle(entry)}</strong>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Ilość</dt>
-                    <dd>
-                      {formatSessionQuantity(
-                        entry.quantityMilli,
-                        view.session.quantityPrecisionSnapshot,
-                        view.session.unitLabelSnapshot
-                      )}
-                    </dd>
+          <div className="active-session__entry-carousel">
+            <ol
+              aria-label="Lista wpisów sesji"
+              className="active-session__entry-list"
+              onScroll={updateActiveEntry}
+              ref={entryListRef}
+            >
+              {sortedEntries.map((entry, index) => (
+                <li
+                  className="active-session__entry"
+                  data-entry-index={index}
+                  key={entry.id}
+                >
+                  <div className="active-session__entry-heading">
+                    <strong>{entryTitle(entry)}</strong>
                   </div>
-                  <div>
-                    <dt>Kg</dt>
-                    <dd>
-                      {entry.weightG === null ? "brak" : formatKilograms(entry.weightG)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Czas</dt>
-                    <dd>{entry.createdAtLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Podglad</dt>
-                    <dd>
-                      {entry.amountPreviewGrosz === null
-                        ? "brak"
-                        : formatMoney(entry.amountPreviewGrosz)}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="active-session__entry-side">
-                  <span
-                    className={`active-session__entry-status active-session__entry-status--${entry.status.toLowerCase()}`}
-                  >
-                    {entry.status === "ACTIVE" ? "Aktywny" : "Anulowany"}
-                  </span>
-                  {entry.correctionLabel ? (
-                    <span className="active-session__entry-correction">
-                      {entry.correctionLabel}
+                  <dl>
+                    <div>
+                      <dt>Ilość</dt>
+                      <dd>
+                        {formatSessionQuantity(
+                          entry.quantityMilli,
+                          view.session.quantityPrecisionSnapshot,
+                          view.session.unitLabelSnapshot
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Kg</dt>
+                      <dd>
+                        {entry.weightG === null ? "brak" : formatKilograms(entry.weightG)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Czas</dt>
+                      <dd>{entry.createdAtLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Podglad</dt>
+                      <dd>
+                        {entry.amountPreviewGrosz === null
+                          ? "brak"
+                          : formatMoney(entry.amountPreviewGrosz)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="active-session__entry-side">
+                    <span
+                      className={`active-session__entry-status active-session__entry-status--${entry.status.toLowerCase()}`}
+                    >
+                      {entry.status === "ACTIVE" ? "Aktywny" : "Anulowany"}
                     </span>
-                  ) : null}
-                  <div className="active-session__entry-actions">
-                    {entry.canEdit ? (
-                      <button
-                        className="secondary-action active-session__entry-action"
-                        onClick={() => {
-                          onEditEntry?.(entry.id);
-                        }}
-                        title={`Popraw wpis ${entryTitle(entry)}`}
-                        type="button"
-                      >
-                        <Pencil aria-hidden="true" size={16} strokeWidth={2.2} />
-                        Popraw
-                      </button>
+                    {entry.correctionLabel ? (
+                      <span className="active-session__entry-correction">
+                        {entry.correctionLabel}
+                      </span>
                     ) : null}
-                    {entry.canCancel ? (
-                      <button
-                        className="secondary-action active-session__entry-action"
-                        onClick={() => {
-                          onCancelEntry?.(entry.id);
-                        }}
-                        title={`Anuluj wpis ${entryTitle(entry)}`}
-                        type="button"
-                      >
-                        <Slash aria-hidden="true" size={16} strokeWidth={2.2} />
-                        Anuluj
-                      </button>
-                    ) : null}
+                    <div className="active-session__entry-actions">
+                      {entry.canEdit ? (
+                        <button
+                          className="secondary-action active-session__entry-action"
+                          onClick={() => {
+                            onEditEntry?.(entry.id);
+                          }}
+                          title={`Popraw wpis ${entryTitle(entry)}`}
+                          type="button"
+                        >
+                          <Pencil aria-hidden="true" size={16} strokeWidth={2.2} />
+                          Popraw
+                        </button>
+                      ) : null}
+                      {entry.canCancel ? (
+                        <button
+                          className="secondary-action active-session__entry-action"
+                          onClick={() => {
+                            onCancelEntry?.(entry.id);
+                          }}
+                          title={`Anuluj wpis ${entryTitle(entry)}`}
+                          type="button"
+                        >
+                          <Slash aria-hidden="true" size={16} strokeWidth={2.2} />
+                          Anuluj
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+            {sortedEntries.length > 1 ? (
+              <nav
+                aria-label="Pozycja na liście wpisów"
+                className="active-session__entry-dots"
+              >
+                {sortedEntries.map((entry, index) => (
+                  <button
+                    aria-current={activeEntryIndex === index ? "true" : undefined}
+                    aria-label={`Pokaż wpis ${entryTitle(entry)}`}
+                    className={
+                      activeEntryIndex === index
+                        ? "active-session__entry-dot is-active"
+                        : "active-session__entry-dot"
+                    }
+                    key={entry.id}
+                    onClick={() => {
+                      const target = entryListRef.current?.querySelector<HTMLElement>(
+                        `[data-entry-index="${String(index)}"]`
+                      );
+                      target?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "nearest",
+                        inline: "center"
+                      });
+                      setActiveEntryIndex(index);
+                    }}
+                    type="button"
+                  />
+                ))}
+              </nav>
+            ) : null}
+          </div>
         ) : (
           <p className="empty-state">Sesja nie ma jeszcze wpisów.</p>
         )}
