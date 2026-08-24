@@ -884,48 +884,46 @@ export function OperatorHarvestSessionsPanel({
           <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
           Otwórz nową sesję
         </button>
-        {viewerProfile.role === "ADMIN" || viewerProfile.role === "OPERATOR" ? (
-          <>
-            <CollapsibleSection
-              icon={<RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />}
-              label="Otwórz ponownie sesję"
-            >
-              <AdminReopenHarvestSessionForm
-                draft={{
-                  sessionId: reopenSession?.id ?? "",
-                  reason: reopenDraft.reason
-                }}
-                isOnline={isOnline}
-                isSubmitting={isReopeningSession}
-                onChange={setReopenDraft}
-                onSubmit={() => {
-                  void handleReopenSession();
-                }}
-                session={reopenSession}
-                sessions={result?.closedSessions ?? []}
-              />
-            </CollapsibleSection>
-            <CollapsibleSection
-              icon={<Ban aria-hidden="true" size={18} strokeWidth={2.2} />}
-              label="Anuluj sesję"
-            >
-              <AdminCancelHarvestSessionForm
-                draft={{
-                  sessionId: cancelSession?.id ?? "",
-                  reason: cancelDraft.reason
-                }}
-                isOnline={isOnline}
-                isSubmitting={isCancellingSession}
-                onChange={setCancelDraft}
-                onSubmit={() => {
-                  void handleCancelSession();
-                }}
-                session={cancelSession}
-                sessions={cancellableSessions}
-              />
-            </CollapsibleSection>
-          </>
+        {viewerProfile.role === "ADMIN" ? (
+          <CollapsibleSection
+            icon={<RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />}
+            label="Otwórz ponownie sesję"
+          >
+            <AdminReopenHarvestSessionForm
+              draft={{
+                sessionId: reopenSession?.id ?? "",
+                reason: reopenDraft.reason
+              }}
+              isOnline={isOnline}
+              isSubmitting={isReopeningSession}
+              onChange={setReopenDraft}
+              onSubmit={() => {
+                void handleReopenSession();
+              }}
+              session={reopenSession}
+              sessions={result?.closedSessions ?? []}
+            />
+          </CollapsibleSection>
         ) : null}
+        <CollapsibleSection
+          icon={<Ban aria-hidden="true" size={18} strokeWidth={2.2} />}
+          label="Anuluj sesję"
+        >
+          <AdminCancelHarvestSessionForm
+            draft={{
+              sessionId: cancelSession?.id ?? "",
+              reason: cancelDraft.reason
+            }}
+            isOnline={isOnline}
+            isSubmitting={isCancellingSession}
+            onChange={setCancelDraft}
+            onSubmit={() => {
+              void handleCancelSession();
+            }}
+            session={cancelSession}
+            sessions={cancellableSessions}
+          />
+        </CollapsibleSection>
       </div>
 
       {isOpenSessionFormOpen ? (
