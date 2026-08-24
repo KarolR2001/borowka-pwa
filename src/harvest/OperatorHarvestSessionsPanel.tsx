@@ -631,6 +631,17 @@ export function OperatorHarvestSessionsPanel({
       return;
     }
 
+    const hasActiveEntries = (state.result?.selectedSessionView?.entries ?? []).some(
+      (entry) => entry.status === "ACTIVE"
+    );
+
+    if (!hasActiveEntries) {
+      setSessionError(
+        "Sesja bez aktywnych wpisów nie została zamknięta. Dodaj wpis, aby ją zamknąć."
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
       `Zamknąć sesję ${selectedSession.workerNameSnapshot} z dnia ${formatBusinessDate(
         selectedSession.businessDate
@@ -1059,19 +1070,47 @@ export function OperatorHarvestSessionsPanel({
       {viewerProfile.role === "ADMIN" &&
       selectedSessionView &&
       cancelEntryDraft.entryId ? (
-        <AdminCancelHarvestEntryForm
-          draft={cancelEntryDraft}
-          entries={selectedSessionView.entries}
-          isOnline={isOnline}
-          isSubmitting={isCancellingEntry}
-          onChange={setCancelEntryDraft}
-          onDismiss={() => {
+        <RecordDialog
+          fullScreen
+          label="Korekta wpisu zbioru"
+          onClose={() => {
             setCancelEntryDraft({ entryId: "", reason: "" });
           }}
-          onSubmit={() => {
-            void handleCancelEntry();
-          }}
-        />
+        >
+          <section className="fullscreen-operation">
+            <header className="fullscreen-operation__header">
+              <div>
+                <p className="eyebrow">Korekta wpisu</p>
+                <h2>Popraw wpis zbioru</h2>
+              </div>
+              <button
+                aria-label="Zamknij korektę wpisu"
+                className="secondary-button icon-button"
+                disabled={isCancellingEntry}
+                onClick={() => {
+                  setCancelEntryDraft({ entryId: "", reason: "" });
+                }}
+                title="Zamknij"
+                type="button"
+              >
+                <X aria-hidden="true" size={20} strokeWidth={2.2} />
+              </button>
+            </header>
+            <AdminCancelHarvestEntryForm
+              draft={cancelEntryDraft}
+              entries={selectedSessionView.entries}
+              isOnline={isOnline}
+              isSubmitting={isCancellingEntry}
+              onChange={setCancelEntryDraft}
+              onDismiss={() => {
+                setCancelEntryDraft({ entryId: "", reason: "" });
+              }}
+              onSubmit={() => {
+                void handleCancelEntry();
+              }}
+            />
+          </section>
+        </RecordDialog>
       ) : null}
 
       {isEntryFormOpen && selectedSessionView?.canAddEntry ? (
