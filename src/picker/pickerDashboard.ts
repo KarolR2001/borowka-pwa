@@ -154,20 +154,17 @@ export async function loadPickerDashboard(
         readDocuments(
           query(
             collection(firestore, HARVEST_SESSIONS_COLLECTION),
-            where("workerId", "==", workerId),
-            orderBy("businessDate", "desc"),
-            orderBy("createdAtServer", "desc")
+            where("workerId", "==", workerId)
           )
         ),
         readDocuments(
           query(
             collection(firestore, PAYMENTS_COLLECTION),
-            where("workerId", "==", workerId),
-            orderBy("paidBusinessDate", "desc")
+            where("workerId", "==", workerId)
           )
         )
       ]);
-    // The own-history queries have stable indexes and retain correct client-side filtering.
+    // A simple owner query remains available when an optional composite index is missing.
     const [sessionSnapshot, paymentSnapshot] =
       await readFilteredDocuments().catch(readOwnHistoryFallback);
 
