@@ -1,5 +1,5 @@
 import { Eye, UserRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import {
@@ -208,7 +208,7 @@ export function PickerHarvestListPanel({
         <p className="empty-state">Brak sesji spełniających wybrane filtry.</p>
       ) : null}
       {filteredItems.length > 0 ? (
-        <HarvestTable
+        <HarvestCarousel
           items={filteredItems}
           onOpen={(sessionId) => {
             setReportSessionId(null);
@@ -290,61 +290,140 @@ function HarvestFilters({
   );
 }
 
-function HarvestTable({
+function HarvestCarousel({
   items,
   onOpen
 }: {
   items: readonly PickerHarvestListItem[];
   onOpen: (sessionId: string) => void;
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [items]);
+
+  const updateActiveItem = () => {
+    const list = listRef.current;
+
+    if (!list || items.length < 2) {
+      return;
+    }
+
+    const viewportCenter = list.getBoundingClientRect().left + list.clientWidth / 2;
+    const closestIndex = Array.from(list.children).reduce((currentIndex, item, index) => {
+      const currentDistance = Math.abs(
+        item.getBoundingClientRect().left + item.clientWidth / 2 - viewportCenter
+      );
+      const closestItem = list.children[currentIndex];
+      const closestDistance = Math.abs(
+        closestItem.getBoundingClientRect().left +
+          closestItem.clientWidth / 2 -
+          viewportCenter
+      );
+
+      return currentDistance < closestDistance ? index : currentIndex;
+    }, 0);
+
+    setActiveIndex(closestIndex);
+  };
+
   return (
-    <div className="directory-table-wrap">
-      <table className="directory-table mobile-card-table picker-harvest-table">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Kg</th>
-            <th>Naliczenie</th>
-            <th>Status</th>
-            <th>
-              <span className="sr-only">Szczegóły</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.sessionId}>
-              <td data-label="Data">{formatBusinessDate(item.businessDate)}</td>
-              <td data-label="Zebrano">{formatKilograms(item.totalWeightG)}</td>
-              <td data-label="Naliczenie">
-                {item.amountDueGrosz === null
-                  ? "Brak oficjalnej kwoty"
-                  : formatMoney(item.amountDueGrosz)}
-              </td>
-              <td data-label="Status">
+    <div className="picker-harvest-carousel">
+      <ol
+        aria-label="Lista moich zbiorów"
+        className="picker-harvest-carousel__list"
+        onScroll={updateActiveItem}
+        ref={listRef}
+      >
+        {items.map((item, index) => (
+          <li
+            className="picker-harvest-carousel__item"
+            data-harvest-index={index}
+            key={item.sessionId}
+          >
+            <article className="picker-harvest-card">
+              <header className="picker-harvest-card__header">
+                <div>
+                  <p className="eyebrow">Moje zbiory</p>
+                  <h3>{formatBusinessDate(item.businessDate)}</h3>
+                </div>
                 <span
                   className={`picker-session-status picker-session-status--${item.status}`}
                 >
                   {harvestSessionStatusLabel(item.status)}
                 </span>
-              </td>
-              <td data-label="Szczegóły">
-                <button
-                  aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}
-                  className="secondary-button icon-button picker-table-action"
-                  onClick={() => {
-                    onOpen(item.sessionId);
-                  }}
-                  title="Otwórz szczegóły sesji"
-                  type="button"
-                >
-                  <Eye aria-hidden="true" size={18} />
-                </button>
-              </td>
-            </tr>
+              </header>
+              <dl className="picker-harvest-card__facts">
+                <CardFact label="Zebrano" value={formatKilograms(item.totalWeightG)} />
+                <CardFact
+                  label="Naliczenie"
+                  value={
+                    item.amountDueGrosz === null
+                      ? "Brak oficjalnej kwoty"
+                      : formatMoney(item.amountDueGrosz)
+                  }
+                />
+                <CardFact label="Wpisy" value={String(item.totalEntryCount)} />
+              </dl>
+              <button
+                aria-label={`Otwórz sesję ${formatBusinessDate(item.businessDate)}`}
+                className="secondary-button"
+                onClick={() => {
+                  onOpen(item.sessionId);
+                }}
+                title="Otwórz szczegóły sesji"
+                type="button"
+              >
+                <Eye aria-hidden="true" size={18} />
+                Szczegóły
+              </button>
+            </article>
+          </li>
+        ))}
+      </ol>
+      {items.length > 1 ? (
+        <nav
+          aria-label="Pozycja na liście moich zbiorów"
+          className="picker-harvest-carousel__dots"
+        >
+          {items.map((item, index) => (
+            <button
+              aria-current={activeIndex === index ? "true" : undefined}
+              aria-label={`Pokaż zbiór z ${formatBusinessDate(item.businessDate)}`}
+              className={
+                activeIndex === index
+                  ? "picker-harvest-carousel__dot is-active"
+                  : "picker-harvest-carousel__dot"
+              }
+              key={item.sessionId}
+              onClick={() => {
+                const target = listRef.current?.querySelector<HTMLElement>(
+                  `[data-harvest-index="${String(index)}"]`
+                );
+
+                target?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center"
+                });
+                setActiveIndex(index);
+              }}
+              type="button"
+            />
           ))}
-        </tbody>
-      </table>
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
+function CardFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }

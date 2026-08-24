@@ -52,14 +52,20 @@ describe("PickerPaymentListPanel", () => {
     expect(screen.getByText("Wypłacono (1)")).toBeInTheDocument();
     expect(screen.getByLabelText("Sezon")).toBeVisible();
     expect(
-      within(screen.getByRole("table")).queryByText("Sezon 2026")
+      within(screen.getByRole("list", { name: "Lista moich wypłat" })).queryByText(
+        "Sezon 2026"
+      )
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Anulowane poza sumą (1)")).not.toBeInTheDocument();
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Status"), "CANCELLED");
 
-    expect(within(screen.getByRole("table")).getByText("Anulowana")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Lista moich wypłat" })).getByText(
+        "Anulowana"
+      )
+    ).toBeInTheDocument();
     expect(screen.queryByText("Przelew bankowy")).not.toBeInTheDocument();
 
     await user.click(

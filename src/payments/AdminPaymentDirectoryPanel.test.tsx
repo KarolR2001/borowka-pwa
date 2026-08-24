@@ -75,7 +75,12 @@ describe("AdminPaymentDirectoryPanel", () => {
         name: "Otwórz szczegóły wypłaty Anna z 20.07.2026"
       })
     );
-    expect(screen.getByRole("heading", { name: "Anna" })).toBeVisible();
+    expect(
+      within(screen.getByRole("dialog", { name: "Szczegóły wypłaty" })).getByRole(
+        "heading",
+        { name: "Anna" }
+      )
+    ).toBeVisible();
     expect(screen.getByText("Rozliczenie tygodnia")).toBeVisible();
     expect(screen.queryByText("admin-1")).not.toBeInTheDocument();
     expect(screen.getByText("Sesja źródłowa")).toBeVisible();
@@ -132,20 +137,20 @@ describe("AdminPaymentDirectoryPanel", () => {
       />
     );
 
-    const table = await screen.findByRole("table");
-    expect(within(table).getByText("Anna")).toBeVisible();
-    expect(within(table).getByText("Barbara")).toBeVisible();
-    expect(within(table).getByText("Celina")).toBeVisible();
+    const list = await screen.findByRole("list", { name: "Lista historii wypłat" });
+    expect(within(list).getByText("Anna")).toBeVisible();
+    expect(within(list).getByText("Barbara")).toBeVisible();
+    expect(within(list).getByText("Celina")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Status"), "CANCELLED");
-    expect(within(table).getByText("Barbara")).toBeVisible();
-    expect(within(table).queryByText("Anna")).not.toBeInTheDocument();
-    expect(within(table).getByText("75,00 zł")).toBeVisible();
+    expect(within(list).getByText("Barbara")).toBeVisible();
+    expect(within(list).queryByText("Anna")).not.toBeInTheDocument();
+    expect(within(list).getByText("75,00 zł")).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText("Status"), "IMPORTED");
-    expect(within(table).getByText("Celina")).toBeVisible();
-    expect(within(table).queryByText("Barbara")).not.toBeInTheDocument();
-    expect(within(table).getByText("125,00 zł")).toBeVisible();
+    expect(within(list).getByText("Celina")).toBeVisible();
+    expect(within(list).queryByText("Barbara")).not.toBeInTheDocument();
+    expect(within(list).getByText("125,00 zł")).toBeVisible();
   });
 
   it("does not load financial data for a non-admin", async () => {

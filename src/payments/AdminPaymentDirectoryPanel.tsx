@@ -1,5 +1,5 @@
 import { Ban, Banknote, Download, Eye, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatKilograms, formatMoney } from "../domain/format";
@@ -348,7 +348,7 @@ export function AdminPaymentDirectoryPanel({
         <p className="empty-state">Brak wypłat spełniających filtry.</p>
       ) : null}
       {filteredPayments.length > 0 ? (
-        <PaymentDirectoryTable
+        <PaymentDirectoryCarousel
           onOpen={setSelectedPaymentId}
           payments={filteredPayments}
         />
@@ -522,58 +522,132 @@ function DateRangeFields({
   );
 }
 
-function PaymentDirectoryTable({
+function PaymentDirectoryCarousel({
   onOpen,
   payments
 }: {
   onOpen: (paymentId: string) => void;
   payments: readonly AdminPaymentDirectoryItem[];
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [payments]);
+
+  const updateActivePayment = () => {
+    const list = listRef.current;
+
+    if (!list || payments.length < 2) {
+      return;
+    }
+
+    const viewportCenter = list.getBoundingClientRect().left + list.clientWidth / 2;
+    const closestIndex = Array.from(list.children).reduce((currentIndex, item, index) => {
+      const currentDistance = Math.abs(
+        item.getBoundingClientRect().left + item.clientWidth / 2 - viewportCenter
+      );
+      const closestItem = list.children[currentIndex];
+      const closestDistance = Math.abs(
+        closestItem.getBoundingClientRect().left +
+          closestItem.clientWidth / 2 -
+          viewportCenter
+      );
+
+      return currentDistance < closestDistance ? index : currentIndex;
+    }, 0);
+
+    setActiveIndex(closestIndex);
+  };
+
   return (
-    <div className="directory-table-wrap">
-      <table className="directory-table payment-directory-table mobile-card-table">
-        <thead>
-          <tr>
-            <th scope="col">Data wypłaty</th>
-            <th scope="col">Zbieracz</th>
-            <th scope="col">Kwota</th>
-            <th scope="col">Data sesji</th>
-            <th scope="col">Szczegóły</th>
-          </tr>
-        </thead>
-        <tbody>
-          {payments.map((payment) => (
-            <tr key={payment.id}>
-              <td data-label="Data wypłaty">
-                {formatBusinessDate(payment.paidBusinessDate)}
-              </td>
-              <td data-label="Zbieracz">
-                {payment.workerName}
-                <span className="directory-cell-note">{payment.seasonName}</span>
-              </td>
-              <td data-label="Kwota">{formatMoney(payment.amountGrosz)}</td>
-              <td data-label="Data sesji">
-                {payment.sourceSession
-                  ? formatBusinessDate(payment.sourceSession.businessDate)
-                  : "brak"}
-              </td>
-              <td data-label="Szczegóły">
-                <button
-                  aria-label={`Otwórz szczegóły wypłaty ${payment.workerName} z ${formatBusinessDate(payment.paidBusinessDate)}`}
-                  className="secondary-button icon-button"
-                  onClick={() => {
-                    onOpen(payment.id);
-                  }}
-                  title="Otwórz szczegóły wypłaty"
-                  type="button"
+    <div className="payment-directory-carousel">
+      <ol
+        aria-label="Lista historii wypłat"
+        className="payment-directory-carousel__list"
+        onScroll={updateActivePayment}
+        ref={listRef}
+      >
+        {payments.map((payment, index) => (
+          <li
+            className="payment-directory-carousel__item"
+            data-payment-index={index}
+            key={payment.id}
+          >
+            <article className="payment-directory-card">
+              <header className="payment-directory-card__header">
+                <div>
+                  <p className="eyebrow">Historia wypłat</p>
+                  <h3>{payment.workerName}</h3>
+                  <p>{formatBusinessDate(payment.paidBusinessDate)}</p>
+                </div>
+                <span
+                  className={`picker-payment-status picker-payment-status--${payment.status}`}
                 >
-                  <Eye aria-hidden="true" size={18} />
-                </button>
-              </td>
-            </tr>
+                  {paymentStatusLabel(payment.status)}
+                </span>
+              </header>
+              <dl className="payment-directory-card__facts">
+                <Detail label="Kwota" value={formatMoney(payment.amountGrosz)} />
+                <Detail label="Sezon" value={payment.seasonName} />
+                <Detail
+                  label="Data sesji"
+                  value={
+                    payment.sourceSession
+                      ? formatBusinessDate(payment.sourceSession.businessDate)
+                      : "brak"
+                  }
+                />
+              </dl>
+              <button
+                aria-label={`Otwórz szczegóły wypłaty ${payment.workerName} z ${formatBusinessDate(payment.paidBusinessDate)}`}
+                className="secondary-button"
+                onClick={() => {
+                  onOpen(payment.id);
+                }}
+                title="Otwórz szczegóły wypłaty"
+                type="button"
+              >
+                <Eye aria-hidden="true" size={18} />
+                Szczegóły
+              </button>
+            </article>
+          </li>
+        ))}
+      </ol>
+      {payments.length > 1 ? (
+        <nav
+          aria-label="Pozycja na liście historii wypłat"
+          className="payment-directory-carousel__dots"
+        >
+          {payments.map((payment, index) => (
+            <button
+              aria-current={activeIndex === index ? "true" : undefined}
+              aria-label={`Pokaż wypłatę ${payment.workerName} z ${formatBusinessDate(payment.paidBusinessDate)}`}
+              className={
+                activeIndex === index
+                  ? "payment-directory-carousel__dot is-active"
+                  : "payment-directory-carousel__dot"
+              }
+              key={payment.id}
+              onClick={() => {
+                const target = listRef.current?.querySelector<HTMLElement>(
+                  `[data-payment-index="${String(index)}"]`
+                );
+
+                target?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center"
+                });
+                setActiveIndex(index);
+              }}
+              type="button"
+            />
           ))}
-        </tbody>
-      </table>
+        </nav>
+      ) : null}
     </div>
   );
 }
