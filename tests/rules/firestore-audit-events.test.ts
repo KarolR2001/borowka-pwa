@@ -197,6 +197,76 @@ describe("Firestore audit event rules", () => {
         })
       )
     );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-closed-by-operator"),
+        auditEvent({
+          id: "audit-harvest-session-closed-by-operator",
+          actorUid: "operator-1",
+          actorRoleSnapshot: "OPERATOR",
+          action: "HARVEST_SESSION_CLOSED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: {
+            status: "OPEN",
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: null,
+            calculationVersion: "1",
+            closedBy: null,
+            revision: 1
+          },
+          afterSummary: {
+            status: "CLOSED",
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: 0,
+            calculationVersion: "1",
+            closedBy: "operator-1",
+            revision: 2
+          },
+          reason: null
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "auditEvents", "audit-harvest-session-cancelled-by-operator"),
+        auditEvent({
+          id: "audit-harvest-session-cancelled-by-operator",
+          actorUid: "operator-1",
+          actorRoleSnapshot: "OPERATOR",
+          action: "HARVEST_SESSION_CANCELLED",
+          entityType: "HARVEST_SESSION",
+          entityId: "session-worker-anna-test",
+          businessDate: "2026-07-17",
+          beforeSummary: {
+            status: "OPEN",
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: null,
+            calculationVersion: "1",
+            closedBy: null,
+            revision: 1
+          },
+          afterSummary: {
+            status: "CANCELLED",
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0,
+            amountDueGrosz: null,
+            calculationVersion: "1",
+            closedBy: null,
+            revision: 2
+          },
+          reason: "Pomylka operatora"
+        })
+      )
+    );
     await assertFails(getDoc(doc(db, "auditEvents", "audit-harvest-session-created")));
     await assertSucceeds(
       setDoc(

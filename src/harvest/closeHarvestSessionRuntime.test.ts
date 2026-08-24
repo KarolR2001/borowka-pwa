@@ -218,6 +218,75 @@ describe("close harvest session runtime", () => {
     });
   });
 
+  it("allows an operator to close an empty session and publish zero stock", async () => {
+    const session = createSession();
+
+    firestoreLiteMock.getDoc.mockImplementation((ref: { path: string }) => {
+      switch (ref.path) {
+        case `harvestSessions/${session.id}`:
+          return existingSnapshot(session.id, session);
+        case `seasons/${seed.seasons[0].id}`:
+          return existingSnapshot(seed.seasons[0].id, seed.seasons[0]);
+        case `workers/${seed.workers[0].id}`:
+          return existingSnapshot(seed.workers[0].id, seed.workers[0]);
+        case `workerRateVersions/${seed.workerRateVersions[0].id}`:
+          return existingSnapshot(
+            seed.workerRateVersions[0].id,
+            seed.workerRateVersions[0]
+          );
+        default:
+          return missingSnapshot(ref.path);
+      }
+    });
+    firestoreLiteMock.getDocs.mockResolvedValue({ docs: [] });
+    firestoreLiteMock.getDocFromServer.mockImplementation((ref: { id: string }) =>
+      existingSnapshot(ref.id, {
+        id: ref.id,
+        seasonId: session.seasonId,
+        sourceId: session.id,
+        sourceType: "HARVEST_SESSION",
+        updatedAt: "server-time",
+        updatedBy: operatorProfile.uid,
+        weightImpactG: 0
+      })
+    );
+
+    const result = await closeHarvestSessionOnline(
+      { VITE_APP_ENV: "development" },
+      {
+        actorProfile: operatorProfile,
+        sessionId: session.id,
+        confirmationAccepted: true,
+        isOnline: true,
+        deviceId: "device-1"
+      }
+    );
+
+    expect(firestoreLiteMock.batch.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: `harvestSessions/${session.id}` }),
+      expect.objectContaining({
+        status: "CLOSED",
+        totalEntryCount: 0,
+        totalQuantityMilli: 0,
+        totalWeightG: 0,
+        amountDueGrosz: 0,
+        closedBy: operatorProfile.uid
+      })
+    );
+    expect(firestoreLiteMock.setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `operationalStockMovements/harvest-session-${session.id}`
+      }),
+      expect.objectContaining({ weightImpactG: 0 })
+    );
+    expect(result.confirmationSummary).toMatchObject({
+      totalEntryCount: 0,
+      totalQuantityMilli: 0,
+      totalWeightG: 0,
+      amountDueGrosz: 0
+    });
+  });
+
   it("prepares close update and audit from decoded runtime documents", () => {
     const session = createSession();
     const result = prepareRuntimeCloseHarvestSession({

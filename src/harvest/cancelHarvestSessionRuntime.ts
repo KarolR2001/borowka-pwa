@@ -97,6 +97,7 @@ export async function cancelHarvestSessionOnline(
 
     return decodedEntry.entry;
   });
+  assertActorCanCancelSession(input.actorProfile, decodedSession.session, entries);
   const cancelledAtDevice = Timestamp.now();
   const cancelledAtServer = serverTimestamp();
   const prepared = prepareRuntimeCancelHarvestSession({
@@ -140,6 +141,7 @@ export function prepareRuntimeCancelHarvestSession(
   input: PrepareRuntimeCancelHarvestSessionInput
 ): PreparedCancelHarvestSession {
   assertCancelHarvestSessionActor(input.actorProfile);
+  assertActorCanCancelSession(input.actorProfile, input.session, input.entries);
 
   return prepareCancelHarvestSession({
     actorProfile: input.actorProfile,
@@ -159,8 +161,32 @@ function assertCancelHarvestSessionActor(actorProfile: UserProfile): void {
   if (
     !actorProfile.active ||
     actorProfile.registrationStatus !== "APPROVED" ||
-    actorProfile.role !== "ADMIN"
+    (actorProfile.role !== "ADMIN" && actorProfile.role !== "OPERATOR")
   ) {
-    throw new Error("Anulowanie sesji wymaga aktywnego administratora.");
+    throw new Error("Anulowanie sesji wymaga aktywnego administratora albo operatora.");
+  }
+}
+
+function assertActorCanCancelSession(
+  actorProfile: UserProfile,
+  session: HarvestSessionDocument,
+  entries: readonly HarvestEntryDocument[]
+): void {
+  if (actorProfile.role === "ADMIN") {
+    return;
+  }
+
+  const isEmptyOpenSession =
+    session.status === "OPEN" &&
+    session.createdBy === actorProfile.uid &&
+    session.totalEntryCount === 0 &&
+    session.totalQuantityMilli === 0 &&
+    session.totalWeightG === 0 &&
+    session.amountDueGrosz === null &&
+    session.paymentId === null &&
+    entries.length === 0;
+
+  if (!isEmptyOpenSession) {
+    throw new Error("Operator moze anulowac tylko swoja pusta sesje.");
   }
 }

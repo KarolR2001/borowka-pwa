@@ -14,6 +14,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
@@ -241,10 +242,14 @@ const seedHarvestEntry = async (
   });
 };
 
-const harvestSessionStockMovement = (updatedBy: string, weightImpactG: number) => ({
-  id: "harvest-session-session-1",
+const harvestSessionStockMovement = (
+  updatedBy: string,
+  weightImpactG: number,
+  sourceId = "session-1"
+) => ({
+  id: `harvest-session-${sourceId}`,
   seasonId: "season-2026-test",
-  sourceId: "session-1",
+  sourceId,
   sourceType: "HARVEST_SESSION",
   updatedAt: serverTimestamp(),
   updatedBy,
@@ -403,6 +408,76 @@ describe("Firestore harvest session and entry rules", () => {
           quantityMilli: 0,
           createdAtServer: serverTimestamp()
         })
+      )
+    );
+  });
+
+  it("allows an operator to close an empty own session and record zero stock", async () => {
+    await seedBase();
+    await seedHarvestSession("session-empty");
+    expect(testEnv).toBeDefined();
+    if (!testEnv) {
+      return;
+    }
+
+    const db = testEnv
+      .authenticatedContext("operator-1", { email: "operator-1@example.test" })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(db, "harvestSessions", "session-empty"), {
+        status: "CLOSED",
+        totalEntryCount: 0,
+        totalQuantityMilli: 0,
+        totalWeightG: 0,
+        amountDueGrosz: 0,
+        calculationVersion: "1",
+        closedAtDevice: Timestamp.now(),
+        closedAtServer: serverTimestamp(),
+        closedBy: "operator-1",
+        updatedAtServer: serverTimestamp(),
+        revision: 2
+      })
+    );
+    await assertSucceeds(
+      setDoc(doc(db, "auditEvents", "audit-empty-close"), {
+        id: "audit-empty-close",
+        actorUid: "operator-1",
+        actorRoleSnapshot: "OPERATOR",
+        action: "HARVEST_SESSION_CLOSED",
+        entityType: "HARVEST_SESSION",
+        entityId: "session-empty",
+        businessDate: "2026-07-17",
+        beforeSummary: {
+          status: "OPEN",
+          totalEntryCount: 0,
+          totalQuantityMilli: 0,
+          totalWeightG: 0,
+          amountDueGrosz: null,
+          calculationVersion: "1",
+          closedBy: null,
+          revision: 1
+        },
+        afterSummary: {
+          status: "CLOSED",
+          totalEntryCount: 0,
+          totalQuantityMilli: 0,
+          totalWeightG: 0,
+          amountDueGrosz: 0,
+          calculationVersion: "1",
+          closedBy: "operator-1",
+          revision: 2
+        },
+        reason: null,
+        createdAtDevice: Timestamp.now(),
+        createdAtServer: serverTimestamp(),
+        deviceId: "device-1"
+      })
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "operationalStockMovements", "harvest-session-session-empty"),
+        harvestSessionStockMovement("operator-1", 0, "session-empty")
       )
     );
   });

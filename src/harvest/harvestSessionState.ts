@@ -140,6 +140,7 @@ export type HarvestSessionTransitionCheckResult =
 
 const ADMIN_ONLY = ["ADMIN"] as const satisfies readonly UserRole[];
 const SESSION_EDIT_ROLES = ["ADMIN", "OPERATOR"] as const satisfies readonly UserRole[];
+const SESSION_CANCEL_ROLES = ["ADMIN", "OPERATOR"] as const satisfies readonly UserRole[];
 
 const transitionDefinitions = {
   CREATE: {
@@ -236,7 +237,7 @@ const transitionDefinitions = {
     type: "CANCEL",
     fromStatuses: ["OPEN", "CLOSED", "REVIEW_REQUIRED"],
     toStatus: "CANCELLED",
-    allowedRoles: ADMIN_ONLY,
+    allowedRoles: SESSION_CANCEL_ROLES,
     requiresOnline: true,
     requiredFields: ["cancelledBy", "cancelledAt", "cancellationReason", "revision"],
     entriesImpact: "ENTRIES_REMAIN_HISTORICAL",
