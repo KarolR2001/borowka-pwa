@@ -570,7 +570,13 @@ describe("OperatorHarvestSessionsPanel", () => {
 
       await screen.findByRole("heading", { name: "Anna Test" });
       await user.click(screen.getByRole("button", { name: /^Anuluj$/i }));
-      await screen.findByRole("form", { name: "Anulowanie wpisu zbioru" });
+      const correctionDialog = await screen.findByRole("dialog", {
+        name: "Korekta wpisu zbioru"
+      });
+      expect(correctionDialog).toHaveClass("record-dialog--fullscreen");
+      within(correctionDialog).getByRole("form", {
+        name: "Anulowanie wpisu zbioru"
+      });
       await user.type(screen.getByLabelText("Powód anulowania wpisu"), "Bledna waga");
       await user.click(screen.getByRole("button", { name: "Anuluj wpis" }));
 

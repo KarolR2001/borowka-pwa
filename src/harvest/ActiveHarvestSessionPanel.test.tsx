@@ -263,6 +263,31 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeDisabled();
   });
 
+  it("does not allow closing a session without an active entry", async () => {
+    const user = userEvent.setup();
+    const onCloseSession = vi.fn();
+
+    render(
+      <ActiveHarvestSessionPanel
+        onCloseSession={onCloseSession}
+        view={createSessionView({
+          entries: [],
+          session: {
+            ...createSessionView().session,
+            totalEntryCount: 0,
+            totalQuantityMilli: 0,
+            totalWeightG: 0
+          }
+        })}
+      />
+    );
+
+    const closeButton = screen.getByRole("button", { name: "Zamknij sesję" });
+    expect(closeButton).toBeDisabled();
+    await user.click(closeButton);
+    expect(onCloseSession).not.toHaveBeenCalled();
+  });
+
   it("shows a status notice and empty entries state", () => {
     render(
       <ActiveHarvestSessionPanel

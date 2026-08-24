@@ -1,5 +1,5 @@
 import { Eye, UserRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthSessionState } from "../auth/authSession";
 import { formatBusinessDate, formatMoney } from "../domain/format";
@@ -224,7 +224,7 @@ export function PickerPaymentListPanel({
         <p className="empty-state">Brak wypłat spełniających wybrane filtry.</p>
       ) : null}
       {visiblePayments.length > 0 ? (
-        <PaymentTable
+        <PaymentCarousel
           onOpenSession={(sessionId) => {
             setReportSessionId(null);
             setSelectedSessionId(sessionId);
@@ -285,66 +285,144 @@ function PickerPaymentFilters({
   );
 }
 
-function PaymentTable({
+function PaymentCarousel({
   onOpenSession,
   payments
 }: {
   onOpenSession: (sessionId: string) => void;
   payments: readonly PickerPaymentListItem[];
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [payments]);
+
+  const updateActivePayment = () => {
+    const list = listRef.current;
+
+    if (!list || payments.length < 2) {
+      return;
+    }
+
+    const viewportCenter = list.getBoundingClientRect().left + list.clientWidth / 2;
+    const closestIndex = Array.from(list.children).reduce((currentIndex, item, index) => {
+      const currentDistance = Math.abs(
+        item.getBoundingClientRect().left + item.clientWidth / 2 - viewportCenter
+      );
+      const closestItem = list.children[currentIndex];
+      const closestDistance = Math.abs(
+        closestItem.getBoundingClientRect().left +
+          closestItem.clientWidth / 2 -
+          viewportCenter
+      );
+
+      return currentDistance < closestDistance ? index : currentIndex;
+    }, 0);
+
+    setActiveIndex(closestIndex);
+  };
+
   return (
-    <div className="directory-table-wrap">
-      <table className="directory-table mobile-card-table picker-payment-table">
-        <thead>
-          <tr>
-            <th>Data wypłaty</th>
-            <th>Data sesji</th>
-            <th>Kwota</th>
-            <th>Metoda</th>
-            <th>Status</th>
-            <th>
-              <span className="sr-only">Sesja źródłowa</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {payments.map((payment) => (
-            <tr key={payment.id}>
-              <td data-label="Data wypłaty">
-                {formatBusinessDate(payment.paidBusinessDate)}
-              </td>
-              <td data-label="Data sesji">
-                {payment.sessionBusinessDate
-                  ? formatBusinessDate(payment.sessionBusinessDate)
-                  : "Brak danych"}
-              </td>
-              <td data-label="Kwota">{formatMoney(payment.amountGrosz)}</td>
-              <td data-label="Metoda">{paymentMethodLabel(payment.paymentMethod)}</td>
-              <td data-label="Status">
+    <div className="picker-payment-carousel">
+      <ol
+        aria-label="Lista moich wypłat"
+        className="picker-payment-carousel__list"
+        onScroll={updateActivePayment}
+        ref={listRef}
+      >
+        {payments.map((payment, index) => (
+          <li
+            className="picker-payment-carousel__item"
+            data-payment-index={index}
+            key={payment.id}
+          >
+            <article className="picker-payment-card">
+              <header className="picker-payment-card__header">
+                <div>
+                  <p className="eyebrow">Wypłata</p>
+                  <h3>{formatBusinessDate(payment.paidBusinessDate)}</h3>
+                </div>
                 <span
                   className={`picker-payment-status picker-payment-status--${payment.status}`}
                 >
                   {payment.status === "ACTIVE" ? "Aktywna" : "Anulowana"}
                 </span>
-              </td>
-              <td data-label="Szczegóły">
-                <button
-                  aria-label={`Otwórz sesję wypłaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
-                  className="secondary-button icon-button picker-table-action"
-                  disabled={payment.sessionBusinessDate === null}
-                  onClick={() => {
-                    onOpenSession(payment.sessionId);
-                  }}
-                  title="Otwórz sesję źródłową"
-                  type="button"
-                >
-                  <Eye aria-hidden="true" size={18} />
-                </button>
-              </td>
-            </tr>
+              </header>
+              <dl className="picker-payment-card__facts">
+                <CardFact label="Kwota" value={formatMoney(payment.amountGrosz)} />
+                <CardFact
+                  label="Data sesji"
+                  value={
+                    payment.sessionBusinessDate
+                      ? formatBusinessDate(payment.sessionBusinessDate)
+                      : "Brak danych"
+                  }
+                />
+                <CardFact
+                  label="Metoda"
+                  value={paymentMethodLabel(payment.paymentMethod)}
+                />
+              </dl>
+              <button
+                aria-label={`Otwórz sesję wypłaty z ${formatBusinessDate(payment.paidBusinessDate)}`}
+                className="secondary-button"
+                disabled={payment.sessionBusinessDate === null}
+                onClick={() => {
+                  onOpenSession(payment.sessionId);
+                }}
+                title="Otwórz sesję źródłową"
+                type="button"
+              >
+                <Eye aria-hidden="true" size={18} />
+                Szczegóły sesji
+              </button>
+            </article>
+          </li>
+        ))}
+      </ol>
+      {payments.length > 1 ? (
+        <nav
+          aria-label="Pozycja na liście moich wypłat"
+          className="picker-payment-carousel__dots"
+        >
+          {payments.map((payment, index) => (
+            <button
+              aria-current={activeIndex === index ? "true" : undefined}
+              aria-label={`Pokaż wypłatę z ${formatBusinessDate(payment.paidBusinessDate)}`}
+              className={
+                activeIndex === index
+                  ? "picker-payment-carousel__dot is-active"
+                  : "picker-payment-carousel__dot"
+              }
+              key={payment.id}
+              onClick={() => {
+                const target = listRef.current?.querySelector<HTMLElement>(
+                  `[data-payment-index="${String(index)}"]`
+                );
+
+                target?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center"
+                });
+                setActiveIndex(index);
+              }}
+              type="button"
+            />
           ))}
-        </tbody>
-      </table>
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
+function CardFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }

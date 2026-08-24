@@ -1943,6 +1943,134 @@ h2 {
   color: #76510f;
 }
 
+.picker-harvest-carousel,
+.picker-payment-carousel,
+.payment-directory-carousel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.picker-harvest-carousel__list,
+.picker-payment-carousel__list,
+.payment-directory-carousel__list {
+  --picker-card-width: min(86vw, 560px);
+
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  padding: 4px max(0px, calc((100% - var(--picker-card-width)) / 2)) 12px;
+  scroll-padding-inline: max(0px, calc((100% - var(--picker-card-width)) / 2));
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.picker-harvest-carousel__item,
+.picker-payment-carousel__item,
+.payment-directory-carousel__item {
+  flex: 0 0 var(--picker-card-width);
+  min-width: 0;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.picker-harvest-card,
+.picker-payment-card,
+.payment-directory-card {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.picker-harvest-card__header,
+.picker-payment-card__header,
+.payment-directory-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.picker-harvest-card__header h3,
+.picker-payment-card__header h3,
+.payment-directory-card__header h3,
+.payment-directory-card__header p {
+  margin: 0;
+}
+
+.picker-harvest-card__facts,
+.picker-payment-card__facts,
+.payment-directory-card__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  background: #dce6df;
+}
+
+.picker-harvest-card__facts div,
+.picker-payment-card__facts div,
+.payment-directory-card__facts div {
+  min-width: 0;
+  padding: 10px;
+  background: #fbfdfb;
+}
+
+.picker-harvest-card__facts dt,
+.picker-payment-card__facts dt,
+.payment-directory-card__facts dt {
+  color: #5f6f66;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.picker-harvest-card__facts dd,
+.picker-payment-card__facts dd,
+.payment-directory-card__facts dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #173129;
+  font-weight: 850;
+}
+
+.picker-harvest-carousel__dots,
+.picker-payment-carousel__dots,
+.payment-directory-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.picker-harvest-carousel__dot,
+.picker-payment-carousel__dot,
+.payment-directory-carousel__dot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: #b7c7be;
+  cursor: pointer;
+}
+
+.picker-harvest-carousel__dot.is-active,
+.picker-payment-carousel__dot.is-active,
+.payment-directory-carousel__dot.is-active {
+  width: 20px;
+  background: #287455;
+}
+
 .directory-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 0.6fr));
@@ -4367,6 +4495,9 @@ h2 {
   .picker-harvest-filters,
   .picker-payment-filters,
   .picker-data-export__filters,
+  .picker-harvest-card__facts,
+  .picker-payment-card__facts,
+  .payment-directory-card__facts,
   .picker-session-details__facts,
   .picker-session-details__payment dl,
   .picker-session-entry,
