@@ -72,7 +72,7 @@ describe("PickerDashboardPanel", () => {
     );
   });
 
-  it("reloads for the selected season without a manual refresh control", async () => {
+  it("reloads for the selected date range without a manual refresh control", async () => {
     const user = userEvent.setup();
     const load = vi.fn<PickerDashboardApi["load"]>().mockResolvedValue(dashboardResult());
 
@@ -86,13 +86,18 @@ describe("PickerDashboardPanel", () => {
     );
 
     await screen.findByText("19,500 kg");
-    await user.selectOptions(screen.getByLabelText("Sezon"), "season-2025");
+    await user.selectOptions(screen.getByLabelText(/Zakres dat/), "CURRENT_WEEK");
 
     await waitFor(() => {
-      expect(load).toHaveBeenLastCalledWith(
-        {},
-        expect.objectContaining({ selectedSeasonId: "season-2025" })
-      );
+      const lastCall = load.mock.calls.at(-1);
+      if (!lastCall) {
+        throw new Error("Brak ponownego wywołania pulpitu pickera.");
+      }
+      const input = lastCall[1];
+      if (!input) {
+        throw new Error("Brak parametrów ponownego wywołania pulpitu pickera.");
+      }
+      expect(input.periodSelection?.preset).toBe("CURRENT_WEEK");
     });
 
     expect(

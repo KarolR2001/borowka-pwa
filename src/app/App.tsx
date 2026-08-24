@@ -1514,6 +1514,16 @@ function WorkspaceNavigation<Key extends string>({
   items: readonly WorkspaceNavigationItem<Key>[];
   onChange: (key: Key) => void;
 }) {
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center"
+    });
+  }, [activeKey]);
+
   return (
     <div className="workspace-tabs" role="tablist" aria-label={ariaLabel}>
       {items.map((item) => {
@@ -1529,6 +1539,7 @@ function WorkspaceNavigation<Key extends string>({
               onChange(item.key);
             }}
             role="tab"
+            ref={isActive ? activeTabRef : undefined}
             type="button"
           >
             <Icon aria-hidden="true" size={18} strokeWidth={2.2} />

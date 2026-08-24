@@ -73,13 +73,12 @@ describe("AdminDashboardPanel", () => {
       "Przychód",
       "Wynik po koszcie zbioru",
       "Aktywni zbieracze",
-      "Otwarte sesje",
-      "Sesje do sprawdzenia",
-      "Lokalnie oczekujące"
+      "Otwarte sesje"
     ]) {
       expect(dashboardMetric(label)).toBeVisible();
     }
-    expect(within(dashboardMetric("Lokalnie oczekujące")).getByText("1")).toBeVisible();
+    expect(screen.queryByText("Lokalnie oczekujące")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sesje do sprawdzenia")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Sezon"), "season-2");
     await waitFor(() => {
@@ -88,8 +87,7 @@ describe("AdminDashboardPanel", () => {
       ).toBeVisible();
     });
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
-    await user.click(screen.getByText("Zakres dat"));
-    await user.click(screen.getByRole("button", { name: "Bieżący tydzień" }));
+    await user.selectOptions(screen.getByLabelText(/Zakres dat/), "CURRENT_WEEK");
     await waitFor(() => {
       expect(api.load).toHaveBeenLastCalledWith(
         {},
@@ -167,8 +165,8 @@ describe("AdminDashboardPanel", () => {
     );
 
     expect(screen.queryByText(/tryb offline/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Lokalne sesje poza stanem")).toBeVisible();
-    expect(screen.getByText("Przewidywane lokalnie")).toBeVisible();
+    expect(screen.queryByText("Lokalne sesje poza stanem")).not.toBeInTheDocument();
+    expect(screen.queryByText("Przewidywane lokalnie")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Sezon")).toBeDisabled();
     expect(api.load).toHaveBeenCalledTimes(1);
   });

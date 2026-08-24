@@ -14,12 +14,9 @@ describe("DashboardPeriodFilter", () => {
 
     render(<FilterHarness />);
 
-    await user.click(screen.getByText("Zakres dat"));
-    expect(screen.getByRole("button", { name: "Dzisiaj" })).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Cały sezon", pressed: true })
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Własny zakres" }));
+    const periodSelect = screen.getByLabelText(/Zakres dat/);
+    expect(periodSelect).toHaveValue("SEASON");
+    await user.selectOptions(periodSelect, "Własny zakres");
 
     expect(screen.getByLabelText("Od")).toHaveValue("2026-07-29");
     expect(screen.getByLabelText("Do")).toHaveValue("2026-07-29");
@@ -28,7 +25,7 @@ describe("DashboardPeriodFilter", () => {
     expect(screen.getByText("Podaj początek i koniec własnego zakresu.")).toBeVisible();
   });
 
-  it("closes the date options after clicking outside the filter", async () => {
+  it("keeps the classic dropdown available without an expandable filter", async () => {
     const user = userEvent.setup();
 
     render(
@@ -38,13 +35,9 @@ describe("DashboardPeriodFilter", () => {
       </>
     );
 
-    await user.click(screen.getByText("Zakres dat"));
-    expect(screen.getByRole("button", { name: "Dzisiaj" })).toBeVisible();
-
     await user.click(screen.getByRole("button", { name: "Poza zakresem dat" }));
-    expect(
-      document.querySelector("details.dashboard-period-collapse")
-    ).not.toHaveAttribute("open");
+    expect(screen.getByLabelText(/Zakres dat/)).toBeVisible();
+    expect(document.querySelector("details.dashboard-period-collapse")).toBeNull();
   });
 });
 

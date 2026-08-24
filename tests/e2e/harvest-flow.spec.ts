@@ -27,11 +27,9 @@ test.describe("Seeded harvest flow", () => {
     await expect(operatorDashboard.getByText("Otwarte sesje")).toHaveCount(0);
     await expect(operatorDashboard.getByText("Lokalnie oczekujące")).toHaveCount(0);
     await expect(operatorDashboard.getByText(/moje konflikty/i)).toHaveCount(0);
-    await operatorDashboard.getByText("Zakres dat", { exact: true }).click();
-    await expect(
-      operatorDashboard.getByRole("button", { name: "Cały sezon" })
-    ).toHaveAttribute("aria-pressed", "true");
-    await operatorDashboard.getByRole("button", { name: "Własny zakres" }).click();
+    const periodSelect = operatorDashboard.getByLabel(/Zakres dat/);
+    await expect(periodSelect).toHaveValue("SEASON");
+    await periodSelect.selectOption("CUSTOM");
     await operatorDashboard.locator("#operator-dashboard-period-from").fill("2026-07-17");
     await operatorDashboard.locator("#operator-dashboard-period-to").fill("2026-07-17");
     await expect(operatorDashboard.getByText("Własny zakres: 17.07.2026")).toBeVisible();
