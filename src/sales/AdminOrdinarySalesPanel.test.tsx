@@ -335,7 +335,6 @@ async function fillAndPrepare(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function openNewSale(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByText("Nowa operacja"));
   await user.click(await screen.findByRole("button", { name: "Nowa sprzedaż" }));
 }
 
