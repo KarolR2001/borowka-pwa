@@ -86,10 +86,8 @@ export function ActiveHarvestSessionPanel({
   const lastEntry: ActiveHarvestSessionEntryItem | null =
     sortedEntries.length > 0 ? sortedEntries[0] : null;
   const sessionIsOpen = view.session.status === "OPEN";
-  const hasActiveEntries = sortedEntries.some((entry) => entry.status === "ACTIVE");
   const canAddEntry = sessionIsOpen && view.canAddEntry && view.isOnline;
-  const canCloseSession =
-    sessionIsOpen && view.canCloseSession && view.isOnline && hasActiveEntries;
+  const canCloseSession = sessionIsOpen && view.canCloseSession && view.isOnline;
   const amountLabel =
     view.session.amountDueGrosz === null ? "Kwota szacunkowa" : "Kwota oficjalna";
   const amountGrosz = view.session.amountDueGrosz ?? view.estimatedAmountGrosz;
@@ -149,9 +147,7 @@ export function ActiveHarvestSessionPanel({
             className="secondary-action"
             disabled={!canCloseSession}
             onClick={onCloseSession}
-            title={
-              hasActiveEntries ? "Zamknij sesję" : "Dodaj aktywny wpis, aby zamknąć sesję"
-            }
+            title="Zamknij sesję"
             type="button"
           >
             <Lock aria-hidden="true" size={18} strokeWidth={2.2} />

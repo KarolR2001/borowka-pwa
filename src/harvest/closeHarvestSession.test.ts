@@ -223,10 +223,15 @@ describe("close harvest session online", () => {
     ).toThrow("Ta rola nie moze wykonac przejscia statusu sesji.");
   });
 
-  it("blocks empty sessions and pending local writes", () => {
-    expect(() => prepareCloseHarvestSessionOnline(defaultInput({ entries: [] }))).toThrow(
-      "Nie mozna zamknac pustej sesji."
-    );
+  it("closes empty sessions and blocks pending local writes", () => {
+    const result = prepareCloseHarvestSessionOnline(defaultInput({ entries: [] }));
+
+    expect(result.sessionUpdate).toMatchObject({
+      amountDueGrosz: 0,
+      totalEntryCount: 0,
+      totalQuantityMilli: 0,
+      totalWeightG: 0
+    });
     expect(() =>
       prepareCloseHarvestSessionOnline(defaultInput({ pendingWriteCount: 1 }))
     ).toThrow("Nie mozna zamknac sesji z oczekujacymi zapisami.");

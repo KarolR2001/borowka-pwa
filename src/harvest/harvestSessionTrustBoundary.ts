@@ -97,10 +97,6 @@ export function prepareTrustedHarvestSessionCloseTotals(
     entries: input.entries
   });
 
-  if (recalculated.activeEntryCount === 0) {
-    throw new Error("Nie mozna zamknac pustej sesji.");
-  }
-
   return {
     trustedSource: "ACTIVE_ENTRIES",
     totalEntryCount: recalculated.activeEntryCount,

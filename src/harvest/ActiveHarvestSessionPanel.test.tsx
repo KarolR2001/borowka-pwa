@@ -263,7 +263,7 @@ describe("ActiveHarvestSessionPanel", () => {
     expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeDisabled();
   });
 
-  it("does not allow closing a session without an active entry", async () => {
+  it("allows closing a session without an active entry", async () => {
     const user = userEvent.setup();
     const onCloseSession = vi.fn();
 
@@ -283,9 +283,9 @@ describe("ActiveHarvestSessionPanel", () => {
     );
 
     const closeButton = screen.getByRole("button", { name: "Zamknij sesję" });
-    expect(closeButton).toBeDisabled();
+    expect(closeButton).toBeEnabled();
     await user.click(closeButton);
-    expect(onCloseSession).not.toHaveBeenCalled();
+    expect(onCloseSession).toHaveBeenCalledTimes(1);
   });
 
   it("shows a status notice and empty entries state", () => {
@@ -309,7 +309,7 @@ describe("ActiveHarvestSessionPanel", () => {
       screen.getByText("Sesja zostala zmieniona na innym urzadzeniu.")
     ).toBeInTheDocument();
     expect(screen.getByText("Sesja nie ma jeszcze wpisów.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zamknij sesję" })).toBeEnabled();
   });
 
   it("renders empty active session placeholder before persistence is implemented", () => {

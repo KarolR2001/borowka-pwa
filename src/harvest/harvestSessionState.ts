@@ -113,7 +113,6 @@ export type HarvestSessionTransitionDenialCode =
   | "ONLINE_REQUIRED"
   | "REASON_REQUIRED"
   | "ACTIVE_PAYMENT_BLOCKS_TRANSITION"
-  | "ACTIVE_ENTRY_REQUIRED"
   | "PAYMENT_ID_REQUIRED";
 
 export type HarvestSessionTransitionCheckInput = {
@@ -343,10 +342,6 @@ export function checkHarvestSessionTransition(
     );
   }
 
-  if (input.type === "CLOSE" && !hasPositiveInteger(input.activeEntryCount)) {
-    return denied(definition, "ACTIVE_ENTRY_REQUIRED", "Nie mozna zamknac pustej sesji.");
-  }
-
   if (input.type === "MARK_PAID" && !hasRequiredText(input.paymentId)) {
     return denied(
       definition,
@@ -429,8 +424,4 @@ function denied(
 
 function hasRequiredText(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasPositiveInteger(value: number | null | undefined): boolean {
-  return Number.isInteger(value) && Number(value) > 0;
 }
