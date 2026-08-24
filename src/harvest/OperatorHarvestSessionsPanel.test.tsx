@@ -765,6 +765,149 @@ describe("OperatorHarvestSessionsPanel", () => {
     }
   });
 
+  it("allows an operator to cancel their own empty session", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const emptySession = createSession("session-empty");
+    const cancelledSession: HarvestSessionDocument = {
+      ...emptySession,
+      status: "CANCELLED",
+      cancelledAt: "2026-07-17T11:00:00.000Z",
+      cancelledBy: operatorProfile.uid,
+      cancellationReason: "Pomylka operatora",
+      revision: 2
+    };
+    const api = createHarvestSessionsApi({
+      list: vi
+        .fn<OperatorHarvestSessionsApi["list"]>()
+        .mockResolvedValue(createEmptySessionDashboardResult()),
+      cancel: vi.fn<OperatorHarvestSessionsApi["cancel"]>().mockResolvedValue({
+        session: cancelledSession,
+        selectedSessionId: null,
+        message: "Anulowano sesje dla Anna Test.",
+        confirmationSummary: {
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          sourceStatus: "OPEN",
+          amountDueGrosz: null,
+          totalEntryCount: 0,
+          totalQuantityMilli: 0,
+          totalWeightG: 0,
+          removesFromSettlementSums: true,
+          leavesEntriesHistorical: true,
+          pendingWriteCount: 0,
+          reason: "Pomylka operatora"
+        }
+      } satisfies CancelHarvestSessionOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={operatorState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("form", { name: "Anulowanie sesji zbioru" });
+      await user.type(screen.getByLabelText("Powód anulowania"), "Pomylka operatora");
+      await user.click(screen.getByRole("button", { name: "Anuluj sesję" }));
+
+      await waitFor(() => {
+        expect(api.cancel).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: operatorState.profile,
+            sessionId: "session-empty",
+            reason: "Pomylka operatora",
+            hasActivePayment: false,
+            isOnline: true
+          })
+        );
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("allows an operator to cancel their own empty session", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const emptySession = createSession("session-empty");
+    const cancelledSession: HarvestSessionDocument = {
+      ...emptySession,
+      status: "CANCELLED",
+      cancelledAt: "2026-07-17T11:00:00.000Z",
+      cancelledBy: operatorProfile.uid,
+      cancellationReason: "Przypadkowo otwarta sesja",
+      revision: 2
+    };
+    const list = vi
+      .fn<OperatorHarvestSessionsApi["list"]>()
+      .mockResolvedValueOnce(createEmptySessionDashboardResult())
+      .mockResolvedValue(emptyDashboardResult());
+    const api = createHarvestSessionsApi({
+      list,
+      cancel: vi.fn<OperatorHarvestSessionsApi["cancel"]>().mockResolvedValue({
+        session: cancelledSession,
+        selectedSessionId: null,
+        message: "Anulowano sesje dla Anna Test.",
+        confirmationSummary: {
+          workerName: "Anna Test",
+          businessDate: "2026-07-17",
+          sourceStatus: "OPEN",
+          amountDueGrosz: null,
+          totalEntryCount: 0,
+          totalQuantityMilli: 0,
+          totalWeightG: 0,
+          removesFromSettlementSums: true,
+          leavesEntriesHistorical: true,
+          pendingWriteCount: 0,
+          reason: "Przypadkowo otwarta sesja"
+        }
+      } satisfies CancelHarvestSessionOnlineResult)
+    });
+
+    try {
+      render(
+        <OperatorHarvestSessionsPanel
+          authState={operatorState}
+          env={env}
+          harvestSessionsApi={api}
+          isOnline={true}
+        />
+      );
+
+      await screen.findByRole("heading", { name: "Anna Test" });
+      await user.click(screen.getAllByText("Anuluj sesję")[0]);
+      await user.type(
+        screen.getByLabelText("Powód anulowania"),
+        "Przypadkowo otwarta sesja"
+      );
+      await user.click(screen.getByRole("button", { name: "Anuluj sesję" }));
+
+      await waitFor(() => {
+        expect(api.cancel).toHaveBeenCalledWith(
+          env,
+          expect.objectContaining({
+            actorProfile: operatorProfile,
+            sessionId: "session-empty",
+            reason: "Przypadkowo otwarta sesja",
+            hasActivePayment: false,
+            isOnline: true
+          })
+        );
+      });
+      expect(confirmSpy).toHaveBeenCalledWith(
+        "Anulować sesję Anna Test z dnia 17.07.2026?"
+      );
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("does not load sessions for picker role", () => {
     const api = createHarvestSessionsApi();
 
@@ -874,6 +1017,19 @@ function createDashboardResult(
     seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
     selectedSessionId,
     actorProfile,
+    isOnline: true
+  });
+}
+
+function createEmptySessionDashboardResult(): HarvestSessionDashboardResult {
+  const emptySession = createSession("session-empty");
+
+  return buildHarvestSessionDashboard({
+    sessionDocuments: [{ id: emptySession.id, data: emptySession }],
+    entryDocuments: [],
+    seasonDocuments: [{ id: seed.seasons[0].id, data: seed.seasons[0] }],
+    selectedSessionId: emptySession.id,
+    actorProfile: operatorProfile,
     isOnline: true
   });
 }

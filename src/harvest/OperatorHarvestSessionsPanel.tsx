@@ -732,7 +732,7 @@ export function OperatorHarvestSessionsPanel({
   };
 
   const handleCancelSession = async () => {
-    if (viewerProfile?.role !== "ADMIN") {
+    if (viewerProfile?.role !== "ADMIN" && viewerProfile?.role !== "OPERATOR") {
       return;
     }
 
@@ -740,10 +740,16 @@ export function OperatorHarvestSessionsPanel({
       return;
     }
 
-    const cancellableSessions = [
+    const allCancellableSessions = [
       ...(state.result?.openSessions ?? []),
       ...(state.result?.closedSessions ?? [])
     ];
+    const cancellableSessions =
+      viewerProfile.role === "ADMIN"
+        ? allCancellableSessions
+        : allCancellableSessions.filter((session) =>
+            isOperatorCancellableSession(session, viewerProfile.uid)
+          );
     const selectedCancelSession =
       cancellableSessions.find((session) => session.id === cancelDraft.sessionId) ??
       cancellableSessions.at(0) ??
@@ -839,10 +845,16 @@ export function OperatorHarvestSessionsPanel({
     result?.closedSessions.find((session) => session.id === reopenDraft.sessionId) ??
     result?.closedSessions.at(0) ??
     null;
-  const cancellableSessions = [
+  const allCancellableSessions = [
     ...(result?.openSessions ?? []),
     ...(result?.closedSessions ?? [])
   ];
+  const cancellableSessions =
+    viewerProfile.role === "ADMIN"
+      ? allCancellableSessions
+      : allCancellableSessions.filter((session) =>
+          isOperatorCancellableSession(session, viewerProfile.uid)
+        );
   const cancelSession =
     cancellableSessions.find((session) => session.id === cancelDraft.sessionId) ??
     cancellableSessions.at(0) ??
@@ -872,7 +884,7 @@ export function OperatorHarvestSessionsPanel({
           <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
           Otwórz nową sesję
         </button>
-        {viewerProfile.role === "ADMIN" ? (
+        {viewerProfile.role === "ADMIN" || viewerProfile.role === "OPERATOR" ? (
           <>
             <CollapsibleSection
               icon={<RotateCcw aria-hidden="true" size={18} strokeWidth={2.2} />}
@@ -1685,6 +1697,21 @@ function reconcileOpenSessionDraft(
       ? draft.seasonId
       : (selectDefaultOpenHarvestSeason(configuration)?.id ?? "")
   };
+}
+
+function isOperatorCancellableSession(
+  session: HarvestSessionDocument,
+  actorUid: string
+): boolean {
+  return (
+    session.status === "OPEN" &&
+    session.createdBy === actorUid &&
+    session.totalEntryCount === 0 &&
+    session.totalQuantityMilli === 0 &&
+    session.totalWeightG === 0 &&
+    session.amountDueGrosz === null &&
+    session.paymentId === null
+  );
 }
 
 function currentBusinessDate(): string {
